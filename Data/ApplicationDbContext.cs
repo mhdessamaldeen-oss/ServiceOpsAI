@@ -51,6 +51,21 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<ComplaintType>().HasIndex(c => c.Code).IsUnique();
         builder.Entity<ResolutionType>().HasIndex(r => r.Code).IsUnique();
 
+        // TicketCategory hierarchy + Tier + optional link to ServiceType.
+        builder.Entity<TicketCategory>().Property(c => c.Tier).HasConversion<string>();
+        builder.Entity<TicketCategory>()
+            .HasOne(c => c.ParentCategory)
+            .WithMany(c => c.Children)
+            .HasForeignKey(c => c.ParentCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<TicketCategory>()
+            .HasOne(c => c.ServiceType)
+            .WithMany()
+            .HasForeignKey(c => c.ServiceTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<TicketCategory>().HasIndex(c => c.ParentCategoryId);
+        builder.Entity<TicketCategory>().HasIndex(c => c.ServiceTypeId);
+
         // Department.ServiceType: was enum string, now FK to ServiceTypes.
         builder.Entity<Department>()
             .HasOne(d => d.ServiceType)

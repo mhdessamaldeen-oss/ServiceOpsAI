@@ -14,7 +14,35 @@ namespace ServiceOpsAI.Models
         [StringLength(100)]
         public string NameAr { get; set; } = string.Empty;
 
+        // Hierarchy: ParentCategoryId = null for top-level "Electricity" / "Internet" /
+        // "Water" / "Gas" / "Government Process" parents. Children (e.g. "Service down",
+        // "Pipe burst") point at their parent.
+        public int? ParentCategoryId { get; set; }
+        public TicketCategory? ParentCategory { get; set; }
+        public ICollection<TicketCategory> Children { get; set; } = new List<TicketCategory>();
+
+        // Tier classifies the category in the taxonomy:
+        //   Primary   = canonical top-level service group (Electricity, Internet, ...)
+        //   Secondary = specific issue under a Primary parent
+        //   Temporary = ad-hoc addition that didn't fit the taxonomy yet — admin to clean up
+        public CategoryTier Tier { get; set; } = CategoryTier.Secondary;
+
+        // Optional link to the service this category relates to — lets the Copilot answer
+        // "complaints about electricity" without walking the parent name; also useful for
+        // routing tickets to the matching Department.
+        public int? ServiceTypeId { get; set; }
+        public ServiceType? ServiceType { get; set; }
+
+        public int SortOrder { get; set; }
+
         public bool IsActive { get; set; } = true;
+    }
+
+    public enum CategoryTier
+    {
+        Primary   = 1,
+        Secondary = 2,
+        Temporary = 3
     }
 
     public class TicketPriority
