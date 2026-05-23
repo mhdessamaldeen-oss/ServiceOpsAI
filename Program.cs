@@ -214,6 +214,11 @@ using (var scope = app.Services.CreateScope())
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
     await DbSeeder.InitializeCoreAsync(services, userManager, roleManager);
 
+    // Phase 06: utility-domain seeder (Syrian customers, bills, departments, tickets).
+    // Idempotent — no-ops if Customers already populated.
+    var dbContext = services.GetRequiredService<ApplicationDbContext>();
+    await ServiceOpsAI.Data.Seed.ServiceOpsSeeder.SeedAsync(dbContext);
+
     var aiService = services.GetRequiredService<IAiAnalysisService>();
     await aiService.ResetInterruptedAnalysesAsync();
 }
