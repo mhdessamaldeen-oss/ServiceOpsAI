@@ -22,37 +22,40 @@ namespace ServiceOpsAI.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Drop the real existing FKs (EF convention names with the old EntityId column).
-            migrationBuilder.DropForeignKey(
-                name: "FK_AspNetUsers_Entitys_EntityId",
-                table: "AspNetUsers");
+            // Idempotent FK drop — handles two cases:
+            //   (1) Existing DB where earlier migrations created the FK with the OLD
+            //       EntityId column name → constraint is FK_*_Entitys_EntityId
+            //   (2) Fresh DB where the mass-rename touched the older migration files →
+            //       constraint is already FK_*_Entitys_DepartmentId
+            // We try both names with IF EXISTS guards.
+            migrationBuilder.Sql(@"
+                IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AspNetUsers_Entitys_EntityId')
+                    ALTER TABLE [AspNetUsers] DROP CONSTRAINT [FK_AspNetUsers_Entitys_EntityId];
+                IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_AspNetUsers_Entitys_DepartmentId')
+                    ALTER TABLE [AspNetUsers] DROP CONSTRAINT [FK_AspNetUsers_Entitys_DepartmentId];
+                IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Tickets_Entitys_EntityId')
+                    ALTER TABLE [Tickets] DROP CONSTRAINT [FK_Tickets_Entitys_EntityId];
+                IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Tickets_Entitys_DepartmentId')
+                    ALTER TABLE [Tickets] DROP CONSTRAINT [FK_Tickets_Entitys_DepartmentId];
+            ");
 
-            migrationBuilder.DropForeignKey(
-                name: "FK_Tickets_Entitys_EntityId",
-                table: "Tickets");
+            // Idempotent column rename — only if the OLD EntityId column actually exists.
+            // On a fresh DB built from migrations that were mass-renamed, the column is
+            // already DepartmentId and this is a no-op.
+            migrationBuilder.Sql(@"
+                IF EXISTS (SELECT 1 FROM sys.columns WHERE name = 'EntityId' AND object_id = OBJECT_ID('AspNetUsers'))
+                    EXEC sp_rename N'AspNetUsers.EntityId', N'DepartmentId', N'COLUMN';
+                IF EXISTS (SELECT 1 FROM sys.columns WHERE name = 'EntityId' AND object_id = OBJECT_ID('Tickets'))
+                    EXEC sp_rename N'Tickets.EntityId', N'DepartmentId', N'COLUMN';
+            ");
 
-            // Rename the column on both tables — preserves any existing data
-            // (so old ticket/user rows keep their dept reference through the rename).
-            migrationBuilder.RenameColumn(
-                name: "EntityId",
-                table: "AspNetUsers",
-                newName: "DepartmentId");
-
-            migrationBuilder.RenameColumn(
-                name: "EntityId",
-                table: "Tickets",
-                newName: "DepartmentId");
-
-            // Rename the auto-generated indexes that EF creates on FK columns.
-            migrationBuilder.RenameIndex(
-                name: "IX_AspNetUsers_EntityId",
-                table: "AspNetUsers",
-                newName: "IX_AspNetUsers_DepartmentId");
-
-            migrationBuilder.RenameIndex(
-                name: "IX_Tickets_EntityId",
-                table: "Tickets",
-                newName: "IX_Tickets_DepartmentId");
+            // Idempotent index rename — same dual-name handling.
+            migrationBuilder.Sql(@"
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_AspNetUsers_EntityId' AND object_id = OBJECT_ID('AspNetUsers'))
+                    EXEC sp_rename N'AspNetUsers.IX_AspNetUsers_EntityId', N'IX_AspNetUsers_DepartmentId', N'INDEX';
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Tickets_EntityId' AND object_id = OBJECT_ID('Tickets'))
+                    EXEC sp_rename N'Tickets.IX_Tickets_EntityId', N'IX_Tickets_DepartmentId', N'INDEX';
+            ");
 
             // Now safe to drop the legacy Entitys table.
             migrationBuilder.DropTable(

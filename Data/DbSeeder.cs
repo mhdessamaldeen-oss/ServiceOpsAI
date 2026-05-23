@@ -263,16 +263,27 @@ namespace ServiceOpsAI.Data
                 if (!await roleManager.RoleExistsAsync(role))
                     await roleManager.CreateAsync(new IdentityRole(role));
 
-            // Seed Entities
+            // Seed Departments — minimal placeholders for the existing user-seed flow below.
+            // ServiceTypeId is a required FK after the lookup-table promotion (Phase A); we look
+            // up the GovernmentProcess ServiceType so these placeholder departments stay valid.
+            // ServiceOpsSeeder later seeds the real 56 utility departments.
             if (!context.Departments.Any())
             {
-                context.Departments.AddRange(
-                    new Department { Name = "Department of Health" },
-                    new Department { Name = "Ministry of Interior" },
-                    new Department { Name = "Department of Education" },
-                    new Department { Name = "Department of Technologies" }
-                );
-                await context.SaveChangesAsync();
+                var govSvcId = await context.ServiceTypes
+                    .Where(s => s.Code == ServiceOpsAI.Models.ServiceTypeCodes.Electricity)
+                    .Select(s => s.Id).FirstOrDefaultAsync();
+                // If migrations haven't seeded ServiceTypes yet (shouldn't happen, but be safe),
+                // skip — ServiceOpsSeeder will create departments properly.
+                if (govSvcId > 0)
+                {
+                    context.Departments.AddRange(
+                        new Department { Name = "Department of Health", NameAr = "وزارة الصحة", ServiceTypeId = govSvcId },
+                        new Department { Name = "Ministry of Interior", NameAr = "وزارة الداخلية", ServiceTypeId = govSvcId },
+                        new Department { Name = "Department of Education", NameAr = "وزارة التعليم", ServiceTypeId = govSvcId },
+                        new Department { Name = "Department of Technologies", NameAr = "إدارة التقنية", ServiceTypeId = govSvcId }
+                    );
+                    await context.SaveChangesAsync();
+                }
             }
 
             // Seed Users
