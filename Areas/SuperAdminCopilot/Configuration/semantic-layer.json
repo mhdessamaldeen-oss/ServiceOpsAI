@@ -111,6 +111,56 @@
       "synonyms": ["user role assignment", "user role assignments", "user-role link", "role membership", "role assignment", "role assignments", "membership", "memberships"],
       "isLookup": true,
       "description": "Many-to-many bridge between AspNetUsers and AspNetRoles. Columns: UserId (FK → AspNetUsers.Id), RoleId (FK → AspNetRoles.Id). Use this to count users per role: SELECT r.Name, COUNT(*) FROM AspNetUserRoles ur JOIN AspNetRoles r ON r.Id = ur.RoleId GROUP BY r.Name."
+    },
+    {
+      "name": "Customer",
+      "table": "Customers",
+      "synonyms": ["customer", "customers", "subscriber", "subscribers", "client", "clients", "complainant", "مشترك", "مشتركين", "زبون", "زبائن", "عميل", "عملاء"],
+      "searchableColumns": ["FullNameEn", "FullNameAr", "NationalId", "Phone", "Email", "AddressLineEn", "AddressLineAr"],
+      "naturalKeyColumn": "NationalId",
+      "labelColumn": "FullNameEn",
+      "displayColumns": ["Id", "FullNameEn", "FullNameAr", "Phone", "RegionId", "Status"],
+      "dateRoles": { "signed_up": "SignupAt", "churned": "ChurnedAt", "default": "SignupAt" },
+      "description": "External customer (utility subscriber) — distinct from ApplicationUser (internal staff). FullNameEn and FullNameAr are the bilingual name. NationalId is a fake 11-digit identifier. Customers consume services (Electricity, Internet, Water, Gas) which produce Bills, and may file Tickets. Status: Active, Suspended, Churned. RegionId points at the customer's district (Region.RegionType = District); join Region → ParentRegion to get the governorate."
+    },
+    {
+      "name": "Bill",
+      "table": "Bills",
+      "synonyms": ["bill", "bills", "invoice", "invoices", "charge", "charges", "monthly bill", "utility bill", "فاتورة", "فواتير"],
+      "searchableColumns": ["BillNumber", "Notes"],
+      "naturalKeyColumn": "BillNumber",
+      "naturalKeyFormat": "^(ELEC|INT|WTR|GAS)-\\d{4}-\\d{2}-\\d{6}$",
+      "labelColumn": "BillNumber",
+      "displayColumns": ["Id", "BillNumber", "CustomerId", "ServiceType", "PeriodStart", "TotalAmount", "Status"],
+      "dateRoles": { "issued": "IssuedAt", "due": "DueDate", "paid": "PaidAt", "period": "PeriodStart", "default": "PeriodStart" },
+      "description": "Utility bill -- single polymorphic table covering all four ServiceType values (Electricity, Internet, Water, Gas). All monetary fields in Syrian Pounds (SYP). Status: Issued (current), Paid, Overdue (past DueDate), Disputed (a Ticket of ComplaintType=BillingDispute exists), Cancelled. Linked to Customer (CustomerId) and the Department that issued it (DepartmentId). UsageQuantity + UsageUnit describe consumption in kWh/GB/m³/cylinders depending on ServiceType."
+    },
+    {
+      "name": "Department",
+      "table": "Departments",
+      "synonyms": ["department", "departments", "branch office", "regional office", "service provider", "operator", "إدارة", "إدارات", "فرع", "فروع"],
+      "searchableColumns": ["NameEn", "NameAr"],
+      "labelColumn": "NameEn",
+      "displayColumns": ["Id", "NameEn", "NameAr", "ServiceType", "RegionId"],
+      "description": "Regional service operator -- one Department per (Region, ServiceType) pair. Total 56 (14 governorates × 4 service types: Electricity/Internet/Water/Gas). Each Bill is issued by a Department; each Ticket is handled by a Department. The dimension along which super-admin Copilot questions pivot for cross-region/cross-service comparisons. RegionId points at the governorate (not the district)."
+    },
+    {
+      "name": "Country",
+      "table": "Countries",
+      "synonyms": ["country", "countries", "nation", "nations", "دولة", "بلد"],
+      "isLookup": true,
+      "labelColumn": "NameEn",
+      "displayColumns": ["Id", "NameEn", "NameAr", "IsoCode"],
+      "description": "Country lookup. Currently a single row: Syria / سوريا / SYR. Region.CountryId references this."
+    },
+    {
+      "name": "Region",
+      "table": "Regions",
+      "synonyms": ["region", "regions", "governorate", "governorates", "city", "cities", "district", "districts", "area", "محافظة", "محافظات", "منطقة", "مناطق", "حي", "أحياء"],
+      "searchableColumns": ["NameEn", "NameAr"],
+      "labelColumn": "NameEn",
+      "displayColumns": ["Id", "NameEn", "NameAr", "RegionType", "ParentRegionId"],
+      "description": "Hierarchical geography: RegionType=Governorate rows (14 of them: Damascus, Aleppo, Homs, ...) sit at the top with ParentRegionId=null. RegionType=District rows (~62) point at their governorate via ParentRegionId. Customers reference a district (RegionId); Departments reference a governorate (RegionId). To get a customer's governorate, join Region → ParentRegion."
     }
   ],
 
