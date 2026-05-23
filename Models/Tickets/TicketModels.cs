@@ -117,6 +117,18 @@ namespace ServiceOpsAI.Models
         public int? ParentTicketId { get; set; }
         public Ticket? ParentTicket { get; set; }
         public ICollection<Ticket> ChildTickets { get; set; } = new List<Ticket>();
+
+        // Utility-domain links (Phase 05): a ticket is a complaint about a specific
+        // service relationship. CustomerId names the complainant (distinct from
+        // CreatedByUserId, which is the agent who logged the ticket). RelatedBillId
+        // is set for BillingDispute tickets pointing at the disputed bill.
+        public int? CustomerId { get; set; }
+        public Customer? Customer { get; set; }
+
+        public int? RelatedBillId { get; set; }
+        public Bill? RelatedBill { get; set; }
+
+        public ComplaintType? ComplaintType { get; set; }
     }
 
     public class TicketComment

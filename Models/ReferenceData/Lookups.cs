@@ -10,6 +10,10 @@ namespace ServiceOpsAI.Models
         [StringLength(100)]
         public string Name { get; set; } = string.Empty;
 
+        [Required]
+        [StringLength(100)]
+        public string NameAr { get; set; } = string.Empty;
+
         public bool IsActive { get; set; } = true;
     }
 

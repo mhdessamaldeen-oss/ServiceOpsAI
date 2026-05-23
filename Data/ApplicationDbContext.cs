@@ -80,6 +80,22 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasIndex(b => b.BillNumber)
             .IsUnique();
 
+        builder.Entity<Ticket>().Property(t => t.ComplaintType).HasConversion<string>();
+        builder.Entity<Ticket>()
+            .HasOne(t => t.Customer)
+            .WithMany()
+            .HasForeignKey(t => t.CustomerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Ticket>()
+            .HasOne(t => t.RelatedBill)
+            .WithMany()
+            .HasForeignKey(t => t.RelatedBillId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.Entity<Ticket>()
+            .HasIndex(t => new { t.CustomerId, t.CreatedAt });
+        builder.Entity<Ticket>()
+            .HasIndex(t => new { t.DepartmentId, t.StatusId });
+
         builder.Entity<Ticket>()
             .HasOne(t => t.AssignedToUser)
             .WithMany()
