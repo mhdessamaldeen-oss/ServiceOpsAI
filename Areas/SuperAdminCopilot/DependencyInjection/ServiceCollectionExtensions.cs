@@ -159,7 +159,7 @@ public static class ServiceCollectionExtensions
         // stages can inject it without re-wiring DI.
         services.AddSingleton<ITemporalParser, TemporalParser>();
 
-        // Entity embedding matcher (D.2) — cosine-rank fallback when the JSON synonym dictionary
+        // Department embedding matcher (D.2) — cosine-rank fallback when the JSON synonym dictionary
         // misses a word the user typed. Async API, opt-in for consumers (EntityRootGuard /
         // IntentNormalizer can fall back to this when their token-based match returns null).
         services.AddSingleton<IEntityEmbeddingMatcher, EntityEmbeddingMatcher>();

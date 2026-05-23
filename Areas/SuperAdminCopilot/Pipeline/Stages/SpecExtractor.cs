@@ -558,7 +558,7 @@ internal sealed class SpecExtractor : ISpecExtractor
             if (!string.IsNullOrEmpty(c.DateRole)) sb.Append(", ").Append(c.DateRole);
             // FK verb-role — let the LLM disambiguate "created by" vs "assigned to" by READING
             // this tag, not by guessing which FK to join. Inferred from the column-name suffix
-            // by SchemaInferenceGenerator. Entity-agnostic: works for any *By/*To FK on any table.
+            // by SchemaInferenceGenerator. Department-agnostic: works for any *By/*To FK on any table.
             if (!string.IsNullOrEmpty(c.FkRole)) sb.Append(", role=").Append(c.FkRole);
             if (!string.IsNullOrEmpty(c.References)) sb.Append(" → ").Append(c.References);
             sb.AppendLine(")");

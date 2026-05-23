@@ -87,7 +87,7 @@
                             <div class="ticket-meta-value text-truncate" title="@(Model.CreatedByUser?.FullName ?? Loc.Get("Unknown"))">
                                 @(Model.CreatedByUser?.FullName ?? Loc.Get("Unknown"))
                             </div>
-                            <div class="ticket-meta-sub text-truncate">@(Model.Entity?.Name ?? Loc.Get("General"))</div>
+                            <div class="ticket-meta-sub text-truncate">@(Model.Department?.Name ?? Loc.Get("General"))</div>
                         </div>
                     </div>
 

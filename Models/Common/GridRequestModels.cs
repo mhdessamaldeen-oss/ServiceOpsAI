@@ -13,7 +13,7 @@ namespace ServiceOpsAI.Models.Common
         public string? SearchString { get; set; }
         public int? StatusId { get; set; }
         public int? PriorityId { get; set; }
-        public int? EntityId { get; set; }
+        public int? DepartmentId { get; set; }
         public int? CategoryId { get; set; }
         public int? SourceId { get; set; }
         public string? SortOrder { get; set; }
@@ -25,7 +25,7 @@ namespace ServiceOpsAI.Models.Common
                                  !string.IsNullOrEmpty(SearchString) || 
                                  StatusId.HasValue || 
                                  PriorityId.HasValue || 
-                                 EntityId.HasValue || 
+                                 DepartmentId.HasValue || 
                                  CategoryId.HasValue || 
                                  SourceId.HasValue;
 

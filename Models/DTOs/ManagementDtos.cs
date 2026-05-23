@@ -1,6 +1,6 @@
 namespace ServiceOpsAI.Models.DTOs
 {
-    public class EntityDto
+    public class DepartmentDto
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
@@ -14,7 +14,7 @@ namespace ServiceOpsAI.Models.DTOs
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string FullName => $"{FirstName} {LastName}".Trim();
-        public int? EntityId { get; set; }
+        public int? DepartmentId { get; set; }
         public string? EntityName { get; set; }
         public bool IsActive { get; set; }
     }

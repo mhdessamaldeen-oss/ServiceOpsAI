@@ -15,7 +15,7 @@ using SuperAdminCopilot.Models;
 /// result data doesn't carry the asked-for dimension.
 /// </summary>
 /// <remarks>
-/// <para>Entity-agnostic: the verifier is just an LLM that reads (question, SQL, result
+/// <para>Department-agnostic: the verifier is just an LLM that reads (question, SQL, result
 /// columns + first row, reply) and emits either <c>COMPLETE</c> or a list of question
 /// aspects that the answer fails to address. No per-pattern rules, no per-entity logic.</para>
 /// <para><b>Configurability</b>: the system prompt is sourced from

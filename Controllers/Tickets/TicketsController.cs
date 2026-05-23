@@ -53,15 +53,15 @@ namespace ServiceOpsAI.Controllers.Tickets
             {
                 if (isAdmin)
                 {
-                    ViewData["EntityId"] = new SelectList(_context.Entities.Where(e => e.IsActive), "Id", "Name", ticket?.EntityId);
+                    ViewData["DepartmentId"] = new SelectList(_context.Departments.Where(e => e.IsActive), "Id", "Name", ticket?.DepartmentId);
                 }
                 else
                 {
-                    ViewData["EntityId"] = new SelectList(
-                        _context.Entities.Where(e => e.Id == user.EntityId && e.IsActive),
+                    ViewData["DepartmentId"] = new SelectList(
+                        _context.Departments.Where(e => e.Id == user.DepartmentId && e.IsActive),
                         "Id",
                         "Name",
-                        ticket?.EntityId ?? user.EntityId);
+                        ticket?.DepartmentId ?? user.DepartmentId);
                 }
             }
 
@@ -80,7 +80,7 @@ namespace ServiceOpsAI.Controllers.Tickets
             }
             if (includeEntityScope && !isAdmin)
             {
-                availableParentsQuery = availableParentsQuery.Where(t => t.EntityId == user.EntityId);
+                availableParentsQuery = availableParentsQuery.Where(t => t.DepartmentId == user.DepartmentId);
             }
             var parentsList = await availableParentsQuery
                 .ProjectTo<LookupDisplayDto>(_mapper.ConfigurationProvider)
@@ -102,7 +102,7 @@ namespace ServiceOpsAI.Controllers.Tickets
                 .Include(t => t.AssignedToUser)
                 .Include(t => t.Category)
                 .Include(t => t.CreatedByUser)
-                .Include(t => t.Entity)
+                .Include(t => t.Department)
                 .Include(t => t.Priority)
                 .Include(t => t.Source)
                 .Include(t => t.Status)
@@ -112,7 +112,7 @@ namespace ServiceOpsAI.Controllers.Tickets
 
             if (!isAdmin)
             {
-                tickets = tickets.Where(t => t.EntityId == user!.EntityId || t.CreatedByUserId == userId);
+                tickets = tickets.Where(t => t.DepartmentId == user!.DepartmentId || t.CreatedByUserId == userId);
             }
 
             switch (request.Filter?.ToLower())
@@ -148,7 +148,7 @@ namespace ServiceOpsAI.Controllers.Tickets
             if (request.StatusId.HasValue) tickets = tickets.Where(t => t.StatusId == request.StatusId);
             if (request.PriorityId.HasValue) tickets = tickets.Where(t => t.PriorityId == request.PriorityId);
             if (request.CategoryId.HasValue) tickets = tickets.Where(t => t.CategoryId == request.CategoryId);
-            if (request.EntityId.HasValue) tickets = tickets.Where(t => t.EntityId == request.EntityId);
+            if (request.DepartmentId.HasValue) tickets = tickets.Where(t => t.DepartmentId == request.DepartmentId);
 
             switch (request.SortOrder)
             {
@@ -157,8 +157,8 @@ namespace ServiceOpsAI.Controllers.Tickets
                 case "date_desc": tickets = tickets.OrderByDescending(t => t.CreatedAt); break;
                 case "Title": tickets = tickets.OrderBy(t => t.Title); break;
                 case "title_desc": tickets = tickets.OrderByDescending(t => t.Title); break;
-                case "Entity": tickets = tickets.OrderBy(t => t.Entity!.Name); break;
-                case "entity_desc": tickets = tickets.OrderByDescending(t => t.Entity!.Name); break;
+                case "Department": tickets = tickets.OrderBy(t => t.Department!.Name); break;
+                case "entity_desc": tickets = tickets.OrderByDescending(t => t.Department!.Name); break;
                 case "Status": tickets = tickets.OrderBy(t => t.Status!.Name); break;
                 case "status_desc": tickets = tickets.OrderByDescending(t => t.Status!.Name); break;
                 default: tickets = tickets.OrderByDescending(t => t.CreatedAt); break;
@@ -189,7 +189,7 @@ namespace ServiceOpsAI.Controllers.Tickets
 
             if (isAdmin)
             {
-                ViewData["EntityFilterId"] = new SelectList(_context.Entities, "Id", "Name", request.EntityId);
+                ViewData["EntityFilterId"] = new SelectList(_context.Departments, "Id", "Name", request.DepartmentId);
             }
             ViewBag.IsAdmin = isAdmin;
 
@@ -206,7 +206,7 @@ namespace ServiceOpsAI.Controllers.Tickets
                 .Include(t => t.EscalatedToUser)
                 .Include(t => t.Category)
                 .Include(t => t.CreatedByUser)
-                .Include(t => t.Entity)
+                .Include(t => t.Department)
                 .Include(t => t.Priority)
                 .Include(t => t.ResolutionApprovedByUser)
                 .Include(t => t.ResolvedByUser)
@@ -271,7 +271,7 @@ namespace ServiceOpsAI.Controllers.Tickets
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Title,Description,CategoryId,PriorityId,SourceId,EntityId,StatusId,AssignedToUserId,DueDate,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,ParentTicketId")] Ticket ticket, List<IFormFile> files)
+        public async Task<IActionResult> Create([Bind("Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,ParentTicketId")] Ticket ticket, List<IFormFile> files)
         {
             ModelState.Remove("TicketNumber");
             ModelState.Remove("CreatedByUserId");
@@ -285,14 +285,14 @@ namespace ServiceOpsAI.Controllers.Tickets
                 ticket.CreatedAt = DateTime.UtcNow;
                 ticket.TicketNumber = $"TCK-{DateTime.UtcNow.Year}-{new Random().Next(10000, 99999)}";
                 
-                // Force Entity if not admin
+                // Force Department if not admin
                 if (!isAdmin)
                 {
-                    ticket.EntityId = user.EntityId;
+                    ticket.DepartmentId = user.DepartmentId;
                 }
-                else if (ticket.EntityId == null || ticket.EntityId == 0)
+                else if (ticket.DepartmentId == null || ticket.DepartmentId == 0)
                 {
-                    ticket.EntityId = user.EntityId;
+                    ticket.DepartmentId = user.DepartmentId;
                 }
 
                 // Force "New" Status for all new tickets
@@ -396,7 +396,7 @@ namespace ServiceOpsAI.Controllers.Tickets
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Title,Description,CategoryId,PriorityId,SourceId,EntityId,StatusId,AssignedToUserId,DueDate,ResolutionSummary,PendingReason,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,TechnicalAssessment,EscalationLevel,EscalatedToUserId,RootCause,VerificationNotes,ResolutionApprovedByUserId,ParentTicketId")] Ticket ticket, List<IFormFile> files)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ResolutionSummary,PendingReason,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,TechnicalAssessment,EscalationLevel,EscalatedToUserId,RootCause,VerificationNotes,ResolutionApprovedByUserId,ParentTicketId")] Ticket ticket, List<IFormFile> files)
         {
             if (id != ticket.Id) return NotFound();
 
@@ -407,7 +407,7 @@ namespace ServiceOpsAI.Controllers.Tickets
             var loggedInUser = await _userManager.FindByIdAsync(loggedInUserId!);
             var isUserAdmin = await _userManager.IsInRoleAsync(loggedInUser!, RoleNames.Admin);
 
-                if (!isUserAdmin && existingTicket.EntityId != loggedInUser!.EntityId && existingTicket.CreatedByUserId != loggedInUserId)
+                if (!isUserAdmin && existingTicket.DepartmentId != loggedInUser!.DepartmentId && existingTicket.CreatedByUserId != loggedInUserId)
                 {
                     return Forbid();
                 }
@@ -502,7 +502,7 @@ namespace ServiceOpsAI.Controllers.Tickets
                 existingTicket.CategoryId = ticket.CategoryId;
                 existingTicket.PriorityId = ticket.PriorityId;
                 existingTicket.SourceId = ticket.SourceId;
-                existingTicket.EntityId = ticket.EntityId;
+                existingTicket.DepartmentId = ticket.DepartmentId;
                 existingTicket.StatusId = ticket.StatusId;
                 existingTicket.AssignedToUserId = ticket.AssignedToUserId;
                 existingTicket.DueDate = ticket.DueDate;
@@ -676,13 +676,13 @@ namespace ServiceOpsAI.Controllers.Tickets
                 }
             }
 
-            if (entityId.HasValue && ticket.EntityId != entityId.Value)
+            if (entityId.HasValue && ticket.DepartmentId != entityId.Value)
             {
-                var newEntity = await _context.Entities.FindAsync(entityId.Value);
+                var newEntity = await _context.Departments.FindAsync(entityId.Value);
                 if (newEntity != null)
                 {
-                    historyDetails.Add($"Entity: {ticket.Entity?.Name} -> {newEntity.Name}");
-                    ticket.EntityId = entityId.Value;
+                    historyDetails.Add($"Department: {ticket.Department?.Name} -> {newEntity.Name}");
+                    ticket.DepartmentId = entityId.Value;
                 }
             }
 

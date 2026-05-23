@@ -84,7 +84,7 @@ namespace ServiceOpsAI.Models.AI
 
     public class CopilotKnownLookupValueDefinition
     {
-        public string Entity { get; set; } = string.Empty;
+        public string Department { get; set; } = string.Empty;
         public string Field { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
     }

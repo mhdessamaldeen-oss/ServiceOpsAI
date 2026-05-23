@@ -1,11 +1,11 @@
-@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.EntityDto>
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.DepartmentDto>
 
 @{
     ViewData["Title"] = "Entities Management";
     var request = Model.Request;
     var entitiesTable = new ServiceOpsAI.Models.Common.FeatureTableShellViewModel
     {
-        Title = "Entity Registry",
+        Title = "Department Registry",
         Subtitle = "Shared operational table for active organizations and controls.",
         ShowColumnSearchToggle = true,
         ColumnSearchLabel = "In-Depth Column Filters",
@@ -22,7 +22,7 @@
         Actions = new()
         {
             new() {
-                Text = "New Entity",
+                Text = "New Department",
                 Href = Url.Action("Create", "Entities") ?? "#",
                 IconClass = "bi bi-plus-circle",
                 CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm"

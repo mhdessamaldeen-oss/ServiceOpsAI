@@ -84,7 +84,7 @@ namespace ServiceOpsAI.Models.AI
 
         public static class EntityNames
         {
-            public const string Entity = "Entity";
+            public const string Department = "Department";
             public const string TicketCategory = "TicketCategory";
             public const string TicketPriority = "TicketPriority";
             public const string TicketSource = "TicketSource";

@@ -178,7 +178,7 @@ internal sealed class SemanticSearchHandler : ISemanticSearchHandler, IRoutingPr
             var m = similarityPattern.Match(question);
             if (!m.Success) continue;
             var code = m.Groups["code"].Value;
-            _logger.LogInformation("[SemanticSearchHandler] similarity match: entity={Entity} code={Code}", entity.Name, code);
+            _logger.LogInformation("[SemanticSearchHandler] similarity match: entity={Department} code={Code}", entity.Name, code);
             var hits = await _search.FindSimilarToEntityAsync(entity.Name, code, topK: 10, cancellationToken);
             return BuildResult(
                 mode: "similar-to-entity",
@@ -215,7 +215,7 @@ internal sealed class SemanticSearchHandler : ISemanticSearchHandler, IRoutingPr
             var queryText = m.Groups["query"].Value.Trim().Trim(',', '.', ';').Trim();
             if (queryText.Length < 3) continue;
 
-            _logger.LogInformation("[SemanticSearchHandler] text-search match: entity={Entity} q='{Query}'", entity.Name, queryText);
+            _logger.LogInformation("[SemanticSearchHandler] text-search match: entity={Department} q='{Query}'", entity.Name, queryText);
             var hits = await _search.SearchByTextAsync(queryText, topK: 10, entity.Name, cancellationToken);
             return BuildResult(
                 mode: "text-search",

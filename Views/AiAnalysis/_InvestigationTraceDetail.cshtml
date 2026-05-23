@@ -139,7 +139,7 @@
         {
             var filters = execution.IntentPlan.Filters
                 .Concat(execution.IntentPlan.HavingFilters)
-                .Select(filter => $"{filter.Entity}.{filter.Field} {filter.Operator} {filter.Value}");
+                .Select(filter => $"{filter.Department}.{filter.Field} {filter.Operator} {filter.Value}");
 
             return JoinOrNone(filters);
         }
@@ -186,7 +186,7 @@
 
         if (execution.IntentPlan?.Sorts.Any() == true)
         {
-            return JoinOrNone(execution.IntentPlan.Sorts.Select(sort => $"{sort.Entity}.{sort.Field} {sort.Direction}"));
+            return JoinOrNone(execution.IntentPlan.Sorts.Select(sort => $"{sort.Department}.{sort.Field} {sort.Direction}"));
         }
 
         return $"{execution.Plan.SortBy} {execution.Plan.SortDirection}";
@@ -198,7 +198,7 @@
             : "No parameters";
 
     string DescribeCatalogDecision(AdminCopilotDynamicTicketQueryExecution execution)
-        => $"Entity: {ResolveCatalogExecutionName(execution)}\nOperation: {ResolveCatalogExecutionOperation(execution)}\nOutput: {execution.QueryModel?.OutputShape ?? execution.IntentPlan?.OutputShape ?? execution.Plan.TargetView ?? "default"}\nLimit: {execution.QueryModel?.Limit ?? execution.IntentPlan?.Limit ?? execution.Plan.MaxResults}";
+        => $"Department: {ResolveCatalogExecutionName(execution)}\nOperation: {ResolveCatalogExecutionOperation(execution)}\nOutput: {execution.QueryModel?.OutputShape ?? execution.IntentPlan?.OutputShape ?? execution.Plan.TargetView ?? "default"}\nLimit: {execution.QueryModel?.Limit ?? execution.IntentPlan?.Limit ?? execution.Plan.MaxResults}";
 
     string SerializeStepPayload(object payload)
         => JsonSerializer.Serialize(payload, prettyJsonOptions);
@@ -278,7 +278,7 @@
             CreateInspectorStep(
                 "Planner",
                 "Apply filters, joins, grouping, and sort",
-                $"Entity: {ResolveCatalogExecutionName(execution)}",
+                $"Department: {ResolveCatalogExecutionName(execution)}",
                 $"Filters: {DescribeCatalogFilters(execution)}\nJoins: {DescribeCatalogJoins(execution)}\nGroup by: {DescribeCatalogGrouping(execution)}\nSort: {DescribeCatalogSort(execution)}",
                 technicalData: SerializeStepPayload(constraintPayload)),
             CreateInspectorStep(
@@ -594,7 +594,7 @@
         {
             ["INPUT"] = new { title = "Input", summary = "The specific data request that this query plan answered.", status = "Actual path", used = true, beforeLabel = "Question", beforeValue = ViewBag.Trace.Question?.ToString() ?? string.Empty, afterLabel = "Sub-request", afterValue = requestSummary, steps = dataSteps.Take(1).ToList(), payloads = new List<string> { serializedExecution } },
             ["DECIDE"] = new { title = "Decision", summary = "Planner decision: which entity, operation, output shape, and limit were selected.", status = "Actual path", used = true, beforeLabel = "Input", beforeValue = requestSummary, afterLabel = "Decision", afterValue = DescribeCatalogDecision(sub), steps = dataSteps.Take(2).ToList(), payloads = new List<string> { serializedExecution } },
-            ["SHAPE"] = new { title = "Query shape", summary = "Columns and output fields selected for the SQL projection.", status = "Actual path", used = true, beforeLabel = "Entity", beforeValue = ResolveCatalogExecutionName(sub), afterLabel = "Columns", afterValue = DescribeCatalogColumns(sub), steps = dataSteps.Take(3).ToList(), payloads = new List<string> { serializedExecution } },
+            ["SHAPE"] = new { title = "Query shape", summary = "Columns and output fields selected for the SQL projection.", status = "Actual path", used = true, beforeLabel = "Department", beforeValue = ResolveCatalogExecutionName(sub), afterLabel = "Columns", afterValue = DescribeCatalogColumns(sub), steps = dataSteps.Take(3).ToList(), payloads = new List<string> { serializedExecution } },
             ["FILTER"] = new { title = "Filters, joins, grouping, sort", summary = "Catalog constraints used to build WHERE, JOIN, GROUP BY, HAVING, and ORDER BY.", status = "Actual path", used = true, beforeLabel = "Query shape", beforeValue = DescribeCatalogColumns(sub), afterLabel = "Constraints", afterValue = $"Filters: {DescribeCatalogFilters(sub)}\nJoins: {DescribeCatalogJoins(sub)}\nGroup by: {DescribeCatalogGrouping(sub)}\nSort: {DescribeCatalogSort(sub)}", steps = dataSteps.Take(4).ToList(), payloads = new List<string> { serializedExecution } },
             ["SQL"] = new { title = "SQL", summary = $"Generated SQL with {sub.SqlParameters.Count} parameter(s).", status = "Actual path", used = true, beforeLabel = "Catalog model", beforeValue = DescribeCatalogDecision(sub), afterLabel = "SQL parameters", afterValue = DescribeSqlParameters(sub), steps = dataSteps.Take(5).ToList(), payloads = new List<string> { serializedExecution } },
             ["EXEC"] = new { title = "Output", summary = $"Query executed and shaped into the structured answer. Returned {sub.TotalCount} record(s).", status = "Actual path", used = true, beforeLabel = "SQL", beforeValue = ShortText(sub.GeneratedSql ?? "No SQL captured", 500), afterLabel = "Rows", afterValue = $"{sub.TotalCount} row(s). {sub.Summary}", steps = dataSteps, payloads = new List<string> { serializedExecution } }
@@ -1177,7 +1177,7 @@ flowchart {traceFlowDirection}
                                         </div>
                                         @if (!string.IsNullOrEmpty(Model.QueryPlan.EntityName)) {
                                         <div class="col-6 col-md-4">
-                                            <div class="xsmall text-muted text-uppercase mb-1" style="font-size: 0.6rem;">@Loc.Get("Entity")</div>
+                                            <div class="xsmall text-muted text-uppercase mb-1" style="font-size: 0.6rem;">@Loc.Get("Department")</div>
                                             <div class="small fw-bold">@Model.QueryPlan.EntityName</div>
                                         </div>
                                         }

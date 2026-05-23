@@ -1540,7 +1540,7 @@
             if (name.toLowerCase().includes(word) || matchedAlias) {
                 suggestions.push({ 
                     name: name, 
-                    type: 'Entity', 
+                    type: 'Department', 
                     meta: matchedAlias ? `Alias: ${matchedAlias}` : (aliases.join(', '))
                 });
             }
@@ -1551,7 +1551,7 @@
             const name = f.name || f.Name || "";
             const aliases = (f.aliases || f.Aliases || []);
             const matchedAlias = aliases.find(a => a.toLowerCase().includes(word));
-            const entity = f.entity || f.Entity || "";
+            const entity = f.entity || f.Department || "";
 
             if (name.toLowerCase().includes(word) || matchedAlias) {
                 suggestions.push({ 
@@ -1613,7 +1613,7 @@
 
         const items = s.map((x, i) => {
             // Question suggestions get a distinct lightbulb icon and click into the WHOLE input.
-            // Word/Entity/Field/etc. suggestions just replace the last typed word.
+            // Word/Department/Field/etc. suggestions just replace the last typed word.
             const isQ = !!x.isQuestion;
             const onclickHandler = isQ
                 ? `applyQuestionPrompt('${escapeJs(x.name)}')`

@@ -273,7 +273,7 @@ namespace ServiceOpsAI.Models.AI
 
     public class CopilotDataFilterPlan
     {
-        public string Entity { get; set; } = "";
+        public string Department { get; set; } = "";
         public string Field { get; set; } = "";
         public string Operator { get; set; } = "equals";
         public object? Value { get; set; }
@@ -283,7 +283,7 @@ namespace ServiceOpsAI.Models.AI
 
     public class CopilotDataSortPlan
     {
-        public string Entity { get; set; } = "";
+        public string Department { get; set; } = "";
         public string Field { get; set; } = "";
         public SortDirection Direction { get; set; } = SortDirection.Desc;
     }
@@ -291,7 +291,7 @@ namespace ServiceOpsAI.Models.AI
     public class CopilotDataAggregationPlan
     {
         public string Function { get; set; } = "count";
-        public string Entity { get; set; } = "";
+        public string Department { get; set; } = "";
         public string Field { get; set; } = "";
         public string Alias { get; set; } = "";
     }

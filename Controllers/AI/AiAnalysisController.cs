@@ -1849,7 +1849,7 @@ namespace ServiceOpsAI.Controllers.AI
             var query = _context.Tickets
                 .AsNoTracking()
                 .Include(t => t.Status)
-                .Include(t => t.Entity)
+                .Include(t => t.Department)
                 .Where(t => !t.IsDeleted);
 
             if (!string.IsNullOrEmpty(request.SearchString))
@@ -1863,8 +1863,8 @@ namespace ServiceOpsAI.Controllers.AI
             if (request.PriorityId.HasValue)
                 query = query.Where(t => t.PriorityId == request.PriorityId.Value);
             
-            if (request.EntityId.HasValue)
-                query = query.Where(t => t.EntityId == request.EntityId.Value);
+            if (request.DepartmentId.HasValue)
+                query = query.Where(t => t.DepartmentId == request.DepartmentId.Value);
             
             if (request.CategoryId.HasValue)
                 query = query.Where(t => t.CategoryId == request.CategoryId.Value);
@@ -1873,7 +1873,7 @@ namespace ServiceOpsAI.Controllers.AI
             ViewBag.StatusId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.TicketStatuses.OrderBy(s => s.Name).ToListAsync(), "Id", "Name", request.StatusId);
             ViewBag.PriorityId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.TicketPriorities.OrderBy(p => p.Name).ToListAsync(), "Id", "Name", request.PriorityId);
             ViewBag.CategoryId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.TicketCategories.OrderBy(c => c.Name).ToListAsync(), "Id", "Name", request.CategoryId);
-            ViewBag.EntityFilterId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.Entities.OrderBy(e => e.Name).ToListAsync(), "Id", "Name", request.EntityId);
+            ViewBag.EntityFilterId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.Departments.OrderBy(e => e.Name).ToListAsync(), "Id", "Name", request.DepartmentId);
 
             switch (request.SortOrder)
             {
@@ -1882,8 +1882,8 @@ namespace ServiceOpsAI.Controllers.AI
                 case "date_desc": query = query.OrderByDescending(t => t.CreatedAt); break;
                 case "Title": query = query.OrderBy(t => t.Title); break;
                 case "title_desc": query = query.OrderByDescending(t => t.Title); break;
-                case "Entity": query = query.OrderBy(t => t.Entity!.Name); break;
-                case "entity_desc": query = query.OrderByDescending(t => t.Entity!.Name); break;
+                case "Department": query = query.OrderBy(t => t.Department!.Name); break;
+                case "entity_desc": query = query.OrderByDescending(t => t.Department!.Name); break;
                 case "Status": query = query.OrderBy(t => t.Status!.Name); break;
                 case "status_desc": query = query.OrderByDescending(t => t.Status!.Name); break;
                 default: query = query.OrderByDescending(t => t.CreatedAt); break;
@@ -1988,7 +1988,7 @@ namespace ServiceOpsAI.Controllers.AI
                 .ToDictionary(g => g.Key, g => g.First().Name, StringComparer.OrdinalIgnoreCase);
 
             var entities = semanticEntities
-                .Select(e => new { Name = e.Name, Type = "Entity", Aliases = (List<string>)e.Synonyms })
+                .Select(e => new { Name = e.Name, Type = "Department", Aliases = (List<string>)e.Synonyms })
                 .ToList();
 
             var fields = _entityCatalog.Snapshot.Columns
@@ -1996,7 +1996,7 @@ namespace ServiceOpsAI.Controllers.AI
                 .Select(c => new
                 {
                     Name = c.ColumnName,
-                    Entity = entityNamesByTable[c.TableName],
+                    Department = entityNamesByTable[c.TableName],
                     Type = "Field",
                     Aliases = new List<string>()
                 })

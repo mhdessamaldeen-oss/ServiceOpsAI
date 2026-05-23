@@ -14,7 +14,7 @@ using SuperAdminCopilot.Validation;
 /// <list type="bullet">
 ///   <item>Catalog snapshot — forces schema introspection (sample-values, FK graph build).</item>
 ///   <item>Semantic-layer config — forces JSON load + lookup-dictionary build.</item>
-///   <item>Entity-embedding matcher — forces per-entity vector compute (one embedder call per entity).</item>
+///   <item>Department-embedding matcher — forces per-entity vector compute (one embedder call per entity).</item>
 /// </list>
 /// <para>Runs once 5 seconds after host startup so the rest of the application has time to wire
 /// itself up. Failures are logged at Warning and never throw — a missing embedder or DB just means
@@ -62,17 +62,17 @@ internal sealed class CopilotWarmupHostedService : BackgroundService
             _ = semantic.Config;
             _logger.LogInformation("[Warmup] Semantic layer primed at {Ms}ms.", sw.ElapsedMilliseconds);
 
-            // 3) Entity-embedding vectors — fires one EmbedAsync per declared entity.
+            // 3) Department-embedding vectors — fires one EmbedAsync per declared entity.
             try
             {
                 var matcher = sp.GetRequiredService<IEntityEmbeddingMatcher>();
                 if (matcher.IsAvailable)
                     await matcher.FindAsync("warmup", minConfidence: 1.0f, cancellationToken: stoppingToken);
-                _logger.LogInformation("[Warmup] Entity vectors primed at {Ms}ms.", sw.ElapsedMilliseconds);
+                _logger.LogInformation("[Warmup] Department vectors primed at {Ms}ms.", sw.ElapsedMilliseconds);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogWarning(ex, "[Warmup] Entity-vector priming failed (non-fatal).");
+                _logger.LogWarning(ex, "[Warmup] Department-vector priming failed (non-fatal).");
             }
 
             // 3b) Schema-table summary embeddings — fires one EmbedAsync per allowed table so

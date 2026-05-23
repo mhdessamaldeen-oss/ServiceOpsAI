@@ -14,7 +14,7 @@ public sealed record SchemaTableMetadata(
     string Schema,
     string Name,
     string FullName,
-    EntityDefinition? Entity,
+    EntityDefinition? Department,
     IReadOnlyList<string> Labels);
 
 public sealed record SchemaColumnMetadata(

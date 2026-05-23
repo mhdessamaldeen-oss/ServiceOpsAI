@@ -64,7 +64,7 @@ internal sealed class CopilotConfigurationValidator : ICopilotConfigurationValid
             if (string.IsNullOrWhiteSpace(entity.Table))
             {
                 Add(issues, CopilotConfigurationIssueSeverity.Error, "entity-table-empty",
-                    $"Entity '{entity.Name}' has no table mapping.");
+                    $"Department '{entity.Name}' has no table mapping.");
                 continue;
             }
 
@@ -72,7 +72,7 @@ internal sealed class CopilotConfigurationValidator : ICopilotConfigurationValid
             if (!_catalog.TableExists(entity.Table))
             {
                 Add(issues, CopilotConfigurationIssueSeverity.Error, "entity-table-missing",
-                    $"Entity '{entity.Name}' maps to missing table '{entity.Table}'.");
+                    $"Department '{entity.Name}' maps to missing table '{entity.Table}'.");
                 continue;
             }
 

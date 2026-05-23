@@ -84,7 +84,7 @@ namespace ServiceOpsAI.Controllers.Tickets
                 }
                 else if (!string.IsNullOrEmpty(ticket.AssignedToUserId))
                 {
-                    await _notificationService.CreateNotificationAsync(ticket.AssignedToUserId, "Customer Communication", $"The Entity Reporter has replied to Case {ticket.TicketNumber}.", $"/Tickets/Details/{ticketId}");
+                    await _notificationService.CreateNotificationAsync(ticket.AssignedToUserId, "Customer Communication", $"The Department Reporter has replied to Case {ticket.TicketNumber}.", $"/Tickets/Details/{ticketId}");
                 }
             }
             

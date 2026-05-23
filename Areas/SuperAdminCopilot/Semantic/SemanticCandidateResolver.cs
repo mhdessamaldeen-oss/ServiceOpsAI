@@ -12,7 +12,7 @@ public enum SemanticCandidateKind
 {
     Table,
     Column,
-    Entity,
+    Department,
 }
 
 public sealed record SemanticCandidate(
@@ -127,7 +127,7 @@ internal sealed class SemanticCandidateResolver : ISemanticCandidateResolver
 
         var lexical = lexicalCandidates.FirstOrDefault();
         if (lexical is not null && lexical.Score >= requiredScore)
-            return lexical with { Kind = SemanticCandidateKind.Entity };
+            return lexical with { Kind = SemanticCandidateKind.Department };
 
         if (!_embeddingMatcher.IsAvailable) return lexical;
 
@@ -136,7 +136,7 @@ internal sealed class SemanticCandidateResolver : ISemanticCandidateResolver
             var entity = await _embeddingMatcher.FindAsync(text, (float)requiredScore, cancellationToken);
             if (entity is null) return lexical;
             return new SemanticCandidate(
-                SemanticCandidateKind.Entity,
+                SemanticCandidateKind.Department,
                 entity.Name,
                 entity.Table,
                 Math.Max(requiredScore, 0.72),

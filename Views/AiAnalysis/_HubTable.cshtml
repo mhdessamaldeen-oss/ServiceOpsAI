@@ -22,7 +22,7 @@
                     </div>
                 </th>
                 <th class="py-3">@Loc.Get("Ticket")</th>
-                <th class="py-3">@Loc.Get("Entity")</th>
+                <th class="py-3">@Loc.Get("Department")</th>
                 <th class="py-3">@Loc.Get("Status")</th>
                 <th class="py-3">@Loc.Get("LatestAnalysis")</th>
                 <th class="py-3">@Loc.Get("Run")</th>
@@ -49,7 +49,7 @@
                         </div>
                     </td>
                     <td>
-                        <span class="badge bg-light text-secondary border border-light-subtle shadow-sm">@(Loc.Get(ticket.Entity?.Name ?? "General"))</span>
+                        <span class="badge bg-light text-secondary border border-light-subtle shadow-sm">@(Loc.Get(ticket.Department?.Name ?? "General"))</span>
                     </td>
                     <td style="min-width: 120px;">
                         <span class="badge px-3 py-2 rounded-3 w-100 fw-bold @UIExtensions.GetStatusBadgeClass(ticket.Status?.Name)">@(ticket.Status != null ? Loc.Get(ticket.Status.Name) : Loc.Get("Pending"))</span>

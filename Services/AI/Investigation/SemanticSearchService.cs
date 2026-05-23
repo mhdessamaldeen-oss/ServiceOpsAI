@@ -354,7 +354,7 @@ namespace ServiceOpsAI.Services.AI
                 .Include(e => e.Ticket!)
                 .ThenInclude(t => t.Source)
                 .Include(e => e.Ticket!)
-                .ThenInclude(t => t.Entity)
+                .ThenInclude(t => t.Department)
                 .Where(e => e.ModelName == targetModel
                          || e.ModelName == targetBase
                          || e.ModelName.StartsWith(targetBase + ":"))
@@ -476,7 +476,7 @@ namespace ServiceOpsAI.Services.AI
                 if (context.AffectedUsersCount.HasValue) parts.Add($"affected users: {context.AffectedUsersCount.Value}");
                 if (!string.IsNullOrWhiteSpace(context.EscalationLevel)) parts.Add($"escalation level: {context.EscalationLevel}");
                 if (context.IsSlaBreached) parts.Add("sla breached: yes");
-                if (!string.IsNullOrWhiteSpace(context.Entity)) parts.Add($"entity: {context.Entity}");
+                if (!string.IsNullOrWhiteSpace(context.Department)) parts.Add($"entity: {context.Department}");
                 if (!string.IsNullOrWhiteSpace(context.Source)) parts.Add($"source: {context.Source}");
             }
 
@@ -519,7 +519,7 @@ namespace ServiceOpsAI.Services.AI
                 ticket.ResolutionSummary ?? string.Empty,
                 ticket.VerificationNotes ?? string.Empty,
                 ticket.EscalationLevel ?? string.Empty,
-                ticket.Entity?.Name ?? string.Empty,
+                ticket.Department?.Name ?? string.Empty,
                 ticket.Source?.Name ?? string.Empty
             };
 

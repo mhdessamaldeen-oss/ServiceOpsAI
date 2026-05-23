@@ -38,7 +38,7 @@ namespace ServiceOpsAI.Data
             public string Description { get; set; } = string.Empty;
             public string Category { get; set; } = string.Empty;
             public string? Subcategory { get; set; }
-            public string? Entity { get; set; }
+            public string? Department { get; set; }
             public string? Source { get; set; }
             public string? StatusHint { get; set; }
             public string? PriorityHint { get; set; }
@@ -143,14 +143,14 @@ namespace ServiceOpsAI.Data
                 null;
 
             var impactScope =
-                combinedText.Contains("multiple") || combinedText.Contains("multi-system") || combinedText.Contains("cross-entity") ? "Cross-Entity" :
+                combinedText.Contains("multiple") || combinedText.Contains("multi-system") || combinedText.Contains("cross-entity") ? "Cross-Department" :
                 combinedText.Contains("several users") || combinedText.Contains("users") ? "Department" :
                 combinedText.Contains("team") ? "Team" :
                 "Single User";
 
             var affectedUsersCount = impactScope switch
             {
-                "Cross-Entity" => rng.Next(80, 250),
+                "Cross-Department" => rng.Next(80, 250),
                 "Department" => rng.Next(15, 80),
                 "Team" => rng.Next(5, 20),
                 _ => rng.Next(1, 4)
@@ -216,14 +216,14 @@ namespace ServiceOpsAI.Data
                 null;
 
             var impactScope =
-                combinedText.Contains("جميع") || combinedText.Contains("عدة جهات") || combinedText.Contains("أكثر من جهة") ? "Cross-Entity" :
+                combinedText.Contains("جميع") || combinedText.Contains("عدة جهات") || combinedText.Contains("أكثر من جهة") ? "Cross-Department" :
                 combinedText.Contains("الإدارة") || combinedText.Contains("القسم") || combinedText.Contains("الموظفين") ? "Department" :
                 combinedText.Contains("الفريق") ? "Team" :
                 "Single User";
 
             var affectedUsersCount = impactScope switch
             {
-                "Cross-Entity" => rng.Next(80, 250),
+                "Cross-Department" => rng.Next(80, 250),
                 "Department" => rng.Next(15, 80),
                 "Team" => rng.Next(5, 20),
                 _ => rng.Next(1, 4)
@@ -264,13 +264,13 @@ namespace ServiceOpsAI.Data
                     await roleManager.CreateAsync(new IdentityRole(role));
 
             // Seed Entities
-            if (!context.Entitys.Any())
+            if (!context.Departments.Any())
             {
-                context.Entitys.AddRange(
-                    new Entity { Name = "Entity of Health" },
-                    new Entity { Name = "Ministry of Interior" },
-                    new Entity { Name = "Entity of Education" },
-                    new Entity { Name = "Entity of Technologies" }
+                context.Departments.AddRange(
+                    new Department { Name = "Department of Health" },
+                    new Department { Name = "Ministry of Interior" },
+                    new Department { Name = "Department of Education" },
+                    new Department { Name = "Department of Technologies" }
                 );
                 await context.SaveChangesAsync();
             }
@@ -278,20 +278,20 @@ namespace ServiceOpsAI.Data
             // Seed Users
             if (!userManager.Users.Any())
             {
-                var depts = context.Entitys.ToList();
+                var depts = context.Departments.ToList();
                 var healthDept  = depts.First(d => d.Name.Contains("Health"));
                 var interiorDept = depts.First(d => d.Name.Contains("Interior"));
                 var eduDept     = depts.First(d => d.Name.Contains("Education"));
                 var techDept    = depts.First(d => d.Name.Contains("Technologies"));
 
-                var admin = new ApplicationUser { UserName = "admin@tech.local", Email = "admin@tech.local", FirstName = "Admin", LastName = "Specialist", EmailConfirmed = true, EntityId = techDept.Id };
+                var admin = new ApplicationUser { UserName = "admin@tech.local", Email = "admin@tech.local", FirstName = "Admin", LastName = "Specialist", EmailConfirmed = true, DepartmentId = techDept.Id };
                 await userManager.CreateAsync(admin, "Admin@123");
                 await userManager.AddToRoleAsync(admin, RoleNames.Admin);
 
-                for (int i = 1; i <= 3; i++) { var u = new ApplicationUser { UserName = $"user{i}@health.local", Email = $"user{i}@health.local", FirstName = "Health", LastName = $"User{i}", EmailConfirmed = true, EntityId = healthDept.Id }; await userManager.CreateAsync(u, "Admin@123"); await userManager.AddToRoleAsync(u, RoleNames.EndUser); }
-                for (int i = 1; i <= 3; i++) { var u = new ApplicationUser { UserName = $"user{i}@interior.local", Email = $"user{i}@interior.local", FirstName = "Interior", LastName = $"User{i}", EmailConfirmed = true, EntityId = interiorDept.Id }; await userManager.CreateAsync(u, "Admin@123"); await userManager.AddToRoleAsync(u, RoleNames.EndUser); }
-                for (int i = 1; i <= 3; i++) { var u = new ApplicationUser { UserName = $"user{i}@education.local", Email = $"user{i}@education.local", FirstName = "Education", LastName = $"User{i}", EmailConfirmed = true, EntityId = eduDept.Id }; await userManager.CreateAsync(u, "Admin@123"); await userManager.AddToRoleAsync(u, RoleNames.EndUser); }
-                for (int i = 1; i <= 3; i++) { var a = new ApplicationUser { UserName = $"agent{i}@tech.local", Email = $"agent{i}@tech.local", FirstName = "Tech", LastName = $"Specialist{i}", EmailConfirmed = true, EntityId = techDept.Id }; await userManager.CreateAsync(a, "Admin@123"); await userManager.AddToRoleAsync(a, RoleNames.SupportAgent); }
+                for (int i = 1; i <= 3; i++) { var u = new ApplicationUser { UserName = $"user{i}@health.local", Email = $"user{i}@health.local", FirstName = "Health", LastName = $"User{i}", EmailConfirmed = true, DepartmentId = healthDept.Id }; await userManager.CreateAsync(u, "Admin@123"); await userManager.AddToRoleAsync(u, RoleNames.EndUser); }
+                for (int i = 1; i <= 3; i++) { var u = new ApplicationUser { UserName = $"user{i}@interior.local", Email = $"user{i}@interior.local", FirstName = "Interior", LastName = $"User{i}", EmailConfirmed = true, DepartmentId = interiorDept.Id }; await userManager.CreateAsync(u, "Admin@123"); await userManager.AddToRoleAsync(u, RoleNames.EndUser); }
+                for (int i = 1; i <= 3; i++) { var u = new ApplicationUser { UserName = $"user{i}@education.local", Email = $"user{i}@education.local", FirstName = "Education", LastName = $"User{i}", EmailConfirmed = true, DepartmentId = eduDept.Id }; await userManager.CreateAsync(u, "Admin@123"); await userManager.AddToRoleAsync(u, RoleNames.EndUser); }
+                for (int i = 1; i <= 3; i++) { var a = new ApplicationUser { UserName = $"agent{i}@tech.local", Email = $"agent{i}@tech.local", FirstName = "Tech", LastName = $"Specialist{i}", EmailConfirmed = true, DepartmentId = techDept.Id }; await userManager.CreateAsync(a, "Admin@123"); await userManager.AddToRoleAsync(a, RoleNames.SupportAgent); }
             }
 
             // Seed Categories
@@ -658,11 +658,11 @@ namespace ServiceOpsAI.Data
             var assignees = (await userManager.GetUsersInRoleAsync(RoleNames.SupportAgent)).ToList();
             var creators = (await userManager.GetUsersInRoleAsync(RoleNames.EndUser)).ToList();
             var admins = (await userManager.GetUsersInRoleAsync(RoleNames.Admin)).ToList();
-            var entities = await context.Entities.ToListAsync();
+            var entities = await context.Departments.ToListAsync();
             var rng = new Random(12345);
-            var creatorsByEntityId = creators
-                .Where(c => c.EntityId.HasValue)
-                .GroupBy(c => c.EntityId!.Value)
+            var creatorsByDepartmentId = creators
+                .Where(c => c.DepartmentId.HasValue)
+                .GroupBy(c => c.DepartmentId!.Value)
                 .ToDictionary(g => g.Key, g => g.ToList());
             var escalationOwners = admins
                 .Concat(assignees)
@@ -682,7 +682,7 @@ namespace ServiceOpsAI.Data
             foreach (var record in seedData.Tickets.OrderBy(t => t.Sequence).ThenBy(t => t.TicketNumber))
             {
                 var entity = ResolveEntity(record, entities) ?? entities[rng.Next(entities.Count)];
-                var entityCreators = creatorsByEntityId.GetValueOrDefault(entity.Id, creators);
+                var entityCreators = creatorsByDepartmentId.GetValueOrDefault(entity.Id, creators);
                 var creator = entityCreators[rng.Next(entityCreators.Count)];
                 var assignee = assignees[rng.Next(assignees.Count)];
                 var categoryName = string.IsNullOrWhiteSpace(record.Category) ? "Unknown" : record.Category.Trim();
@@ -743,7 +743,7 @@ namespace ServiceOpsAI.Data
                     PriorityId = priority.Id,
                     StatusId = status.Id,
                     SourceId = source.Id,
-                    EntityId = entity.Id,
+                    DepartmentId = entity.Id,
                     AssignedToUserId = assignee.Id,
                     CreatedByUserId = creator.Id,
                     CreatedAt = openedAt,
@@ -918,7 +918,7 @@ namespace ServiceOpsAI.Data
             var impactScope = !string.IsNullOrWhiteSpace(record.ImpactScope)
                 ? record.ImpactScope
                 : text.Contains("cross-entity") || text.Contains("multiple entities") || text.Contains("عدة جهات") || text.Contains("أكثر من جهة")
-                    ? "Cross-Entity"
+                    ? "Cross-Department"
                     : text.Contains("department") || text.Contains("school") || text.Contains("hospital") || text.Contains("all") || text.Contains("الإدارة") || text.Contains("المدرسة") || text.Contains("المستشفى") || text.Contains("جميع")
                     ? "Department"
                     : text.Contains("team") || text.Contains("family") || text.Contains("group") || text.Contains("الفريق") || text.Contains("مجموعة")
@@ -929,7 +929,7 @@ namespace ServiceOpsAI.Data
             {
                 "Department" => rng.Next(20, 95),
                 "Team" => rng.Next(5, 20),
-                "Cross-Entity" => rng.Next(80, 250),
+                "Cross-Department" => rng.Next(80, 250),
                 _ => rng.Next(1, 4)
             });
 
@@ -965,7 +965,7 @@ namespace ServiceOpsAI.Data
                 record.Language,
                 record.Category,
                 record.Subcategory,
-                record.Entity,
+                record.Department,
                 record.ProductArea,
                 record.EnvironmentName,
                 record.ImpactScope,
@@ -1034,11 +1034,11 @@ namespace ServiceOpsAI.Data
             return openStatus;
         }
 
-        private static Entity? ResolveEntity(SeedTicketRecord record, List<Entity> entities)
+        private static Department? ResolveEntity(SeedTicketRecord record, List<Department> entities)
         {
-            if (!string.IsNullOrWhiteSpace(record.Entity))
+            if (!string.IsNullOrWhiteSpace(record.Department))
             {
-                var exact = entities.FirstOrDefault(e => string.Equals(e.Name, record.Entity, StringComparison.OrdinalIgnoreCase));
+                var exact = entities.FirstOrDefault(e => string.Equals(e.Name, record.Department, StringComparison.OrdinalIgnoreCase));
                 if (exact != null)
                 {
                     return exact;
@@ -1200,7 +1200,7 @@ namespace ServiceOpsAI.Data
                     PriorityId = priorities[rng.Next(priorities.Count)],
                     StatusId = status.Id,
                     SourceId = sources[rng.Next(sources.Count)],
-                    EntityId = creator.EntityId,
+                    DepartmentId = creator.DepartmentId,
                     AssignedToUserId = assignees[rng.Next(assignees.Count)].Id,
                     CreatedByUserId = creator.Id,
                     CreatedAt = createdAt,

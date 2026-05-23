@@ -382,7 +382,7 @@ internal sealed class RelationshipResolver : IRelationshipResolver
 /// </summary>
 public interface INaturalKeyResolver
 {
-    ResolverResult<(EntityDefinition Entity, string Id)> Resolve(string question);
+    ResolverResult<(EntityDefinition Department, string Id)> Resolve(string question);
 }
 
 internal sealed class NaturalKeyResolver : INaturalKeyResolver
@@ -405,7 +405,7 @@ internal sealed class NaturalKeyResolver : INaturalKeyResolver
         _catalog = catalog;
     }
 
-    public ResolverResult<(EntityDefinition Entity, string Id)> Resolve(string question)
+    public ResolverResult<(EntityDefinition Department, string Id)> Resolve(string question)
     {
         if (string.IsNullOrWhiteSpace(question))
             return ResolverResult<(EntityDefinition, string)>.NotFound("empty question");

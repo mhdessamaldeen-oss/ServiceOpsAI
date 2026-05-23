@@ -34,7 +34,7 @@ namespace ServiceOpsAI.Services.AI
                 .Include(t => t.Category)
                 .Include(t => t.Priority)
                 .Include(t => t.Status)
-                .Include(t => t.Entity)
+                .Include(t => t.Department)
                 .Include(t => t.Source)
                 .Include(t => t.AssignedToUser)
                 .Include(t => t.CreatedByUser)
@@ -61,7 +61,7 @@ namespace ServiceOpsAI.Services.AI
                 Category = ticket.Category?.Name ?? _localizer.Get(nameof(SystemStrings.Unknown), language),
                 Priority = ticket.Priority?.Name ?? _localizer.Get(nameof(SystemStrings.Unknown), language),
                 Status = ticket.Status?.Name ?? _localizer.Get(nameof(SystemStrings.Unknown), language),
-                Entity = ticket.Entity?.Name ?? _localizer.Get(nameof(SystemStrings.General), language),
+                Department = ticket.Department?.Name ?? _localizer.Get(nameof(SystemStrings.General), language),
                 Source = ticket.Source?.Name ?? _localizer.Get(nameof(SystemStrings.Unknown), language),
                 ProductArea = ticket.ProductArea ?? "",
                 EnvironmentName = ticket.EnvironmentName ?? "",
@@ -301,7 +301,7 @@ namespace ServiceOpsAI.Services.AI
         public string Category { get; set; } = "";
         public string Priority { get; set; } = "";
         public string Status { get; set; } = "";
-        public string Entity { get; set; } = "";
+        public string Department { get; set; } = "";
         public string Source { get; set; } = "";
         public string ProductArea { get; set; } = "";
         public string EnvironmentName { get; set; } = "";

@@ -40,7 +40,7 @@ namespace ServiceOpsAI.Controllers.Users
             }
             var usersQuery = _userManager.Users
                 .AsNoTracking()
-                .Include(u => u.Entity)
+                .Include(u => u.Department)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(request.SearchString))
@@ -50,9 +50,9 @@ namespace ServiceOpsAI.Controllers.Users
                                                 (u.LastName ?? string.Empty).Contains(request.SearchString));
             }
 
-            if (request.EntityId.HasValue)
+            if (request.DepartmentId.HasValue)
             {
-                usersQuery = usersQuery.Where(u => u.EntityId == request.EntityId);
+                usersQuery = usersQuery.Where(u => u.DepartmentId == request.DepartmentId);
             }
 
             switch (request.SortOrder)
@@ -66,11 +66,11 @@ namespace ServiceOpsAI.Controllers.Users
                 case "name_desc":
                     usersQuery = usersQuery.OrderByDescending(u => u.FirstName ?? string.Empty).ThenByDescending(u => u.LastName ?? string.Empty);
                     break;
-                case "Entity":
-                    usersQuery = usersQuery.OrderBy(u => u.Entity != null ? u.Entity.Name : string.Empty);
+                case "Department":
+                    usersQuery = usersQuery.OrderBy(u => u.Department != null ? u.Department.Name : string.Empty);
                     break;
                 case "entity_desc":
-                    usersQuery = usersQuery.OrderByDescending(u => u.Entity != null ? u.Entity.Name : string.Empty);
+                    usersQuery = usersQuery.OrderByDescending(u => u.Department != null ? u.Department.Name : string.Empty);
                     break;
                 default:
                     usersQuery = usersQuery.OrderBy(u => u.Email ?? string.Empty);
@@ -93,20 +93,20 @@ namespace ServiceOpsAI.Controllers.Users
                 Request = request
             };
 
-            ViewData["EntityFilterId"] = new SelectList(_context.Entities, "Id", "Name", request.EntityId);
+            ViewData["EntityFilterId"] = new SelectList(_context.Departments, "Id", "Name", request.DepartmentId);
             return View(pagedResult);
         }
 
         public IActionResult Create()
         {
-            ViewData["EntityId"] = new SelectList(_context.Entities, "Id", "Name");
+            ViewData["DepartmentId"] = new SelectList(_context.Departments, "Id", "Name");
             ViewData["Roles"] = new SelectList(_roleManager.Roles, "Name", "Name");
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Email,FirstName,LastName,EntityId")] ApplicationUser user, string password, string role, bool isAdmin = false)
+        public async Task<IActionResult> Create([Bind("Email,FirstName,LastName,DepartmentId")] ApplicationUser user, string password, string role, bool isAdmin = false)
         {
             if (ModelState.IsValid)
             {
@@ -131,7 +131,7 @@ namespace ServiceOpsAI.Controllers.Users
                     ModelState.AddModelError(string.Empty, error.Description);
                 }
             }
-            ViewData["EntityId"] = new SelectList(_context.Entities, "Id", "Name", user.EntityId);
+            ViewData["DepartmentId"] = new SelectList(_context.Departments, "Id", "Name", user.DepartmentId);
             ViewData["Roles"] = new SelectList(_roleManager.Roles, "Name", "Name", role);
             return View(user);
         }
@@ -143,7 +143,7 @@ namespace ServiceOpsAI.Controllers.Users
             var user = await _userManager.FindByIdAsync(id);
             if (user == null) return NotFound();
 
-            ViewData["EntityId"] = new SelectList(_context.Entities, "Id", "Name", user.EntityId);
+            ViewData["DepartmentId"] = new SelectList(_context.Departments, "Id", "Name", user.DepartmentId);
             var roles = await _userManager.GetRolesAsync(user);
             ViewBag.CurrentRole = roles.FirstOrDefault();
             ViewData["Roles"] = new SelectList(_roleManager.Roles, "Name", "Name", ViewBag.CurrentRole);
@@ -153,7 +153,7 @@ namespace ServiceOpsAI.Controllers.Users
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(string id, [Bind("Id,FirstName,LastName,EntityId,IsActive")] ApplicationUser user, string role, bool isAdmin = false)
+        public async Task<IActionResult> Edit(string id, [Bind("Id,FirstName,LastName,DepartmentId,IsActive")] ApplicationUser user, string role, bool isAdmin = false)
         {
             if (id != user.Id) return NotFound();
 
@@ -162,7 +162,7 @@ namespace ServiceOpsAI.Controllers.Users
 
             existingUser.FirstName = user.FirstName;
             existingUser.LastName = user.LastName;
-            existingUser.EntityId = user.EntityId;
+            existingUser.DepartmentId = user.DepartmentId;
             existingUser.IsActive = user.IsActive;
 
             var result = await _userManager.UpdateAsync(existingUser);
@@ -184,7 +184,7 @@ namespace ServiceOpsAI.Controllers.Users
                 return RedirectToAction(nameof(Index));
             }
             
-            ViewData["EntityId"] = new SelectList(_context.Entities, "Id", "Name", user.EntityId);
+            ViewData["DepartmentId"] = new SelectList(_context.Departments, "Id", "Name", user.DepartmentId);
             ViewData["Roles"] = new SelectList(_roleManager.Roles, "Name", "Name", role);
             return View(user);
         }

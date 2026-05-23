@@ -87,11 +87,11 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label asp-for="EntityId" class="form-label fw-bold small text-uppercase text-muted">Organizational Entity</label>
+                            <label asp-for="DepartmentId" class="form-label fw-bold small text-uppercase text-muted">Organizational Entity</label>
                             <div class="input-group bg-light rounded-3">
                                 <span class="input-group-text bg-transparent border-0"><i class="bi bi-building text-secondary"></i></span>
-                                <select asp-for="EntityId" class="form-select border-0 bg-transparent shadow-none" asp-items="ViewBag.EntityId" disabled="@(!isAdmin ? "disabled" : null)"></select>
-                                @if(!isAdmin) { <input type="hidden" asp-for="EntityId" /> }
+                                <select asp-for="DepartmentId" class="form-select border-0 bg-transparent shadow-none" asp-items="ViewBag.DepartmentId" disabled="@(!isAdmin ? "disabled" : null)"></select>
+                                @if(!isAdmin) { <input type="hidden" asp-for="DepartmentId" /> }
                             </div>
                         </div>
                         <div class="col-md-6">

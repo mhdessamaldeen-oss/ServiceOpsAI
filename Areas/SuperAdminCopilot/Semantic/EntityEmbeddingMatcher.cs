@@ -96,7 +96,7 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
                 return null;
             }
 
-            _logger.LogDebug("[EntityEmbeddingMatcher] '{Text}' → {Entity} (cosine={Score:F3}).", text, best.Name, bestScore);
+            _logger.LogDebug("[EntityEmbeddingMatcher] '{Text}' → {Department} (cosine={Score:F3}).", text, best.Name, bestScore);
             return best;
         }
         catch (Exception ex)
@@ -112,7 +112,7 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
     /// invoked the embedder N×entity_count times, wasting tokens and racing on the cache write.</summary>
     private readonly SemaphoreSlim _primingLock = new(1, 1);
 
-    private async Task<IReadOnlyList<(EntityDefinition Entity, float[] Vector)>> GetEntityVectorsAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<(EntityDefinition Department, float[] Vector)>> GetEntityVectorsAsync(CancellationToken cancellationToken)
     {
         var cacheKey = CachePrefix + (_embedder.ModelName ?? "default");
         if (_cache.TryGetValue<IReadOnlyList<(EntityDefinition, float[])>>(cacheKey, out var cached) && cached is not null)
@@ -141,7 +141,7 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "[EntityEmbeddingMatcher] entity priming failed for '{Entity}'.", e.Name);
+                    _logger.LogDebug(ex, "[EntityEmbeddingMatcher] entity priming failed for '{Department}'.", e.Name);
                 }
             }
             _cache.Set(cacheKey, (IReadOnlyList<(EntityDefinition, float[])>)built);   // no expiry — invalidated on model swap via cache key

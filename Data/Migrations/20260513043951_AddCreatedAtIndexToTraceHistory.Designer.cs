@@ -480,7 +480,7 @@ namespace ServiceOpsAI.Data.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
 
-                    b.Property<int?>("EntityId")
+                    b.Property<int?>("DepartmentId")
                         .HasColumnType("int");
 
                     b.Property<string>("FirstName")
@@ -531,7 +531,7 @@ namespace ServiceOpsAI.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EntityId");
+                    b.HasIndex("DepartmentId");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
@@ -788,7 +788,7 @@ namespace ServiceOpsAI.Data.Migrations
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<int?>("EntityId")
+                    b.Property<int?>("DepartmentId")
                         .HasColumnType("int");
 
                     b.Property<string>("EnvironmentName")
@@ -908,7 +908,7 @@ namespace ServiceOpsAI.Data.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
-                    b.HasIndex("EntityId");
+                    b.HasIndex("DepartmentId");
 
                     b.HasIndex("EscalatedToUserId");
 
@@ -1450,7 +1450,7 @@ namespace ServiceOpsAI.Data.Migrations
                 {
                     b.HasOne("ServiceOpsAI.Models.Entity", "Entity")
                         .WithMany()
-                        .HasForeignKey("EntityId")
+                        .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Entity");
@@ -1488,7 +1488,7 @@ namespace ServiceOpsAI.Data.Migrations
 
                     b.HasOne("ServiceOpsAI.Models.Entity", "Entity")
                         .WithMany()
-                        .HasForeignKey("EntityId")
+                        .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("ServiceOpsAI.Models.ApplicationUser", "EscalatedToUser")

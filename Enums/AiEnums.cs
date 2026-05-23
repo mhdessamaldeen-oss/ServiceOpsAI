@@ -29,7 +29,7 @@ namespace ServiceOpsAI.Enums
         [Description("Happy")] Happy, 
         [Description("Unknown")] Unknown 
     }
-    public enum TicketSortField { Id, Date, Title, Entity, Status, Priority, Category }
+    public enum TicketSortField { Id, Date, Title, Department, Status, Priority, Category }
 
     public enum SystemStrings
     {

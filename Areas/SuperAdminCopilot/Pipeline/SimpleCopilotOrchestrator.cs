@@ -690,7 +690,7 @@ internal sealed class SimpleCopilotOrchestrator : ISuperAdminCopilot
         var chartType = _chartSuggester.Suggest(spec, finalExec);
 
         // ── Coverage Check ───────────────────────────────────────────────
-        // Entity-agnostic verification pass: did the answer fully address the question?
+        // Department-agnostic verification pass: did the answer fully address the question?
         // Catches compound-question half-answers (decomposer missed), wrong-FK-column joins
         // (asked for "created by" got "assigned to"), and other cases where the pipeline
         // technically succeeded but didn't actually answer what the user asked.

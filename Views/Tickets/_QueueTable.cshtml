@@ -15,7 +15,7 @@
                     </div>
                 </th>
                 <th data-col="ref" data-col-name="@Loc.Get("Reference")" class="py-3">@Loc.Get("Reference")</th>
-                <th data-col="entity" data-col-name="@Loc.Get("Entity")" class="py-3 text-center">@Loc.Get("Entity")</th>
+                <th data-col="entity" data-col-name="@Loc.Get("Department")" class="py-3 text-center">@Loc.Get("Department")</th>
                 <th data-col="details" data-col-name="@Loc.Get("InquiryDetails")" class="py-3">@Loc.Get("InquiryDetails")</th>
                 <th data-col="status" data-col-name="@Loc.Get("Status")" class="py-3 text-center">@Loc.Get("Status")</th>
                 <th data-col="files" data-col-name="@Loc.Get("Files")" class="py-3 text-center">@Loc.Get("Files")</th>
@@ -36,7 +36,7 @@
                         <div class="text-muted-custom small">@item.CreatedAt.ToString("MMM dd, yyyy")</div>
                     </td>
                     <td class="text-center">
-                        <span class="badge bg-light text-secondary border border-light-subtle shadow-sm">@(item.Entity != null ? Loc.Get(item.Entity.Name) : Loc.Get("General"))</span>
+                        <span class="badge bg-light text-secondary border border-light-subtle shadow-sm">@(item.Department != null ? Loc.Get(item.Department.Name) : Loc.Get("General"))</span>
                     </td>
                     <td>
                         <div class="fw-bold mb-1 text-main">@item.Title</div>

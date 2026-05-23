@@ -55,9 +55,9 @@ namespace ServiceOpsAI.Mappings
             CreateMap<KnowledgeBaseChunkMatch, KnowledgeMatchDto>();
 
             // Management
-            CreateMap<Entity, EntityDto>();
+            CreateMap<Department, DepartmentDto>();
             CreateMap<ApplicationUser, UserDto>()
-                .ForMember(dest => dest.EntityName, opt => opt.MapFrom(src => src.Entity != null ? src.Entity.Name : null));
+                .ForMember(dest => dest.EntityName, opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : null));
 
             CreateMap<Ticket, LookupDisplayDto>()
                 .ForMember(dest => dest.Display, opt => opt.MapFrom(src => src.TicketNumber + " - " + src.Title));
@@ -114,7 +114,7 @@ namespace ServiceOpsAI.Mappings
                 .ForMember(dest => dest.LastRunAt, opt => opt.MapFrom(src => src.UpdatedAt != null ? src.UpdatedAt.Value.ToString("yyyy-MM-dd HH:mm") : null));
 
             CreateMap<Ticket, TicketDto>()
-                .ForMember(dest => dest.EntityName, opt => opt.MapFrom(src => src.Entity != null ? src.Entity.Name : null))
+                .ForMember(dest => dest.EntityName, opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : null))
                 .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : null))
                 .ForMember(dest => dest.PriorityName, opt => opt.MapFrom(src => src.Priority != null ? src.Priority.Name : null))
                 .ForMember(dest => dest.StatusName, opt => opt.MapFrom(src => src.Status != null ? src.Status.Name : null))

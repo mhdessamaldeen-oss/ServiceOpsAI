@@ -1,4 +1,4 @@
-namespace ServiceOpsAI.Models.Operations;
+namespace ServiceOpsAI.Models;
 
 public enum ServiceType
 {

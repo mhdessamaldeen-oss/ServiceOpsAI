@@ -61,7 +61,7 @@ namespace ServiceOpsAI.Controllers.Reports
 
             if (!isAdmin)
             {
-                query = query.Where(t => t.EntityId == user!.EntityId || t.CreatedByUserId == userId);
+                query = query.Where(t => t.DepartmentId == user!.DepartmentId || t.CreatedByUserId == userId);
             }
 
             if (normalizedStartDate.HasValue) query = query.Where(t => t.CreatedAt >= normalizedStartDate.Value);
@@ -90,7 +90,7 @@ namespace ServiceOpsAI.Controllers.Reports
                 .ToListAsync();
 
             ViewBag.ByEntity = await query
-                .GroupBy(t => t.Entity != null ? t.Entity.Name : "Unknown")
+                .GroupBy(t => t.Department != null ? t.Department.Name : "Unknown")
                 .Select(g => new ReportMetricDto { Label = g.Key, Count = g.Count() })
                 .ToListAsync();
 

@@ -167,7 +167,7 @@ namespace ServiceOpsAI.Models.AI
 
                 if (!string.IsNullOrWhiteSpace(ExpectedPrimaryEntity))
                 {
-                    parts.Add($"Entity: {ExpectedPrimaryEntity}");
+                    parts.Add($"Department: {ExpectedPrimaryEntity}");
                 }
 
                 if (!string.IsNullOrWhiteSpace(ExpectedOperation))
@@ -347,7 +347,7 @@ namespace ServiceOpsAI.Models.AI
             GetEffectiveQueryPlans().Any(p => 
                 string.Equals(p.TargetView, Case.ExpectedPrimaryEntity, StringComparison.OrdinalIgnoreCase) ||
                 (Case.ExpectedPrimaryEntity == "Ticket" && p.TargetView == "TicketRecords") ||
-                (Case.ExpectedPrimaryEntity == "Entity" && p.TargetView == "EntitySummary"));
+                (Case.ExpectedPrimaryEntity == "Department" && p.TargetView == "EntitySummary"));
 
         public bool PassedOperation =>
             string.IsNullOrWhiteSpace(Case.ExpectedOperation) ||

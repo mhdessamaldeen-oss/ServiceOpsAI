@@ -51,15 +51,15 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label asp-for="EntityId" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("OrganizationalEntity")</label>
+                            <label asp-for="DepartmentId" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("OrganizationalEntity")</label>
                             @if (ViewBag.IsAdmin == true)
                             {
-                                <select asp-for="EntityId" class="form-select border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.EntityId"></select>
+                                <select asp-for="DepartmentId" class="form-select border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.DepartmentId"></select>
                             }
                             else
                             {
-                                <select asp-for="EntityId" class="form-select border-0 p-3 shadow-none" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.EntityId" disabled></select>
-                                <input type="hidden" asp-for="EntityId" />
+                                <select asp-for="DepartmentId" class="form-select border-0 p-3 shadow-none" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.DepartmentId" disabled></select>
+                                <input type="hidden" asp-for="DepartmentId" />
                             }
                         </div>
                         <div class="col-md-6">

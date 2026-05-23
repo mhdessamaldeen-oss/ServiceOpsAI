@@ -1150,7 +1150,7 @@ internal sealed partial class SqlCompiler : ICompiler
     {
         if (string.IsNullOrEmpty(table)) return table;
         // Strip a leading "Ticket" prefix when present so "TicketStatuses" reads as "Status".
-        // Domain-shaped (any "<Entity>Statuses" gets stripped to "Statuses"); kept conservative
+        // Domain-shaped (any "<Department>Statuses" gets stripped to "Statuses"); kept conservative
         // because the alternative — TicketStatuses + TicketPriorities — would otherwise produce
         // "TicketStatuse" and "TicketPrioritie" via pure suffix stripping, which is worse.
         var bare = table;

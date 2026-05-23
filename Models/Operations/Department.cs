@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ServiceOpsAI.Models.Operations;
+namespace ServiceOpsAI.Models;
 
 public class Department
 {
@@ -11,6 +12,16 @@ public class Department
 
     [Required, StringLength(150)]
     public string NameAr { get; set; } = string.Empty;
+
+    // Backwards-compat alias for the original `Entity.Name` field.
+    // Existing callers (DbSeeder, controllers, views) continue to read/write `.Name`;
+    // new code should use NameEn/NameAr directly.
+    [NotMapped]
+    public string Name
+    {
+        get => NameEn;
+        set => NameEn = value;
+    }
 
     public ServiceType ServiceType { get; set; }
 

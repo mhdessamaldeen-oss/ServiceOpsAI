@@ -27,7 +27,7 @@ namespace ServiceOpsAI.Controllers.Entities
         {
             request.Normalize();
 
-            var entities = _context.Entities
+            var entities = _context.Departments
                 .AsNoTracking()
                 .AsQueryable();
 
@@ -56,10 +56,10 @@ namespace ServiceOpsAI.Controllers.Entities
             var effectivePageSize = request.GetEffectivePageSize(totalCount);
             var items = await entities.Skip((request.PageNumber - 1) * effectivePageSize)
                                       .Take(effectivePageSize)
-                                      .ProjectTo<EntityDto>(_mapper.ConfigurationProvider)
+                                      .ProjectTo<DepartmentDto>(_mapper.ConfigurationProvider)
                                       .ToListAsync();
 
-            var pagedResult = new PagedResult<EntityDto>
+            var pagedResult = new PagedResult<DepartmentDto>
             {
                 Items = items,
                 TotalCount = totalCount,
@@ -80,7 +80,7 @@ namespace ServiceOpsAI.Controllers.Entities
         // POST: Entities/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Name,IsActive")] Entity entity)
+        public async Task<IActionResult> Create([Bind("Id,Name,IsActive")] Department entity)
         {
             if (ModelState.IsValid)
             {
@@ -96,7 +96,7 @@ namespace ServiceOpsAI.Controllers.Entities
         {
             if (id == null) return NotFound();
 
-            var entity = await _context.Entities.FindAsync(id);
+            var entity = await _context.Departments.FindAsync(id);
             if (entity == null) return NotFound();
 
             return View(entity);
@@ -105,7 +105,7 @@ namespace ServiceOpsAI.Controllers.Entities
         // POST: Entities/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,IsActive")] Entity entity)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,IsActive")] Department entity)
         {
             if (id != entity.Id) return NotFound();
 
@@ -118,7 +118,7 @@ namespace ServiceOpsAI.Controllers.Entities
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!EntityExists(entity.Id)) return NotFound();
+                    if (!DepartmentExists(entity.Id)) return NotFound();
                     else throw;
                 }
                 return RedirectToAction(nameof(Index));
@@ -131,11 +131,11 @@ namespace ServiceOpsAI.Controllers.Entities
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var entity = await _context.Entities.FindAsync(id);
+            var entity = await _context.Departments.FindAsync(id);
             if (entity != null)
             {
-                var hasUsers = await _context.Users.AnyAsync(u => u.EntityId == id);
-                var hasTickets = await _context.Tickets.AnyAsync(t => t.EntityId == id);
+                var hasUsers = await _context.Users.AnyAsync(u => u.DepartmentId == id);
+                var hasTickets = await _context.Tickets.AnyAsync(t => t.DepartmentId == id);
 
                 if (hasUsers || hasTickets)
                 {
@@ -143,16 +143,16 @@ namespace ServiceOpsAI.Controllers.Entities
                     return RedirectToAction(nameof(Index));
                 }
 
-                _context.Entities.Remove(entity);
+                _context.Departments.Remove(entity);
                 await _context.SaveChangesAsync();
             }
             
             return RedirectToAction(nameof(Index));
         }
 
-        private bool EntityExists(int id)
+        private bool DepartmentExists(int id)
         {
-            return _context.Entities.Any(e => e.Id == id);
+            return _context.Departments.Any(e => e.Id == id);
         }
     }
 }

@@ -55,7 +55,7 @@ namespace ServiceOpsAI.Models.AI
     /// <summary>
     /// Catalog-driven reference token resolution outcome.
     /// Token is resolved against any catalog entity whose declared identifier semantics
-    /// match — Ticket, Entity, User, Invoice, etc. — never via hardcoded entity names.
+    /// match — Ticket, Department, User, Invoice, etc. — never via hardcoded entity names.
     /// </summary>
     public class CopilotEntityReferenceResolution
     {

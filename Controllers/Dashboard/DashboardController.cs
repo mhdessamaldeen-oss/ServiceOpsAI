@@ -59,7 +59,7 @@ namespace ServiceOpsAI.Controllers.Dashboard
 
             if (!isAdmin)
             {
-                ticketsQuery = ticketsQuery.Where(t => t.EntityId == user!.EntityId || t.CreatedByUserId == userId);
+                ticketsQuery = ticketsQuery.Where(t => t.DepartmentId == user!.DepartmentId || t.CreatedByUserId == userId);
             }
 
             var now = DateTime.UtcNow;
@@ -85,7 +85,7 @@ namespace ServiceOpsAI.Controllers.Dashboard
                 .Include(t => t.Priority)
                 .Include(t => t.Source)
                 .Include(t => t.Status)
-                .Include(t => t.Entity)
+                .Include(t => t.Department)
                 .OrderByDescending(t => t.CreatedAt)
                 .Take(5)
                 .ToListAsync();

@@ -7,8 +7,7 @@ namespace ServiceOpsAI.Data;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
-    public DbSet<Entity> Entitys { get; set; }
-    public DbSet<Entity> Entities => Set<Entity>();
+    public DbSet<Department> Departments { get; set; }
     public DbSet<TicketCategory> TicketCategories { get; set; }
     public DbSet<TicketPriority> TicketPriorities { get; set; }
     public DbSet<TicketStatus> TicketStatuses { get; set; }
@@ -40,8 +39,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     {
         base.OnModelCreating(builder);
 
-        // Preserve the legacy physical table name while allowing cleaner DbSet aliases in code.
-        builder.Entity<Entity>().ToTable("Entitys");
+        builder.Entity<Department>().Property(d => d.ServiceType).HasConversion<string>();
 
         builder.Entity<Ticket>()
             .HasOne(t => t.AssignedToUser)

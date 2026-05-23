@@ -30,8 +30,8 @@ namespace ServiceOpsAI.Models
         public int SourceId { get; set; }
         public TicketSource? Source { get; set; }
 
-        public int? EntityId { get; set; }
-        public Entity? Entity { get; set; }
+        public int? DepartmentId { get; set; }
+        public Department? Department { get; set; }
 
         public string? AssignedToUserId { get; set; }
         public ApplicationUser? AssignedToUser { get; set; }

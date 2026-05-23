@@ -126,7 +126,7 @@ namespace ServiceOpsAI.Migrations
                     FirstName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     LastName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    EntityId = table.Column<int>(type: "int", nullable: true),
+                    DepartmentId = table.Column<int>(type: "int", nullable: true),
                     UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
@@ -146,8 +146,8 @@ namespace ServiceOpsAI.Migrations
                 {
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_AspNetUsers_Entitys_EntityId",
-                        column: x => x.EntityId,
+                        name: "FK_AspNetUsers_Entitys_DepartmentId",
+                        column: x => x.DepartmentId,
                         principalTable: "Entitys",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -251,7 +251,7 @@ namespace ServiceOpsAI.Migrations
                     PriorityId = table.Column<int>(type: "int", nullable: false),
                     StatusId = table.Column<int>(type: "int", nullable: false),
                     SourceId = table.Column<int>(type: "int", nullable: false),
-                    EntityId = table.Column<int>(type: "int", nullable: true),
+                    DepartmentId = table.Column<int>(type: "int", nullable: true),
                     AssignedToUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
                     CreatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
@@ -278,8 +278,8 @@ namespace ServiceOpsAI.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Tickets_Entitys_EntityId",
-                        column: x => x.EntityId,
+                        name: "FK_Tickets_Entitys_DepartmentId",
+                        column: x => x.DepartmentId,
                         principalTable: "Entitys",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -431,9 +431,9 @@ namespace ServiceOpsAI.Migrations
                 column: "NormalizedEmail");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AspNetUsers_EntityId",
+                name: "IX_AspNetUsers_DepartmentId",
                 table: "AspNetUsers",
-                column: "EntityId");
+                column: "DepartmentId");
 
             migrationBuilder.CreateIndex(
                 name: "UserNameIndex",
@@ -488,9 +488,9 @@ namespace ServiceOpsAI.Migrations
                 column: "CreatedByUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Tickets_EntityId",
+                name: "IX_Tickets_DepartmentId",
                 table: "Tickets",
-                column: "EntityId");
+                column: "DepartmentId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Tickets_PriorityId",

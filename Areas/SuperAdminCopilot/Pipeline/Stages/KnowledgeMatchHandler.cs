@@ -161,7 +161,7 @@ internal sealed class KnowledgeMatchHandler : IKnowledgeMatchHandler, IRoutingPr
         var sb = new StringBuilder();
         sb.Append("**").Append(e.Name).AppendLine("**");
         if (!string.IsNullOrWhiteSpace(e.Description)) sb.AppendLine(e.Description);
-        else sb.Append("Entity backed by the `").Append(e.Table).AppendLine("` table.");
+        else sb.Append("Department backed by the `").Append(e.Table).AppendLine("` table.");
 
         if (e.Synonyms is { Count: > 0 })
             sb.Append("\nAlso called: ").AppendLine(string.Join(", ", e.Synonyms));

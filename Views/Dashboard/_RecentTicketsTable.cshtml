@@ -18,7 +18,7 @@
                         <a asp-controller="Tickets" asp-action="Details" asp-route-id="@ticket.Id" class="text-decoration-none">
                             <div class="fw-bold" style="color: var(--primary-color) !important;">#@ticket.TicketNumber</div>
                         </a>
-                        <div class="small" style="color: var(--text-muted) !important;">@(ticket.Entity?.Name ?? "General")</div>
+                        <div class="small" style="color: var(--text-muted) !important;">@(ticket.Department?.Name ?? "General")</div>
                     </td>
                     <td>
                         <div class="fw-semibold" style="color: var(--text-main) !important;">@ticket.Title</div>

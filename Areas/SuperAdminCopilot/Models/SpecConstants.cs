@@ -96,7 +96,7 @@ public static class SpecConstants
     // ── InferredColumn.FkRole (when Role = "foreign_key") ──────────────
     // Verb-role of a foreign-key column, inferred from the column-name suffix.
     // Lets the LLM disambiguate "tickets CREATED by X" vs "tickets ASSIGNED to X"
-    // without enumerating every entity. Entity-agnostic — applies to any table
+    // without enumerating every entity. Department-agnostic — applies to any table
     // whose FK columns follow the conventional *By / *To naming.
     public static class FkRoles
     {

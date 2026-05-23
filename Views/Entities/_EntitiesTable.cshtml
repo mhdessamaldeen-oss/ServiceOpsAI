@@ -1,10 +1,10 @@
-@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.EntityDto>
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.DepartmentDto>
 
 <div class="table-responsive">
     <table id="entitiesTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
         <thead>
             <tr>
-                <th class="ps-4 py-3">Entity Identity</th>
+                <th class="ps-4 py-3">Department Identity</th>
                 <th class="py-3">System Status</th>
                 <th class="text-end pe-4 py-3 no-sort">Controls</th>
             </tr>
@@ -32,7 +32,7 @@
                         }
                     </td>
                     <td class="text-end pe-4">
-                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('WARNING: Are you sure you want to completely destroy this Entity record?');" class="d-inline">
+                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('WARNING: Are you sure you want to completely destroy this Department record?');" class="d-inline">
                             <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-soft-primary shadow-none">
                                 <i class="bi bi-pencil-square"></i> Modify
                             </a>

@@ -149,7 +149,7 @@ namespace ServiceOpsAI.Models.AI
         public bool IsDistinct { get; set; }
         
         // Semantic resolution properties (Phase 1)
-        public float ConfidenceScore { get; set; }  // Entity match confidence (0-1)
+        public float ConfidenceScore { get; set; }  // Department match confidence (0-1)
         public string OriginalQuestion { get; set; } = "";  // Original user question
         public string NormalizationApplied { get; set; } = "";  // Type of normalization (Pluralized, AliasMapped, etc.)
         
@@ -166,7 +166,7 @@ namespace ServiceOpsAI.Models.AI
     
     public class AgenticFilter
     {
-        public string Entity { get; set; } = "";
+        public string Department { get; set; } = "";
         public string Field { get; set; } = "";
         public string Operator { get; set; } = "equals";  // equals, contains, gt, lt, between, in, isnull
         public object? Value { get; set; }
@@ -214,7 +214,7 @@ namespace ServiceOpsAI.Models.AI
     public class AgenticAggregation
     {
         public string Function { get; set; } = "";  // count, avg, sum, min, max
-        public string Entity { get; set; } = "";
+        public string Department { get; set; } = "";
         public string Field { get; set; } = "";
         public string Alias { get; set; } = "";
 
@@ -227,7 +227,7 @@ namespace ServiceOpsAI.Models.AI
     
     public class AgenticSort
     {
-        public string Entity { get; set; } = "";
+        public string Department { get; set; } = "";
         public string Field { get; set; } = "";
         public string Direction { get; set; } = "Desc";  // Asc or Desc
     }

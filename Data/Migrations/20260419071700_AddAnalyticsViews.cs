@@ -62,7 +62,7 @@ namespace ServiceOpsAI.Data.Migrations
                 LEFT JOIN TicketPriorities tp   ON t.PriorityId   = tp.Id
                 LEFT JOIN TicketCategories tc   ON t.CategoryId   = tc.Id
                 LEFT JOIN TicketSources    src  ON t.SourceId     = src.Id
-                LEFT JOIN Entitys          e    ON t.EntityId     = e.Id
+                LEFT JOIN Entitys          e    ON t.DepartmentId     = e.Id
                 LEFT JOIN AspNetUsers      creator   ON t.CreatedByUserId   = creator.Id
                 LEFT JOIN AspNetUsers      assignee  ON t.AssignedToUserId  = assignee.Id
                 LEFT JOIN AspNetUsers      resolver  ON t.ResolvedByUserId  = resolver.Id
@@ -74,7 +74,7 @@ namespace ServiceOpsAI.Data.Migrations
                 IF OBJECT_ID('dbo.vw_EntityPerformance', 'V') IS NOT NULL DROP VIEW dbo.vw_EntityPerformance;
                 EXEC('CREATE VIEW dbo.vw_EntityPerformance AS
                 SELECT
-                    e.Id                                AS EntityId,
+                    e.Id                                AS DepartmentId,
                     e.Name                              AS EntityName,
                     e.IsActive                          AS IsActive,
                     COUNT(t.Id)                         AS TotalTickets,
@@ -92,7 +92,7 @@ namespace ServiceOpsAI.Data.Migrations
                     MAX(t.CreatedAt)                    AS LastTicketDate,
                     MIN(t.CreatedAt)                    AS FirstTicketDate
                 FROM Entitys e
-                LEFT JOIN Tickets t ON t.EntityId = e.Id AND t.IsDeleted = 0
+                LEFT JOIN Tickets t ON t.DepartmentId = e.Id AND t.IsDeleted = 0
                 LEFT JOIN TicketStatuses ts ON t.StatusId = ts.Id
                 GROUP BY e.Id, e.Name, e.IsActive;')");
 
@@ -116,7 +116,7 @@ namespace ServiceOpsAI.Data.Migrations
                     (SELECT COUNT(*) FROM Tickets t7 WHERE t7.AssignedToUserId = u.Id AND t7.IsDeleted = 0 AND t7.CreatedAt >= DATEADD(DAY, -7, GETUTCDATE())) AS AssignedLast7Days,
                     (SELECT COUNT(*) FROM Tickets t30 WHERE t30.ResolvedByUserId = u.Id AND t30.IsDeleted = 0 AND t30.ResolvedAt >= DATEADD(DAY, -30, GETUTCDATE())) AS ResolvedLast30Days
                 FROM AspNetUsers u
-                LEFT JOIN Entitys ent ON u.EntityId = ent.Id;')");
+                LEFT JOIN Entitys ent ON u.DepartmentId = ent.Id;')");
         }
 
         /// <inheritdoc />

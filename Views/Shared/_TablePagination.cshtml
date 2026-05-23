@@ -18,7 +18,7 @@
         { "request.StatusId", request.StatusId?.ToString() ?? "" },
         { "request.PriorityId", request.PriorityId?.ToString() ?? "" },
         { "request.CategoryId", request.CategoryId?.ToString() ?? "" },
-        { "request.EntityId", request.EntityId?.ToString() ?? "" }
+        { "request.DepartmentId", request.DepartmentId?.ToString() ?? "" }
     };
 
     Func<int, Dictionary<string, string>> GetRouteWithPage = (int p) => {

@@ -48,7 +48,7 @@ namespace ServiceOpsAI.Data.Migrations
                     b.Property<int?>("AvgFirstResponseHours").HasColumnType("int");
                     b.Property<int?>("AvgResolutionHours").HasColumnType("int");
                     b.Property<int>("ClosedTickets").HasColumnType("int");
-                    b.Property<int>("EntityId").HasColumnType("int");
+                    b.Property<int>("DepartmentId").HasColumnType("int");
                     b.Property<string>("EntityName").IsRequired().HasColumnType("nvarchar(max)");
                     b.Property<int>("EscalatedTickets").HasColumnType("int");
                     b.Property<DateTime?>("FirstTicketDate").HasColumnType("datetime2");

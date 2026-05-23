@@ -2,17 +2,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ServiceOpsAI.Models
 {
-    public class Entity
-    {
-        public int Id { get; set; }
-
-        [Required]
-        [StringLength(100)]
-        public string Name { get; set; } = string.Empty;
-
-        public bool IsActive { get; set; } = true;
-    }
-
     public class TicketCategory
     {
         public int Id { get; set; }

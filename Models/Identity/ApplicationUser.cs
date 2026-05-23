@@ -15,8 +15,8 @@ namespace ServiceOpsAI.Models
 
         public bool IsActive { get; set; } = true;
 
-        public int? EntityId { get; set; }
-        public Entity? Entity { get; set; }
+        public int? DepartmentId { get; set; }
+        public Department? Department { get; set; }
 
         public string FullName => $"{FirstName} {LastName}";
     }
