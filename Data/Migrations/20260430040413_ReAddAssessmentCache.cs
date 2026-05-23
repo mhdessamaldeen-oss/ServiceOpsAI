@@ -45,7 +45,9 @@ namespace ServiceOpsAI.Data.Migrations
                 maxLength: 128,
                 nullable: true);
 
-            /*
+            // Restored: these two AddColumns were commented out in an earlier edit, but a
+            // later migration (20260501184919_PruneAndRenameTraceHistory) tries to DROP them,
+            // which fails on a fresh DB. Re-enabling the AddColumns keeps the chain consistent.
             migrationBuilder.AddColumn<string>(
                 name: "AssessmentDetail",
                 table: "CopilotTraceHistories",
@@ -57,7 +59,6 @@ namespace ServiceOpsAI.Data.Migrations
                 table: "CopilotTraceHistories",
                 type: "bit",
                 nullable: true);
-            */
 
             migrationBuilder.CreateIndex(
                 name: "IX_CopilotTraceHistories_CaseCode_CreatedAt",
