@@ -246,7 +246,9 @@
             {
                 <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">@Loc.Get("Administration")</li>
                 <li><a class="sidebar-link" asp-controller="Users" asp-action="Index" data-label="@Loc.Get("Users")"><i class="bi bi-people-fill @labelMargin"></i><span class="sidebar-link-text">@Loc.Get("Users")</span></a></li>
-                <li><a class="sidebar-link" asp-controller="Entities" asp-action="Index" data-label="@Loc.Get("Entities")"><i class="bi bi-building-fill-gear @labelMargin"></i><span class="sidebar-link-text">@Loc.Get("Entities")</span></a></li>
+                @* Legacy /Entities link removed — its controller uses Department.Name in LINQ
+                   queries, but Name is now a [NotMapped] alias for NameEn so EF can't translate
+                   it. Use /Departments instead. *@
                 <li><a class="sidebar-link" asp-controller="ReferenceData" asp-action="Index" data-label="@Loc.Get("ReferenceData")"><i class="bi bi-database-fill @labelMargin"></i><span class="sidebar-link-text">@Loc.Get("ReferenceData")</span></a></li>
                 <li><a class="sidebar-link" asp-controller="Settings" asp-action="Index" data-label="@Loc.Get("Settings")"><i class="bi bi-gear-wide-connected @labelMargin"></i><span class="sidebar-link-text">@Loc.Get("Settings")</span></a></li>
             }

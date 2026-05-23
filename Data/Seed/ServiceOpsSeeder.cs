@@ -36,31 +36,39 @@ public static class ServiceOpsSeeder
         await SeedTicketsAsync(db, rng, customers, departments, bills, ct);
     }
 
-    // ─── TicketCategory: 10 utility-realistic bilingual categories ───────────────────────────────
+    // ─── TicketCategory: 10 utility-realistic bilingual categories (upsert by name) ──────────────
     private static async Task SeedTicketCategoriesAsync(ApplicationDbContext db, CancellationToken ct)
     {
-        // Delete any existing placeholder categories first (avoids ID clash with the new set).
-        var existing = await db.TicketCategories.ToListAsync(ct);
-        if (existing.Count > 0)
+        // Upsert by Name match so existing tickets that reference older categories keep their FK,
+        // and we don't trigger an FK violation by deleting categories in use.
+        var desired = new (string Name, string NameAr)[]
         {
-            db.TicketCategories.RemoveRange(existing);
-            await db.SaveChangesAsync(ct);
-        }
-
-        var categories = new[]
-        {
-            new TicketCategory { Name = "Internet outage",                    NameAr = "انقطاع الإنترنت" },
-            new TicketCategory { Name = "Internet slow speed",                NameAr = "بطء سرعة الإنترنت" },
-            new TicketCategory { Name = "Electricity outage",                 NameAr = "انقطاع الكهرباء" },
-            new TicketCategory { Name = "Water cut",                          NameAr = "انقطاع المياه" },
-            new TicketCategory { Name = "Gas service issue",                  NameAr = "مشكلة في خدمة الغاز" },
-            new TicketCategory { Name = "Billing dispute - amount",           NameAr = "اعتراض على قيمة الفاتورة" },
-            new TicketCategory { Name = "Billing dispute - meter reading",    NameAr = "اعتراض على قراءة العداد" },
-            new TicketCategory { Name = "New service request",                NameAr = "طلب خدمة جديدة" },
-            new TicketCategory { Name = "Service disconnection issue",        NameAr = "مشكلة في فصل الخدمة" },
-            new TicketCategory { Name = "Technician visit needed",            NameAr = "طلب زيارة فني" },
+            ("Internet outage",                 "انقطاع الإنترنت"),
+            ("Internet slow speed",             "بطء سرعة الإنترنت"),
+            ("Electricity outage",              "انقطاع الكهرباء"),
+            ("Water cut",                       "انقطاع المياه"),
+            ("Gas service issue",               "مشكلة في خدمة الغاز"),
+            ("Billing dispute - amount",        "اعتراض على قيمة الفاتورة"),
+            ("Billing dispute - meter reading", "اعتراض على قراءة العداد"),
+            ("New service request",             "طلب خدمة جديدة"),
+            ("Service disconnection issue",     "مشكلة في فصل الخدمة"),
+            ("Technician visit needed",         "طلب زيارة فني"),
         };
-        db.TicketCategories.AddRange(categories);
+
+        var existing = await db.TicketCategories.ToListAsync(ct);
+        foreach (var (name, nameAr) in desired)
+        {
+            var match = existing.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (match is null)
+            {
+                db.TicketCategories.Add(new TicketCategory { Name = name, NameAr = nameAr, IsActive = true });
+            }
+            else if (match.NameAr != nameAr)
+            {
+                match.NameAr = nameAr;
+                db.TicketCategories.Update(match);
+            }
+        }
         await db.SaveChangesAsync(ct);
     }
 
