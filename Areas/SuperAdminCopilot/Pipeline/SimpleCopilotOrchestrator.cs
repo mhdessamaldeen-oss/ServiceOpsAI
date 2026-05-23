@@ -523,13 +523,29 @@ internal sealed class SimpleCopilotOrchestrator : ISuperAdminCopilot
         {
             steps.RecordSpecExtractorFailed(stageName, question, extraction, isRefinement, specSw.ElapsedMilliseconds);
             // When the extraction error names a specific cause (no schema, no embedder, no
-            // candidate tables), surface it directly so the user sees what to do. Generic
-            // failure falls back to the catalog message.
+            // candidate tables), surface a helpful reply rather than the raw error. The
+            // no-candidate-tables case carries the top-K table names in the error string —
+            // we lift them out and pass them into NoCandidateTablesTemplate so the user gets
+            // an actionable suggestion ("did you mean: X, Y, Z?") instead of a bare error.
             var err = extraction.Error ?? "";
-            var reply = (err.Contains("schema-knowledge") || err.Contains("embedder")
-                         || err.StartsWith("no candidate tables matched"))
-                ? err
-                : Text.SpecExtractorFailed;
+            string reply;
+            if (err.StartsWith("no candidate tables matched", StringComparison.OrdinalIgnoreCase))
+            {
+                // err looks like: "no candidate tables matched. Available: T1, T2, T3"
+                var idx = err.IndexOf(':');
+                var suggestions = idx >= 0 && idx + 1 < err.Length
+                    ? err[(idx + 1)..].Trim()
+                    : "the configured tables";
+                reply = string.Format(Text.NoCandidateTablesTemplate, suggestions);
+            }
+            else if (err.Contains("schema-knowledge") || err.Contains("embedder"))
+            {
+                reply = err;
+            }
+            else
+            {
+                reply = Text.SpecExtractorFailed;
+            }
             return await PersistAsync(request, totalSw, steps,
                 reply: reply,
                 error: extraction.Error ?? "spec extraction failed", cancellationToken: cancellationToken);

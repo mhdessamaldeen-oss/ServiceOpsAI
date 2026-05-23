@@ -82,3 +82,45 @@ public class QuestionTextNormalizerTests
         Assert.Equal(once, twice);
     }
 }
+
+/// <summary>
+/// Pins the Arabic / English split for QuestionLanguageDetector. The detector underpins every
+/// per-locale prompt and reply hint, so a misclassification here mis-routes users.
+/// </summary>
+public class QuestionLanguageDetectorTests
+{
+    [Theory]
+    [InlineData("how many open tickets", "en")]
+    [InlineData("Hello world", "en")]
+    [InlineData("123 456 789", "en")]
+    [InlineData("", "en")]
+    [InlineData(null, "en")]
+    public void Returns_english_for_non_arabic(string? input, string expected)
+    {
+        Assert.Equal(expected, QuestionLanguageDetector.Detect(input));
+    }
+
+    [Theory]
+    [InlineData("كم عدد التذاكر المفتوحة", "ar")]
+    [InlineData("اعرض المستخدمين", "ar")]
+    [InlineData("ما هي الفئات المتاحة", "ar")]
+    public void Returns_arabic_for_arabic(string input, string expected)
+    {
+        Assert.Equal(expected, QuestionLanguageDetector.Detect(input));
+    }
+
+    [Fact]
+    public void Mixed_majority_arabic_returns_arabic()
+    {
+        // Arabic question that mentions an English table name should still be classified Arabic.
+        Assert.Equal("ar", QuestionLanguageDetector.Detect("اعرض جدول AspNetUsers"));
+    }
+
+    [Fact]
+    public void Mixed_majority_english_returns_english()
+    {
+        // English question with a single Arabic word should remain English.
+        Assert.Equal("en", QuestionLanguageDetector.Detect("show me the open مرحبا tickets and users today"));
+    }
+}
+

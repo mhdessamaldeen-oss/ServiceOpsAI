@@ -1,0 +1,284 @@
+{
+  "name": "Suite — Realistic Bilingual Analyst Questions (EN + AR)",
+  "version": "1.0",
+  "description": "One comprehensive bilingual suite shaped by how a HUMAN analyst actually asks — not how a synthetic test would phrase it. Covers: super-casual one-liners (\"open ones?\"), professional sentences (\"Please provide a count of...\"), typo'd shorthand (\"hw many tkts r open\"), parenthesised column lists (\"users(name, email)\"), vague follow-ups (\"summary please\"), code-mixed Arabic+English, and the obvious refusal cases (delete/write). The goal is the COVERAGE of phrasing styles a real user produces; ExpectedSql is only provided when the answer is unambiguous so execution accuracy stays meaningful. Vague / clarification cases set ExpectedIntent only — they test routing, not SQL.",
+  "Scenarios": [
+
+    { "Code": "RB-EN-CNT-001", "Question": "how many tickets?",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-CNT-002", "Question": "ticket count",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-CNT-003", "Question": "Please provide the total number of tickets in the system.",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-CNT-004", "Question": "how many users do we have",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM AspNetUsers",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-CNT-005", "Question": "count of all open tickets",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-CNT-006", "Question": "hw many tkts r open",
+      "Category": "CNT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-LST-001", "Question": "list users",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-LST-002", "Question": "show me all categories",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT Name FROM TicketCategories",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-LST-003", "Question": "users(name, email)",
+      "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT UserName, Email FROM AspNetUsers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-LST-004", "Question": "I'd like to see a list of all roles configured in the system.",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetRoles",
+      "ExpectedSql": "SELECT Name FROM AspNetRoles",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-LST-005", "Question": "give me the priorities",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketPriorities",
+      "ExpectedSql": "SELECT Name FROM TicketPriorities",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-LST-006", "Question": "list of user( name ,id ,email )",
+      "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT Id, UserName, Email FROM AspNetUsers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-FLT-001", "Question": "open tickets",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-FLT-002", "Question": "tickets without a category",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, Title FROM Tickets WHERE CategoryId IS NULL AND IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-FLT-003", "Question": "user names containing 'admin'",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT UserName, Email FROM AspNetUsers WHERE UserName LIKE '%admin%'",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-FLT-004", "Question": "critical tickets from last week",
+      "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-FLT-005", "Question": "any escalated tickets?",
+      "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-FLT-006", "Question": "tickets created today",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-JOI-001", "Question": "users with their roles",
+      "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName, r.Name AS RoleName FROM AspNetUsers u LEFT JOIN AspNetUserRoles ur ON ur.UserId = u.Id LEFT JOIN AspNetRoles r ON r.Id = ur.RoleId",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-JOI-002", "Question": "users that have no tickets",
+      "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName FROM AspNetUsers u WHERE NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.CreatedByUserId = u.Id AND t.IsDeleted = 0)",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-JOI-003", "Question": "tickets and who created them",
+      "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-JOI-004", "Question": "comments per ticket",
+      "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-AGG-001", "Question": "ticket counts by status",
+      "Category": "GRP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name AS StatusName, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY s.Name",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-AGG-002", "Question": "top 5 categories by ticket volume",
+      "Category": "TOP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 5 c.Name AS CategoryName, COUNT(*) AS Count FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0 GROUP BY c.Name ORDER BY Count DESC",
+      "ExpectedMaxRows": 5, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-AGG-003", "Question": "latest 10 tickets",
+      "Category": "TOP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 10 TicketNumber, Title, CreatedAt FROM Tickets WHERE IsDeleted = 0 ORDER BY CreatedAt DESC",
+      "ExpectedMaxRows": 10, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-CMP-001", "Question": "this month vs last month tickets",
+      "Category": "CMP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-CMP-002", "Question": "open tickets today vs yesterday",
+      "Category": "CMP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-VAG-001", "Question": "what's going on",
+      "Category": "VAG", "Difficulty": "Hard", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-VAG-002", "Question": "summary please",
+      "Category": "VAG", "Difficulty": "Hard", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-EN-REF-001", "Question": "delete all tickets",
+      "Category": "REF", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-CNT-001", "Question": "كم عدد التذاكر؟",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-CNT-002", "Question": "عدد التذاكر",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-CNT-003", "Question": "هل يمكنك تقديم العدد الإجمالي للتذاكر في النظام؟",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-CNT-004", "Question": "كم لدينا مستخدمين",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM AspNetUsers",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-CNT-005", "Question": "عدد التذاكر المفتوحة",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-CNT-006", "Question": "كم تذكره مفتوحه",
+      "Category": "CNT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-LST-001", "Question": "اعرض المستخدمين",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-LST-002", "Question": "أعطني قائمة بالفئات",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT Name FROM TicketCategories",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-LST-003", "Question": "مستخدمين (الاسم، البريد)",
+      "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT UserName, Email FROM AspNetUsers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-LST-004", "Question": "أرغب في رؤية قائمة بجميع الأدوار المعرّفة في النظام.",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetRoles",
+      "ExpectedSql": "SELECT Name FROM AspNetRoles",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-LST-005", "Question": "اعرض الأولويات",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketPriorities",
+      "ExpectedSql": "SELECT Name FROM TicketPriorities",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-LST-006", "Question": "قائمة التعليقات",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketComments",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-FLT-001", "Question": "التذاكر المفتوحة",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-FLT-002", "Question": "تذاكر بدون فئة",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, Title FROM Tickets WHERE CategoryId IS NULL AND IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-FLT-003", "Question": "أسماء المستخدمين التي تحتوي على admin",
+      "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT UserName, Email FROM AspNetUsers WHERE UserName LIKE '%admin%'",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-FLT-004", "Question": "التذاكر الحرجة من الأسبوع الماضي",
+      "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-FLT-005", "Question": "هل هناك أي شيء مصعّد؟",
+      "Category": "FLT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-FLT-006", "Question": "تذاكر اليوم",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-JOI-001", "Question": "المستخدمون وأدوارهم",
+      "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName, r.Name AS RoleName FROM AspNetUsers u LEFT JOIN AspNetUserRoles ur ON ur.UserId = u.Id LEFT JOIN AspNetRoles r ON r.Id = ur.RoleId",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-JOI-002", "Question": "المستخدمون الذين ليس لديهم تذاكر",
+      "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName FROM AspNetUsers u WHERE NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.CreatedByUserId = u.Id AND t.IsDeleted = 0)",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-JOI-003", "Question": "التذاكر ومن أنشأها",
+      "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-JOI-004", "Question": "التعليقات لكل تذكرة",
+      "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-AGG-001", "Question": "عدد التذاكر حسب الحالة",
+      "Category": "GRP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name AS StatusName, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY s.Name",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-AGG-002", "Question": "أعلى 5 فئات حسب حجم التذاكر",
+      "Category": "TOP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 5 c.Name AS CategoryName, COUNT(*) AS Count FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0 GROUP BY c.Name ORDER BY Count DESC",
+      "ExpectedMaxRows": 5, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-AGG-003", "Question": "آخر 10 تذاكر",
+      "Category": "TOP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 10 TicketNumber, Title, CreatedAt FROM Tickets WHERE IsDeleted = 0 ORDER BY CreatedAt DESC",
+      "ExpectedMaxRows": 10, "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-CMP-001", "Question": "تذاكر هذا الشهر مقارنة بالشهر الماضي",
+      "Category": "CMP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-CMP-002", "Question": "التذاكر المفتوحة اليوم مقابل أمس",
+      "Category": "CMP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-VAG-001", "Question": "ما الذي يحدث؟",
+      "Category": "VAG", "Difficulty": "Hard", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-VAG-002", "Question": "ملخص من فضلك",
+      "Category": "VAG", "Difficulty": "Hard", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "RB-AR-REF-001", "Question": "احذف جميع التذاكر",
+      "Category": "REF", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "MaxLatencyMs": 180000 }
+  ]
+}

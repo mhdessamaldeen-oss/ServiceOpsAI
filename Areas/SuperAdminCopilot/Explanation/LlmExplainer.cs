@@ -21,6 +21,7 @@ internal sealed class LlmExplainer : IExplainer
     private readonly TemplatedExplainer _fallback;
     private readonly Pipeline.IRetryBudget _budget;
     private readonly CopilotOptions _options;
+    private readonly IOptionsMonitor<CopilotTextCatalog> _textCatalog;
     private readonly ILogger<LlmExplainer> _logger;
 
     private static readonly Regex TableNameRegex = new(@"\[([A-Za-z_][A-Za-z0-9_]*)\]",
@@ -31,12 +32,14 @@ internal sealed class LlmExplainer : IExplainer
         TemplatedExplainer fallback,
         Pipeline.IRetryBudget budget,
         IOptions<CopilotOptions> options,
+        IOptionsMonitor<CopilotTextCatalog> textCatalog,
         ILogger<LlmExplainer> logger)
     {
         _llm = llm;
         _fallback = fallback;
         _budget = budget;
         _options = options.Value;
+        _textCatalog = textCatalog;
         _logger = logger;
     }
 
@@ -65,7 +68,15 @@ internal sealed class LlmExplainer : IExplainer
         var subSteps = new List<PipelineStep>();
         var prepStart = DateTime.UtcNow;
         var citations = ExtractTableCitations(compiled.Sql);
-        var systemPrompt = BuildSystemPrompt();
+        // Append a per-locale "Reply in <language>" hint so the LLM summary matches the
+        // question's language. Detected from the question text; hint string comes from the
+        // catalog (hot-reloadable, per-deployment overridable). English fallback when the
+        // language can't be confidently identified.
+        var lang = Internal.QuestionLanguageDetector.Detect(question);
+        var langHint = lang == Internal.QuestionLanguageDetector.Arabic
+            ? _textCatalog.CurrentValue.ExplainerLanguageHintAr
+            : _textCatalog.CurrentValue.ExplainerLanguageHintEn;
+        var systemPrompt = BuildSystemPrompt() + "\n\n" + langHint;
         var userPrompt = BuildUserPrompt(question, result, compiled, citations);
         subSteps.Add(new PipelineStep(
             "Prompt assembly", StageNames.StatusOk,

@@ -395,6 +395,83 @@ public sealed class CopilotTextCatalog
         "top", "average", "avg", "sum", "minimum", "maximum", "min", "max", "group by", "per",
     };
 
+    // ── Intent Classifier prompt (i18n: per-locale variant) ───────────────────
+    // The intent router's single-shot prompt. Models attend strongly to the few-shots, so the
+    // examples here directly shape routing quality. {0} = the question (filled at call time).
+    //
+    // No hard-coded table or column names — the few-shots use generic data-question phrasing
+    // ("how many open records"). Operators can override per deployment in copilot-text.json.
+    // The {En|Ar} naming pattern is the convention for any other per-locale catalog entry.
+
+    public string IntentClassifierPromptEn { get; set; } =
+@"You classify user questions for a domain assistant. Output ONLY a JSON object with two fields:
+  ""intent"": one of [""SQL"", ""CHAT"", ""TOOL"", ""OUT_OF_SCOPE"", ""REFINEMENT""]
+  ""confidence"": a number in [0, 1]
+
+Domain: Internal business data system. Questions in scope are questions whose answer can be
+computed from the configured relational schema (lists, counts, joins, aggregates, comparisons,
+refinements of prior answers).
+
+Label meanings:
+- SQL: question about the data in the schema (e.g. counts, lists, joins, aggregates)
+- CHAT: greeting / meta / thanks (e.g. ""hi"", ""what can you do"", ""thanks"")
+- TOOL: needs external real-time data (e.g. ""what is the weather"", ""price of Apple stock"", ""USD to EUR rate"")
+- OUT_OF_SCOPE: unrelated to the database (e.g. ""best recipe"", ""movie recommendations"", ""capital of France"")
+- REFINEMENT: refers to a prior question (e.g. ""now just the open ones"", ""break it down by status"")
+
+Examples:
+- ""how many open records""        → {{""intent"": ""SQL"", ""confidence"": 0.98}}
+- ""list users with their roles""  → {{""intent"": ""SQL"", ""confidence"": 0.97}}
+- ""hello""                        → {{""intent"": ""CHAT"", ""confidence"": 0.99}}
+- ""what is the weather in Riyadh"" → {{""intent"": ""TOOL"", ""confidence"": 0.95}}
+- ""latest news about AI""          → {{""intent"": ""TOOL"", ""confidence"": 0.92}}
+- ""current bitcoin price""         → {{""intent"": ""TOOL"", ""confidence"": 0.93}}
+- ""best recipe for sourdough""     → {{""intent"": ""OUT_OF_SCOPE"", ""confidence"": 0.97}}
+- ""who won the world cup""         → {{""intent"": ""OUT_OF_SCOPE"", ""confidence"": 0.96}}
+- ""now just the critical ones""    → {{""intent"": ""REFINEMENT"", ""confidence"": 0.92}}
+
+Question: {0}
+
+Output only the JSON object — no preamble, no markdown.";
+
+    public string IntentClassifierPromptAr { get; set; } =
+@"تصنّف الأسئلة لمساعد بيانات. أخرج فقط كائن JSON بحقلين:
+  ""intent"": إحدى القيم [""SQL"", ""CHAT"", ""TOOL"", ""OUT_OF_SCOPE"", ""REFINEMENT""]
+  ""confidence"": رقم بين 0 و 1
+
+المجال: نظام بيانات أعمال داخلي. الأسئلة المقبولة هي تلك التي يمكن الإجابة عنها من قاعدة البيانات
+العلائقية (قوائم، عدّ، روابط بين الجداول، تجميعات، مقارنات، أو تعديل سؤال سابق).
+
+معاني التصنيفات:
+- SQL: سؤال عن البيانات في القاعدة (عدّ، قائمة، تجميع، مقارنة)
+- CHAT: تحية أو شكر أو سؤال عام عن المساعد (""مرحبا""، ""ماذا تستطيع""، ""شكرا"")
+- TOOL: يحتاج إلى مصدر خارجي حي (""الطقس""، ""سعر الذهب""، ""سعر صرف الدولار"")
+- OUT_OF_SCOPE: غير متعلق بالقاعدة (""وصفة طعام""، ""أفلام""، ""عاصمة فرنسا"")
+- REFINEMENT: يشير إلى سؤال سابق (""فقط المفتوحة""، ""قسّمها حسب الحالة"")
+
+أمثلة:
+- ""كم عدد السجلات المفتوحة""              → {{""intent"": ""SQL"", ""confidence"": 0.98}}
+- ""اعرض المستخدمين مع أدوارهم""           → {{""intent"": ""SQL"", ""confidence"": 0.97}}
+- ""مرحبا""                              → {{""intent"": ""CHAT"", ""confidence"": 0.99}}
+- ""ما الطقس في الرياض""                  → {{""intent"": ""TOOL"", ""confidence"": 0.95}}
+- ""أحدث الأخبار""                        → {{""intent"": ""TOOL"", ""confidence"": 0.92}}
+- ""ما أفضل وصفة خبز""                    → {{""intent"": ""OUT_OF_SCOPE"", ""confidence"": 0.97}}
+- ""فقط الحرجة""                          → {{""intent"": ""REFINEMENT"", ""confidence"": 0.92}}
+
+السؤال: {0}
+
+أخرج فقط كائن JSON — بلا مقدمات أو تنسيق.";
+
+    // ── Explainer language hint (i18n) ─────────────────────────────────────────
+    // Single-line instruction appended to the Explainer system prompt so the LLM produces
+    // its summary paragraph in the question's language. Operators can override per deployment
+    // — e.g. a deployment that wants ALL replies in English regardless of question language
+    // can set both to the same English string.
+    public string ExplainerLanguageHintEn { get; set; } =
+        "Write the summary paragraph in English.";
+    public string ExplainerLanguageHintAr { get; set; } =
+        "اكتب الفقرة باللغة العربية.";
+
     // ── Coverage Checker prompts ──────────────────────────────────────────────
     // System + example prompts for the post-Explainer Coverage Checker. Kept schema-agnostic
     // (no real table or person names) so the same prompt works for any database — ticketing,

@@ -4,6 +4,9 @@ using System.Text.Json;
 using AISupportAnalysisPlatform.Enums;
 using AISupportAnalysisPlatform.Services.AI.Providers;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using SuperAdminCopilot.Configuration;
+using SuperAdminCopilot.Internal;
 
 /// <summary>
 /// LLM-based intent router that runs BEFORE the SQL-generation path and decides which
@@ -70,24 +73,16 @@ public sealed record IntentClassificationResult(
 internal sealed class IntentClassifier : IIntentClassifier
 {
     private readonly IAiProviderFactory _providerFactory;
+    private readonly IOptionsMonitor<CopilotTextCatalog> _textCatalog;
     private readonly ILogger<IntentClassifier> _logger;
-
-    /// <summary>Deployment-specific domain hint injected into the classifier prompt.
-    /// Intentionally NAMES NO TABLES — the classifier's job is to label SQL vs CHAT vs TOOL vs
-    /// OUT_OF_SCOPE vs REFINEMENT, not to know the schema. Listing tables here biases the LLM
-    /// toward whichever name appears first (previously "Tickets, …" which dominated routing).
-    /// The schema linker downstream picks the actual table per question; that path is
-    /// schema-driven and stays correct when tables are added/removed without code changes.</summary>
-    private const string DomainHint =
-        "Internal business data system. Questions in scope are questions whose answer can be " +
-        "computed from the configured relational schema (lists, counts, joins, aggregates, " +
-        "comparisons, refinements of prior answers).";
 
     public IntentClassifier(
         IAiProviderFactory providerFactory,
+        IOptionsMonitor<CopilotTextCatalog> textCatalog,
         ILogger<IntentClassifier> logger)
     {
         _providerFactory = providerFactory;
+        _textCatalog = textCatalog;
         _logger = logger;
     }
 
@@ -107,7 +102,7 @@ internal sealed class IntentClassifier : IIntentClassifier
             // Use the Classifier workload. Falls back to Copilot's model when unset —
             // wired in OllamaAiProvider.GetModelNameForWorkload + AiProviderFactory.
             var provider = _providerFactory.GetProviderForWorkload(AiWorkloadType.Classifier);
-            var prompt = BuildPrompt(question);
+            var prompt = BuildPrompt(question, _textCatalog.CurrentValue);
 
             // Plain GenerateAsync — the prompt itself instructs the model to emit a JSON
             // object. The parser tolerates code fences and leading prose. (GenerateJsonAsync
@@ -134,38 +129,17 @@ internal sealed class IntentClassifier : IIntentClassifier
         }
     }
 
-    private static string BuildPrompt(string question)
+    private static string BuildPrompt(string question, CopilotTextCatalog text)
     {
-        // Single-shot prompt with the label vocabulary, the domain hint, and a few-shot
-        // line per label so the model anchors on shape rather than vibes. Few-shots are
-        // intentionally minimal to keep the classifier prompt short — every call pays for
-        // these tokens.
-        return $@"You classify user questions for a domain assistant. Output ONLY a JSON object with two fields:
-  ""intent"": one of [""SQL"", ""CHAT"", ""TOOL"", ""OUT_OF_SCOPE"", ""REFINEMENT""]
-  ""confidence"": a number in [0, 1]
-
-Domain: {DomainHint}
-
-Label meanings:
-- SQL: question about the data in the schema above (e.g. counts, lists, joins, aggregates)
-- CHAT: greeting / meta / thanks (e.g. ""hi"", ""what can you do"", ""thanks"")
-- TOOL: needs external real-time data (e.g. ""what is the weather"", ""price of Apple stock"", ""USD to EUR rate"")
-- OUT_OF_SCOPE: unrelated to this domain (e.g. ""best recipe"", ""movie recommendations"", ""capital of France"")
-- REFINEMENT: refers to a prior question (e.g. ""now just the open ones"", ""break it down by status"")
-
-Examples:
-- ""how many open tickets"" → {{""intent"": ""SQL"", ""confidence"": 0.98}}
-- ""hello"" → {{""intent"": ""CHAT"", ""confidence"": 0.99}}
-- ""what is the weather in Riyadh"" → {{""intent"": ""TOOL"", ""confidence"": 0.95}}
-- ""latest news about AI"" → {{""intent"": ""TOOL"", ""confidence"": 0.92}}
-- ""current bitcoin price"" → {{""intent"": ""TOOL"", ""confidence"": 0.93}}
-- ""best recipe for sourdough"" → {{""intent"": ""OUT_OF_SCOPE"", ""confidence"": 0.97}}
-- ""who won the world cup"" → {{""intent"": ""OUT_OF_SCOPE"", ""confidence"": 0.96}}
-- ""now just the critical ones"" → {{""intent"": ""REFINEMENT"", ""confidence"": 0.92}}
-
-Question: {question}
-
-Output only the JSON object — no preamble, no markdown.";
+        // Pick the prompt variant matching the question's language. The template comes from
+        // the catalog (hot-reloadable; per-deployment overridable via copilot-text.json) so
+        // adding a new locale is a JSON edit — no code change. {0} is replaced with the
+        // question text via string.Format.
+        var language = QuestionLanguageDetector.Detect(question);
+        var template = language == QuestionLanguageDetector.Arabic
+            ? text.IntentClassifierPromptAr
+            : text.IntentClassifierPromptEn;
+        return string.Format(template, question);
     }
 
     private static IntentClassificationResult Parse(string raw)
