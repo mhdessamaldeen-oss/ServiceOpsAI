@@ -11,6 +11,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Country> Countries { get; set; }
     public DbSet<Region> Regions { get; set; }
     public DbSet<Customer> Customers { get; set; }
+    public DbSet<Bill> Bills { get; set; }
     public DbSet<TicketCategory> TicketCategories { get; set; }
     public DbSet<TicketPriority> TicketPriorities { get; set; }
     public DbSet<TicketStatus> TicketStatuses { get; set; }
@@ -60,6 +61,23 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<Customer>().Property(c => c.Status).HasConversion<string>();
         builder.Entity<Customer>()
             .HasIndex(c => c.NationalId)
+            .IsUnique();
+
+        builder.Entity<Bill>().Property(b => b.Status).HasConversion<string>();
+        builder.Entity<Bill>().Property(b => b.ServiceType).HasConversion<string>();
+        builder.Entity<Bill>().Property(b => b.BaseAmount).HasPrecision(12, 2);
+        builder.Entity<Bill>().Property(b => b.UsageAmount).HasPrecision(12, 2);
+        builder.Entity<Bill>().Property(b => b.Taxes).HasPrecision(12, 2);
+        builder.Entity<Bill>().Property(b => b.TotalAmount).HasPrecision(12, 2);
+        builder.Entity<Bill>().Property(b => b.UsageQuantity).HasPrecision(12, 2);
+        builder.Entity<Bill>()
+            .HasIndex(b => new { b.CustomerId, b.PeriodStart });
+        builder.Entity<Bill>()
+            .HasIndex(b => new { b.DepartmentId, b.Status });
+        builder.Entity<Bill>()
+            .HasIndex(b => b.Status);
+        builder.Entity<Bill>()
+            .HasIndex(b => b.BillNumber)
             .IsUnique();
 
         builder.Entity<Ticket>()
