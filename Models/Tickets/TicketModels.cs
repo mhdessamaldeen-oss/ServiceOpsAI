@@ -141,6 +141,12 @@ namespace ServiceOpsAI.Models
         // Nullable: legacy / non-geographic tickets don't carry it.
         public int? RegionId { get; set; }
         public Region? Region { get; set; }
+
+        // Optional FK to the explicit Outage this ticket is about (Phase F).
+        // When set, lets the Copilot count tickets-per-outage and surface outage
+        // impact directly instead of inferring from ticket clusters.
+        public int? OutageId { get; set; }
+        public Outage? Outage { get; set; }
     }
 
     public class TicketComment

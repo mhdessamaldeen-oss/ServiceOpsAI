@@ -15,6 +15,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<ServiceType> ServiceTypes { get; set; }
     public DbSet<ComplaintType> ComplaintTypes { get; set; }
     public DbSet<ResolutionType> ResolutionTypes { get; set; }
+    public DbSet<Outage> Outages { get; set; }
+    public DbSet<MeterReading> MeterReadings { get; set; }
+    public DbSet<CsatResponse> CsatResponses { get; set; }
+    public DbSet<Tariff> Tariffs { get; set; }
     public DbSet<TicketCategory> TicketCategories { get; set; }
     public DbSet<TicketPriority> TicketPriorities { get; set; }
     public DbSet<TicketStatus> TicketStatuses { get; set; }
@@ -65,6 +69,64 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .OnDelete(DeleteBehavior.Restrict);
         builder.Entity<TicketCategory>().HasIndex(c => c.ParentCategoryId);
         builder.Entity<TicketCategory>().HasIndex(c => c.ServiceTypeId);
+
+        // Outage (Phase F) — explicit service outage events.
+        builder.Entity<Outage>().Property(o => o.Severity).HasConversion<string>();
+        builder.Entity<Outage>().Property(o => o.Cause).HasConversion<string>();
+        builder.Entity<Outage>().HasIndex(o => o.OutageNumber).IsUnique();
+        builder.Entity<Outage>().HasIndex(o => new { o.ServiceTypeId, o.StartedAt });
+        builder.Entity<Outage>().HasIndex(o => o.RegionId);
+        builder.Entity<Outage>()
+            .HasOne(o => o.Region)
+            .WithMany()
+            .HasForeignKey(o => o.RegionId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Outage>()
+            .HasOne(o => o.ServiceType)
+            .WithMany()
+            .HasForeignKey(o => o.ServiceTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Outage>()
+            .HasOne(o => o.Department)
+            .WithMany()
+            .HasForeignKey(o => o.DepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Ticket.OutageId — optional attribution to a specific Outage.
+        builder.Entity<Ticket>()
+            .HasOne(t => t.Outage)
+            .WithMany()
+            .HasForeignKey(t => t.OutageId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // MeterReading (Phase G) — periodic consumption readings.
+        builder.Entity<MeterReading>().Property(m => m.ReaderType).HasConversion<string>();
+        builder.Entity<MeterReading>().Property(m => m.Value).HasPrecision(14, 2);
+        builder.Entity<MeterReading>().Property(m => m.Consumption).HasPrecision(14, 2);
+        builder.Entity<MeterReading>()
+            .HasIndex(m => new { m.CustomerId, m.ServiceTypeId, m.ReadingDate });
+        builder.Entity<MeterReading>()
+            .HasOne(m => m.Customer).WithMany().HasForeignKey(m => m.CustomerId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<MeterReading>()
+            .HasOne(m => m.ServiceType).WithMany().HasForeignKey(m => m.ServiceTypeId).OnDelete(DeleteBehavior.Restrict);
+
+        // CSAT (Phase H) — labeled outcomes for Copilot quality evaluation.
+        builder.Entity<CsatResponse>().Property(c => c.Sentiment).HasConversion<string>();
+        builder.Entity<CsatResponse>()
+            .HasIndex(c => c.TicketId).IsUnique();           // one CSAT per ticket max
+        builder.Entity<CsatResponse>()
+            .HasOne(c => c.Ticket).WithMany().HasForeignKey(c => c.TicketId).OnDelete(DeleteBehavior.Restrict);
+
+        // Tariff (Phase I) — historical pricing per service/region.
+        builder.Entity<Tariff>().Property(t => t.BaseMonthlyFee).HasPrecision(12, 2);
+        builder.Entity<Tariff>().Property(t => t.RatePerUnit).HasPrecision(12, 4);
+        builder.Entity<Tariff>().Property(t => t.TaxPercent).HasPrecision(5, 2);
+        builder.Entity<Tariff>()
+            .HasIndex(t => new { t.ServiceTypeId, t.RegionId, t.EffectiveFrom });
+        builder.Entity<Tariff>()
+            .HasOne(t => t.ServiceType).WithMany().HasForeignKey(t => t.ServiceTypeId).OnDelete(DeleteBehavior.Restrict);
+        builder.Entity<Tariff>()
+            .HasOne(t => t.Region).WithMany().HasForeignKey(t => t.RegionId).OnDelete(DeleteBehavior.Restrict);
 
         // Department.ServiceType: was enum string, now FK to ServiceTypes.
         builder.Entity<Department>()
