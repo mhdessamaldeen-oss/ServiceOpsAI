@@ -1,0 +1,56 @@
+{
+  "_comment": "Schema overrides — human corrections layered ON TOP of auto-generated schema-inferred.json. Anything not listed here uses the inferred value. Tables / columns are matched case-insensitively by Name.",
+  "_format": {
+    "Tables": [
+      {
+        "Name": "<TableName>",
+        "Description": "<override the AI-generated description>",
+        "Flags": { "IsBridge": null, "IsLookup": null, "IsPerson": null },
+        "Roles": {
+          "LabelColumn": "<override>",
+          "SoftDeleteColumn": "<override>",
+          "NaturalKey": "<override>"
+        },
+        "Columns": [
+          {
+            "Name": "<ColumnName>",
+            "Role": "primary_key | foreign_key | natural_key | label | soft_delete | date | audit",
+            "DateRole": "created | modified | resolved | completed | due | started",
+            "References": "<Table.Column>",
+            "IsPii": true
+          }
+        ]
+      }
+    ]
+  },
+  "Tables": [
+    {
+      "_note": "Example 1 — TicketNumber has no DB-level UNIQUE constraint, so the heuristic misses it. Mark it as natural key here so 'find ticket TKT-2026-00123' resolves.",
+      "Name": "Tickets",
+      "Roles": {
+        "NaturalKey": "TicketNumber"
+      },
+      "Columns": [
+        {
+          "Name": "TicketNumber",
+          "Role": "natural_key"
+        }
+      ]
+    },
+    {
+      "_note": "Example 2 — mark a column as PII that name-pattern heuristic missed. The auto-inferred file flags Email/Phone/Password/etc but not custom names like 'OwnerAddress'.",
+      "Name": "ExternalApiSettings",
+      "Columns": [
+        {
+          "Name": "ApiKey",
+          "IsPii": true
+        }
+      ]
+    },
+    {
+      "_note": "Example 3 — give the LLM a richer description so retrieval / spec extraction picks the right table.",
+      "Name": "CopilotTraceHistories",
+      "Description": "Per-question trace records — one row per copilot answer with question, SQL, rows, timing, errors. Useful for debugging or analytics on copilot usage."
+    }
+  ]
+}

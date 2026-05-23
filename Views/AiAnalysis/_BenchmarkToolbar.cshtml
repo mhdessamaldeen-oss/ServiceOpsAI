@@ -1,0 +1,14 @@
+@inject AISupportAnalysisPlatform.Services.Infrastructure.ILocalizationService Loc
+
+<div id="historicalSummary" class="d-none d-lg-flex gap-2"></div>
+<div class="ms-auto d-flex flex-wrap gap-2">
+    <button id="toggle-tuning-btn" class="btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold">
+        <i class="bi bi-sliders @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("Tuning")
+    </button>
+    <button id="validate-benchmark-btn" class="btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold">
+        <i class="bi bi-shield-check @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("Validate")
+    </button>
+    <button id="run-benchmark-btn" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm">
+        <i class="bi bi-play-circle-fill @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("RunBenchmark")
+    </button>
+</div>

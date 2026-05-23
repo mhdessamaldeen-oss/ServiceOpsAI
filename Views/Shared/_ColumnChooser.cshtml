@@ -1,0 +1,64 @@
+<div class="dropdown ms-2">
+    <button class="btn btn-sm btn-outline-secondary dropdown-toggle h-100 px-3" type="button" id="columnDropdown" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" style="border-color: var(--border-color) !important; color: var(--text-muted); background: var(--bg-card); display:flex; align-items:center;">
+        <i class="bi bi-layout-three-columns me-2"></i> Columns
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg p-3" aria-labelledby="columnDropdown" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important; min-width: 200px;" id="column-visibility-menu">
+        <li><h6 class="dropdown-header px-0 text-uppercase fw-bold text-muted small ls-1 mb-2">Visibility</h6></li>
+    </ul>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.columnChooserInit) return;
+        window.columnChooserInit = true;
+        
+        const storageKey = 'tableCols_' + window.location.pathname.replace(/[^a-zA-Z0-9]/g, '');
+        const table = document.querySelector('table');
+        if(!table) return;
+        
+        const headers = Array.from(table.querySelectorAll('th[data-col]'));
+        if(headers.length === 0) return;
+        
+        const menu = document.getElementById('column-visibility-menu');
+        let prefs = {};
+        try { prefs = JSON.parse(localStorage.getItem(storageKey)) || {}; } catch(e){}
+
+        headers.forEach(h => {
+            const colId = h.getAttribute('data-col');
+            const colName = h.getAttribute('data-col-name');
+            const isVisible = prefs[colId] !== undefined ? prefs[colId] : !h.hasAttribute('data-default-hidden');
+            
+            const li = document.createElement('li');
+            li.className = 'form-check mb-2';
+            li.innerHTML = `
+                <input class="form-check-input shadow-none col-toggle-check" type="checkbox" value="${colId}" id="chk-${colId}" ${isVisible ? 'checked' : ''} style="cursor:pointer; border-color:var(--border-color);">
+                <label class="form-check-label small" style="color: var(--text-main); cursor:pointer;" for="chk-${colId}">
+                    ${colName}
+                </label>
+            `;
+            menu.appendChild(li);
+
+            li.querySelector('input').addEventListener('change', (e) => {
+                prefs[colId] = e.target.checked;
+                localStorage.setItem(storageKey, JSON.stringify(prefs));
+                applyVis();
+            });
+        });
+
+        applyVis();
+
+        function applyVis() {
+            headers.forEach((h) => {
+                const headIndex = Array.from(h.parentNode.children).indexOf(h);
+                const colId = h.getAttribute('data-col');
+                const show = prefs[colId] !== undefined ? prefs[colId] : !h.hasAttribute('data-default-hidden');
+                
+                h.style.display = show ? '' : 'none';
+                table.querySelectorAll('tbody tr').forEach(r => {
+                    const cell = r.children[headIndex];
+                    if(cell) cell.style.display = show ? '' : 'none';
+                });
+            });
+        }
+    });
+</script>

@@ -1,0 +1,111 @@
+@model AISupportAnalysisPlatform.Models.AI.KnowledgeBaseAdminViewModel
+
+@{
+    ViewData["Title"] = Loc.Get("KnowledgeBase");
+    var kbHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("KnowledgeBase"),
+        IconClass = "bi bi-journal-richtext",
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("Hub"),
+                Href = Url.Action("Hub", "AiAnalysis") ?? "#",
+                IconClass = "bi bi-grid",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/ai-knowledge-base.css" asp-append-version="true" />
+}
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success border-0 shadow-sm">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger border-0 shadow-sm">@TempData["Error"]</div>
+}
+
+<partial name="_PageHeader" model="kbHeader" />
+
+<div class="kb-shell">
+    <div class="kb-card p-4">
+        <div class="row g-3 align-items-center">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="kb-pill"><i class="bi bi-folder2-open"></i>@Model.Documents.Count @Loc.Get("Files")</span>
+                </div>
+                <h5 class="fw-bold mb-2">@Loc.Get("KnowledgeBasePath")</h5>
+                <div class="kb-doc-path">@Model.RootPath</div>
+                <div class="small text-muted mt-2">@Loc.Get("KnowledgeBaseUploadHint")</div>
+            </div>
+            <div class="col-lg-4">
+                <form asp-controller="AiAnalysis" asp-action="UploadKnowledgeDocument" method="post" enctype="multipart/form-data" class="d-grid gap-2">
+                    @Html.AntiForgeryToken()
+                    <select class="form-select" name="category" required>
+                        @foreach (var category in Model.Categories)
+                        {
+                            <option value="@category">@category</option>
+                        }
+                    </select>
+                    <input class="form-control" type="file" name="file" accept=".md,.txt" required />
+                    <button type="submit" class="btn btn-soft-primary btn-pill fw-bold">
+                        <i class="bi bi-cloud-arrow-up me-1"></i>@Loc.Get("UploadKnowledgeDocument")
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    @foreach (var category in Model.Categories)
+    {
+        var categoryDocs = Model.Documents.Where(d => d.Category == category).ToList();
+        <div class="kb-card p-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                    <h5 class="fw-bold mb-1">@category</h5>
+                    <div class="text-muted small">@string.Format(Loc.Get("KnowledgeBaseCategoryCount"), categoryDocs.Count)</div>
+                </div>
+                <span class="kb-pill">@categoryDocs.Count @Loc.Get("Files")</span>
+            </div>
+
+            @if (categoryDocs.Any())
+            {
+                <div class="row g-3">
+                    @foreach (var doc in categoryDocs)
+                    {
+                        <div class="col-lg-6">
+                            <div class="kb-doc">
+                                <div class="d-flex justify-content-between align-items-start gap-3">
+                                    <div>
+                                        <div class="fw-bold">@doc.FileName</div>
+                                        <div class="kb-doc-path mt-1">@doc.RelativePath</div>
+                                        <div class="small text-muted mt-2">@Loc.Get("UpdatedOn"): @doc.UpdatedOnUtc.ToString("yyyy-MM-dd HH:mm") UTC</div>
+                                        <div class="small text-muted">@Loc.Get("FileSizeLabel"): @doc.SizeBytes.ToString("N0") bytes</div>
+                                    </div>
+                                    <form asp-controller="AiAnalysis" asp-action="DeleteKnowledgeDocument" method="post" onsubmit="return confirm('@Loc.Get("DeleteKnowledgeDocumentConfirm")');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="relativePath" value="@doc.RelativePath" />
+                                        <button type="submit" class="btn btn-sm btn-soft-danger btn-pill px-3">
+                                            <i class="bi bi-trash me-1"></i>@Loc.Get("DeleteDocument")
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-muted small">@Loc.Get("NoKnowledgeDocumentsInCategory")</div>
+            }
+        </div>
+    }
+</div>

@@ -1,0 +1,17 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.AI.CopilotAssessmentCaseGridItem>
+@{
+    var catalogTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    {
+        Title = Loc.Get("ScenarioCatalog"),
+        Subtitle = Loc.Get("ScenarioCatalogSubtitle"),
+        TableSelector = "#copilotAssessmentTable",
+        TablePartialName = "~/Views/AiAnalysis/_CopilotAssessmentTable.cshtml",
+        TableModel = Model,
+        PaginationModel = Model,
+        ShowColumnSearchToggle = true,
+        ColumnSearchLabel = Loc.Get("Filter"),
+        ContainerCssClass = "feature-table-shell shadow-lg"
+    };
+}
+
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="catalogTable" />

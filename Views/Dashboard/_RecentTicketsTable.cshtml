@@ -1,0 +1,46 @@
+@model IEnumerable<AISupportAnalysisPlatform.Models.Ticket>
+
+<div class="table-responsive">
+    <table id="dashboardRecentTicketsTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="border-0 pb-3">Reference</th>
+                <th class="border-0 pb-3">Context</th>
+                <th class="border-0 pb-3">Status</th>
+                <th class="border-0 pb-3 text-end">Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var ticket in Model)
+            {
+                <tr>
+                    <td>
+                        <a asp-controller="Tickets" asp-action="Details" asp-route-id="@ticket.Id" class="text-decoration-none">
+                            <div class="fw-bold" style="color: var(--primary-color) !important;">#@ticket.TicketNumber</div>
+                        </a>
+                        <div class="small" style="color: var(--text-muted) !important;">@(ticket.Entity?.Name ?? "General")</div>
+                    </td>
+                    <td>
+                        <div class="fw-semibold" style="color: var(--text-main) !important;">@ticket.Title</div>
+                        <div class="small mt-1" style="color: var(--text-muted) !important;">
+                            @(ticket.ProductArea ?? "Unassigned")
+                            @if (!string.IsNullOrWhiteSpace(ticket.Source?.Name))
+                            {
+                                <span>• @ticket.Source.Name</span>
+                            }
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge rounded-pill px-3 py-2" style="background: rgba(255,255,255,0.05); color: var(--text-main); border: 1px solid var(--border-color);">
+                            @(ticket.Status?.Name ?? "Unknown")
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <div class="fw-semibold" style="color: var(--text-main) !important;">@ticket.CreatedAt.ToString("MMM dd")</div>
+                        <div class="small" style="color: var(--text-muted) !important;">@ticket.CreatedAt.ToString("HH:mm")</div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

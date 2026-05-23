@@ -1,0 +1,108 @@
+{
+  "name": "Suite 8 — Diverse Schema Coverage (Users / Roles / Comments / Categories / Sources / Histories)",
+  "version": "1.0",
+  "description": "Fresh questions intentionally NOT focused on Tickets only — exercises AspNetUsers, AspNetRoles, AspNetUserRoles, TicketComments, TicketCategories, TicketSources, TicketHistories, TicketAttachments, Entitys. Uses varied phrasing (\"give me…\", \"who…\", \"how many…\", \"which…\") to avoid identical paraphrasing of existing suites. Also validates the recalibrated OOS scope-confidence gate with truly off-domain questions.",
+  "Scenarios": [
+    { "Code": "D8-USER-list-001", "Question": "give me the list of all active users",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT UserName, Email FROM AspNetUsers WHERE IsActive = 1",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-USER-count-001", "Question": "how many users do we have in total",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM AspNetUsers",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-ROLE-list-001", "Question": "show me all roles in the system",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetRoles",
+      "ExpectedSql": "SELECT Name FROM AspNetRoles ORDER BY Name",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-ROLE-users-001", "Question": "who has the admin role",
+      "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName, u.Email FROM AspNetUsers u JOIN AspNetUserRoles ur ON ur.UserId = u.Id JOIN AspNetRoles r ON r.Id = ur.RoleId WHERE r.Name = 'Admin'",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-ROLE-count-001", "Question": "how many roles exist",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetRoles",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM AspNetRoles",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-COMMENT-count-001", "Question": "how many comments do we have in total",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketComments",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM TicketComments WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-COMMENT-by-ticket-001", "Question": "comment count per ticket",
+      "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketComments",
+      "ExpectedSql": "SELECT t.TicketNumber, COUNT(c.Id) AS CommentCount FROM Tickets t LEFT JOIN TicketComments c ON c.TicketId = t.Id AND c.IsDeleted = 0 WHERE t.IsDeleted = 0 GROUP BY t.TicketNumber ORDER BY CommentCount DESC",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-COMMENT-anti-001", "Question": "tickets that have no comments",
+      "Category": "ANT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.IsDeleted = 0 AND NOT EXISTS (SELECT 1 FROM TicketComments c WHERE c.TicketId = t.Id AND c.IsDeleted = 0)",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-CAT-list-001", "Question": "list all ticket categories",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT Name FROM TicketCategories ORDER BY Name",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-CAT-count-001", "Question": "tickets grouped by category",
+      "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT c.Name AS Category, COUNT(t.Id) AS Count FROM TicketCategories c LEFT JOIN Tickets t ON t.CategoryId = c.Id AND t.IsDeleted = 0 GROUP BY c.Name ORDER BY Count DESC",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-CAT-unused-001", "Question": "categories with no tickets at all",
+      "Category": "ANT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT c.Name FROM TicketCategories c WHERE NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.CategoryId = c.Id AND t.IsDeleted = 0)",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-SOURCE-001", "Question": "which sources are tickets coming from",
+      "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name AS Source, COUNT(*) AS Count FROM Tickets t JOIN TicketSources s ON s.Id = t.SourceId WHERE t.IsDeleted = 0 GROUP BY s.Name ORDER BY Count DESC",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-ENTITY-active-001", "Question": "list all active entities",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT Name FROM Entitys WHERE IsActive = 1 ORDER BY Name",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-ENTITY-volume-001", "Question": "top 5 entities by ticket volume",
+      "Category": "TOP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT TOP 5 e.Name, COUNT(t.Id) AS TicketCount FROM Entitys e LEFT JOIN Tickets t ON t.EntityId = e.Id AND t.IsDeleted = 0 WHERE e.IsActive = 1 GROUP BY e.Name ORDER BY TicketCount DESC",
+      "ExpectedMaxRows": 5, "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-HISTORY-recent-001", "Question": "ticket histories from the last 7 days",
+      "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketHistories",
+      "ExpectedSql": "SELECT h.TicketId, h.ChangedAt, h.FieldName FROM TicketHistories h WHERE h.ChangedAt >= DATEADD(DAY,-7,GETDATE())",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-ATTACH-count-001", "Question": "how many ticket attachments exist",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketAttachments",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM TicketAttachments",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-MIXED-active-with-tickets-001", "Question": "active users who created at least one ticket",
+      "Category": "JOI", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT DISTINCT u.UserName FROM AspNetUsers u JOIN Tickets t ON t.CreatedByUserId = u.Id WHERE u.IsActive = 1 AND t.IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-MIXED-prolific-commenters-001", "Question": "top 10 users who commented most",
+      "Category": "TOP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT TOP 10 u.UserName, COUNT(c.Id) AS CommentCount FROM AspNetUsers u JOIN TicketComments c ON c.UserId = u.Id WHERE c.IsDeleted = 0 GROUP BY u.UserName ORDER BY CommentCount DESC",
+      "ExpectedMaxRows": 10, "MaxLatencyMs": 180000 },
+
+    { "Code": "D8-OOS-recipe-001", "Question": "what is the best recipe for sourdough bread",
+      "Category": "OutOfScope", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en",
+      "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 10000,
+      "_note": "OOS — recipes are not in the schema scope. Validates recalibrated B1 floors (0.40 / 0.70)." },
+
+    { "Code": "D8-OOS-stock-001", "Question": "what's the current price of Apple stock",
+      "Category": "OutOfScope", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en",
+      "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 10000,
+      "_note": "OOS — financial markets data not in the schema scope. Validates recalibrated B1 floors." }
+  ]
+}

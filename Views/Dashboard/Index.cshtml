@@ -1,0 +1,647 @@
+@model AISupportAnalysisPlatform.Models.Common.DashboardViewModel
+
+@{
+    ViewData["Title"] = Loc.Get("Dashboard");
+    var dashboardHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("Dashboard"),
+        Subtitle = Loc.Get("AppDescription"),
+        IconClass = "bi bi-grid-1x2-fill",
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("NewTicket"),
+                Href = Url.Action("Create", "Tickets") ?? "#",
+                IconClass = "bi bi-plus-lg",
+                CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm"
+            }
+        }
+    };
+
+    var recentTicketsTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    {
+        Title = Loc.Get("RecentTickets"),
+        Subtitle = Loc.Get("RecentTicketsSubtitle") ?? "Latest inbound and in-progress work items",
+        ShowColumnSearchToggle = true,
+        ColumnSearchLabel = Loc.Get("Filter"),
+        TableSelector = "#dashboardRecentTicketsTable",
+        ToolbarChipText = Loc.Get("InteractiveGrid") ?? "Interactive Grid",
+        ToolbarChipIconClass = "bi bi-table",
+        ToolbarChipStyle = "background: rgba(var(--info-color-rgb),0.1); color: var(--info-color); border: 1px solid rgba(var(--info-color-rgb),0.22);",
+        HeaderActionText = Loc.Get("OpenQueue") ?? "Open Queue",
+        HeaderActionHref = Url.Action("Index", "Tickets"),
+        HeaderActionCssClass = "btn btn-sm btn-primary fw-bold px-3 py-2 rounded-pill",
+        TablePartialName = "~/Views/Dashboard/_RecentTicketsTable.cshtml",
+        TableModel = Model.RecentTickets,
+        ContainerCssClass = "feature-table-shell ops-card border-0 shadow-sm"
+    };
+}
+
+<style>
+    .ops-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .ops-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md) !important;
+    }
+
+    .ops-metric {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .ops-metric::after {
+        content: "";
+        position: absolute;
+        inset: @(Loc.IsRtl ? "auto auto -45% -20%" : "auto -20% -45% auto");
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        background: rgba(var(--primary-color-rgb), 0.05);
+    }
+
+    .ops-kpi-label {
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: var(--text-muted);
+    }
+
+    .ops-mini-stat {
+        background: var(--bg-main);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+    }
+
+    /* AI Intelligence Hub — themed */
+    .ai-hub-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 22px;
+        position: relative;
+        min-height: 360px;
+    }
+
+    .ai-hub-glow {
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 100% 0%, rgba(var(--primary-color-rgb), 0.18), transparent 35%),
+            radial-gradient(circle at 0% 100%, rgba(var(--info-color-rgb), 0.08), transparent 30%);
+        pointer-events: none;
+        border-radius: inherit;
+    }
+
+    .ai-hub-icon {
+        width: 56px;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(var(--primary-color-rgb), 0.12);
+        color: var(--primary-color);
+        border: 1px solid rgba(var(--primary-color-rgb), 0.22);
+        border-radius: 14px;
+        font-size: 1.6rem;
+        flex-shrink: 0;
+    }
+
+    .ai-hub-status {
+        background: rgba(var(--primary-color-rgb), 0.1);
+        color: var(--primary-color);
+        border: 1px solid rgba(var(--primary-color-rgb), 0.22);
+    }
+
+    .ai-hub-status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        box-shadow: 0 0 8px var(--primary-color);
+        display: inline-block;
+    }
+
+    .ai-hub-stat {
+        background: rgba(var(--primary-color-rgb), 0.04);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 1rem 1.1rem;
+        height: 100%;
+    }
+
+    .ai-hub-stat-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+
+    .ai-hub-stat-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--text-main);
+        line-height: 1;
+    }
+
+    .ai-hub-stat-unit {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-inline-start: 4px;
+    }
+
+    .ai-hub-trace {
+        padding: 1.25rem 1.4rem;
+        border-radius: 16px;
+        background: rgba(var(--primary-color-rgb), 0.04);
+        border: 1px solid var(--border-color);
+    }
+
+    .ai-hub-trace-kicker {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: var(--primary-color);
+    }
+
+    .execution-timeline {
+        position: relative;
+        padding-inline-start: 1.5rem;
+    }
+
+    .execution-timeline::before {
+        content: '';
+        position: absolute;
+        inset-inline-start: 5px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: linear-gradient(to bottom, var(--primary-color), transparent);
+        opacity: 0.35;
+    }
+
+    .ai-hub-trace-step {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+    .ai-hub-trace-step-last { margin-bottom: 0; }
+
+    .ai-hub-trace-dot {
+        position: absolute;
+        inset-inline-start: -1.5rem;
+        top: 6px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--bg-card);
+    }
+
+    .ai-hub-trace-label {
+        font-size: 0.65rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: 0.2rem;
+    }
+
+    .ai-hub-trace-text {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text-main);
+    }
+
+    .ai-hub-trace-code {
+        margin-top: 0.4rem;
+        padding: 0.7rem 0.9rem;
+        background: var(--bg-main);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        line-height: 1.6;
+    }
+</style>
+
+<partial name="_PageHeader" model="dashboardHeader" />
+
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="card ops-card ops-metric border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="d-flex align-items-center justify-content-center rounded-4" style="width: 50px; height: 50px; background: rgba(var(--primary-color-rgb),0.14); color: var(--primary-color);">
+                        <i class="bi bi-ticket-detailed-fill fs-4"></i>
+                    </div>
+                    <span class="badge rounded-pill px-3 py-2" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">
+                        @Model.TicketsCreatedThisWeek @Loc.Get("ThisWeek")
+                    </span>
+                </div>
+                <div class="ops-kpi-label mb-2">@Loc.Get("TotalTickets")</div>
+                <div class="display-6 fw-bold mb-2" style="color: var(--text-main) !important;">@Model.TotalTickets</div>
+                <div class="small" style="color: var(--text-muted) !important;">@Loc.Get("AcrossEntities")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card ops-card ops-metric border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="d-flex align-items-center justify-content-center rounded-4" style="width: 50px; height: 50px; background: rgba(var(--warning-color-rgb),0.12); color: var(--warning-color);">
+                        <i class="bi bi-hourglass-split fs-4"></i>
+                    </div>
+                    <span class="badge rounded-pill px-3 py-2" style="background: rgba(var(--warning-color-rgb),0.1); color: var(--warning-color); border: 1px solid rgba(var(--warning-color-rgb),0.22);">
+                        @Model.PendingTickets @Loc.Get("Pending")
+                    </span>
+                </div>
+                <div class="ops-kpi-label mb-2">@Loc.Get("OpenWorkload")</div>
+                <div class="display-6 fw-bold mb-2" style="color: var(--text-main) !important;">@Model.OpenTickets</div>
+                <div class="small" style="color: var(--text-muted) !important;">@Loc.Get("ActiveTicketsSubtitle")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card ops-card ops-metric border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="d-flex align-items-center justify-content-center rounded-4" style="width: 50px; height: 50px; background: rgba(var(--info-color-rgb),0.12); color: var(--info-color);">
+                        <i class="bi bi-check2-circle fs-4"></i>
+                    </div>
+                    <span class="badge rounded-pill px-3 py-2" style="background: rgba(var(--info-color-rgb),0.1); color: var(--info-color); border: 1px solid rgba(var(--info-color-rgb),0.22);">
+                        @Model.ResolutionRatePercent% @Loc.Get("Resolved")
+                    </span>
+                </div>
+                <div class="ops-kpi-label mb-2">@Loc.Get("ResolvedClosed")</div>
+                <div class="display-6 fw-bold mb-2" style="color: var(--text-main) !important;">@(Model.ResolvedTickets + Model.ClosedTickets)</div>
+                <div class="small" style="color: var(--text-muted) !important;">@Loc.Get("WorkloadOutcomes")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card ops-card ops-metric border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div class="d-flex align-items-center justify-content-center rounded-4" style="width: 50px; height: 50px; background: rgba(var(--danger-color-rgb),0.12); color: var(--danger-color);">
+                        <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                    </div>
+                    <span class="badge rounded-pill px-3 py-2" style="background: rgba(var(--danger-color-rgb),0.1); color: var(--danger-color); border: 1px solid rgba(var(--danger-color-rgb),0.22);">
+                        @Model.SlaRiskPercent% @Loc.Get("Risk")
+                    </span>
+                </div>
+                <div class="ops-kpi-label mb-2">@Loc.Get("SlaBreaches")</div>
+                <div class="display-6 fw-bold mb-2" style="color: var(--text-main) !important;">@Model.SlaBreachedTickets</div>
+                <div class="small" style="color: var(--text-muted) !important;">@Loc.Get("SlaBreachSubtitle")</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card ai-hub-card border-0 shadow-sm overflow-hidden animate__animated animate__fadeIn">
+            <div class="ai-hub-glow"></div>
+            <div class="card-body p-4 p-lg-5 position-relative">
+                <div class="row g-5 align-items-center">
+                    <div class="col-xl-7">
+                        <div class="d-flex align-items-center gap-3 mb-4">
+                            <div class="ai-hub-icon">
+                                <i class="bi bi-robot"></i>
+                            </div>
+                            <div>
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="pill-badge ai-hub-status">
+                                        <span class="ai-hub-status-dot"></span>
+                                        @Loc.Get("EngineOnline") Engine v2.4
+                                    </span>
+                                </div>
+                                <h2 class="fw-bold mb-1" style="color: var(--text-main); letter-spacing: -0.02em; font-size: 1.6rem;">SupportFlow Intelligence</h2>
+                                <p class="mb-0" style="color: var(--text-muted); font-size: 0.95rem;">Enterprise-grade investigative reasoning & data orchestration.</p>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="ai-hub-stat">
+                                    <div class="ai-hub-stat-label">@Loc.Get("PassRate")</div>
+                                    <div class="ai-hub-stat-value">@(Model.LatestCopilotAssessment?.SuccessRate * 100 ?? 0)%</div>
+                                    <div class="progress mt-2" style="height: 6px;">
+                                        <div class="progress-bar" role="progressbar" style="width: @(Model.LatestCopilotAssessment?.SuccessRate * 100 ?? 0)%; background: var(--primary-color);"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="ai-hub-stat">
+                                    <div class="ai-hub-stat-label">@Loc.Get("AvgLatency")</div>
+                                    <div class="ai-hub-stat-value">
+                                        @(Model.LatestCopilotAssessment?.AverageLatencyMs ?? 0)<span class="ai-hub-stat-unit">ms</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="ai-hub-stat">
+                                    <div class="ai-hub-stat-label">@Loc.Get("Scenarios")</div>
+                                    <div class="ai-hub-stat-value">@(Model.LatestCopilotAssessment?.TotalCases ?? 0)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <a asp-controller="AiAnalysis" asp-action="CopilotAssessment" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm">
+                                <i class="bi bi-rocket-takeoff-fill @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("RunLabAssessment")
+                            </a>
+                            <a asp-controller="AiAnalysis" asp-action="Copilot" class="btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold">
+                                <i class="bi bi-chat-right-text @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("OpenCopilot")
+                            </a>
+                            <a asp-controller="AiAnalysis" asp-action="Hub" class="btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold">
+                                <i class="bi bi-grid @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("AnalysisHub")
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-5">
+                        <div class="ai-hub-trace">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="ai-hub-trace-kicker">Execution Log</span>
+                                <span class="pill-badge" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">
+                                    <span class="ai-hub-status-dot"></span>LIVE TRACE
+                                </span>
+                            </div>
+
+                            <div class="execution-timeline">
+                                <div class="ai-hub-trace-step">
+                                    <div class="ai-hub-trace-dot" style="background: var(--primary-color);"></div>
+                                    <div class="ai-hub-trace-label">Query Received</div>
+                                    <div class="ai-hub-trace-text">"How many tickets were resolved this week?"</div>
+                                </div>
+                                <div class="ai-hub-trace-step">
+                                    <div class="ai-hub-trace-dot" style="background: var(--info-color);"></div>
+                                    <div class="ai-hub-trace-label">AI Planning</div>
+                                    <div class="ai-hub-trace-code">
+                                        <span style="color: var(--primary-color);">&gt;</span> INTENT: <span style="color: var(--text-main);">DataQuery</span><br/>
+                                        <span style="color: var(--primary-color);">&gt;</span> PLAN: <span style="color: var(--text-main);">Ticket.Count(ResolvedAt IN Week)</span>
+                                    </div>
+                                </div>
+                                <div class="ai-hub-trace-step ai-hub-trace-step-last">
+                                    <div class="ai-hub-trace-dot" style="background: var(--primary-color);"></div>
+                                    <div class="ai-hub-trace-label">Final Result</div>
+                                    <div class="ai-hub-trace-text" style="color: var(--primary-color); font-weight: 700;">Count: 230 tickets</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card ops-card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 p-4 pb-0 d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold mb-1" style="color: var(--text-main) !important;">@Loc.Get("IntakeTrend")</h5>
+                    <p class="small mb-0" style="color: var(--text-muted) !important;">@Loc.Get("TrendSubtitle")</p>
+                </div>
+                <span class="badge rounded-pill px-3 py-2" style="background: var(--bg-surface-alt); color: var(--text-main); border: 1px solid var(--border-color);">
+                    @Model.TicketsCreatedToday @Loc.Get("TodaySuffix")
+                </span>
+            </div>
+            <div class="card-body p-4">
+                <div style="height: 320px;">
+                    <canvas id="weeklyVolumeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card ops-card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 p-4 pb-0">
+                <h5 class="fw-bold mb-1" style="color: var(--text-main) !important;">@Loc.Get("OperationalBalance")</h5>
+                <p class="small mb-0" style="color: var(--text-muted) !important;">@Loc.Get("BalanceSubtitle")</p>
+            </div>
+            <div class="card-body p-4">
+                <div style="height: 320px;">
+                    <canvas id="statusBreakdownChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-4">
+        <div class="card ops-card border-0 shadow-sm h-100">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <div class="ops-kpi-label mb-1">@Loc.Get("Escalations")</div>
+                        <div class="fs-3 fw-bold" style="color: var(--text-main) !important;">@Model.EscalatedTickets</div>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-center rounded-4" style="width: 48px; height: 48px; background: rgba(var(--info-color-rgb),0.12); color: var(--info-color);">
+                        <i class="bi bi-diagram-3-fill fs-4"></i>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="ops-mini-stat p-3 h-100">
+                            <div class="ops-kpi-label mb-2">@Loc.Get("HighPriority")</div>
+                            <div class="fw-bold fs-4" style="color: var(--text-main) !important;">@Model.HighPriorityTickets</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="ops-mini-stat p-3 h-100">
+                            <div class="ops-kpi-label mb-2">@Loc.Get("Closed")</div>
+                            <div class="fw-bold fs-4" style="color: var(--text-main) !important;">@Model.ClosedTickets</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 small" style="color: var(--text-muted) !important;">
+                    @Loc.Get("OperationalPressureNote")
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card ops-card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 p-4 pb-0">
+                <h5 class="fw-bold mb-1" style="color: var(--text-main) !important;">@Loc.Get("TopProductAreas")</h5>
+                <p class="small mb-0" style="color: var(--text-muted) !important;">@Loc.Get("ProductAreasSubtitle")</p>
+            </div>
+            <div class="card-body p-4">
+                <div style="height: 280px;">
+                    <canvas id="productAreaChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card ops-card border-0 shadow-sm h-100">
+            <div class="card-header bg-transparent border-0 p-4 pb-0">
+                <h5 class="fw-bold mb-1" style="color: var(--text-main) !important;">@Loc.Get("ChannelMix")</h5>
+                <p class="small mb-0" style="color: var(--text-muted) !important;">@Loc.Get("ChannelMixSubtitle")</p>
+            </div>
+            <div class="card-body p-4">
+                <div style="height: 280px;">
+                    <canvas id="sourceBreakdownChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="recentTicketsTable" />
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const isRtl = @(Loc.IsRtl.ToString().ToLower());
+        const statusData = @Html.Raw(Json.Serialize(Model.StatusBreakdown));
+        const sourceData = @Html.Raw(Json.Serialize(Model.SourceBreakdown));
+        const weeklyVolume = @Html.Raw(Json.Serialize(Model.WeeklyVolume));
+        const productAreaData = @Html.Raw(Json.Serialize(Model.ProductAreas));
+
+        const rootStyle = getComputedStyle(document.body);
+        const primaryCol = rootStyle.getPropertyValue('--primary-color').trim();
+        const mainText = rootStyle.getPropertyValue('--text-main').trim();
+        const mutedText = rootStyle.getPropertyValue('--text-muted').trim();
+        const borderCol = rootStyle.getPropertyValue('--border-color').trim();
+
+        Chart.defaults.font.family = isRtl ? "'Noto Sans Arabic', sans-serif" : "'Outfit', sans-serif";
+        Chart.defaults.color = mutedText;
+
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            rtl: isRtl,
+            plugins: {
+                legend: {
+                    rtl: isRtl,
+                    labels: {
+                        color: mainText,
+                        usePointStyle: true,
+                        padding: 18
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    reverse: isRtl,
+                    ticks: { color: mainText },
+                    grid: { display: false }
+                },
+                y: {
+                    position: isRtl ? 'right' : 'left',
+                    beginAtZero: true,
+                    ticks: { color: mutedText },
+                    grid: { color: borderCol }
+                }
+            }
+        };
+
+        new Chart(document.getElementById('weeklyVolumeChart'), {
+            type: 'line',
+            data: {
+                labels: weeklyVolume.map(item => item.label),
+                datasets: [{
+                    label: isRtl ? 'التذاكر المنشأة' : 'Tickets Created',
+                    data: weeklyVolume.map(item => item.value),
+                    borderColor: primaryCol,
+                    backgroundColor: `${primaryCol}22`,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: primaryCol,
+                    pointRadius: 4
+                }]
+            },
+            options: commonOptions
+        });
+
+        new Chart(document.getElementById('statusBreakdownChart'), {
+            type: 'doughnut',
+            data: {
+                labels: statusData.map(item => item.label),
+                datasets: [{
+                    data: statusData.map(item => item.value),
+                    backgroundColor: [primaryCol, '#f59e0b', '#3b82f6', '#a855f7', '#10b981', '#71717a', '#ef4444'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '72%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        rtl: isRtl,
+                        labels: {
+                            color: mainText,
+                            usePointStyle: true,
+                            padding: 16
+                        }
+                    }
+                }
+            }
+        });
+
+        new Chart(document.getElementById('productAreaChart'), {
+            type: 'bar',
+            data: {
+                labels: productAreaData.map(item => item.label),
+                datasets: [{
+                    label: isRtl ? 'التذاكر' : 'Tickets',
+                    data: productAreaData.map(item => item.value),
+                    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#ef4444'],
+                    borderRadius: 10
+                }]
+            },
+            options: {
+                ...commonOptions,
+                indexAxis: 'y'
+            }
+        });
+
+        new Chart(document.getElementById('sourceBreakdownChart'), {
+            type: 'polarArea',
+            data: {
+                labels: sourceData.map(item => item.label),
+                datasets: [{
+                    data: sourceData.map(item => item.value),
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#a855f7', '#ef4444']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        rtl: isRtl,
+                        labels: {
+                            color: mainText,
+                            usePointStyle: true,
+                            padding: 16
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        grid: { color: borderCol },
+                        ticks: { display: false }
+                    }
+                }
+            }
+        });
+    </script>
+}

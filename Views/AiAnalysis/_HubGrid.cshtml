@@ -1,0 +1,17 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
+@{
+    var hubTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    {
+        Title = Loc.Get("TicketAnalysisQueue"),
+        Subtitle = Loc.Get("ManageAiAnalysisQueue"),
+        TableSelector = "#aiHubTicketsTable",
+        TablePartialName = "~/Views/AiAnalysis/_HubTable.cshtml",
+        TableModel = Model,
+        PaginationModel = Model,
+        ShowColumnSearchToggle = true,
+        ColumnSearchLabel = Loc.Get("Filter"),
+        ContainerCssClass = "feature-table-shell shadow-sm"
+    };
+}
+
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="hubTable" />

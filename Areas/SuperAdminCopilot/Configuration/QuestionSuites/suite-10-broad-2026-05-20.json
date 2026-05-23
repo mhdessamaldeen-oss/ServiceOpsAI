@@ -1,0 +1,322 @@
+{
+  "name": "Suite 10 — Broad architectural baseline (100 unique cases)",
+  "version": "1.0",
+  "description": "100 unique questions spanning every canonical SQL shape + conversation + tool + OOS. Used as the head-to-head benchmark: first run on qwen2.5-coder:7b (baseline), then on copilot-nl2sql:latest (fine-tune). ExpectedSql verified against the actual AISupportAnalysisDB schema before runtime.",
+  "Scenarios": [
+
+    { "Code": "S10-SEL-001", "Question": "list all ticket numbers", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber FROM Tickets t WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-SEL-002", "Question": "show me all user names", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT UserName FROM AspNetUsers", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-SEL-003", "Question": "give me all user emails", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT Email FROM AspNetUsers", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-SEL-004", "Question": "list all role names", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetRoles",
+      "ExpectedSql": "SELECT Name FROM AspNetRoles", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-SEL-005", "Question": "list ticket categories", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT Name FROM TicketCategories", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-SEL-006", "Question": "show me the ticket sources", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketSources",
+      "ExpectedSql": "SELECT Name FROM TicketSources", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-SEL-007", "Question": "list ticket priorities", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketPriorities",
+      "ExpectedSql": "SELECT Name FROM TicketPriorities", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-SEL-008", "Question": "list ticket statuses", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketStatuses",
+      "ExpectedSql": "SELECT Name FROM TicketStatuses", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-SEL-009", "Question": "show all entities", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT Name FROM Entitys", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-SEL-010", "Question": "show me all ticket titles", "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.Title FROM Tickets t WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-CNT-001", "Question": "how many tickets in total", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-CNT-002", "Question": "how many users do we have", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM AspNetUsers", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-CNT-003", "Question": "how many roles exist", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetRoles",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM AspNetRoles", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-CNT-004", "Question": "count of categories", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM TicketCategories", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-CNT-005", "Question": "how many active users", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM AspNetUsers WHERE IsActive = 1", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-CNT-006", "Question": "how many active entities", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Entitys WHERE IsActive = 1", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-CNT-007", "Question": "how many open tickets", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-CNT-008", "Question": "how many closed tickets", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Closed' AND t.IsDeleted = 0", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-CNT-009", "Question": "how many ticket attachments", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketAttachments",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM TicketAttachments", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-CNT-010", "Question": "how many comments do we have", "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketComments",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM TicketComments", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-AGG-avg-001", "Question": "average resolution time in days", "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT AVG(CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) AS AvgResolutionDays FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-AGG-max-001", "Question": "latest ticket creation date", "Category": "AGG", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT MAX(CreatedAt) AS Latest FROM Tickets WHERE IsDeleted = 0", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-AGG-min-001", "Question": "earliest ticket creation date", "Category": "AGG", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT MIN(CreatedAt) AS Earliest FROM Tickets WHERE IsDeleted = 0", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-AGG-max-002", "Question": "largest attachment file size", "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketAttachments",
+      "ExpectedSql": "SELECT MAX(FileSize) AS MaxSize FROM TicketAttachments", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-AGG-sum-001", "Question": "total attachment storage in bytes", "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketAttachments",
+      "ExpectedSql": "SELECT SUM(FileSize) AS TotalBytes FROM TicketAttachments", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-AGG-avg-002", "Question": "average file size of attachments", "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketAttachments",
+      "ExpectedSql": "SELECT AVG(CAST(FileSize AS FLOAT)) AS AvgSize FROM TicketAttachments", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-AGG-min-002", "Question": "earliest resolved ticket date", "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT MIN(ResolvedAt) AS EarliestResolved FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-AGG-max-003", "Question": "most recent comment date", "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketComments",
+      "ExpectedSql": "SELECT MAX(CreatedAt) AS LatestComment FROM TicketComments", "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-FLT-eq-001", "Question": "tickets with critical priority", "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name = 'Critical' AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-eq-002", "Question": "tickets with high priority", "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name = 'High' AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-in-001", "Question": "tickets with critical or high priority", "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name IN ('Critical','High') AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-like-001", "Question": "tickets where title contains login", "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE '%login%' AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-date-001", "Question": "tickets created in the last 7 days", "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt >= DATEADD(DAY,-7,GETDATE()) AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-date-002", "Question": "tickets created in the last 30 days", "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt >= DATEADD(DAY,-30,GETDATE()) AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-status-001", "Question": "all open tickets", "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-status-002", "Question": "all closed tickets", "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Closed' AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-active-001", "Question": "active users only", "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT UserName, Email FROM AspNetUsers WHERE IsActive = 1", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-null-001", "Question": "tickets with no due date", "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.DueDate IS NULL AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-notnull-001", "Question": "tickets that have been resolved", "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.ResolvedAt FROM Tickets t WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-FLT-multi-001", "Question": "tickets that are open and critical", "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE s.Name = 'Open' AND p.Name = 'Critical' AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-JOIN-stat-001", "Question": "ticket numbers with their status name", "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, s.Name AS Status FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-JOIN-cat-001", "Question": "tickets with their category name", "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, c.Name AS Category FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-JOIN-src-001", "Question": "tickets with source name", "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, src.Name AS Source FROM Tickets t JOIN TicketSources src ON src.Id = t.SourceId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-JOIN-prio-001", "Question": "tickets with priority name", "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, p.Name AS Priority FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-JOIN-user-001", "Question": "tickets with creator user name", "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, u.UserName AS Creator FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-JOIN-assign-001", "Question": "tickets with assigned user", "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, u.UserName AS AssignedTo FROM Tickets t JOIN AspNetUsers u ON u.Id = t.AssignedToUserId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-JOIN-userrole-001", "Question": "users with the admin role", "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName, u.Email FROM AspNetUsers u JOIN AspNetUserRoles ur ON ur.UserId = u.Id JOIN AspNetRoles r ON r.Id = ur.RoleId WHERE r.Name = 'Admin'", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-JOIN-userrole-002", "Question": "users with their role names", "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName, r.Name AS RoleName FROM AspNetUsers u JOIN AspNetUserRoles ur ON ur.UserId = u.Id JOIN AspNetRoles r ON r.Id = ur.RoleId", "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-MJOIN-001", "Question": "ticket number with status and priority", "Category": "JOI", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, s.Name AS Status, p.Name AS Priority FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-MJOIN-002", "Question": "tickets with category and source", "Category": "JOI", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, c.Name AS Category, src.Name AS Source FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId JOIN TicketSources src ON src.Id = t.SourceId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-MJOIN-003", "Question": "ticket number, status, priority and category", "Category": "JOI", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, s.Name AS Status, p.Name AS Priority, c.Name AS Category FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-MJOIN-004", "Question": "tickets created by admin users", "Category": "JOI", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId JOIN AspNetUserRoles ur ON ur.UserId = u.Id JOIN AspNetRoles r ON r.Id = ur.RoleId WHERE r.Name = 'Admin' AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-MJOIN-005", "Question": "comment count per ticket", "Category": "JOI", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, COUNT(c.Id) AS Comments FROM Tickets t LEFT JOIN TicketComments c ON c.TicketId = t.Id WHERE t.IsDeleted = 0 GROUP BY t.TicketNumber", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-MJOIN-006", "Question": "attachment count per ticket", "Category": "JOI", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, COUNT(a.Id) AS Attachments FROM Tickets t LEFT JOIN TicketAttachments a ON a.TicketId = t.Id WHERE t.IsDeleted = 0 GROUP BY t.TicketNumber", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-MJOIN-007", "Question": "tickets with creator email", "Category": "JOI", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, u.Email FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-MJOIN-008", "Question": "full ticket details with status, priority, category and creator", "Category": "JOI", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, s.Name AS Status, p.Name AS Priority, c.Name AS Category, u.UserName AS Creator FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId JOIN TicketCategories c ON c.Id = t.CategoryId JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-ANT-001", "Question": "tickets that have no comments", "Category": "ANT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.IsDeleted = 0 AND NOT EXISTS (SELECT 1 FROM TicketComments c WHERE c.TicketId = t.Id)", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-ANT-002", "Question": "tickets with no attachments", "Category": "ANT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.IsDeleted = 0 AND NOT EXISTS (SELECT 1 FROM TicketAttachments a WHERE a.TicketId = t.Id)", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-ANT-003", "Question": "users who never created a ticket", "Category": "ANT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName FROM AspNetUsers u WHERE NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.CreatedByUserId = u.Id AND t.IsDeleted = 0)", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-ANT-004", "Question": "categories with no tickets", "Category": "ANT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT c.Name FROM TicketCategories c WHERE NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.CategoryId = c.Id AND t.IsDeleted = 0)", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-ANT-005", "Question": "sources with no tickets at all", "Category": "ANT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketSources",
+      "ExpectedSql": "SELECT src.Name FROM TicketSources src WHERE NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.SourceId = src.Id AND t.IsDeleted = 0)", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-ANT-006", "Question": "tickets that were never resolved", "Category": "ANT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.ResolvedAt IS NULL AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-GRP-001", "Question": "ticket count grouped by status", "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name AS Status, COUNT(t.Id) AS Count FROM TicketStatuses s LEFT JOIN Tickets t ON t.StatusId = s.Id AND t.IsDeleted = 0 GROUP BY s.Name ORDER BY Count DESC", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-GRP-002", "Question": "ticket count grouped by priority", "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT p.Name AS Priority, COUNT(t.Id) AS Count FROM TicketPriorities p LEFT JOIN Tickets t ON t.PriorityId = p.Id AND t.IsDeleted = 0 GROUP BY p.Name ORDER BY Count DESC", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-GRP-003", "Question": "ticket count grouped by category", "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT c.Name AS Category, COUNT(t.Id) AS Count FROM TicketCategories c LEFT JOIN Tickets t ON t.CategoryId = c.Id AND t.IsDeleted = 0 GROUP BY c.Name ORDER BY Count DESC", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-GRP-004", "Question": "ticket count grouped by source", "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT src.Name AS Source, COUNT(t.Id) AS Count FROM TicketSources src LEFT JOIN Tickets t ON t.SourceId = src.Id AND t.IsDeleted = 0 GROUP BY src.Name ORDER BY Count DESC", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-GRP-005", "Question": "tickets created per month", "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT YEAR(t.CreatedAt) AS Year, MONTH(t.CreatedAt) AS Month, COUNT(*) AS Count FROM Tickets t WHERE t.IsDeleted = 0 GROUP BY YEAR(t.CreatedAt), MONTH(t.CreatedAt) ORDER BY Year, Month", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-GRP-006", "Question": "comments per ticket grouped", "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketComments",
+      "ExpectedSql": "SELECT t.TicketNumber, COUNT(c.Id) AS CommentCount FROM Tickets t LEFT JOIN TicketComments c ON c.TicketId = t.Id WHERE t.IsDeleted = 0 GROUP BY t.TicketNumber ORDER BY CommentCount DESC", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-GRP-007", "Question": "attachments per ticket grouped", "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketAttachments",
+      "ExpectedSql": "SELECT t.TicketNumber, COUNT(a.Id) AS AttachmentCount FROM Tickets t LEFT JOIN TicketAttachments a ON a.TicketId = t.Id WHERE t.IsDeleted = 0 GROUP BY t.TicketNumber ORDER BY AttachmentCount DESC", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-GRP-008", "Question": "tickets created per user", "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName, COUNT(t.Id) AS TicketCount FROM AspNetUsers u LEFT JOIN Tickets t ON t.CreatedByUserId = u.Id AND t.IsDeleted = 0 GROUP BY u.UserName ORDER BY TicketCount DESC", "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-TOP-001", "Question": "top 5 entities by ticket volume", "Category": "TOP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT TOP 5 e.Name, COUNT(t.Id) AS TicketCount FROM Entitys e LEFT JOIN Tickets t ON t.EntityId = e.Id AND t.IsDeleted = 0 GROUP BY e.Name ORDER BY TicketCount DESC", "ExpectedMaxRows": 5, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-TOP-002", "Question": "top 10 users by ticket creation count", "Category": "TOP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT TOP 10 u.UserName, COUNT(t.Id) AS TicketCount FROM AspNetUsers u LEFT JOIN Tickets t ON t.CreatedByUserId = u.Id AND t.IsDeleted = 0 GROUP BY u.UserName ORDER BY TicketCount DESC", "ExpectedMaxRows": 10, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-TOP-003", "Question": "latest 10 tickets", "Category": "TOP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 10 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC", "ExpectedMaxRows": 10, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-TOP-004", "Question": "top 5 categories with most tickets", "Category": "TOP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT TOP 5 c.Name, COUNT(t.Id) AS TicketCount FROM TicketCategories c LEFT JOIN Tickets t ON t.CategoryId = c.Id AND t.IsDeleted = 0 GROUP BY c.Name ORDER BY TicketCount DESC", "ExpectedMaxRows": 5, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-TOP-005", "Question": "top 3 oldest open tickets", "Category": "TOP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 3 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0 ORDER BY t.CreatedAt ASC", "ExpectedMaxRows": 3, "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-TOP-006", "Question": "top 5 largest attachments", "Category": "TOP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketAttachments",
+      "ExpectedSql": "SELECT TOP 5 FileName, FileSize FROM TicketAttachments ORDER BY FileSize DESC", "ExpectedMaxRows": 5, "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-DIS-001", "Question": "distinct ticket sources used", "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT src.Name FROM Tickets t JOIN TicketSources src ON src.Id = t.SourceId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-DIS-002", "Question": "distinct priorities currently used", "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT p.Name FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-DIS-003", "Question": "distinct categories with at least one ticket", "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT c.Name FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-DIS-004", "Question": "distinct statuses currently active", "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT s.Name FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-EDGE-null-001", "Question": "tickets with no priority assigned", "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.PriorityId IS NULL AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-EDGE-null-002", "Question": "tickets with no assigned user", "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.AssignedToUserId IS NULL AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-EDGE-empty-001", "Question": "tickets resolved today", "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE CAST(t.ResolvedAt AS DATE) = CAST(GETDATE() AS DATE) AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-EDGE-having-001", "Question": "categories with more than 5 tickets", "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT c.Name, COUNT(t.Id) AS Count FROM TicketCategories c JOIN Tickets t ON t.CategoryId = c.Id WHERE t.IsDeleted = 0 GROUP BY c.Name HAVING COUNT(t.Id) > 5 ORDER BY Count DESC", "MaxLatencyMs": 300000 },
+
+    { "Code": "S10-EDGE-sla-001", "Question": "tickets that breached SLA", "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.IsSlaBreached = 1 AND t.IsDeleted = 0", "MaxLatencyMs": 300000 },
+
+
+    { "Code": "S10-CHAT-001", "Question": "hello", "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 30000 },
+
+    { "Code": "S10-CHAT-002", "Question": "thanks!", "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 30000 },
+
+    { "Code": "S10-CHAT-003", "Question": "what can you do", "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 30000 },
+
+    { "Code": "S10-CHAT-004", "Question": "hi there", "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 30000 },
+
+    { "Code": "S10-CHAT-005", "Question": "good morning", "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 30000 },
+
+
+    { "Code": "S10-TOOL-001", "Question": "what is the weather in Riyadh", "Category": "Tool", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Tool", "Language": "en", "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-TOOL-002", "Question": "convert 100 USD to EUR", "Category": "Tool", "Difficulty": "Easy", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "Tool", "Language": "en", "MaxLatencyMs": 180000,
+      "_note": "FX-rate question — the registered major_fx_snapshot tool dispatches here. ExpectedIntent=ExternalToolQuery (not Unsupported) because a real tool runs." },
+
+    { "Code": "S10-TOOL-003", "Question": "latest news about AI", "Category": "Tool", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Tool", "Language": "en", "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-TOOL-004", "Question": "current bitcoin price", "Category": "Tool", "Difficulty": "Easy", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "Tool", "Language": "en", "MaxLatencyMs": 180000,
+      "_note": "Price-lookup question — the FX tool dispatches here (closest registered match). ExpectedIntent=ExternalToolQuery." },
+
+
+    { "Code": "S10-OOS-recipe-001", "Question": "best recipe for sourdough bread", "Category": "OutOfScope", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en", "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-OOS-stock-001", "Question": "current price of Apple stock", "Category": "OutOfScope", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en", "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-OOS-movie-001", "Question": "recommend me a movie to watch", "Category": "OutOfScope", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en", "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-OOS-capital-001", "Question": "what is the capital of France", "Category": "OutOfScope", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en", "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-OOS-translate-001", "Question": "translate hello to Japanese", "Category": "OutOfScope", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en", "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-OOS-sport-001", "Question": "who won the last world cup", "Category": "OutOfScope", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en", "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 180000 }
+  ]
+}

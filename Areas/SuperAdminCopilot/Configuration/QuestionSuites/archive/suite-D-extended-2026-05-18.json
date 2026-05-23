@@ -1,0 +1,66 @@
+{
+  "name": "Suite D — Extended coverage (12 untested verified-query patterns)",
+  "version": "1.0",
+  "description": "Exercises the verified-query patterns that exist in the curated catalog but weren't in Suites A/B/C: LAG, NTILE, moving average, cumulative running total, top-N-per-group (CTE), HAVING, age-in-days, date filters, YoY/QoQ comparisons, peak-day anomaly, cohort by priority, funnel ratio.",
+  "Scenarios": [
+    { "Code": "D01-LAG", "Question": "month over month ticket creation change using lag",
+      "Category": "WIN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Month, Count, Count - LAG(Count) OVER (ORDER BY Month) AS Delta FROM (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')) m ORDER BY Month",
+      "MaxLatencyMs": 120000 },
+
+    { "Code": "D02-NTILE", "Question": "split tickets into 4 quartiles by created date",
+      "Category": "WIN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, CreatedAt, NTILE(4) OVER (ORDER BY CreatedAt, TicketNumber) AS Quartile FROM Tickets WHERE IsDeleted = 0 ORDER BY CreatedAt, TicketNumber",
+      "MaxLatencyMs": 120000 },
+
+    { "Code": "D03-MOV-AVG", "Question": "7 day rolling average of tickets created",
+      "Category": "WIN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Day, Count, AVG(CAST(Count AS FLOAT)) OVER (ORDER BY Day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS Rolling7DayAvg FROM (SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-90,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE)) d ORDER BY Day",
+      "MaxLatencyMs": 120000 },
+
+    { "Code": "D04-CUM", "Question": "cumulative count of tickets per month",
+      "Category": "CUM", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Month, MonthlyCount, SUM(MonthlyCount) OVER (ORDER BY Month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS CumulativeCount FROM (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS MonthlyCount FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')) m ORDER BY Month",
+      "MaxLatencyMs": 120000 },
+
+    { "Code": "D05-CTE-TOP-N", "Question": "using a cte rank tickets within each priority by created date and keep the first 2 per priority",
+      "Category": "MCTE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH RankedTickets AS (SELECT t.TicketNumber, p.Name AS Priority, t.CreatedAt, ROW_NUMBER() OVER (PARTITION BY t.PriorityId ORDER BY t.CreatedAt ASC) AS rn FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0) SELECT TicketNumber, Priority, CreatedAt FROM RankedTickets WHERE rn <= 2 ORDER BY Priority, CreatedAt",
+      "MaxLatencyMs": 120000 },
+
+    { "Code": "D06-HAVING", "Question": "statuses with more than 50 tickets",
+      "Category": "HAV", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY s.Name HAVING COUNT(*) > 50 ORDER BY Count DESC",
+      "MaxLatencyMs": 60000 },
+
+    { "Code": "D07-AGE", "Question": "ticket age in days for each ticket",
+      "Category": "DATE", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, DATEDIFF(DAY, CreatedAt, GETDATE()) AS AgeDays FROM Tickets WHERE IsDeleted = 0",
+      "MaxLatencyMs": 60000 },
+
+    { "Code": "D08-STALE", "Question": "tickets older than 30 days that are still open",
+      "Category": "DATE", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt, DATEDIFF(DAY, t.CreatedAt, GETDATE()) AS AgeDays FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND DATEDIFF(DAY, t.CreatedAt, GETDATE()) > 30 AND t.IsDeleted = 0",
+      "MaxLatencyMs": 60000 },
+
+    { "Code": "D09-YOY", "Question": "tickets resolved this year vs last year",
+      "Category": "PER", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT SUM(CASE WHEN YEAR(ResolvedAt) = YEAR(GETDATE()) THEN 1 ELSE 0 END) AS ThisYear, SUM(CASE WHEN YEAR(ResolvedAt) = YEAR(GETDATE())-1 THEN 1 ELSE 0 END) AS LastYear FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 60000 },
+
+    { "Code": "D10-QOQ", "Question": "compare this quarter vs last quarter tickets",
+      "Category": "PER", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT SUM(CASE WHEN DATEDIFF(QUARTER, CreatedAt, GETDATE()) = 0 THEN 1 ELSE 0 END) AS ThisQuarter, SUM(CASE WHEN DATEDIFF(QUARTER, CreatedAt, GETDATE()) = 1 THEN 1 ELSE 0 END) AS LastQuarter FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 60000 },
+
+    { "Code": "D11-PEAK", "Question": "peak day in last 30 days for ticket creation",
+      "Category": "ANM", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 1 CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-30,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE) ORDER BY Count DESC",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 60000 },
+
+    { "Code": "D12-COHORT", "Question": "average resolution by priority",
+      "Category": "COH", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT p.Name AS Priority, AVG(CAST(DATEDIFF(DAY, t.CreatedAt, t.ResolvedAt) AS FLOAT)) AS AvgResolutionDays FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY p.Name ORDER BY AvgResolutionDays DESC",
+      "MaxLatencyMs": 60000 }
+  ]
+}

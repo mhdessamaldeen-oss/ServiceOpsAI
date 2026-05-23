@@ -1,0 +1,584 @@
+{
+  "entities": [
+    {
+      "name": "Ticket",
+      "table": "Tickets",
+      "synonyms": ["ticket", "tickets", "issue", "issues", "case", "cases", "bug", "bugs", "problem", "problems", "request", "requests", "incident", "incidents", "complaint", "complaints", "report", "reports"],
+      "softDeleteColumn": "IsDeleted",
+      "softDeleteFilterValue": false,
+      "searchableColumns": ["Title", "Description", "ResolutionSummary", "RootCause"],
+      "naturalKeyColumn": "TicketNumber",
+      "naturalKeyFormat": "^[A-Za-z]{1,6}-\\d{4}-\\d{3,7}$",
+      "labelColumn": "Title",
+      "displayColumns": ["Id", "TicketNumber", "Title", "CreatedAt"],
+      "dateRoles": {
+        "created": "CreatedAt",
+        "updated": "ModifiedAt",
+        "resolved": "ResolvedAt",
+        "closed": "ClosedAt",
+        "due": "DueDate",
+        "default": "CreatedAt"
+      },
+      "suggestedFollowupTemplates": [
+        "Break down {entity} by status",
+        "Show only open {entity}",
+        "Top 5 {entity} by recent activity",
+        "Compare {entity} this week vs last week"
+      ],
+      "description": "Support ticket — the central business entity."
+    },
+    {
+      "name": "User",
+      "table": "AspNetUsers",
+      "synonyms": ["user", "users", "customer", "customers", "client", "clients", "agent", "agents", "person", "people", "account", "accounts"],
+      "softDeleteColumn": "IsDeleted",
+      "softDeleteFilterValue": false,
+      "sensitiveColumns": ["PasswordHash", "SecurityStamp", "ConcurrencyStamp", "TwoFactorEnabled", "PhoneNumberConfirmed", "EmailConfirmed", "LockoutEnd", "LockoutEnabled", "AccessFailedCount"],
+      "naturalKeyColumn": "UserName",
+      "labelColumn": "UserName",
+      "displayColumns": ["Id", "UserName", "Email"],
+      "description": "ASP.NET Identity user — covers both customers and agents."
+    },
+    {
+      "name": "TicketComment",
+      "table": "TicketComments",
+      "synonyms": ["comment", "comments", "reply", "replies", "message", "messages", "note", "notes"],
+      "labelColumn": "Content",
+      "displayColumns": ["Id", "TicketId", "Content", "CreatedAt"],
+      "dateRoles": { "created": "CreatedAt", "default": "CreatedAt" },
+      "description": "User-authored comments on tickets. The DB has no separate Messages or Conversations table — comments on tickets ARE the message/reply concept here."
+    },
+    {
+      "name": "TicketStatus",
+      "table": "TicketStatuses",
+      "synonyms": ["status", "statuses", "state", "states"],
+      "isLookup": true,
+      "labelColumn": "Name",
+      "displayColumns": ["Id", "Name"],
+      "description": "Lookup table — Open, In Progress, Resolved, Closed, etc."
+    },
+    {
+      "name": "TicketPriority",
+      "table": "TicketPriorities",
+      "synonyms": ["priority", "priorities", "urgency", "level"],
+      "isLookup": true,
+      "labelColumn": "Name",
+      "displayColumns": ["Id", "Name"],
+      "description": "Lookup table — Low, Medium, High, Critical."
+    },
+    {
+      "name": "TicketCategory",
+      "table": "TicketCategories",
+      "synonyms": ["category", "categories", "type", "types", "topic", "topics"],
+      "isLookup": true,
+      "labelColumn": "Name",
+      "displayColumns": ["Id", "Name"],
+      "description": "Lookup table — ticket subject area."
+    },
+    {
+      "name": "TicketAttachment",
+      "table": "TicketAttachments",
+      "synonyms": ["attachment", "attachments", "file", "files", "upload", "uploads", "document", "documents", "media", "image", "images", "picture", "pictures"],
+      "searchableColumns": ["FileName"],
+      "labelColumn": "FileName",
+      "displayColumns": ["Id", "TicketId", "FileName", "ContentType", "UploadedAt"],
+      "dateRoles": { "created": "UploadedAt", "uploaded": "UploadedAt", "default": "UploadedAt" },
+      "description": "Files uploaded to a ticket — has FileName, FilePath, ContentType (e.g. image/png, application/pdf), FileSize (bytes, bigint), UploadedByUserId, UploadedAt, optional CommentId. Use FileSize for 'larger than X MB' filters (1 MB = 1048576 bytes); use ContentType for grouping by media kind."
+    },
+    {
+      "name": "TicketAiAnalysis",
+      "table": "TicketAiAnalyses",
+      "synonyms": ["ai analysis", "ai analyses", "analysis", "analyses", "ai", "model output", "classification", "ai classification", "ai suggestion", "ml output"],
+      "searchableColumns": ["Summary", "KeyClues", "NextStepSuggestion"],
+      "sensitiveColumns": ["DiagnosticMetadata"],
+      "labelColumn": "Summary",
+      "displayColumns": ["Id", "TicketId", "AnalysisStatus", "ConfidenceLevel", "ModelName", "CreatedOn"],
+      "dateRoles": { "created": "CreatedOn", "default": "CreatedOn" },
+      "description": "AI-produced analyses of tickets — has Summary, SuggestedClassification, SuggestedPriority, ConfidenceLevel (Low/Medium/High/Critical, nvarchar), ModelName (e.g. 'qwen2.5:3b'), ProcessingDurationMs (bigint), AnalysisStatus, RunNumber. Group by ConfidenceLevel / ModelName / AnalysisStatus for distribution questions; use ProcessingDurationMs for latency questions."
+    },
+    {
+      "name": "Role",
+      "table": "AspNetRoles",
+      "synonyms": ["role", "roles", "permission", "permissions", "group", "groups", "user role", "user roles", "access level", "access levels"],
+      "isLookup": true,
+      "labelColumn": "Name",
+      "displayColumns": ["Id", "Name"],
+      "description": "ASP.NET Identity role — columns are Id (string PK), Name, NormalizedName, ConcurrencyStamp. Use Name when grouping or filtering by role (e.g. 'Admin', 'Agent', 'Customer'). Use AspNetUserRoles as the bridge to count users per role."
+    },
+    {
+      "name": "UserRole",
+      "table": "AspNetUserRoles",
+      "synonyms": ["user role assignment", "user role assignments", "user-role link", "role membership", "role assignment", "role assignments", "membership", "memberships"],
+      "isLookup": true,
+      "description": "Many-to-many bridge between AspNetUsers and AspNetRoles. Columns: UserId (FK → AspNetUsers.Id), RoleId (FK → AspNetRoles.Id). Use this to count users per role: SELECT r.Name, COUNT(*) FROM AspNetUserRoles ur JOIN AspNetRoles r ON r.Id = ur.RoleId GROUP BY r.Name."
+    }
+  ],
+
+  "metrics": [
+    {
+      "name": "open_ticket_count",
+      "expression": "COUNT(*)",
+      "filters": [{ "column": "TicketStatuses.Name", "op": "eq", "value": "Open" }],
+      "synonyms": ["open ticket count", "number of open tickets", "count of open tickets"],
+      "description": "Number of tickets in the Open status."
+    },
+    {
+      "name": "closed_ticket_count",
+      "expression": "COUNT(*)",
+      "filters": [{ "column": "TicketStatuses.Name", "op": "eq", "value": "Closed" }],
+      "synonyms": ["closed ticket count", "number of closed tickets"],
+      "description": "Number of tickets in the Closed status."
+    },
+    {
+      "name": "resolved_ticket_count",
+      "expression": "COUNT(*)",
+      "filters": [{ "column": "TicketStatuses.Name", "op": "eq", "value": "Resolved" }],
+      "synonyms": ["resolved ticket count", "number of resolved tickets"],
+      "description": "Number of tickets in the Resolved status."
+    },
+    {
+      "name": "ticket_count",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["ticket count", "total tickets", "how many tickets"],
+      "description": "Total number of tickets."
+    },
+    {
+      "name": "avg_resolution_hours",
+      "expression": "AVG(CAST(DATEDIFF(hour, Tickets.CreatedAt, Tickets.ResolvedAt) AS FLOAT))",
+      "filters": [{ "column": "Tickets.ResolvedAt", "op": "notnull", "value": null }],
+      "synonyms": ["resolution time", "average resolution time", "mean resolve time", "time to resolution", "average fix time", "average issue fix time", "how long does it take to fix an issue on average", "how long does it take to resolve an issue on average"],
+      "description": "Average hours from ticket creation to resolution. Skips unresolved tickets."
+    },
+    {
+      "name": "avg_ticket_age_days",
+      "expression": "AVG(CAST(DATEDIFF(day, Tickets.CreatedAt, GETDATE()) AS FLOAT))",
+      "filters": [],
+      "synonyms": ["average ticket age", "average ticket age in days", "avg ticket age", "mean ticket age", "average age of tickets", "ticket age in days"],
+      "description": "Average age of tickets in days from CreatedAt until now."
+    },
+    {
+      "name": "tickets_per_category",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["tickets per category", "category ticket count", "ticket count by category"],
+      "description": "Used with groupBy=[TicketCategories.Name] to count tickets per category. Reach for this when the user asks 'Categories with at least N tickets' / 'tickets per category' — root MUST be Tickets, not TicketCategories."
+    },
+    {
+      "name": "tickets_per_priority",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["tickets per priority", "priority ticket count", "ticket count by priority"],
+      "description": "Used with groupBy=[TicketPriorities.Name]. Reach for this when the user asks 'Priorities with N tickets' / 'tickets per priority' — root MUST be Tickets, not TicketPriorities."
+    },
+    {
+      "name": "tickets_per_status",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["tickets per status", "status ticket count", "ticket count by status"],
+      "description": "Used with groupBy=[TicketStatuses.Name]. Reach for this when the user asks 'Statuses with more than N tickets' / 'tickets per status' — root MUST be Tickets, not TicketStatuses."
+    },
+
+    {
+      "name": "attachment_count",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["attachment count", "number of attachments", "how many attachments", "total attachments", "total uploads"],
+      "description": "Total count of TicketAttachments. Root must be TicketAttachments."
+    },
+    {
+      "name": "large_attachment_count",
+      "expression": "COUNT(*)",
+      "filters": [{ "column": "TicketAttachments.FileSize", "op": "gt", "value": 1048576 }],
+      "synonyms": ["large attachments", "big attachments", "attachments larger than 1 mb", "files over 1 mb"],
+      "description": "Count of attachments larger than 1 MB (FileSize > 1,048,576 bytes). Root must be TicketAttachments."
+    },
+    {
+      "name": "total_attachment_size_mb",
+      "expression": "SUM(CAST(TicketAttachments.FileSize AS FLOAT)) / 1048576.0",
+      "filters": [],
+      "synonyms": ["total attachment size", "total file size", "total upload size in mb", "sum of attachment sizes"],
+      "description": "Sum of all attachment FileSize in megabytes. Root must be TicketAttachments."
+    },
+    {
+      "name": "avg_attachment_size_kb",
+      "expression": "AVG(CAST(TicketAttachments.FileSize AS FLOAT)) / 1024.0",
+      "filters": [],
+      "synonyms": ["average attachment size", "avg file size", "mean attachment size kb"],
+      "description": "Average attachment FileSize in kilobytes. Root must be TicketAttachments."
+    },
+    {
+      "name": "max_attachment_size_mb",
+      "expression": "MAX(CAST(TicketAttachments.FileSize AS FLOAT)) / 1048576.0",
+      "filters": [],
+      "synonyms": ["largest attachment", "biggest file", "max attachment size"],
+      "description": "Size of the single largest attachment in MB. Root must be TicketAttachments."
+    },
+    {
+      "name": "attachments_per_content_type",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["attachments per content type", "files by content type", "file count by mime type", "uploads per type"],
+      "description": "Used with groupBy=[TicketAttachments.ContentType]. Root must be TicketAttachments — count attachments per MIME content type."
+    },
+
+    {
+      "name": "ai_analysis_count",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["ai analysis count", "number of analyses", "how many ai analyses", "total analyses"],
+      "description": "Total count of TicketAiAnalyses rows. Root must be TicketAiAnalyses."
+    },
+    {
+      "name": "successful_ai_analysis_count",
+      "expression": "COUNT(*)",
+      "filters": [{ "column": "TicketAiAnalyses.AnalysisStatus", "op": "eq", "value": "Success" }],
+      "synonyms": ["successful analyses", "ai analyses that succeeded", "completed analyses count"],
+      "description": "Count of AI analyses where AnalysisStatus = 'Success'. Root must be TicketAiAnalyses."
+    },
+    {
+      "name": "failed_ai_analysis_count",
+      "expression": "COUNT(*)",
+      "filters": [{ "column": "TicketAiAnalyses.AnalysisStatus", "op": "eq", "value": "Failed" }],
+      "synonyms": ["failed analyses", "ai analyses that failed", "broken analyses"],
+      "description": "Count of AI analyses where AnalysisStatus = 'Failed'. Root must be TicketAiAnalyses."
+    },
+    {
+      "name": "avg_ai_processing_ms",
+      "expression": "AVG(CAST(TicketAiAnalyses.ProcessingDurationMs AS FLOAT))",
+      "filters": [],
+      "synonyms": ["average ai processing time", "avg analysis duration", "mean processing duration", "average processing time of ai analyses"],
+      "description": "Mean ProcessingDurationMs across all AI analyses (milliseconds). Root must be TicketAiAnalyses."
+    },
+    {
+      "name": "max_ai_processing_ms",
+      "expression": "MAX(TicketAiAnalyses.ProcessingDurationMs)",
+      "filters": [],
+      "synonyms": ["maximum ai processing time", "longest analysis", "slowest analysis duration", "maximum processing duration across ai analyses"],
+      "description": "Largest ProcessingDurationMs (slowest run) in milliseconds. Root must be TicketAiAnalyses."
+    },
+    {
+      "name": "analyses_per_confidence_level",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["analyses per confidence level", "ai analyses by confidence level", "confidence breakdown", "confidence distribution"],
+      "description": "Used with groupBy=[TicketAiAnalyses.ConfidenceLevel]. Root must be TicketAiAnalyses — count analyses bucketed by Low / Medium / High / Critical."
+    },
+    {
+      "name": "analyses_per_model",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["analyses per model", "ai analyses by model", "analyses by model name"],
+      "description": "Used with groupBy=[TicketAiAnalyses.ModelName]. Root must be TicketAiAnalyses — count runs per LLM model."
+    },
+    {
+      "name": "high_confidence_analysis_count",
+      "expression": "COUNT(*)",
+      "filters": [{ "column": "TicketAiAnalyses.ConfidenceLevel", "op": "in", "value": ["High", "Critical"] }],
+      "synonyms": ["high confidence analyses", "high confidence ai count"],
+      "description": "Count of AI analyses with ConfidenceLevel in {High, Critical}. Root must be TicketAiAnalyses."
+    },
+
+    {
+      "name": "role_count",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["role count", "number of roles", "how many roles", "total roles", "count of roles"],
+      "description": "Total number of rows in AspNetRoles. Root must be AspNetRoles."
+    },
+    {
+      "name": "user_count",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["user count", "number of users", "how many users", "total users", "count of users", "count of customers", "count of agents"],
+      "description": "Total number of rows in AspNetUsers. Root must be AspNetUsers."
+    },
+    {
+      "name": "users_per_role",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["users per role", "user count per role", "how many users per role", "count users by role", "user count by role", "members per role"],
+      "description": "Used with groupBy=[AspNetRoles.Name]. Root MUST be AspNetUserRoles, joined to AspNetRoles. Counts how many user assignments exist for each role name — answers 'how many users for each role'."
+    }
+  ],
+
+  "dimensions": [
+    {
+      "name": "status",
+      "column": "TicketStatuses.Name",
+      "synonyms": ["status", "state", "ticket state"],
+      "description": "Ticket status name (joined from TicketStatuses)."
+    },
+    {
+      "name": "priority",
+      "column": "TicketPriorities.Name",
+      "synonyms": ["priority", "urgency", "priority level"],
+      "description": "Ticket priority name (joined from TicketPriorities)."
+    },
+    {
+      "name": "category",
+      "column": "TicketCategories.Name",
+      "synonyms": ["category", "type", "topic"],
+      "description": "Ticket category name (joined from TicketCategories)."
+    },
+    {
+      "name": "ticket_age_days",
+      "expression": "DATEDIFF(day, Tickets.CreatedAt, GETDATE())",
+      "synonyms": ["age", "ticket age", "days open", "days since opened"],
+      "description": "Days between ticket creation and now."
+    },
+    {
+      "name": "ticket_age_hours",
+      "expression": "DATEDIFF(hour, Tickets.CreatedAt, GETDATE())",
+      "synonyms": ["age in hours", "hours open", "hours since opened"],
+      "description": "Hours between ticket creation and now."
+    },
+    {
+      "name": "created_month",
+      "expression": "DATEFROMPARTS(YEAR(Tickets.CreatedAt), MONTH(Tickets.CreatedAt), 1)",
+      "synonyms": ["month created", "creation month", "by month"],
+      "description": "Calendar month bucket for the CreatedAt column."
+    },
+
+    {
+      "name": "content_type",
+      "column": "TicketAttachments.ContentType",
+      "synonyms": ["content type", "mime type", "file type", "media type", "type of file"],
+      "description": "MIME content type of the attachment (e.g. image/png, application/pdf, application/zip). Use as groupBy when bucketing attachments by media kind."
+    },
+    {
+      "name": "attachment_size_mb",
+      "expression": "CAST(TicketAttachments.FileSize AS FLOAT) / 1048576.0",
+      "synonyms": ["file size in mb", "attachment size mb", "size in megabytes"],
+      "description": "Per-row attachment FileSize converted to megabytes (FLOAT). Use in select/orderBy when the user wants 'size in MB' shown on each row."
+    },
+    {
+      "name": "attachment_size_kb",
+      "expression": "CAST(TicketAttachments.FileSize AS FLOAT) / 1024.0",
+      "synonyms": ["file size in kb", "attachment size kb", "size in kilobytes"],
+      "description": "Per-row attachment FileSize converted to kilobytes (FLOAT)."
+    },
+    {
+      "name": "attachment_uploaded_month",
+      "expression": "DATEFROMPARTS(YEAR(TicketAttachments.UploadedAt), MONTH(TicketAttachments.UploadedAt), 1)",
+      "synonyms": ["upload month", "month uploaded", "uploaded month"],
+      "description": "Calendar month bucket for TicketAttachments.UploadedAt."
+    },
+
+    {
+      "name": "confidence_level",
+      "column": "TicketAiAnalyses.ConfidenceLevel",
+      "synonyms": ["confidence level", "confidence", "ai confidence", "confidence bucket"],
+      "description": "AI analysis confidence (Low / Medium / High / Critical, nvarchar). Use as groupBy for distribution questions."
+    },
+    {
+      "name": "analysis_model",
+      "column": "TicketAiAnalyses.ModelName",
+      "synonyms": ["ai model", "analysis model", "model name", "llm model"],
+      "description": "Name of the LLM that produced the analysis (e.g. 'qwen2.5:3b'). Use as groupBy when comparing models."
+    },
+    {
+      "name": "analysis_status",
+      "column": "TicketAiAnalyses.AnalysisStatus",
+      "synonyms": ["analysis status", "ai status", "ai analysis status", "outcome"],
+      "description": "Outcome of the AI analysis run (Success / Failed / Pending / Processing)."
+    },
+    {
+      "name": "ai_processing_seconds",
+      "expression": "CAST(TicketAiAnalyses.ProcessingDurationMs AS FLOAT) / 1000.0",
+      "synonyms": ["processing time in seconds", "duration seconds", "ai processing seconds"],
+      "description": "Per-row ProcessingDurationMs converted to seconds (FLOAT)."
+    },
+    {
+      "name": "analysis_created_month",
+      "expression": "DATEFROMPARTS(YEAR(TicketAiAnalyses.CreatedOn), MONTH(TicketAiAnalyses.CreatedOn), 1)",
+      "synonyms": ["analysis month", "month analyzed", "ai created month"],
+      "description": "Calendar month bucket for TicketAiAnalyses.CreatedOn."
+    },
+
+    {
+      "name": "role_name",
+      "column": "AspNetRoles.Name",
+      "synonyms": ["role", "role name", "user role", "group name", "permission name"],
+      "description": "Role name from AspNetRoles (e.g. 'Admin', 'Agent', 'Customer'). Use as groupBy when bucketing users by their role assignment."
+    }
+  ],
+
+  "synonyms": [
+    {
+      "canonical": "Critical",
+      "type": "value",
+      "context": "TicketPriorities.Name",
+      "aliases": ["critical", "urgent", "asap", "p0", "top priority", "highest priority", "emergency"]
+    },
+    {
+      "canonical": "High",
+      "type": "value",
+      "context": "TicketPriorities.Name",
+      "aliases": ["high", "important", "p1", "high priority"]
+    },
+    {
+      "canonical": "Medium",
+      "type": "value",
+      "context": "TicketPriorities.Name",
+      "aliases": ["medium", "normal", "p2", "moderate"]
+    },
+    {
+      "canonical": "Low",
+      "type": "value",
+      "context": "TicketPriorities.Name",
+      "aliases": ["low", "p3", "minor", "low priority"]
+    },
+    {
+      "canonical": "Open",
+      "type": "value",
+      "context": "TicketStatuses.Name",
+      "aliases": ["open", "new", "active", "pending"]
+    },
+    {
+      "canonical": "In Progress",
+      "type": "value",
+      "context": "TicketStatuses.Name",
+      "aliases": ["in progress", "in-progress", "ongoing", "being worked", "working"]
+    },
+    {
+      "canonical": "Resolved",
+      "type": "value",
+      "context": "TicketStatuses.Name",
+      "aliases": ["resolved", "fixed", "done", "completed"]
+    },
+    {
+      "canonical": "Closed",
+      "type": "value",
+      "context": "TicketStatuses.Name",
+      "aliases": ["closed", "shut", "archived"]
+    },
+
+    {
+      "canonical": "Critical",
+      "type": "value",
+      "context": "TicketAiAnalyses.ConfidenceLevel",
+      "aliases": ["critical confidence", "highest confidence", "very high confidence"]
+    },
+    {
+      "canonical": "High",
+      "type": "value",
+      "context": "TicketAiAnalyses.ConfidenceLevel",
+      "aliases": ["high", "high confidence", "strong confidence", "confident"]
+    },
+    {
+      "canonical": "Medium",
+      "type": "value",
+      "context": "TicketAiAnalyses.ConfidenceLevel",
+      "aliases": ["medium", "medium confidence", "moderate", "moderate confidence"]
+    },
+    {
+      "canonical": "Low",
+      "type": "value",
+      "context": "TicketAiAnalyses.ConfidenceLevel",
+      "aliases": ["low", "low confidence", "weak", "weak confidence", "uncertain"]
+    },
+
+    {
+      "canonical": "Success",
+      "type": "value",
+      "context": "TicketAiAnalyses.AnalysisStatus",
+      "aliases": ["success", "successful", "ok", "completed", "succeeded"]
+    },
+    {
+      "canonical": "Failed",
+      "type": "value",
+      "context": "TicketAiAnalyses.AnalysisStatus",
+      "aliases": ["failed", "failure", "error", "errored", "broken"]
+    },
+    {
+      "canonical": "Pending",
+      "type": "value",
+      "context": "TicketAiAnalyses.AnalysisStatus",
+      "aliases": ["pending", "queued", "waiting", "not started"]
+    },
+    {
+      "canonical": "Processing",
+      "type": "value",
+      "context": "TicketAiAnalyses.AnalysisStatus",
+      "aliases": ["processing", "in progress", "running", "executing"]
+    }
+  ],
+
+  "conceptPatterns": [
+    {
+      "triggers": ["unattended", "unassigned", "no assignee", "nobody assigned", "not assigned", "without assignee"],
+      "meaning": "tickets with no assigned user (AssignedToUserId IS NULL)",
+      "filters": [
+        { "column": "Tickets.AssignedToUserId", "op": "isnull" }
+      ]
+    },
+    {
+      "triggers": ["stale", "aging", "lingering", "stuck", "sitting", "idle"],
+      "meaning": "open tickets older than 7 days — not yet resolved",
+      "filters": [
+        { "column": "TicketStatuses.Name", "op": "neq", "value": "Closed" },
+        { "column": "Tickets.ResolvedAt", "op": "isnull" }
+      ]
+    },
+    {
+      "triggers": ["overdue", "past due", "late", "missed deadline", "expired deadline"],
+      "meaning": "tickets past their due date and still unresolved",
+      "filters": [
+        { "column": "Tickets.DueDate", "op": "lt", "value": "@today" },
+        { "column": "Tickets.ResolvedAt", "op": "isnull" }
+      ]
+    },
+    {
+      "triggers": ["backlog", "queue", "pending work", "work queue", "outstanding"],
+      "meaning": "tickets in Open or In Progress status",
+      "filters": [
+        { "column": "TicketStatuses.Name", "op": "in", "value": ["Open", "In Progress"] }
+      ]
+    },
+    {
+      "triggers": ["workload", "load", "burden", "capacity", "case load", "caseload"],
+      "meaning": "count of tickets per user/agent — measures individual workload",
+      "metric": "ticket_count",
+      "impliedGroupBy": "AssignedToUserId",
+      "queryShape": "aggregate"
+    },
+    {
+      "triggers": ["busiest", "most active", "highest volume", "heaviest"],
+      "meaning": "entity with the highest ticket count",
+      "metric": "ticket_count",
+      "queryShape": "topN",
+      "orderDirection": "desc"
+    },
+    {
+      "triggers": ["quietest", "least active", "lowest volume", "lightest"],
+      "meaning": "entity with the fewest tickets",
+      "metric": "ticket_count",
+      "queryShape": "topN",
+      "orderDirection": "asc"
+    },
+    {
+      "triggers": ["reopened", "re-opened", "bounced back", "regressed"],
+      "meaning": "tickets that were resolved but moved back to open",
+      "filters": [
+        { "column": "TicketStatuses.Name", "op": "eq", "value": "Open" },
+        { "column": "Tickets.ResolvedAt", "op": "notnull" }
+      ]
+    },
+    {
+      "triggers": ["first response pending", "awaiting first response", "unanswered", "no reply", "no response"],
+      "meaning": "tickets with zero comments — no one has responded yet. Use LEFT JOIN TicketComments ON Tickets.Id = TicketComments.TicketId WHERE TicketComments.Id IS NULL",
+      "filters": [
+        { "column": "TicketComments.Id", "op": "isnull" }
+      ],
+      "queryShape": "list"
+    },
+    {
+      "triggers": ["heavy attachments", "large files", "big uploads", "oversized"],
+      "meaning": "tickets with attachments larger than 1 MB",
+      "filters": [
+        { "column": "TicketAttachments.FileSize", "op": "gt", "value": 1048576 }
+      ]
+    }
+  ]
+}

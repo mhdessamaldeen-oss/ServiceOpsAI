@@ -1,0 +1,4537 @@
+/* =========================================================================
+   GROUNDED COPILOT - PROFESSIONAL DESIGN SYSTEM
+   ========================================================================= */
+
+.copilot-card {
+    background: var(--surface-soft);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 1.5rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.copilot-shell {
+    /* Start below the global app header (.sf-header is 48px, sticky, z-1020) AND
+     * after the global sidebar (.sf-sidebar is var(--sidebar-width) wide, fixed,
+     * z-1000). Previously this used `inset-inline: 0; width: 100%;` which made
+     * the shell span the full viewport and visually cover the sidebar's brand
+     * area below the header — clipping the SupportFlow logo. Offsetting the
+     * inline-start by the sidebar width keeps the shell out of that lane in
+     * both LTR and RTL (the sidebar lives on the inline-start side in both). */
+    position: fixed;
+    top: var(--header-height, 48px);
+    inset-inline-start: var(--sidebar-width, 250px);
+    inset-inline-end: 0;
+    bottom: 0;
+    z-index: 1000; /* Lower than bootstrap modals (1050+) */
+    background: var(--bg-main);
+    display: flex;
+    flex-direction: column;
+    color: var(--text-main);
+}
+
+/* On narrow viewports the sidebar collapses to position: static (see site.css
+ * @media max-width: 991px), so the shell should reclaim the full width. */
+@media (max-width: 991.98px) {
+    .copilot-shell {
+        inset-inline-start: 0;
+    }
+}
+
+/* When the user collapses the sidebar via the header toggle, the rail shrinks
+ * to --sidebar-collapsed-width. The shell is position: fixed (not part of the
+ * .sf-wrapper margin-based layout), so the collapsed-state class on <html>
+ * doesn't reach it automatically — we have to mirror the offset here. */
+html.sidebar-collapsed .copilot-shell {
+    inset-inline-start: var(--sidebar-collapsed-width, 72px);
+}
+
+/* Conversation action footer at the bottom of the history pane.
+ * Holds status pills + action buttons (Investigation Stories / Clear current /
+ * Assessment Lab / Clear all / Exit) — used to live in a top bar above the
+ * chat, but the user wanted the chat thread to claim the full vertical space.
+ * Buttons stack to full-width within the narrow 15rem sidebar. */
+.copilot-history-actions {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border-color);
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: rgba(var(--text-main-rgb), 0.02);
+}
+
+/* The _CopilotToolbar partial outputs two flex rows; inside the sidebar footer
+ * we want each child div to flow vertically and each button to be full-width. */
+.copilot-history-actions > div {
+    display: flex !important;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin: 0 !important;
+}
+
+.copilot-history-actions .pill-badge {
+    width: 100%;
+    text-align: center;
+    font-size: 0.72rem;
+}
+
+.copilot-history-actions .btn-action,
+.copilot-history-actions .btn-action-soft,
+.copilot-history-actions .btn-action-ghost {
+    width: 100%;
+    justify-content: flex-start;
+    font-size: 0.78rem;
+    min-height: 2.1rem;
+    padding: 0.4rem 0.75rem;
+}
+
+/* Footer toolbar grouping (see _CopilotToolbar.cshtml). Each group is a
+ * column of related buttons; groups are separated by a thin divider so the
+ * "session actions" stack reads as distinct from "navigation". */
+.copilot-history-actions .copilot-toolbar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.copilot-history-actions .copilot-toolbar-divider {
+    display: block !important;          /* override the generic > div { display: flex } above */
+    height: 1px;
+    margin: 0.25rem 0;
+    background: var(--border-color);
+    opacity: 0.6;
+}
+
+/* Color variants for footer action buttons. Replace the old inline-style
+ * `style="background: rgba(...); color: ...; border-color: ..."` overrides on
+ * the Clear-all / Assessment Lab buttons so the look is themable in one place
+ * and survives RTL / dark-mode without per-button duplication. */
+.copilot-history-actions .copilot-toolbar-danger {
+    background: rgba(var(--danger-color-rgb, 220, 38, 38), 0.12) !important;
+    color: var(--danger-color) !important;
+    border-color: rgba(var(--danger-color-rgb, 220, 38, 38), 0.25) !important;
+}
+
+.copilot-history-actions .copilot-toolbar-danger:hover,
+.copilot-history-actions .copilot-toolbar-danger:focus-visible {
+    background: rgba(var(--danger-color-rgb, 220, 38, 38), 0.2) !important;
+}
+
+.copilot-history-actions .copilot-toolbar-warning {
+    background: rgba(var(--warning-color-rgb, 217, 119, 6), 0.12) !important;
+    color: var(--warning-color) !important;
+    border-color: rgba(var(--warning-color-rgb, 217, 119, 6), 0.25) !important;
+}
+
+.copilot-history-actions .copilot-toolbar-warning:hover,
+.copilot-history-actions .copilot-toolbar-warning:focus-visible {
+    background: rgba(var(--warning-color-rgb, 217, 119, 6), 0.2) !important;
+}
+
+/* Live SignalR connection indicator: a 10px dot in the history-pane header.
+ * Replaces the noisy "SignalR: Connected" / "Admin Enterprise" pill row that
+ * cluttered the footer toolbar. JS (updateSignalRStatus) toggles the
+ * -{state} modifier; the dot animates on connecting/reconnecting so the
+ * operator can tell at a glance that the link is being re-established. */
+.copilot-signalr-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    box-shadow: 0 0 0 2px rgba(var(--text-main-rgb), 0.05);
+    cursor: help;
+    flex-shrink: 0;
+}
+
+.copilot-signalr-dot-connected {
+    background: var(--success-color, #16a34a);
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.18);
+}
+
+.copilot-signalr-dot-connecting,
+.copilot-signalr-dot-reconnecting {
+    background: var(--warning-color, #d97706);
+    box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.2);
+    animation: copilot-signalr-pulse 1.4s ease-in-out infinite;
+}
+
+.copilot-signalr-dot-offline {
+    background: var(--danger-color, #dc2626);
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);
+}
+
+@keyframes copilot-signalr-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+}
+
+.copilot-shell-reporting .copilot-workspace {
+    grid-template-columns: 240px minmax(0, 1fr) minmax(420px, 460px);
+}
+
+.copilot-shell-reporting .copilot-thread {
+    padding: 1.5rem 1.25rem;
+}
+
+.copilot-shell-reporting .copilot-message {
+    max-width: min(82%, 50rem);
+}
+
+.copilot-app-header {
+    height: 4rem;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    flex-shrink: 0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.copilot-app-header .btn {
+    height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    border-radius: var(--radius-btn, 14px);
+    font-size: 0.85rem;
+    font-weight: 800;
+}
+
+.copilot-workspace {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr) 23rem;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* User-controllable pane collapse. The history pane (left) and side shell
+ * (right) each get a small floating toggle that shrinks the pane down to a
+ * narrow rail (~2.5rem) wide enough only to keep the toggle visible. The
+ * freed width is reclaimed by the middle chat column. State is persisted in
+ * localStorage by Copilot.cshtml so the user's choice survives reload. */
+.copilot-workspace.history-collapsed {
+    grid-template-columns: 2.5rem minmax(0, 1fr) 23rem;
+}
+
+.copilot-workspace.side-collapsed {
+    grid-template-columns: 15rem minmax(0, 1fr) 2.5rem;
+}
+
+.copilot-workspace.history-collapsed.side-collapsed {
+    grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem;
+}
+
+/* Reporting surface uses a different default template; mirror the collapse
+ * widths so the toggle behaves identically when copilotSurface == "reports". */
+.copilot-shell-reporting .copilot-workspace.history-collapsed {
+    grid-template-columns: 2.5rem minmax(0, 1fr) minmax(420px, 460px);
+}
+
+.copilot-shell-reporting .copilot-workspace.side-collapsed {
+    grid-template-columns: 240px minmax(0, 1fr) 2.5rem;
+}
+
+.copilot-shell-reporting .copilot-workspace.history-collapsed.side-collapsed {
+    grid-template-columns: 2.5rem minmax(0, 1fr) 2.5rem;
+}
+
+/* Anchor the floating toggle inside its pane. */
+.copilot-history-pane,
+.copilot-side-shell {
+    position: relative;
+}
+
+/* Hide every direct child of a collapsed pane EXCEPT the toggle button. The
+ * pane itself stays in the grid as a narrow rail so the toggle is reachable. */
+.copilot-workspace.history-collapsed .copilot-history-pane > *:not(.copilot-pane-toggle) {
+    display: none !important;
+}
+
+.copilot-workspace.side-collapsed .copilot-side-shell > *:not(.copilot-pane-toggle) {
+    display: none !important;
+}
+
+/* The toggle itself: a small circular pill floating at the inside edge of the
+ * pane (i.e. the edge facing the chat thread), vertically centered so it
+ * never overlaps the pane's top-row controls (e.g. the full-width "New Chat"
+ * button in the history pane). Sits above pane content via z-index so it's
+ * clickable even when the pane scrolls. */
+.copilot-pane-toggle {
+    position: absolute;
+    top: 50%;
+    z-index: 5;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    transform: translateY(-50%);
+}
+
+.copilot-pane-toggle:hover {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--primary-color);
+}
+
+.copilot-pane-toggle i {
+    font-size: 0.85rem;
+    line-height: 1;
+    transition: transform 0.2s ease;
+}
+
+/* History toggle lives on the chat-facing edge of the left pane (inline-end). */
+.copilot-pane-toggle-history {
+    inset-inline-end: 0.4rem;
+}
+
+/* Side toggle lives on the chat-facing edge of the right pane (inline-start). */
+.copilot-pane-toggle-side {
+    inset-inline-start: 0.4rem;
+}
+
+/* When collapsed, center the toggle horizontally inside its narrow rail and
+ * flip the chevron so the arrow points toward the chat (the expand direction).
+ * The translateY(-50%) preserves the vertical centering established by the
+ * base rule (top: 50%). */
+.copilot-workspace.history-collapsed .copilot-pane-toggle-history {
+    inset-inline-end: 50%;
+    transform: translate(50%, -50%);
+}
+
+.copilot-workspace.side-collapsed .copilot-pane-toggle-side {
+    inset-inline-start: 50%;
+    transform: translate(-50%, -50%);
+}
+
+[dir="rtl"] .copilot-workspace.history-collapsed .copilot-pane-toggle-history {
+    transform: translate(-50%, -50%);
+}
+
+[dir="rtl"] .copilot-workspace.side-collapsed .copilot-pane-toggle-side {
+    transform: translate(50%, -50%);
+}
+
+/* On narrow viewports the workspace already stacks to one column (see the
+ * max-width: 991.98px block further down), so a per-pane collapse toggle is
+ * meaningless there — hide the buttons. The history pane is already hidden
+ * at max-width: 1399.98px, so its toggle disappears with the parent without
+ * needing an extra rule. */
+@media (max-width: 991.98px) {
+    .copilot-pane-toggle {
+        display: none;
+    }
+}
+
+.copilot-workspace.history-collapsed .copilot-pane-toggle-history i,
+.copilot-workspace.side-collapsed .copilot-pane-toggle-side i {
+    transform: rotate(180deg);
+}
+
+/* In RTL the chevron icons themselves are mirrored by the layout, so the
+ * inline rotation above already produces the correct visual direction.
+ * The default (expanded) icons (chevron-double-left for history, -right for
+ * side) point outward in LTR and naturally flip in RTL via Bootstrap Icons'
+ * direction-aware rendering — no additional override needed here. */
+
+.copilot-history-pane {
+    background: rgba(255, 255, 255, 0.015);
+    border-inline-end: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;     /* allow inner overflow-y:auto to actually scroll inside the grid track */
+    height: 100%;
+    overflow: hidden;  /* clip; the inner .flex-grow-1.overflow-y-auto does the scrolling */
+}
+
+.copilot-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.copilot-chat-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+    /* Use the app's bg-main (NOT undefined --surface-v1, which fell back to white). */
+    background: var(--bg-main);
+    color: var(--text-main);
+}
+
+.copilot-thread {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* Gap is now small because margins are handled by messages */
+    scroll-behavior: smooth;
+    min-height: 0;
+}
+
+.copilot-thread-container {
+    max-width: clamp(50rem, 90%, 85rem);
+    margin: 0 auto;
+    width: 100%;
+    padding: 0 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.copilot-history-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+}
+
+.copilot-history-item:hover {
+    background: var(--surface-soft);
+    color: var(--text-main);
+}
+
+.copilot-history-item.active {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    color: var(--primary-color);
+    border-color: rgba(var(--primary-color-rgb), 0.2);
+}
+
+.copilot-delete-trace-btn {
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 5;
+    background: var(--bg-card) !important;
+    border-radius: 0.5rem !important;
+    width: 2rem;
+    height: 2rem;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-right: 0.5rem;
+}
+
+.copilot-history-item-wrap:hover .copilot-delete-trace-btn {
+    opacity: 1;
+}
+
+.copilot-delete-trace-btn:hover {
+    background: rgba(var(--danger-color-rgb), 0.12) !important;
+    color: var(--danger-color) !important;
+    transform: scale(1.1);
+}
+
+.copilot-message {
+    /* Stable assistant card: wide enough that streaming text only grows the HEIGHT
+       (which is allowed to flow naturally), never the WIDTH. User bubbles override below.
+       Widened to 96rem so wide tables (10+ columns) and the full action toolbar fit
+       on a single row on 1440px+ monitors. min-width bumped so single-line answers
+       don't look like a tiny chip. */
+    max-width: min(98%, 96rem);
+    width: fit-content;
+    min-width: min(720px, 92%);
+    flex-shrink: 0;            /* CRITICAL: prevents messages from collapsing when chat gets long */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    border-radius: 1.25rem;
+    padding: 1.25rem 1.75rem;
+    line-height: 1.6;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.04);
+    position: relative;
+    margin-bottom: 1.5rem;
+    word-wrap: break-word;
+    /* Animate ONLY entry/hover effects. `transition: all` was animating width/height
+       changes on every streamed token, which produced the jumping/resizing effect. */
+    transition: opacity 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
+    animation: message-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    contain: layout;           /* layout containment: child reflows don't push siblings */
+}
+
+@keyframes message-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.copilot-message-user {
+    align-self: flex-end;
+    align-items: flex-end;
+    margin-inline-end: 2rem;
+    width: fit-content;       /* user bubble shrinks to its text */
+    max-width: min(70%, 36rem);
+    min-width: unset;
+    min-height: unset;
+    padding: 0.85rem 1.5rem;
+    /* Theme-adaptive soft tint: a faint wash of the primary color on top of the
+       app's surface, with the primary color itself as the text. This pattern
+       (matching .bg-soft-primary used elsewhere in the app) adapts naturally to
+       any theme — light themes get a pale tinted bubble, dark themes get a
+       muted accent — and never goes "very dark" the way a saturated primary fill does. */
+    background:
+        linear-gradient(0deg,
+            rgba(var(--primary-color-rgb), 0.10),
+            rgba(var(--primary-color-rgb), 0.10)),
+        var(--bg-card);
+    color: var(--primary-color);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.28);
+    border-bottom-right-radius: 0.4rem;
+    box-shadow: 0 6px 18px -10px rgba(var(--primary-color-rgb), 0.25);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+    font-weight: 600;
+    line-height: 1.45;
+    letter-spacing: 0.005em;
+}
+
+.copilot-message-user .copilot-message-body,
+.copilot-message-user .copilot-message-body p,
+.copilot-message-user .copilot-message-body strong,
+.copilot-message-user .copilot-message-body span {
+    color: var(--primary-color);
+}
+
+.copilot-message-user:hover {
+    transform: scale(1.01) translateY(-2px);
+}
+
+.copilot-message-assistant {
+    align-self: flex-start;
+    align-items: flex-start;
+    margin-inline-start: 2rem;
+    /* Theme-aware: use the app's defined variables, not the (undefined) --surface-v1. */
+    background: var(--bg-card);
+    color: var(--text-main);
+    border-color: var(--border-color);
+    border-bottom-left-radius: 0.4rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.copilot-message button {
+    width: fit-content !important;
+}
+
+/* Keep wide content (long URLs, code spans, table cells) from bursting out of the
+   bubble. Without min-width:0 a flex/grid child will refuse to shrink below its
+   intrinsic content width, which is what was pushing tables past the bubble edge. */
+.copilot-message-body {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: break-word;
+}
+
+/* Assistant message header: AI COPILOT label on the left, collapse chevron on the right.
+   Replaces the previous inline header so the chevron has a stable anchor point. */
+.copilot-message-assistant .copilot-message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.copilot-collapse-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    border-radius: 0.5rem;
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    flex-shrink: 0;
+}
+.copilot-collapse-btn:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    color: var(--primary-color);
+    border-color: rgba(var(--primary-color-rgb), 0.25);
+}
+.copilot-collapse-btn:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Collapsed assistant card: hide body + footer, keep just the header line so users can
+   skim past long answers. The card itself stays visible (and clickable on hover) so the
+   user can re-expand it without losing position in the thread. */
+.copilot-message-collapsed .copilot-message-body,
+.copilot-message-collapsed .copilot-message-footer {
+    display: none !important;
+}
+.copilot-message-collapsed {
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 0.75rem;
+    min-width: unset;
+}
+.copilot-message-collapsed .copilot-message-header {
+    margin-bottom: 0;
+}
+
+.copilot-inline-table-wrap {
+    margin: 0.75rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    background: rgba(var(--text-main-rgb), 0.03); /* subtle elevation in dark theme */
+    /* Outer wrap stays visible so the Export dropdown (positioned absolute inside the
+       table footer) can escape the rounded border. The inner .copilot-inline-table-scroll
+       still has overflow:auto for the table itself, so this only affects the dropdown. */
+    overflow: visible;
+    max-width: 100%;
+}
+/* Inner scroll keeps the rounded corners clean by clipping its own contents only. */
+.copilot-inline-table-wrap .copilot-inline-table-scroll {
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}
+
+.copilot-inline-table-scroll {
+    /* Cap vertical extent so a 1000-row table doesn't blow up the message bubble.
+       Horizontal scroll still works for tables with many columns. */
+    max-height: 26rem;
+    overflow: auto;
+    /* When the wheel hits the top/bottom of the table viewport, stop the event from
+       bubbling to the parent (chat scroll) so the page doesn't jump. This is what
+       caused the "the table grabs my scroll then the page jumps" feel. */
+    overscroll-behavior: contain;
+    /* Smoother wheel handling — kinetic scroll on touchpads, no rubber-band jumps. */
+    scroll-behavior: smooth;
+}
+/* When the user explicitly clicks "Show all", they're asking to read ALL rows —
+   keeping the scroll viewport at 26rem (~416px) makes 250 rows unreadable.
+   Bump to most of the viewport height so the user has real screen real estate. */
+.copilot-inline-table-expanded .copilot-inline-table-scroll {
+    max-height: 75vh;
+}
+
+.copilot-inline-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.copilot-inline-table th,
+.copilot-inline-table td {
+    padding: 0.7rem 0.85rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+    text-align: start;
+    vertical-align: top;
+}
+
+.copilot-inline-table th {
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    /* SOLID background — previously this was rgba(...,0.05) which let rows
+       show through when they scrolled under the sticky header (the "title
+       overlapping with rows" bug). Layered as solid bg-card with a primary
+       tint on top so it still reads as a subtle header band, but rows
+       behind are fully obscured. */
+    background:
+        linear-gradient(rgba(var(--primary-color-rgb), 0.06),
+                        rgba(var(--primary-color-rgb), 0.06)),
+        var(--bg-card);
+    /* Sticky header so column names stay visible while scrolling rows. */
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    /* Bottom hairline so the header reads as a band, separated from the
+       first row of body cells. */
+    box-shadow: inset 0 -1px 0 var(--border-color);
+}
+
+.copilot-inline-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.copilot-inline-table tr.copilot-row-hidden,
+.copilot-inline-table tr.copilot-row-filtered-out {
+    display: none;
+}
+
+/* --- Sortable column headers -------------------------------------------- */
+.copilot-inline-table th.copilot-th-sortable {
+    cursor: pointer;
+    user-select: none;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.copilot-inline-table th.copilot-th-sortable:hover {
+    background:
+        linear-gradient(rgba(var(--primary-color-rgb), 0.14),
+                        rgba(var(--primary-color-rgb), 0.14)),
+        var(--bg-card);
+}
+.copilot-sort-arrow {
+    margin-left: 0.4rem;
+    opacity: 0.45;
+    font-size: 0.82em;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+.copilot-sort-arrow.copilot-sort-active {
+    opacity: 1;
+    color: var(--primary-color);
+}
+.copilot-th-label {
+    pointer-events: none;
+}
+/* Data-type indicator icons inside each sortable header. The kind class on the
+   th drives the icon color so an analyst can scan a wide table and instantly
+   tell which columns are dates, numerics, or free text. */
+.copilot-th-type-icon {
+    margin-right: 0.4rem;
+    opacity: 0.55;
+    font-size: 0.82em;
+    pointer-events: none;
+}
+.copilot-th-kind-numeric .copilot-th-type-icon { color: #06b6d4; }   /* cyan = #️⃣ */
+.copilot-th-kind-date    .copilot-th-type-icon { color: #a855f7; }   /* purple = 📅 */
+.copilot-th-kind-text    .copilot-th-type-icon { color: #94a3b8; }   /* slate = 📝 */
+
+/* Row numbers — rendered on the first <td> of every body row via CSS ::before
+   reading data-row-num. Subtle gray prefix with a hairline separator so it
+   reads as gutter without occupying a real column. Stays stable across sort/
+   filter because the number is captured at table-build time. */
+.copilot-inline-table tbody td:first-child::before {
+    content: attr(data-row-num);
+    display: inline-block;
+    min-width: 1.6rem;
+    margin-right: 0.7rem;
+    padding-right: 0.55rem;
+    border-right: 1px solid rgba(148, 163, 184, 0.22);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    line-height: 1.4;
+    vertical-align: top;
+    user-select: none;
+}
+/* Hide the row-number prefix when the cell has no data-row-num (e.g. the KPI
+   single-cell renders or summary rows in a tfoot). */
+.copilot-inline-table tbody td:first-child:not([data-row-num])::before { content: none; }
+
+/* Cell expansion — long text cells (>60 chars) get clipped with ellipsis and
+   become click-to-expand. Tooltip on hover hints at the action. */
+.copilot-cell-truncatable {
+    cursor: pointer;
+    max-width: 28rem;
+}
+.copilot-cell-truncatable:not(.copilot-cell-expanded) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.copilot-cell-truncatable.copilot-cell-expanded {
+    white-space: normal;
+    word-break: break-word;
+    max-width: 48rem;
+}
+.copilot-cell-truncatable:hover {
+    background: rgba(var(--primary-color-rgb), 0.05);
+}
+
+/* Frozen first column — when wrap[data-frozen="1"] (default), the label
+   column (first cell in each row) sticks during horizontal scroll. Header
+   first-th sticks both vertically (already) and horizontally. */
+.copilot-inline-table-wrap[data-frozen="1"] .copilot-inline-table tbody td:first-child,
+.copilot-inline-table-wrap[data-frozen="1"] .copilot-inline-table tr.copilot-filter-row th:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--bg-card);
+    z-index: 1;
+    box-shadow: 1px 0 0 rgba(148, 163, 184, 0.16);
+}
+.copilot-inline-table-wrap[data-frozen="1"] .copilot-inline-table thead tr:first-child th:first-child {
+    /* Header's first th already has sticky-top from .copilot-th-sortable;
+       add sticky-left here, and bump z-index above body cells AND regular
+       sticky body so it wins both axes. */
+    left: 0;
+    z-index: 3;
+    box-shadow: 1px 0 0 rgba(148, 163, 184, 0.16);
+}
+
+/* Data freshness + row × col chip above the table */
+.copilot-table-meta-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.85rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+.copilot-table-freshness,
+.copilot-table-row-count-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.55rem;
+    background: rgba(var(--text-main-rgb), 0.05);
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+}
+.copilot-table-freshness i,
+.copilot-table-row-count-meta i {
+    color: var(--primary-color);
+    opacity: 0.7;
+}
+
+/* Column show/hide checklist menu — reuses .copilot-export-menu layout */
+.copilot-cols-menu {
+    min-width: 14rem;
+    max-height: 22rem;
+    overflow-y: auto;
+    padding: 0.25rem 0;
+}
+.copilot-cols-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.85rem;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-main);
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+.copilot-cols-menu-item:hover {
+    background: rgba(var(--primary-color-rgb), 0.06);
+}
+.copilot-cols-menu-item input[type="checkbox"] {
+    accent-color: var(--primary-color);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.copilot-cols-menu-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* % of total annotation appended inside numeric cells */
+.copilot-pct-of-total {
+    color: var(--primary-color);
+    font-size: 0.78em;
+    font-weight: 600;
+    margin-left: 0.2rem;
+    opacity: 0.85;
+}
+
+/* Tools ▾ menu — same chrome as Export dropdown, plus dividers + section label */
+.copilot-tools-menu {
+    min-width: 16rem;
+    max-height: 28rem;
+    overflow-y: auto;
+}
+.copilot-tools-menu-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 0.25rem 0;
+}
+.copilot-tools-menu-label {
+    padding: 0.35rem 0.85rem 0.1rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+/* Group-by header rows — visually distinct from normal data rows */
+.copilot-inline-table tr.copilot-group-header {
+    background: rgba(var(--primary-color-rgb), 0.06);
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+}
+.copilot-inline-table tr.copilot-group-header:hover {
+    background: rgba(var(--primary-color-rgb), 0.1);
+}
+.copilot-inline-table tr.copilot-group-header td {
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+.copilot-inline-table tr.copilot-group-header td.copilot-group-label {
+    color: var(--primary-color);
+}
+.copilot-inline-table tr.copilot-group-header td.copilot-group-subtotal {
+    color: var(--text-muted);
+    font-style: italic;
+    font-weight: 500;
+}
+.copilot-group-chevron {
+    transition: transform 0.18s ease;
+    margin-right: 0.25rem;
+    opacity: 0.7;
+}
+.copilot-group-count {
+    display: inline-block;
+    padding: 0.05rem 0.4rem;
+    margin-left: 0.4rem;
+    background: rgba(var(--primary-color-rgb), 0.18);
+    color: var(--primary-color);
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+.copilot-inline-table tr.copilot-group-collapsed {
+    display: none;
+}
+
+/* Multi-select row highlight — Ctrl+click selection */
+.copilot-inline-table tbody tr.copilot-row-selected {
+    background: rgba(var(--primary-color-rgb), 0.12) !important;
+    box-shadow: inset 3px 0 0 var(--primary-color);
+}
+.copilot-inline-table tbody tr.copilot-row-selected:hover td {
+    background: rgba(var(--primary-color-rgb), 0.18);
+}
+
+/* Floating selection toolbar — appears when 1+ rows are selected */
+.copilot-selection-toolbar {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.85rem;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -4px 12px -8px rgba(0, 0, 0, 0.4);
+    font-size: 0.82rem;
+}
+.copilot-selection-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--primary-color);
+    font-weight: 700;
+}
+.copilot-selection-count span {
+    font-variant-numeric: tabular-nums;
+}
+.copilot-selection-toolbar button {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 0.4rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.copilot-selection-toolbar button:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border-color: rgba(var(--primary-color-rgb), 0.4);
+    color: var(--primary-color);
+}
+
+/* Diff highlight — cells that differ across the multi-row selection */
+.copilot-inline-table td.copilot-cell-diff {
+    background: rgba(245, 158, 11, 0.18) !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.5);
+}
+
+/* --- Promote-to-Trusted button + modal ---------------------------------- */
+.copilot-trust-btn {
+    border-color: rgba(34, 197, 94, 0.4) !important;
+    color: #22c55e !important;
+}
+.copilot-trust-btn:hover {
+    background: rgba(34, 197, 94, 0.08) !important;
+    border-color: #22c55e !important;
+}
+.copilot-trust-btn.is-active {
+    background: rgba(34, 197, 94, 0.16) !important;
+    color: #16a34a !important;
+    border-color: #16a34a !important;
+    cursor: default;
+}
+
+.copilot-trust-modal {
+    max-width: 56rem;
+    width: 92vw;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.85rem;
+    box-shadow: 0 24px 64px -16px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+.copilot-trust-modal-body {
+    padding: 1rem 1.25rem 1.25rem;
+    max-height: 70vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+.copilot-trust-field-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0.4rem 0 0.15rem;
+}
+.copilot-trust-readonly,
+.copilot-trust-hint {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: 0.4rem;
+}
+.copilot-trust-input {
+    width: 100%;
+    background: rgba(var(--text-main-rgb), 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.45rem 0.65rem;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    font-family: inherit;
+    resize: vertical;
+}
+.copilot-trust-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background: rgba(var(--primary-color-rgb), 0.06);
+}
+.copilot-trust-sql {
+    margin: 0;
+    padding: 0.65rem 0.85rem;
+    background: rgba(var(--text-main-rgb), 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-main);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 16rem;
+    overflow: auto;
+}
+.copilot-trust-row {
+    display: flex;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+}
+.copilot-trust-row .copilot-trust-col {
+    flex: 1 1 16rem;
+    min-width: 16rem;
+}
+.copilot-trust-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+.copilot-trust-feedback {
+    flex: 1 1 auto;
+    padding: 0.45rem 0.65rem;
+    border-radius: 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.copilot-trust-feedback.is-info    { background: rgba(91, 141, 239, 0.12);  color: #5b8def; }
+.copilot-trust-feedback.is-success { background: rgba(34, 197, 94, 0.14);   color: #16a34a; }
+.copilot-trust-feedback.is-error   { background: rgba(239, 68, 68, 0.14);   color: #ef4444; }
+
+/* --- Filter row in thead ------------------------------------------------- */
+.copilot-inline-table tr.copilot-filter-row {
+    background: rgba(var(--bg-main-rgb), 0.4);
+    position: sticky;
+    top: 2.3rem; /* sits below the main header band */
+    z-index: 1;
+}
+.copilot-inline-table tr.copilot-filter-row th.copilot-filter-cell {
+    padding: 0.35rem 0.5rem;
+    background: rgba(var(--bg-main-rgb), 0.4);
+    border-bottom: 1px solid var(--border-color);
+    text-transform: none;
+    letter-spacing: 0;
+}
+.copilot-filter-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(var(--text-main-rgb), 0.06);
+    border: 1px solid var(--border-color);
+    border-radius: 0.35rem;
+    padding: 0.2rem 0.45rem;
+    color: var(--text-main);
+    font-size: 0.78rem;
+    font-weight: 400;
+    text-transform: none;
+}
+.copilot-filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background: rgba(var(--primary-color-rgb), 0.08);
+}
+.copilot-table-filter-note {
+    color: var(--text-muted);
+    font-style: italic;
+    margin-left: 0.35rem;
+}
+
+/* --- Drill-down rows ----------------------------------------------------- */
+.copilot-inline-table tbody tr.copilot-row-drillable {
+    cursor: pointer;
+}
+.copilot-inline-table tbody tr.copilot-row-drillable:hover td {
+    background: rgba(var(--primary-color-rgb), 0.06);
+}
+
+/* --- View SQL panel ----------------------------------------------------- */
+.copilot-sql-panel {
+    border-top: 1px solid var(--border-color);
+    background: rgba(var(--text-main-rgb), 0.04);
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+}
+.copilot-sql-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+}
+.copilot-sql-copy {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 0.35rem;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+.copilot-sql-copy:hover {
+    color: var(--primary-color);
+    border-color: rgba(var(--primary-color-rgb), 0.4);
+}
+.copilot-sql-code {
+    margin: 0;
+    padding: 0.75rem 0.85rem;
+    background: transparent;
+    color: var(--text-main);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 22rem;
+    overflow: auto;
+}
+
+/* --- Column profiler popover -------------------------------------------- */
+.copilot-profiler-popover {
+    position: fixed;
+    z-index: 1100;
+    min-width: 14rem;
+    max-width: 22rem;
+    padding: 0.5rem 0.65rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.35);
+    font-size: 0.78rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-main);
+    pointer-events: none;
+}
+.copilot-profiler-header {
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    color: var(--primary-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+.copilot-profiler-kind {
+    font-size: 0.7em;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.copilot-profiler-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.1rem 0;
+    gap: 0.5rem;
+}
+.copilot-profiler-stat span {
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.copilot-profiler-stat strong {
+    font-weight: 700;
+    color: var(--text-main);
+}
+.copilot-profiler-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 0.35rem 0;
+}
+.copilot-profiler-more {
+    color: var(--text-muted);
+    font-style: italic;
+    margin-top: 0.2rem;
+    text-align: center;
+}
+/* Profiler popover anchors to the th, which needs to be a positioning context. */
+.copilot-inline-table th.copilot-th-sortable {
+    position: sticky; /* keeps existing sticky behaviour */
+}
+.copilot-inline-table thead {
+    position: relative; /* gives the popover a containing block when th sticky resolves */
+}
+
+.copilot-table-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;       /* whole groups wrap to a new row when crowded */
+    gap: 0.5rem 0.75rem;   /* row-gap × column-gap */
+    padding: 0.55rem 0.85rem;
+    border-top: 1px solid var(--border-color);
+    background: rgba(var(--primary-color-rgb), 0.04);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.copilot-table-count {
+    white-space: nowrap;   /* "Showing 1–10 of 51 rows" stays on one line */
+}
+
+.copilot-table-count strong {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+.copilot-table-toggle {
+    background: transparent;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.35);
+    color: var(--primary-color);
+    border-radius: 0.5rem;
+    padding: 0.3rem 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.copilot-table-toggle:hover {
+    background: rgba(var(--primary-color-rgb), 0.1);
+    border-color: var(--primary-color);
+}
+
+/* --- Pager (page-size + prev/next) -------------------------------------- */
+/* Pager controls share padding + font-size with .copilot-table-export so
+   every chip in the footer row is the same height — no more "buttons sit
+   2px lower than the pager" alignment glitch. */
+.copilot-table-pagesize-label {
+    margin: 0 0.25rem 0 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+.copilot-table-pagesize {
+    background: rgba(var(--text-main-rgb), 0.06);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.3rem 0.55rem;
+    color: var(--text-main);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1.2;
+}
+.copilot-table-pager-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 0.5rem;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    line-height: 1.2;
+}
+.copilot-table-pager-btn:hover:not(:disabled) {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border-color: rgba(var(--primary-color-rgb), 0.4);
+    color: var(--primary-color);
+}
+.copilot-table-pager-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.copilot-table-page-info {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    min-width: 3.2rem;
+    text-align: center;
+    user-select: none;
+}
+.copilot-table-page-info strong {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+/* Footer actions group — "Show all" + "CSV" sit on the right side of the table footer. */
+.copilot-table-actions {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;      /* on narrow viewports, wrap WHOLE buttons to a new row */
+    gap: 0.4rem;
+}
+
+.copilot-table-export {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;  /* prevents "Follow-ups" from breaking icon-above-text */
+    flex-shrink: 0;       /* keep each button at its natural width */
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 0.5rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.2;     /* matches pager controls so heights align */
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.copilot-table-export:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border-color: rgba(var(--primary-color-rgb), 0.4);
+    color: var(--primary-color);
+}
+
+/* KPI card — replaces the inline table when the result is single-row single-numeric.
+   Big-number answer for "how many tickets?" / "average resolution time?" etc. */
+.copilot-kpi-wrap {
+    padding: 0;
+}
+
+.copilot-kpi-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 1.5rem 1.75rem;
+    background: linear-gradient(135deg,
+        rgba(var(--primary-color-rgb), 0.12) 0%,
+        rgba(var(--primary-color-rgb), 0.03) 100%);
+}
+
+.copilot-kpi-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+.copilot-kpi-value {
+    font-size: 2.75rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--primary-color);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.copilot-kpi-raw {
+    border-top: 1px solid var(--border-color);
+}
+
+.copilot-kpi-raw > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    user-select: none;
+}
+
+.copilot-kpi-raw > summary::-webkit-details-marker { display: none; }
+.copilot-kpi-raw > summary::before {
+    content: "\F22D";  /* bi-chevron-right */
+    font-family: "bootstrap-icons";
+    margin-right: 0.4rem;
+    transition: transform 0.15s ease;
+    display: inline-block;
+}
+.copilot-kpi-raw[open] > summary::before { transform: rotate(90deg); }
+
+.copilot-kpi-raw-body {
+    padding: 0 0.85rem 0.85rem;
+}
+
+/* "Explain this result" inline panel — LLM-written 2-3 sentence summary, rendered below
+   the table footer. Stars icon and gradient border to distinguish from the data itself. */
+.copilot-explain-panel {
+    margin: 0;
+    border-top: 1px solid var(--border-color);
+    background: linear-gradient(90deg,
+        rgba(168, 85, 247, 0.08) 0%,
+        rgba(91, 141, 239, 0.05) 50%,
+        rgba(34, 197, 94, 0.06) 100%);
+    padding: 0.65rem 0.85rem 0.85rem;
+}
+
+.copilot-explain-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+}
+
+.copilot-explain-header i { color: #a855f7; }
+
+.copilot-explain-close {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.copilot-explain-close:hover { color: var(--text-main); }
+
+.copilot-explain-body {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--text-main);
+}
+
+.copilot-explain-loading {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.copilot-explain-error {
+    font-size: 0.85rem;
+    color: var(--danger-color, #ef4444);
+}
+
+/* "Active" state for toolbar action buttons (Heat / Pin toggle). */
+.copilot-table-export.is-active {
+    background: rgba(var(--primary-color-rgb), 0.18);
+    color: var(--primary-color);
+    border-color: rgba(var(--primary-color-rgb), 0.5);
+}
+
+/* Conditional formatting — when active, prevent the row hover from drowning out the
+   colored backgrounds we just painted. */
+.copilot-inline-table.copilot-table-heated tbody tr:hover td {
+    filter: brightness(1.08);
+}
+
+/* Pinned-chart floating action button — bottom-right of the chat surface. */
+.copilot-pin-fab {
+    position: fixed !important;
+    right: 1.5rem !important;
+    bottom: 1.5rem !important;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.65rem 1.1rem;
+    background: linear-gradient(135deg, var(--primary-color), #a855f7);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(91, 141, 239, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.95rem;
+    /* Bumped to 9999 because z-index: 50 lost to the sticky chat composer
+       (z-index ~100) and a couple of message-bubble shadows. The Pin FAB
+       MUST be visible regardless of theme/layout, so we go loud. */
+    z-index: 9999 !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    animation: copilot-fab-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes copilot-fab-in {
+    from { opacity: 0; transform: scale(0.6); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.copilot-pin-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px rgba(91, 141, 239, 0.55);
+}
+
+.copilot-pin-fab i { font-size: 1rem; }
+
+/* Generic toast — top-center, slides down from above, auto-dismisses */
+.copilot-toast {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translate(-50%, -2rem);
+    opacity: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 1.1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.6rem;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-main);
+    max-width: 36rem;
+    pointer-events: none;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+.copilot-toast.is-shown {
+    transform: translate(-50%, 0);
+    opacity: 1;
+}
+.copilot-toast-success { border-left: 4px solid #22c55e; }
+.copilot-toast-success i { color: #22c55e; }
+.copilot-toast-error   { border-left: 4px solid #ef4444; }
+.copilot-toast-error   i { color: #ef4444; }
+.copilot-toast-info    { border-left: 4px solid var(--primary-color); }
+.copilot-toast-info    i { color: var(--primary-color); }
+
+/* ── Lab ▾ menu (composer) ─────────────────────────────────────────────── */
+.copilot-lab-menu {
+    position: absolute;
+    bottom: 100%;
+    right: 5.6rem;  /* sits to the left of the mic button */
+    margin-bottom: 0.5rem;
+    min-width: 18rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.6rem;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+    z-index: 10000;
+    padding: 0.3rem 0;
+    overflow: hidden;
+}
+.copilot-lab-menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 0.55rem 0.95rem;
+    text-align: left;
+    color: var(--text-main);
+    font-size: 0.86rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+.copilot-lab-menu button:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    color: var(--primary-color);
+}
+.copilot-lab-menu-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 0.25rem 0;
+}
+
+/* ── Auto-promote banner (above composer) ──────────────────────────────── */
+.copilot-autopromote-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.85rem;
+    margin: 0 1rem 0.5rem;
+    background: linear-gradient(90deg,
+        rgba(34, 197, 94, 0.08),
+        rgba(34, 197, 94, 0.04));
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    animation: copilot-fab-in 0.3s ease;
+}
+.copilot-autopromote-banner i.bi-shield-check {
+    color: #22c55e;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.copilot-autopromote-banner span {
+    flex: 1 1 auto;
+    line-height: 1.4;
+}
+.copilot-autopromote-banner strong {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+/* ── Lens library cards ────────────────────────────────────────────────── */
+.copilot-lens-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: 0.75rem;
+}
+.copilot-lens-card {
+    background: rgba(var(--text-main-rgb), 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: 0.55rem;
+    padding: 0.7rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+.copilot-lens-card-name {
+    font-weight: 700;
+    color: var(--text-main);
+}
+.copilot-lens-card-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.copilot-lens-card-actions {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: flex-end;
+    margin-top: 0.25rem;
+}
+
+/* "Back to start of conversation" pill — floats over the chat thread, top-center.
+   Sits inside .copilot-chat-pane (which is position: relative) so it only covers
+   the chat area, never the side panes. Hidden by default; the script reveals it
+   once the thread is scrolled past a threshold. */
+.copilot-scroll-top-fab {
+    position: absolute;
+    top: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.9rem;
+    background: var(--bg-card, #fff);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.82rem;
+    line-height: 1;
+    z-index: 30;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.copilot-scroll-top-fab:hover {
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow: 0 6px 22px rgba(15, 23, 42, 0.25);
+}
+
+.copilot-scroll-top-fab[hidden] { display: none; }
+
+.copilot-scroll-top-fab i { font-size: 0.95rem; }
+
+/* Pin dashboard modal — single-pane overlay listing every pinned chart as a card grid. */
+.copilot-pin-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+.copilot-pin-modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    width: min(1100px, 100%);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.copilot-pin-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(var(--text-main-rgb), 0.03);
+}
+
+.copilot-pin-modal-header i { color: var(--primary-color); margin-right: 0.4rem; }
+
+.copilot-pin-grid {
+    padding: 1.25rem;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+}
+
+.copilot-pin-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.copilot-pin-card-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.copilot-pin-card-q {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.copilot-pin-card-meta {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.copilot-pin-card-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.copilot-pin-card-table th, .copilot-pin-card-table td {
+    padding: 0.3rem 0.5rem;
+    text-align: start;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.copilot-pin-card-table th {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    background: rgba(var(--primary-color-rgb), 0.04);
+}
+
+.copilot-pin-card-actions {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+}
+
+/* "Empty state" rendered inside the chart canvas wrap when the picked type doesn't fit. */
+.copilot-chart-empty {
+    padding: 1.5rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+.copilot-chart-empty em { color: var(--text-main); font-style: normal; font-weight: 600; }
+
+/* Export dropdown (CSV / Excel / JSON menu). */
+.copilot-export-dropdown { position: relative; display: inline-block; }
+.copilot-export-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.25rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+    min-width: 200px;
+    /* High z-index so the menu floats above adjacent message bubbles + the chart panel
+       that sits directly below the table footer. Anything that previously hid it (chart
+       canvas, follow-up panel) is below this layer. */
+    z-index: 1000;
+    overflow: hidden;
+    padding: 0.25rem 0;
+}
+/* When the dropdown lives inside the table-footer toolbar, it sits AT THE
+   BOTTOM of the message bubble — opening downward pushes the menu into the
+   next bubble or below the viewport. Drop up instead, and cap the height so
+   even a long menu (Tools with all the group-by columns) stays scrollable.
+   The same logic applies to chart-panel dropdowns (period-compare, more). */
+.copilot-table-actions .copilot-export-menu,
+.copilot-chart-controls .copilot-export-menu {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 0.4rem;
+    max-height: min(60vh, 28rem);
+    overflow-y: auto;
+}
+.copilot-export-menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 0.5rem 0.85rem;
+    text-align: left;
+    color: var(--text-main);
+    font-size: 0.84rem;
+    cursor: pointer;
+}
+.copilot-export-menu button:hover { background: rgba(var(--primary-color-rgb), 0.08); }
+
+/* Anomaly flag — appended inline next to outlier cell values. */
+.copilot-anomaly-flag { margin-left: 0.4rem; color: #ef4444; vertical-align: middle; }
+.copilot-anomaly-flag i { font-size: 0.85em; }
+
+/* Always-visible banner shown above the table after the user clicks "Anomalies".
+   Tells them "N flagged" or "none found" so the click never feels invisible. */
+.copilot-anomaly-banner {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.82rem;
+    background: rgba(239, 68, 68, 0.08);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.25);
+    color: var(--text-main);
+    line-height: 1.45;
+}
+.copilot-anomaly-banner-ok {
+    background: rgba(34, 197, 94, 0.07);
+    border-bottom-color: rgba(34, 197, 94, 0.25);
+}
+.copilot-anomaly-legend {
+    display: inline-block;
+    padding: 0 0.4rem;
+    border-radius: 0.3rem;
+    font-weight: 600;
+}
+.copilot-anomaly-legend.high { background: rgba(239, 68, 68, 0.18); color: #ef4444; }
+.copilot-anomaly-legend.low  { background: rgba(91, 141, 239, 0.18); color: #5b8def; }
+
+/* Whole-row tint for outliers — scans from across the room without zooming in. */
+.copilot-inline-table tr.copilot-anomaly-row-high td { background: rgba(239, 68, 68, 0.10); }
+.copilot-inline-table tr.copilot-anomaly-row-low  td { background: rgba(91, 141, 239, 0.10); }
+.copilot-inline-table tr.copilot-anomaly-row-high:hover td { background: rgba(239, 68, 68, 0.18); }
+.copilot-inline-table tr.copilot-anomaly-row-low:hover  td { background: rgba(91, 141, 239, 0.18); }
+
+/* Summary row at the bottom of the table. Each numeric column shows three stats stacked. */
+tfoot.copilot-summary-row td {
+    background: rgba(var(--primary-color-rgb), 0.06);
+    border-top: 2px solid rgba(var(--primary-color-rgb), 0.25);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    vertical-align: top;
+}
+.copilot-summary-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    line-height: 1.3;
+}
+.copilot-summary-stat b {
+    color: var(--primary-color);
+    margin-right: 0.3rem;
+    font-weight: 700;
+}
+
+/* Follow-up suggestions panel — chips below the table footer that the user clicks to ask. */
+.copilot-followup-panel {
+    border-top: 1px solid var(--border-color);
+    background: linear-gradient(90deg,
+        rgba(245, 158, 11, 0.06) 0%,
+        rgba(91, 141, 239, 0.04) 100%);
+    padding: 0.65rem 0.85rem 0.85rem;
+}
+.copilot-followup-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+.copilot-followup-header i { color: #f59e0b; }
+.copilot-followup-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.copilot-followup-chip {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-primary);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.3);
+    color: var(--primary-color);
+    border-radius: 999px;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.copilot-followup-chip:hover {
+    background: rgba(var(--primary-color-rgb), 0.1);
+    border-color: var(--primary-color);
+}
+
+/* Optional chart panel under the data table. Hidden until the user clicks
+   "View as chart"; the canvas lives in a fixed-height wrap so opening it
+   doesn't push the rest of the conversation around. */
+.copilot-chart-panel {
+    border-top: 1px solid var(--border-color);
+    background: rgba(var(--text-main-rgb), 0.02);
+}
+
+.copilot-chart-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.85rem;
+}
+
+.copilot-chart-toggle {
+    background: transparent;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.35);
+    color: var(--primary-color);
+    border-radius: 0.5rem;
+    padding: 0.3rem 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.copilot-chart-toggle:hover {
+    background: rgba(var(--primary-color-rgb), 0.1);
+    border-color: var(--primary-color);
+}
+
+.copilot-chart-typewrap {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.copilot-chart-typelabel {
+    margin: 0;
+}
+/* "Measure:" label gets a small left margin so it visually separates from
+   the chart-type dropdown when both are shown on the same row. */
+.copilot-chart-measurelabel {
+    margin-left: 0.5rem;
+}
+
+.copilot-chart-type,
+.copilot-chart-measure,
+.copilot-chart-label {
+    background: rgba(var(--text-main-rgb), 0.06);
+    border: 1px solid var(--border-color);
+    border-radius: 0.4rem;
+    padding: 0.2rem 0.5rem;
+    color: var(--text-main);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.copilot-chart-canvas-wrap {
+    padding: 0.5rem 0.85rem 0.85rem 0.85rem;
+    height: 18rem;
+    position: relative;
+}
+
+.copilot-chart-canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* --- Chart option buttons (sort / labels / swap / threshold / cb / fs / png / +) --- */
+.copilot-chart-divider {
+    display: inline-block;
+    width: 1px;
+    height: 1.4rem;
+    background: var(--border-color);
+    margin: 0 0.15rem;
+    align-self: center;
+}
+.copilot-chart-opt {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: 0.4rem;
+    padding: 0.22rem 0.45rem;
+    font-size: 0.95em;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.copilot-chart-opt:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border-color: rgba(var(--primary-color-rgb), 0.4);
+    color: var(--primary-color);
+}
+.copilot-chart-opt.is-active {
+    background: rgba(var(--primary-color-rgb), 0.14);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+.copilot-chart-threshold-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.copilot-chart-threshold {
+    width: 5rem;
+    background: rgba(var(--text-main-rgb), 0.06);
+    border: 1px solid var(--border-color);
+    border-radius: 0.4rem;
+    padding: 0.2rem 0.45rem;
+    color: var(--text-main);
+    font-size: 0.82rem;
+}
+.copilot-chart-threshold:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background: rgba(var(--primary-color-rgb), 0.08);
+}
+
+/* Fullscreen state — when the canvas wrap goes fullscreen via the
+   Fullscreen API, give it a solid background so the chart isn't fighting
+   the desktop wallpaper, and let it fill the viewport. */
+.copilot-chart-canvas-wrap:fullscreen,
+.copilot-chart-canvas-wrap.copilot-chart-canvas-wrap-fs {
+    width: 100vw;
+    height: 100vh;
+    padding: 2rem;
+    background: var(--bg-card);
+}
+
+/* Cloned chart panel (Add chart) — visual separator from the original so
+   it's obvious where one chart ends and the next begins. */
+.copilot-chart-panel-extra {
+    border-top: 2px dashed rgba(var(--primary-color-rgb), 0.3);
+}
+
+/* Cost badges below the assistant message — LLM calls / tokens / USD. Compact, monospace-ish
+   numbers so they line up across consecutive answers. */
+.copilot-cost-badges {
+    display: inline-flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.copilot-cost-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(var(--text-main-rgb), 0.06);
+    border: 1px solid var(--border-color);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.copilot-cost-badge.copilot-cost-free {
+    color: var(--success-color, #22c55e);
+    border-color: rgba(34, 197, 94, 0.3);
+}
+
+.copilot-cost-badge i {
+    font-size: 0.85em;
+    opacity: 0.7;
+}
+
+.copilot-message-pending {
+    overflow: hidden;
+}
+
+.copilot-message-pending::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transform: translateX(-100%);
+    animation: copilot-shimmer 2s infinite linear;
+}
+
+.copilot-empty {
+    border: 2px dashed rgba(148, 163, 184, 0.25);
+    border-radius: 1.25rem;
+    padding: 2.5rem;
+    text-align: center;
+    color: var(--text-muted);
+    background: rgba(148, 163, 184, 0.03);
+    margin: auto; /* Center in the thread */
+}
+
+.copilot-composer {
+    flex-shrink: 0;
+    padding: 1.5rem 0 2rem 0;
+    /* Was rgba(var(--bg-main-rgb), 0.8) — that var doesn't exist; fell back to invisible. */
+    background: var(--bg-main);
+    border-top: 1px solid var(--border-color);
+    z-index: 10;
+}
+
+.copilot-input-container {
+    width: 90%;
+    max-width: 80rem;
+    margin: 0 auto;
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 1.5rem;
+    padding: 0.375rem;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.25);
+}
+
+.copilot-input-container:focus-within {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--primary-color);
+}
+
+.copilot-textarea {
+    width: 100%;
+    min-height: 52px;
+    max-height: 250px;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0.75rem 3.75rem 0.75rem 1rem !important;
+    font-size: 1rem !important;
+    line-height: 1.6 !important;
+    color: var(--text-main) !important;
+    resize: none;
+    overflow-y: hidden;
+    transition: height 0.1s ease;
+}
+
+.copilot-v2 .bg-soft-primary,
+.copilot-shell .bg-soft-primary {
+    background-color: rgba(var(--primary-color-rgb), 0.08) !important;
+}
+
+.copilot-textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+.copilot-send-btn {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    width: 2.8rem;
+    height: 2.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-color);
+    color: black;
+    border: none;
+    border-radius: 1rem;
+    transition: all 0.2s;
+}
+
+.copilot-send-btn:hover {
+    filter: brightness(1.2);
+    background: var(--primary-color);
+}
+
+.copilot-mic-btn {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 4.25rem;
+    width: 2.8rem;
+    height: 2.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-soft);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    transition: all 0.2s;
+}
+
+.copilot-mic-btn:hover {
+    background: rgba(var(--primary-color-rgb), 0.1);
+    color: var(--primary-color);
+    border-color: rgba(var(--primary-color-rgb), 0.3);
+}
+
+.copilot-mic-btn.recording {
+    background: var(--danger-color);
+    color: #fff;
+    border-color: var(--danger-color);
+    animation: pulse-recording 1.5s infinite;
+}
+
+@keyframes pulse-recording {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.copilot-side-shell {
+    background: rgba(var(--text-main-rgb), 0.03);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    padding: 1.5rem;
+    gap: 1.5rem;
+    border-left: 1px solid var(--border-color);
+}
+
+.copilot-side-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 1.25rem;
+    padding: 1.6rem;
+}
+
+.copilot-panel-heading {
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.85rem;
+}
+
+.copilot-capability-group,
+.copilot-standard-group {
+    padding: 1rem 1.05rem;
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    /* App is dark-themed; use a subtle elevated surface instead of a near-white panel. */
+    background: rgba(var(--text-main-rgb), 0.04);
+}
+
+.copilot-standard-title {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+}
+
+.copilot-capability-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.8rem;
+}
+
+.copilot-capability-title-wrap {
+    min-width: 0;
+}
+
+.copilot-capability-title {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.3;
+}
+
+.copilot-capability-subtitle {
+    margin-top: 0.18rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.copilot-capability-badge {
+    flex-shrink: 0;
+    padding: 0.18rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(var(--primary-color-rgb), 0.1);
+    color: var(--primary-color);
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.copilot-capability-description {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.copilot-capability-action,
+.copilot-standard-action,
+.copilot-capability-secondary-action {
+    font-size: 0.8rem !important;
+    font-weight: 700 !important;
+    line-height: 1.45 !important;
+    border-radius: 0.95rem !important;
+    padding: 0.85rem 1rem !important;
+    white-space: normal !important;
+    word-break: break-word;
+}
+
+.copilot-capability-action i,
+.copilot-standard-action i,
+.copilot-capability-secondary-action i {
+    font-size: 0.8rem;
+}
+
+.copilot-capability-details {
+    margin-top: 0.15rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+    padding-top: 0.7rem;
+}
+
+.copilot-capability-summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    user-select: none;
+}
+
+.copilot-capability-summary::-webkit-details-marker {
+    display: none;
+}
+
+.copilot-capability-summary::after {
+    content: "\F282";
+    font-family: "bootstrap-icons";
+    font-size: 0.78rem;
+    transition: transform 0.2s ease;
+}
+
+.copilot-capability-details[open] .copilot-capability-summary::after {
+    transform: rotate(180deg);
+}
+
+.copilot-capability-summary-count {
+    flex-shrink: 0;
+    font-size: 0.66rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--primary-color);
+}
+
+.copilot-capability-details .copilot-capability-description {
+    margin-top: 0.7rem;
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+}
+
+.copilot-context-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    background: var(--primary-color);
+    color: black;
+    box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.25);
+}
+
+.copilot-prompt-chip {
+    width: 100%;
+    min-height: 4.5rem;
+    text-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1rem 1.25rem;
+    border-radius: 1.15rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: 1px solid var(--border-color);
+    background: var(--surface-soft);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    line-height: 1.5;
+    color: var(--text-main);
+}
+
+.copilot-prompt-chip:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 10px 25px rgba(var(--primary-color-rgb), 0.12);
+}
+
+@keyframes copilot-shimmer {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+}
+
+@media (max-width: 1399.98px) {
+    .copilot-workspace {
+        grid-template-columns: minmax(0, 1fr) 320px;
+    }
+
+    .copilot-history-pane {
+        display: none;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .copilot-shell {
+        overflow: hidden;
+    }
+
+    .copilot-app-header {
+        height: auto;
+        min-height: 64px;
+        padding: 0.75rem 1rem;
+        gap: 0.75rem;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .copilot-app-header .btn {
+        height: 34px;
+        font-size: 0.78rem;
+    }
+
+    .copilot-workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) auto;
+        overflow-y: auto;
+    }
+
+    .copilot-composer {
+        padding-inline: 1rem;
+    }
+
+    .copilot-thread {
+        padding-inline: 1rem;
+    }
+
+    .copilot-side-shell {
+        height: auto;
+        overflow: visible;
+        border-left: 0;
+        border-top: 1px solid var(--border-color);
+        padding: 1rem;
+    }
+
+    .copilot-side-card {
+        padding: 1rem;
+    }
+
+    .copilot-panel-heading {
+        font-size: 0.68rem;
+        margin-bottom: 0.7rem;
+    }
+
+    .copilot-capability-group,
+    .copilot-standard-group {
+        padding: 0.75rem;
+    }
+
+    .copilot-capability-description {
+        -webkit-line-clamp: 3;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .copilot-app-header {
+        padding: 0.65rem 0.75rem;
+    }
+
+    .copilot-app-header .btn-expand span {
+        display: none;
+    }
+
+    .copilot-app-header .btn {
+        padding-inline: 0.75rem;
+    }
+
+    .copilot-chat-pane {
+        min-width: 0;
+    }
+
+    .copilot-thread {
+        padding: 1rem 0.75rem;
+    }
+
+    .copilot-composer {
+        padding: 0.9rem 0.75rem 1rem;
+    }
+
+    .copilot-input-container {
+        max-width: 100%;
+    }
+
+    .copilot-side-shell {
+        padding: 0.75rem;
+    }
+
+    .copilot-capability-title {
+        font-size: 0.8rem;
+    }
+
+    .copilot-capability-action,
+    .copilot-standard-action {
+        font-size: 0.72rem !important;
+    }
+
+    .copilot-trace-view-toggle {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 1399.98px) {
+    .copilot-trace-tree {
+        grid-template-columns: repeat(3, minmax(180px, 1fr));
+    }
+}
+
+@media (max-width: 991.98px) {
+    .copilot-trace-tree {
+        grid-template-columns: 1fr;
+    }
+
+    .copilot-tree-column:not(:last-child)::after {
+        top: auto;
+        bottom: -0.55rem;
+        left: 1.2rem;
+        right: auto;
+        width: 2px;
+        height: 0.9rem;
+    }
+}
+
+.copilot-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 0, 0, 0.2);
+    border-top-color: black;
+    border-radius: 50%;
+    animation: copilot-spin 0.8s linear infinite;
+}
+
+@keyframes copilot-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Thinking Indicator (legacy single-line; kept for non-pipeline answers) */
+.copilot-thinking-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+}
+
+/* ── Live progress timeline (Claude-style) ─────────────────────────────────
+   Single live line that updates with each ProgressUpdate from the orchestrator.
+   Click the chevron to reveal the full timeline of every step the AI took.
+   When the answer arrives, the header collapses to "Thought for N.Ns · K steps".
+*/
+.copilot-live-progress {
+    width: 100%;
+    max-width: 32rem;
+    font-size: 0.92rem;
+    color: var(--text-main);
+}
+
+.copilot-live-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.25rem 0;
+    min-height: 1.6rem;
+}
+
+.copilot-live-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1rem;
+}
+
+.copilot-live-text {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-main);
+}
+
+.copilot-live-progress.is-active .copilot-live-text {
+    /* shimmer that signals "still thinking" without flashing the whole row */
+    background: linear-gradient(
+        90deg,
+        var(--text-muted) 0%,
+        var(--text-main) 45%,
+        var(--text-main) 55%,
+        var(--text-muted) 100%
+    );
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: copilot-live-shimmer 2.4s linear infinite;
+}
+
+.copilot-live-progress.is-complete .copilot-live-text {
+    color: var(--text-muted);
+}
+
+@keyframes copilot-live-shimmer {
+    0%   { background-position: 220% 0; }
+    100% { background-position: -120% 0; }
+}
+
+.copilot-live-toggle {
+    flex-shrink: 0;
+    padding: 0.15rem 0.45rem;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    font-size: 0.85rem;
+    line-height: 1;
+}
+
+.copilot-live-toggle:hover {
+    background: var(--surface-soft);
+    color: var(--primary-color);
+    border-color: rgba(var(--primary-color-rgb), 0.18);
+}
+
+/* Spinner — minimal animated ring, theme-aware */
+.copilot-live-spinner {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 2px solid rgba(var(--primary-color-rgb), 0.18);
+    border-top-color: var(--primary-color);
+    animation: copilot-live-spin 0.85s linear infinite;
+    display: inline-block;
+}
+
+.copilot-live-spinner-sm {
+    width: 0.78rem;
+    height: 0.78rem;
+    border-width: 1.5px;
+}
+
+@keyframes copilot-live-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Expanded body — the full timeline of statuses */
+.copilot-progress-steps {
+    list-style: none;
+    margin: 0.55rem 0 0;
+    padding: 0.5rem 0 0.25rem 0.4rem;
+    border-left: 2px solid var(--border-color);
+    margin-left: 0.85rem; /* aligns the rail behind the icon badges */
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.copilot-progress-step {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0.5rem 0.3rem 0.25rem;
+    margin-left: -0.5rem; /* let the icon hang slightly over the rail */
+    font-size: 0.86rem;
+    color: var(--text-main);
+    border-radius: 0.5rem;
+    animation: copilot-progress-fade-in 0.25s ease both;
+    transition: background 0.15s ease;
+}
+
+.copilot-progress-step.is-done {
+    color: var(--text-muted);
+}
+
+.copilot-progress-step:hover {
+    background: rgba(var(--text-main-rgb), 0.04);
+    color: var(--text-main);
+}
+
+.copilot-progress-step.is-current {
+    color: var(--text-main);
+    font-weight: 600;
+    background: rgba(var(--primary-color-rgb), 0.06);
+}
+
+.copilot-progress-step-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 0.4rem;
+    font-size: 0.82rem;
+    /* Default — overridden by per-category rules below */
+    color: var(--text-muted);
+    background: rgba(148, 163, 184, 0.12);
+}
+
+.copilot-progress-step-text {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* Count badge — shows ×N when consecutive duplicate stages are collapsed */
+.copilot-progress-step-count {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.05rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    background: rgba(var(--primary-color-rgb), 0.12);
+    border-radius: 999px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+
+.copilot-progress-step-meta {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    padding: 0.1rem 0.45rem;
+    background: rgba(var(--text-main-rgb), 0.05);
+    border-radius: 999px;
+}
+
+/* ── Per-category icon badge colors ─────────────────────────────────────
+   Each stage maps (via _copilotStageIconFor) to a category class that
+   tints the badge background + icon. Same tint family for visually
+   related stages (e.g. guard/writeintent/refusal share the warning palette). */
+.copilot-step-cat-verified  .copilot-progress-step-icon { color: #14b8a6; background: rgba(20,184,166,0.14); }
+.copilot-step-cat-guard     .copilot-progress-step-icon { color: #f59e0b; background: rgba(245,158,11,0.14); }
+.copilot-step-cat-writeintent .copilot-progress-step-icon { color: #f97316; background: rgba(249,115,22,0.14); }
+.copilot-step-cat-refusal   .copilot-progress-step-icon { color: #ef4444; background: rgba(239,68,68,0.14); }
+.copilot-step-cat-search    .copilot-progress-step-icon { color: #5b8def; background: rgba(91,141,239,0.14); }
+.copilot-step-cat-retrieve  .copilot-progress-step-icon { color: #06b6d4; background: rgba(6,182,212,0.14); }
+.copilot-step-cat-classify  .copilot-progress-step-icon { color: #a855f7; background: rgba(168,85,247,0.14); }
+.copilot-step-cat-schema    .copilot-progress-step-icon { color: #8b5cf6; background: rgba(139,92,246,0.14); }
+.copilot-step-cat-plan      .copilot-progress-step-icon { color: #6366f1; background: rgba(99,102,241,0.14); }
+.copilot-step-cat-dispatch  .copilot-progress-step-icon { color: #ec4899; background: rgba(236,72,153,0.14); }
+.copilot-step-cat-tool      .copilot-progress-step-icon { color: #d946ef; background: rgba(217,70,239,0.14); }
+.copilot-step-cat-explain   .copilot-progress-step-icon { color: #10b981; background: rgba(16,185,129,0.14); }
+.copilot-step-cat-aggregate .copilot-progress-step-icon { color: #f97316; background: rgba(249,115,22,0.14); }
+.copilot-step-cat-compose   .copilot-progress-step-icon { color: #6366f1; background: rgba(99,102,241,0.14); }
+.copilot-step-cat-normalize .copilot-progress-step-icon { color: #64748b; background: rgba(100,116,139,0.14); }
+.copilot-step-cat-validate  .copilot-progress-step-icon { color: #22c55e; background: rgba(34,197,94,0.14); }
+.copilot-step-cat-parse     .copilot-progress-step-icon { color: #84cc16; background: rgba(132,204,22,0.14); }
+.copilot-step-cat-render    .copilot-progress-step-icon { color: #64748b; background: rgba(100,116,139,0.14); }
+.copilot-step-cat-reason    .copilot-progress-step-icon { color: #eab308; background: rgba(234,179,8,0.14); }
+.copilot-step-cat-llm       .copilot-progress-step-icon { color: #8b5cf6; background: rgba(139,92,246,0.14); }
+.copilot-step-cat-rag       .copilot-progress-step-icon { color: #0ea5e9; background: rgba(14,165,233,0.14); }
+.copilot-step-cat-cache     .copilot-progress-step-icon { color: #eab308; background: rgba(234,179,8,0.14); }
+.copilot-step-cat-history   .copilot-progress-step-icon { color: #6b7280; background: rgba(107,114,128,0.14); }
+.copilot-step-cat-cost      .copilot-progress-step-icon { color: #f59e0b; background: rgba(245,158,11,0.14); }
+.copilot-step-cat-other     .copilot-progress-step-icon { color: var(--text-muted); background: rgba(148,163,184,0.12); }
+
+/* The current step's badge keeps the spinner over a slightly stronger tint. */
+.copilot-progress-step.is-current .copilot-progress-step-icon {
+    background: rgba(var(--primary-color-rgb), 0.14);
+}
+
+@keyframes copilot-progress-fade-in {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.copilot-thinking-dot-pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.copilot-thinking-dot-pulse span {
+    width: 0.38rem;
+    height: 0.38rem;
+    background-color: currentColor;
+    border-radius: 999px;
+    animation: copilot-dot-pulse 1.2s infinite ease-in-out both;
+}
+
+.copilot-thinking-dot-pulse span:nth-child(1) { animation-delay: -0.24s; }
+.copilot-thinking-dot-pulse span:nth-child(2) { animation-delay: -0.12s; }
+
+@keyframes copilot-dot-pulse {
+    0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
+    40% { transform: scale(1.0); opacity: 1; }
+}
+
+/* App Shell Overrides - Absolute Pinned Mode */
+html, body {
+    height: 100% !important;
+    overflow: hidden !important;
+}
+
+/* 
+.sf-header, 
+.sf-breadcrumb-wrapper,
+.breadcrumb-wrapper,
+.breadcrumb,
+footer {
+    display: none !important;
+}
+*/
+
+/* =========================================================================
+   EXECUTION STORY TIMELINE
+   ========================================================================= */
+
+.copilot-trace-view-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-card) 76%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), 0 8px 18px rgba(15, 23, 42, 0.08);
+    gap: 0.25rem;
+}
+
+.copilot-trace-view-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0 !important;
+    outline: 0;
+    background: transparent !important;
+    margin: 0;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.18s ease;
+    line-height: 1;
+    box-shadow: none !important;
+    text-decoration: none;
+    font-family: inherit;
+}
+
+.copilot-trace-view-btn.is-active {
+    background: color-mix(in srgb, var(--primary-color) 14%, var(--bg-card)) !important;
+    color: var(--primary-color);
+    border-color: transparent;
+    box-shadow: 0 8px 18px rgba(var(--primary-color-rgb), 0.16);
+}
+
+.copilot-trace-view-btn:hover:not(.is-active) {
+    color: var(--text-main) !important;
+    background: rgba(148, 163, 184, 0.08) !important;
+}
+
+.copilot-trace-view-btn:focus-visible {
+    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.18) !important;
+}
+
+.copilot-story-timeline {
+    position: relative;
+    padding-left: 0;
+}
+
+.copilot-story-step {
+    display: flex;
+    gap: 0.75rem;
+    padding-bottom: 1rem;
+    position: relative;
+}
+
+.copilot-story-step:not(.copilot-story-step-last)::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 28px;
+    bottom: -15px;
+    width: 2px;
+    background: var(--border-color);
+    opacity: 0.5;
+}
+
+.copilot-story-connector {
+    position: absolute;
+    top: 15px;
+    height: 2px;
+    background: var(--border-color);
+    opacity: 0.5;
+    z-index: 1;
+}
+
+.copilot-story-step.is-sub-step {
+    padding-bottom: 0.75rem;
+}
+
+.copilot-story-step.is-sub-step .copilot-story-content {
+    background: rgba(var(--primary-color-rgb), 0.015);
+    border-color: rgba(var(--primary-color-rgb), 0.08);
+}
+
+.copilot-story-dot {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+    font-size: 0.85rem;
+}
+
+.copilot-story-content {
+    flex: 1;
+    min-width: 0;
+    background: rgba(var(--text-main-rgb), 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 0.65rem;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.2s;
+}
+
+.copilot-story-step:hover .copilot-story-content {
+    background: rgba(var(--text-main-rgb), 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.copilot-story-layer {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.copilot-story-time {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    opacity: 0.7;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.copilot-story-action {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin: 2px 0;
+}
+
+.copilot-story-detail {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.copilot-story-payload-shell {
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.copilot-story-payload-heading {
+    margin-bottom: 0.65rem;
+    color: var(--primary-color);
+    font-size: 0.64rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.copilot-story-payload-derived {
+    margin-bottom: 0.85rem;
+}
+
+.copilot-story-payload-section-label {
+    margin-bottom: 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.copilot-story-payload-derived-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 0.75rem;
+}
+
+.copilot-story-payload-host .copilot-trace-substep-card {
+    background: linear-gradient(180deg, rgba(var(--primary-color-rgb), 0.07) 0%, rgba(var(--primary-color-rgb), 0.02) 100%);
+}
+
+.copilot-story-payload-host .copilot-trace-payload-block {
+    background: color-mix(in srgb, var(--bg-card) 78%, #020617);
+}
+
+.copilot-story-payload-host .copilot-trace-payload-block.is-compact pre {
+    max-height: 12rem;
+}
+
+.copilot-story-payload-host .copilot-trace-payload-layout {
+    gap: 0.75rem;
+    padding: 0.75rem;
+}
+
+.copilot-story-footer {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(59, 130, 246, 0.06);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-radius: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--info-color);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.copilot-story-plan {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    border-radius: 0.5rem;
+}
+
+.copilot-story-plan-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--success-color);
+    margin-bottom: 0.25rem;
+}
+
+.copilot-story-plan-body {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* =========================================================================
+   EXECUTION STORY TREE VIEW
+   ========================================================================= */
+
+.copilot-tree-intro {
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.1rem;
+    border-radius: 1rem;
+    background: rgba(148, 163, 184, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.copilot-tree-intro-title {
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+}
+
+.copilot-tree-intro-text {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--text-main);
+}
+
+.copilot-tree-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.8rem 1rem;
+}
+
+.copilot-tree-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.copilot-tree-legend-dot {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(148, 163, 184, 0.14);
+}
+
+.copilot-tree-legend-item-active .copilot-tree-legend-dot {
+    background: rgba(var(--primary-color-rgb), 0.18);
+    border-color: rgba(var(--primary-color-rgb), 0.35);
+}
+
+.copilot-tree-path-bar {
+    margin-bottom: 1.35rem;
+    padding: 0.95rem 1.1rem;
+    border-radius: 1rem;
+    background: rgba(var(--primary-color-rgb), 0.07);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.18);
+}
+
+.copilot-tree-path-bar-label {
+    font-size: 0.68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--primary-color);
+    margin-bottom: 0.4rem;
+}
+
+.copilot-tree-path-bar-value {
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.55;
+    color: var(--text-main);
+}
+
+.copilot-mermaid-shell {
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 90%, #f8fafc) 0%, color-mix(in srgb, var(--bg-card) 75%, #e2e8f0) 100%);
+    overflow: hidden;
+}
+
+[data-bs-theme="dark"] .copilot-mermaid-shell {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 88%, #020617) 0%, color-mix(in srgb, var(--bg-card) 72%, #0f172a) 100%);
+}
+
+.copilot-mermaid-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 0.85rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    background: color-mix(in srgb, var(--bg-card) 88%, rgba(var(--primary-color-rgb), 0.08));
+}
+
+.copilot-mermaid-toolbar-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-main);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.copilot-mermaid-toolbar-title i {
+    color: var(--primary-color);
+}
+
+.copilot-mermaid-toolbar-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.copilot-mermaid-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.18);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--bg-card) 86%, rgba(var(--primary-color-rgb), 0.08));
+    color: var(--primary-color);
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+    transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.copilot-mermaid-control:hover,
+.copilot-mermaid-control:focus-visible {
+    border-color: rgba(var(--primary-color-rgb), 0.36);
+    background: rgba(var(--primary-color-rgb), 0.12);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.copilot-mermaid-viewport {
+    position: relative;
+    height: clamp(32rem, 58vh, 48rem);
+    min-height: 28rem;
+    overflow: hidden;
+    background-image:
+        radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.16) 1px, transparent 0);
+    background-size: 22px 22px;
+}
+
+.copilot-mermaid-graph {
+    min-width: 980px;
+    height: 100%;
+    transition: transform 0.18s ease;
+}
+
+.copilot-mermaid-graph svg {
+    width: 100%;
+    height: 100%;
+    min-height: 28rem;
+}
+
+.copilot-mermaid-graph svg .node.inactive :is(rect, polygon, circle, ellipse, path),
+.copilot-mermaid-graph svg .node.default :is(rect, polygon, circle, ellipse, path) {
+    fill: color-mix(in srgb, var(--bg-card) 92%, rgba(148, 163, 184, 0.12)) !important;
+    stroke: var(--border-color) !important;
+}
+
+.copilot-mermaid-graph svg .node.active :is(rect, polygon, circle, ellipse, path) {
+    fill: rgba(var(--primary-color-rgb), 0.13) !important;
+    stroke: var(--primary-color) !important;
+}
+
+.copilot-mermaid-graph svg .node.final :is(rect, polygon, circle, ellipse, path) {
+    fill: rgba(var(--primary-color-rgb), 0.18) !important;
+    stroke: var(--primary-color) !important;
+}
+
+.copilot-mermaid-graph svg .node.error :is(rect, polygon, circle, ellipse, path) {
+    fill: rgba(239, 68, 68, 0.12) !important;
+    stroke: var(--danger-color) !important;
+}
+
+.copilot-mermaid-graph svg .node text,
+.copilot-mermaid-graph svg .label,
+.copilot-mermaid-graph svg .nodeLabel,
+.copilot-mermaid-graph svg .edgeLabel {
+    color: var(--text-main) !important;
+    fill: var(--text-main) !important;
+}
+
+.copilot-mermaid-graph svg .edgePath .path,
+.copilot-mermaid-graph svg .flowchart-link {
+    stroke: color-mix(in srgb, var(--text-muted) 72%, transparent) !important;
+}
+
+.copilot-mermaid-graph svg marker path {
+    fill: color-mix(in srgb, var(--text-muted) 72%, transparent) !important;
+    stroke: color-mix(in srgb, var(--text-muted) 72%, transparent) !important;
+}
+
+.copilot-mermaid-graph svg .edgeLabel,
+.copilot-mermaid-graph svg .edgeLabel p {
+    background: var(--bg-card) !important;
+    color: var(--text-main) !important;
+}
+
+.mermaidTooltip {
+    position: absolute;
+    max-width: 18rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 0.9rem;
+    background: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.18);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.16);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    z-index: 5000;
+}
+
+.copilot-trace-node-panel {
+    border-radius: 1rem;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.16);
+    background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+    padding: 1.2rem;
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.1);
+    overflow: hidden;
+}
+
+.copilot-trace-node-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.copilot-trace-node-panel-label {
+    font-size: 0.66rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--primary-color);
+    margin-bottom: 0.35rem;
+}
+
+.copilot-trace-node-panel-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.copilot-trace-node-panel-summary {
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+
+.copilot-trace-node-box {
+    height: 100%;
+    border-radius: 0.95rem;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: linear-gradient(180deg, rgba(148, 163, 184, 0.08) 0%, rgba(148, 163, 184, 0.04) 100%);
+    padding: 0.95rem 1rem;
+}
+
+.copilot-trace-node-box-label,
+.copilot-trace-node-section-title {
+    font-size: 0.68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.45rem;
+}
+
+.copilot-trace-node-box-value {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-main);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.copilot-trace-substep-card {
+    border-radius: 0.9rem;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: linear-gradient(180deg, rgba(148, 163, 184, 0.08) 0%, rgba(148, 163, 184, 0.03) 100%);
+    padding: 1rem;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    position: relative;
+}
+
+.copilot-trace-substep-card.is-child {
+    border-left: 3px solid var(--primary-color);
+    margin-top: 0.75rem;
+    background: rgba(var(--primary-color-rgb), 0.02);
+}
+
+.copilot-trace-substep-children {
+    margin-top: 1rem;
+    padding-left: 0.5rem;
+    border-left: 1px dashed var(--border-color);
+}
+
+.copilot-trace-derived-card {
+    border-color: rgba(var(--primary-color-rgb), 0.22);
+    background: linear-gradient(180deg, rgba(var(--primary-color-rgb), 0.09) 0%, rgba(var(--primary-color-rgb), 0.025) 100%);
+}
+
+/* Graph vars are computed dynamically in JS via getMermaidPalette() */
+
+.copilot-trace-payload-block {
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.copilot-trace-payload-toolbar {
+    background: rgba(var(--primary-color-rgb), 0.06);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 800;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--primary-color);
+}
+
+.copilot-trace-payload-layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.copilot-trace-payload-section,
+.copilot-trace-payload-raw {
+    flex: 1 1 350px;
+    min-width: 0;
+    border-radius: 12px;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.copilot-trace-payload-raw {
+    flex-basis: 100%;
+}
+
+.copilot-trace-payload-section-label {
+    padding: 0.5rem 1rem;
+    background: rgba(var(--primary-color-rgb), 0.04);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.65rem;
+    font-weight: 900;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.copilot-trace-payload-section.is-input   { border-left: 3px solid var(--info-color); }
+.copilot-trace-payload-section.is-output  { border-left: 3px solid var(--success-color); }
+.copilot-trace-payload-section.is-context { border-left: 3px solid var(--warning-color); }
+
+.copilot-trace-payload-section pre,
+.copilot-trace-payload-raw pre {
+    padding: 1rem;
+    max-height: 25rem;
+    overflow: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    background: transparent !important;
+    color: var(--text-main);
+}
+
+.copilot-trace-payload-section pre code,
+.copilot-trace-payload-raw pre code {
+    background: transparent !important;
+}
+
+.copilot-trace-payload-copy-btn {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    padding: 2px 8px;
+    font-size: 0.6rem;
+}
+
+.copilot-trace-payload-section:hover .copilot-trace-payload-copy-btn,
+.copilot-trace-payload-raw:hover .copilot-trace-payload-copy-btn {
+    opacity: 1;
+}.copilot-trace-payload-section pre::-webkit-scrollbar,
+.copilot-trace-payload-raw pre::-webkit-scrollbar {
+    width: 0.375rem;
+    height: 0.375rem;
+}
+
+.copilot-trace-payload-section pre::-webkit-scrollbar-track,
+.copilot-trace-payload-raw pre::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.copilot-trace-payload-section pre::-webkit-scrollbar-thumb,
+.copilot-trace-payload-raw pre::-webkit-scrollbar-thumb {
+    background: rgba(var(--primary-color-rgb), 0.2);
+    border-radius: 10px;
+}
+
+.copilot-trace-payload-section pre::-webkit-scrollbar-thumb:hover,
+.copilot-trace-payload-raw pre::-webkit-scrollbar-thumb:hover {
+    background: rgba(var(--primary-color-rgb), 0.4);
+}
+
+.copilot-trace-node-payloads-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.copilot-trace-substep-payload-toggle {
+    background: rgba(var(--primary-color-rgb), 0.1);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.2);
+    color: var(--primary-color);
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 2px 10px;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.copilot-trace-substep-payload-toggle:hover {
+    background: rgba(var(--primary-color-rgb), 0.18);
+    border-color: rgba(var(--primary-color-rgb), 0.3);
+}
+
+.copilot-trace-substep-payload-toggle.is-active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.copilot-trace-substep-payload {
+    margin-top: 0.75rem;
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(var(--primary-color-rgb), 0.02);
+    border: 1px solid var(--border-color);
+}
+
+
+
+.copilot-trace-substep-payload pre {
+    margin: 0;
+    padding: 0.75rem;
+    max-height: 15rem;
+    overflow: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-main);
+}
+
+.copilot-trace-payload-section.is-input {
+    border-color: rgba(var(--primary-color-rgb), 0.2);
+}
+
+.copilot-trace-payload-section.is-output {
+    border-color: rgba(59, 130, 246, 0.22);
+}
+
+.copilot-trace-payload-section.is-context {
+    border-color: rgba(148, 163, 184, 0.18);
+}
+
+.copilot-trace-payload-section-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(var(--primary-color-rgb), 0.04);
+    color: var(--text-muted);
+    font-size: 0.66rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.copilot-trace-payload-section pre,
+.copilot-trace-payload-raw pre {
+    max-height: 16rem;
+    overflow: auto;
+}
+
+.copilot-trace-payload-layout .copilot-trace-payload-raw pre {
+    max-height: 20rem;
+}
+
+.copilot-trace-substep-title {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.copilot-trace-substep-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.copilot-trace-substep-main {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.copilot-trace-substep-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.copilot-trace-code-path {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.22);
+    border-radius: 999px;
+    padding: 0.24rem 0.55rem;
+    background: rgba(var(--primary-color-rgb), 0.07);
+    color: var(--primary-color);
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.68rem;
+    font-weight: 800;
+    word-break: break-word;
+}
+
+.copilot-trace-substep-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.45rem;
+}
+
+.copilot-trace-substep-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border-color);
+    padding: 0.15rem 0.5rem;
+    background: rgba(var(--primary-color-rgb), 0.05);
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+}
+
+.copilot-trace-substep-chip.is-ok {
+    border-color: rgba(var(--success-color-rgb, 16, 185, 129), 0.2);
+    background: rgba(var(--success-color-rgb, 16, 185, 129), 0.08);
+    color: var(--success-color);
+}
+
+.copilot-trace-substep-chip.is-warn {
+    border-color: rgba(var(--warning-color-rgb, 245, 158, 11), 0.3);
+    background: rgba(var(--warning-color-rgb, 245, 158, 11), 0.1);
+    color: var(--warning-color);
+}
+
+.copilot-trace-substep-chip.is-error {
+    border-color: rgba(var(--danger-color-rgb, 239, 68, 68), 0.3);
+    background: rgba(var(--danger-color-rgb, 239, 68, 68), 0.1);
+    color: var(--danger-color);
+}
+
+.copilot-trace-substep-meta {
+    margin-top: 0.15rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.copilot-trace-substep-time {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--text-muted);
+}
+
+.copilot-trace-substep-detail {
+    margin-top: 0.55rem;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--text-main);
+    white-space: pre-wrap;
+}
+
+.copilot-trace-substep-detail.is-empty {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.copilot-trace-substep-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+}
+
+.copilot-trace-substep-info-box {
+    border: 1px solid var(--border-color);
+    border-radius: 0.8rem;
+    padding: 0.75rem 0.85rem;
+    background: var(--bg-main);
+}
+
+.copilot-trace-substep-info-label {
+    margin-bottom: 0.35rem;
+    color: var(--primary-color);
+    font-size: 0.64rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.copilot-trace-substep-info-value {
+    color: var(--text-main);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.copilot-trace-node-payloads {
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    background: var(--bg-card);
+}
+
+.copilot-trace-node-payloads .copilot-trace-node-section-title {
+    margin: 0;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(var(--primary-color-rgb), 0.04);
+}
+
+.copilot-trace-node-payloads-list {
+    display: grid;
+    gap: 0.85rem;
+    max-height: min(42vh, 34rem);
+    overflow: auto;
+    padding: 0.85rem;
+    scrollbar-gutter: stable;
+}
+
+.copilot-trace-node-payloads-list .copilot-code-block {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: var(--bg-main);
+}
+
+.copilot-trace-node-payloads-list::-webkit-scrollbar,
+.copilot-trace-payload-block pre::-webkit-scrollbar {
+    width: 0.7rem;
+    height: 0.7rem;
+}
+
+.copilot-trace-node-payloads-list::-webkit-scrollbar-thumb,
+.copilot-trace-payload-block pre::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgba(var(--primary-color-rgb), 0.38);
+    background-clip: padding-box;
+}
+
+.copilot-trace-node-payloads-list::-webkit-scrollbar-track,
+.copilot-trace-payload-block pre::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.copilot-trace-tree {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+    gap: 1.1rem;
+    align-items: start;
+}
+
+.copilot-tree-column {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.copilot-tree-column:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 3rem;
+    right: -0.7rem;
+    width: 1.3rem;
+    height: 2px;
+    background: rgba(148, 163, 184, 0.26);
+}
+
+.copilot-tree-column-title {
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    padding-inline: 0.2rem;
+}
+
+.copilot-tree-node {
+    position: relative;
+    padding: 1rem 1rem 0.95rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--text-muted);
+    min-height: 120px;
+    transition: all 0.2s ease;
+    cursor: default;
+}
+
+.copilot-tree-node-active {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border-color: rgba(var(--primary-color-rgb), 0.28);
+    box-shadow: 0 12px 28px rgba(var(--primary-color-rgb), 0.08);
+    color: var(--text-main);
+}
+
+.copilot-tree-node-final {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border-color: rgba(var(--primary-color-rgb), 0.24);
+}
+
+.copilot-tree-node-label {
+    font-size: 0.64rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.45rem;
+}
+
+.copilot-tree-node-active .copilot-tree-node-label {
+    color: var(--primary-color);
+}
+
+.copilot-tree-node-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.4;
+    color: inherit;
+    margin-bottom: 0.55rem;
+}
+
+.copilot-tree-node-meta {
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: inherit;
+    opacity: 0.88;
+}
+
+.copilot-tree-node-hover {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 0.55rem);
+    z-index: 20;
+    width: min(18rem, calc(100vw - 4rem));
+    padding: 0.85rem 0.95rem;
+    border-radius: 0.9rem;
+    background: var(--bg-card);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.18);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(0.375rem);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+}
+
+.copilot-tree-node:hover .copilot-tree-node-hover {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.copilot-tree-node-hover-title {
+    font-size: 0.68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--primary-color);
+    margin-bottom: 0.35rem;
+}
+
+.copilot-tree-node-hover-text {
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: var(--text-main);
+}
+
+/* =========================================================================
+   INLINE CHAT STORY TRACE
+   ========================================================================= */
+
+.copilot-inline-story-toggle {
+    margin-top: 1.25rem;
+    padding: 0.65rem 1rem;
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.2);
+    border-radius: 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+}
+
+.copilot-inline-story-toggle:hover {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: var(--info-color);
+}
+
+.copilot-inline-story-meta {
+    margin-left: auto;
+    font-weight: 500;
+    opacity: 0.6;
+    font-size: 0.68rem;
+}
+
+.copilot-inline-chevron {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.copilot-inline-story-body {
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: var(--bg-main);
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color);
+}
+
+.copilot-inline-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    line-height: 1;
+}
+
+.copilot-inline-step-icon {
+    font-size: 0.75rem;
+    width: 1rem;
+    text-align: center;
+}
+
+.copilot-inline-step-layer {
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.8;
+}
+
+.copilot-inline-step-action {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.copilot-inline-step-time {
+    margin-left: auto;
+    font-size: 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+    opacity: 0.5;
+}
+
+.copilot-inline-step-detail {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    padding-left: 1.5rem;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+    opacity: 0.8;
+}
+
+.copilot-inline-step-detail:last-child {
+    margin-bottom: 0;
+}
+
+/* Deep Dive Modal Styles */
+.modal {
+    z-index: 3000 !important;
+}
+
+.modal-backdrop {
+    z-index: 2990 !important;
+}
+
+.copilot-modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 1.5rem;
+    color: var(--text-main);
+}
+
+.copilot-modal .modal-header {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.copilot-modal .modal-footer {
+    border-top: 1px solid var(--border-color);
+}
+
+.copilot-code-block {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--text-main);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.copilot-deep-dive-btn {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.3);
+    color: var(--primary-color);
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 0.2rem 0.6rem;
+    border-radius: 0.375rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 0.5rem;
+}
+
+.copilot-deep-dive-btn:hover {
+    background: rgba(16, 185, 129, 0.15);
+}
+
+/* Thinking Typewriter Effect */
+.copilot-thinking-text::after {
+    content: '...';
+    display: inline-block;
+    width: 0;
+    overflow: hidden;
+    vertical-align: bottom;
+    animation: thinking-typewriter 2s infinite;
+}
+
+@keyframes thinking-typewriter {
+    0% { width: 0; }
+    33% { width: 0.5em; }
+    66% { width: 1em; }
+    100% { width: 1.5em; }
+}
+
+/* --- Copilot Autocomplete --- */
+.copilot-autocomplete-wrap {
+    position: absolute;
+    bottom: calc(100% + 0.5rem);
+    left: 0.5rem;
+    right: 0.5rem;
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 1.25rem;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    max-height: 250px;
+    overflow-y: auto;
+    display: none;
+    animation: copilot-fade-in-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.copilot-autocomplete-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.75rem 0.4rem 1.25rem;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.copilot-autocomplete-header-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.copilot-autocomplete-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.copilot-autocomplete-close:hover,
+.copilot-autocomplete-close:focus {
+    background: rgba(var(--primary-color-rgb), 0.12);
+    color: var(--primary-color);
+    outline: none;
+}
+
+.copilot-autocomplete-item {
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.copilot-autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.copilot-autocomplete-item:hover,
+.copilot-autocomplete-item.active {
+    background: rgba(var(--primary-color-rgb), 0.1);
+    color: var(--primary-color);
+}
+
+.copilot-autocomplete-item.active {
+    background: rgba(var(--primary-color-rgb), 0.15);
+}
+
+.copilot-hint-type {
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.5rem;
+    background: var(--surface-soft);
+    color: var(--text-muted);
+}
+
+.copilot-autocomplete-item:hover .copilot-hint-type,
+.copilot-autocomplete-item.active .copilot-hint-type {
+    background: var(--primary-color);
+    color: var(--primary-contrast-text);
+}
+
+.copilot-hint-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.copilot-hint-meta {
+    font-size: 0.7rem;
+    opacity: 0.6;
+    margin-left: auto;
+}
+
+@keyframes copilot-fade-in-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+    .copilot-autocomplete-wrap {
+        bottom: calc(100% + 0.25rem);
+    }
+}
+
+/* --- Workflow Tabs & Mermaid Shells --- */
+.copilot-workflow-tabs {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 2px;
+}
+
+.copilot-workflow-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: relative;
+    top: 1px;
+}
+
+.copilot-workflow-tab:hover {
+    color: var(--text-main);
+    background: rgba(var(--primary-color-rgb), 0.04);
+}
+
+.copilot-workflow-tab.is-active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.copilot-mermaid-shell {
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    background: var(--bg-card);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 450px;
+    height: 60vh;
+}
+
+.copilot-mermaid-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    background: rgba(var(--primary-color-rgb), 0.03);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.copilot-mermaid-toolbar-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+}
+
+.copilot-mermaid-toolbar-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.copilot-mermaid-control {
+    width: 2.2rem;
+    height: 2.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.copilot-mermaid-control:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.copilot-mermaid-viewport {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    background: var(--bg-main);
+    cursor: grab;
+}
+
+.copilot-mermaid-viewport:active {
+    cursor: grabbing;
+}
+
+.copilot-mermaid-graph {
+    width: 100%;
+    height: 100%;
+}
+
+.copilot-mermaid-graph svg {
+    max-width: 100%;
+    height: 100%;
+}
+
+/* =============================================================================
+   COPILOT UI v2 — Modern dark layer
+   Goal: make the page actually follow the app theme (single dark mode using
+   --bg-main / --bg-card / --text-main / --border-color) and give a clean,
+   advanced-Copilot look (Cursor / Claude / ChatGPT inspiration).
+   This block deliberately appears LAST so it wins specificity wars with the
+   older rules above without rewriting them.
+   ============================================================================= */
+
+/* --- Layout shells -------------------------------------------------------- */
+.copilot-shell { background: var(--bg-main); color: var(--text-main); }
+.copilot-history-pane { background: var(--bg-card); }
+.copilot-side-shell { background: var(--bg-card); border-left: 1px solid var(--border-color); }
+
+/* Conversation header bar inside the chat pane — was using inline border var */
+.copilot-chat-pane > .d-flex.justify-content-between.border-bottom {
+    background: var(--bg-main);
+    border-color: var(--border-color) !important;
+}
+
+/* --- Message bubbles ----------------------------------------------------- */
+.copilot-message-assistant {
+    background: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    border-bottom-left-radius: 0.4rem;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+}
+.copilot-message-assistant .copilot-message-body { color: var(--text-main); }
+.copilot-message-assistant .copilot-message-body p,
+.copilot-message-assistant .copilot-message-body li,
+.copilot-message-assistant .copilot-message-body td,
+.copilot-message-assistant .copilot-message-body th { color: var(--text-main); }
+.copilot-message-assistant .copilot-message-body strong { color: var(--text-main); font-weight: 700; }
+.copilot-message-assistant .copilot-message-body code {
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.3rem;
+    background: rgba(var(--primary-color-rgb), 0.12);
+    color: var(--primary-color);
+    font-size: 0.88em;
+}
+.copilot-message-assistant .copilot-message-body pre {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: var(--text-main);
+    overflow-x: auto;
+}
+.copilot-message-assistant .copilot-message-body pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+}
+.copilot-message-assistant .copilot-message-body em { color: var(--text-muted); }
+.copilot-message-assistant .copilot-message-body a { color: var(--primary-color); }
+
+/* User bubble theme-aware shadow (defined fully in the primary block above; this
+   override only refreshes the box-shadow so dark themes don't keep the legacy
+   hardcoded indigo glow). */
+.copilot-message-user {
+    box-shadow: 0 6px 18px -10px rgba(var(--primary-color-rgb), 0.25);
+}
+
+/* --- Inline tables (markdown) inside assistant messages ------------------ */
+.copilot-message-assistant .copilot-inline-table-wrap {
+    background: rgba(var(--text-main-rgb), 0.03);
+    border: 1px solid var(--border-color);
+}
+.copilot-message-assistant .copilot-inline-table th {
+    /* MUST stay opaque — sticky header sits over rows as they scroll. The previous
+       rgba(...,0.08) override let row contents bleed through under the column
+       titles. Keep the same layered look (primary tint over the card surface) as
+       the base rule, but with a solid bg-card base so nothing shows through. */
+    background:
+        linear-gradient(rgba(var(--primary-color-rgb), 0.08),
+                        rgba(var(--primary-color-rgb), 0.08)),
+        var(--bg-card);
+    color: var(--text-main);
+}
+.copilot-message-assistant .copilot-inline-table td,
+.copilot-message-assistant .copilot-inline-table th {
+    border-bottom-color: var(--border-color);
+    color: var(--text-main);
+}
+
+/* --- Composer (input area) ---------------------------------------------- */
+.copilot-composer { background: var(--bg-main); border-top: 1px solid var(--border-color); }
+.copilot-input-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    transform: none;
+}
+.copilot-input-container:focus-within {
+    border-color: var(--primary-color);
+    transform: none;
+    box-shadow: 0 0 0 1px var(--primary-color), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+}
+.copilot-textarea { color: var(--text-main) !important; }
+.copilot-textarea::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+/* --- History sidebar items --------------------------------------------- */
+.copilot-history-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.6rem;
+    color: var(--text-main);
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.copilot-history-item:hover {
+    background: var(--surface-soft);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+.copilot-history-item.active {
+    background: var(--surface-strong);
+    border-color: rgba(var(--primary-color-rgb), 0.35);
+    color: var(--text-main);
+}
+.copilot-history-item .text-truncate { color: var(--text-main); }
+.copilot-history-item .opacity-75 { color: var(--text-muted) !important; }
+.copilot-delete-trace-btn { opacity: 0; transition: opacity 0.15s ease; }
+.copilot-history-item-wrap:hover .copilot-delete-trace-btn { opacity: 1; }
+
+/* --- Right-rail panels ------------------------------------------------- */
+.copilot-side-card { background: var(--bg-card); border: 1px solid var(--border-color); }
+.copilot-capability-group, .copilot-standard-group {
+    background: rgba(var(--text-main-rgb), 0.03);
+    border: 1px solid var(--border-color);
+}
+
+/* --- Empty state ------------------------------------------------------- */
+.copilot-empty {
+    background: transparent;
+    border: 1px dashed var(--border-color);
+    color: var(--text-muted);
+}
+
+/* --- Pending / thinking indicator ------------------------------------- */
+.copilot-thinking-inline { color: var(--text-muted); }
+.copilot-thinking-text { color: var(--text-muted); }
+
+/* --- Typography refinements ------------------------------------------- */
+.copilot-message .small.text-uppercase {
+    color: var(--text-muted) !important;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+}
+
+/* --- Buttons in the chat header — make them match dark theme ---------- */
+.copilot-chat-pane .btn-soft-secondary,
+.copilot-chat-pane .btn-soft-danger {
+    border: 1px solid var(--border-color);
+}
+
+/* --- Autocomplete dropdown -------------------------------------------- */
+.copilot-autocomplete-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+.copilot-autocomplete-item { color: var(--text-main); }
+.copilot-autocomplete-item.active,
+.copilot-autocomplete-item:hover {
+    background: var(--surface-soft);
+}
+
+
+/* Phase 1 Step 7 — trust badges. Color the badge by provenance so the user can spot at a
+   glance where an answer came from. Reused .copilot-cost-badge for shape; only color
+   varies. Backend-authoritative: the badge text + class come from the Provenance field
+   on AdminCopilotExecutionDetails (set by the orchestrator per code path). */
+.copilot-trust-verified  { background: rgba(46, 160,  67, 0.12); color: #2ea043; border-color: rgba(46, 160,  67, 0.35); }
+.copilot-trust-llm       { background: rgba( 88, 166, 255, 0.12); color: #58a6ff; border-color: rgba( 88, 166, 255, 0.35); }
+.copilot-trust-corrected { background: rgba(255, 159,  10, 0.12); color: #ff9f0a; border-color: rgba(255, 159,  10, 0.35); }
+.copilot-trust-direct    { background: rgba(187, 134, 252, 0.12); color: #bb86fc; border-color: rgba(187, 134, 252, 0.35); }
+.copilot-trust-other     { background: rgba(155, 155, 155, 0.12); color: var(--text-main); border-color: rgba(155, 155, 155, 0.35); }
+.copilot-trust-refusal   { background: rgba(255,  90,  90, 0.12); color: #ff5a5a; border-color: rgba(255,  90,  90, 0.35); }

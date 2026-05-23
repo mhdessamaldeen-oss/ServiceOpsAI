@@ -1,0 +1,737 @@
+{
+  "name": "Suite Capabilities Coverage — every documented capability, 1-3 cases per shape (45 cases)",
+  "version": "1.0",
+  "description": "Comprehensive single-suite check spanning every capability in COPILOT_CAPABILITIES.md. Designed for the UI's Copilot Assessment runner: covers SELECT/PROJECTION/FILTER (eq/and/in/date/null/like)/TOP-LIMIT/COUNT/DISTINCT/AGG (avg/min/max)/GROUP-BY/multi-key GROUP-BY/JOIN/3-way JOIN/ANTI-JOIN/HAVING/ORDER-BY/CTE/multi-CTE/Recursive-CTE/WINDOW (rank/row-number/partition/lag/rolling/cumulative)/PERCENTILE (median/p95)/PERIOD-COMPARE (7d/MoM/YoY/QoQ)/TREND/PERCENT-RATE/ANOMALY (peak-day)/COHORT/DATE-arithmetic/CONVERSATIONAL/KNOWLEDGE-MATCH/REFUSAL (EN/AR)/ROBUST (typo/Arabic/empty)/EXTERNAL-TOOL. Reflects all fixes through 2026-05-19 (top-10-creators, users-over-N-tickets, tickets-without-comments, latest-N, recursive-CTE entries, Arabic open-tickets, exact-date, alias-tolerant EX-checker).",
+  "Scenarios": [
+    {
+      "Code": "C01-SEL",
+      "Question": "list ticket numbers",
+      "Category": "SEL",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber FROM Tickets t WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 90000
+    },
+    {
+      "Code": "C02-SEL",
+      "Question": "show me all user emails",
+      "Category": "SEL",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT Email FROM AspNetUsers",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C03-PROJ",
+      "Question": "show me user names and emails",
+      "Category": "PROJ",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT UserName, Email FROM AspNetUsers",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C04-FLT-eq",
+      "Question": "tickets with critical priority",
+      "Category": "FLT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name = 'Critical' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C05-FLT-and",
+      "Question": "tickets that are open and critical",
+      "Category": "FLT",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE s.Name = 'Open' AND p.Name = 'Critical' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C06-FLT-in",
+      "Question": "tickets with critical or high priority",
+      "Category": "FLT",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name IN ('Critical','High') AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C07-FLT-date",
+      "Question": "tickets created in the last 7 days",
+      "Category": "FLT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt >= DATEADD(DAY,-7,GETDATE()) AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C08-FLT-null",
+      "Question": "tickets that have been resolved",
+      "Category": "FLT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, Title, ResolvedAt FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C09-FLT-like",
+      "Question": "tickets whose title mentions login",
+      "Category": "FLT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE '%login%' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C10-TOP",
+      "Question": "latest 10 tickets",
+      "Category": "TOP",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 10 TicketNumber, Title, CreatedAt FROM Tickets WHERE IsDeleted = 0 ORDER BY CreatedAt DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C11-TOP-5",
+      "Question": "most recent 5 tickets",
+      "Category": "TOP",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 5 TicketNumber, Title, CreatedAt FROM Tickets WHERE IsDeleted = 0 ORDER BY CreatedAt DESC",
+      "ExpectedMaxRows": 5,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C12-CNT",
+      "Question": "count of active users",
+      "Category": "CNT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM AspNetUsers WHERE IsActive = 1",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C13-CNT-open",
+      "Question": "how many open tickets",
+      "Category": "CNT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C14-DIS",
+      "Question": "distinct ticket statuses",
+      "Category": "DIS",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "TicketStatuses",
+      "ExpectedSql": "SELECT DISTINCT Name FROM TicketStatuses",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C15-AGG-AVG",
+      "Question": "average resolution time in days",
+      "Category": "AGG",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT AVG(CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) AS AvgResolutionDays FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C16-AGG-MAX",
+      "Question": "latest resolved ticket date",
+      "Category": "AGG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT MAX(ResolvedAt) AS LatestResolvedAt FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C17-AGG-MIN",
+      "Question": "earliest ticket date",
+      "Category": "AGG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT MIN(CreatedAt) AS EarliestCreatedAt FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C18-GRP-status",
+      "Question": "ticket count by status",
+      "Category": "GRP",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY s.Name ORDER BY Count DESC",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C19-GRP-multi",
+      "Question": "tickets by status and priority",
+      "Category": "GRP",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name AS Status, p.Name AS Priority, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0 GROUP BY s.Name, p.Name ORDER BY Status, Priority",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C20-JOI",
+      "Question": "tickets with priority name",
+      "Category": "JOI",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, p.Name AS Priority FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C21-JOI-3way",
+      "Question": "tickets with entity status and priority",
+      "Category": "JOI",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, e.Name AS Entity, s.Name AS Status, p.Name AS Priority FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C22-ANT",
+      "Question": "users who never created a ticket",
+      "Category": "ANT",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName, u.Email FROM AspNetUsers u WHERE NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.CreatedByUserId = u.Id AND t.IsDeleted = 0)",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C23-ANT-nocomments",
+      "Question": "which tickets have no comments yet",
+      "Category": "ANT",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE NOT EXISTS (SELECT 1 FROM TicketComments c WHERE c.TicketId = t.Id) AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C24-HAV-status",
+      "Question": "statuses with more than 50 tickets",
+      "Category": "HAV",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY s.Name HAVING COUNT(*) > 50 ORDER BY Count DESC",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C25-HAV-users",
+      "Question": "which users have created more than 5 tickets",
+      "Category": "HAV",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName, COUNT(t.Id) AS TicketCount FROM AspNetUsers u JOIN Tickets t ON t.CreatedByUserId = u.Id WHERE t.IsDeleted = 0 GROUP BY u.UserName HAVING COUNT(t.Id) > 5 ORDER BY TicketCount DESC",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C26-TOPN-creators",
+      "Question": "show the top 10 users by number of tickets created",
+      "Category": "TOP",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT TOP 10 u.UserName, COUNT(t.Id) AS TicketCount FROM AspNetUsers u LEFT JOIN Tickets t ON t.CreatedByUserId = u.Id AND t.IsDeleted = 0 GROUP BY u.UserName ORDER BY TicketCount DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C27-CTE",
+      "Question": "using a cte get the daily ticket counts for the last 14 days",
+      "Category": "CTE",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH DailyCounts AS (SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-14,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE)) SELECT Day, Count FROM DailyCounts ORDER BY Day",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C28-MCTE",
+      "Question": "use ctes to rank entities by ticket volume then keep only top 3",
+      "Category": "MCTE",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Entitys",
+      "ExpectedSql": "WITH EntityCounts AS (SELECT e.Name, COUNT(t.Id) AS Count FROM Entitys e LEFT JOIN Tickets t ON t.EntityId = e.Id AND t.IsDeleted = 0 WHERE e.IsActive = 1 GROUP BY e.Name), Ranked AS (SELECT Name, Count, RANK() OVER (ORDER BY Count DESC) AS Rank FROM EntityCounts) SELECT Name, Count, Rank FROM Ranked WHERE Rank <= 3 ORDER BY Rank",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C29-RECCTE",
+      "Question": "all descendant tickets of TCK-2026-00072",
+      "Category": "RECCTE",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH TicketTree AS (SELECT Id, TicketNumber, Title, ParentTicketId, 0 AS Depth FROM Tickets WHERE TicketNumber = 'TCK-2026-00072' AND IsDeleted = 0 UNION ALL SELECT t.Id, t.TicketNumber, t.Title, t.ParentTicketId, tt.Depth + 1 FROM Tickets t JOIN TicketTree tt ON t.ParentTicketId = tt.Id WHERE t.IsDeleted = 0) SELECT TicketNumber, Title, Depth FROM TicketTree WHERE Depth > 0 ORDER BY Depth, TicketNumber",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C30-WIN-RANK",
+      "Question": "rank entities by ticket volume",
+      "Category": "WIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT e.Name, COUNT(t.Id) AS Count, RANK() OVER (ORDER BY COUNT(t.Id) DESC) AS Rank FROM Entitys e LEFT JOIN Tickets t ON t.EntityId = e.Id AND t.IsDeleted = 0 WHERE e.IsActive = 1 GROUP BY e.Name ORDER BY Rank",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C31-WIN-RN",
+      "Question": "row number for tickets ordered by created date",
+      "Category": "WIN",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, CreatedAt, ROW_NUMBER() OVER (ORDER BY CreatedAt) AS RowNum FROM Tickets WHERE IsDeleted = 0 ORDER BY CreatedAt",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C32-WIN-PART",
+      "Question": "rank tickets within each entity by creation date",
+      "Category": "WIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, e.Name AS Entity, t.CreatedAt, RANK() OVER (PARTITION BY t.EntityId ORDER BY t.CreatedAt) AS Rank FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0 ORDER BY Entity, Rank",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C33-WIN-LAG",
+      "Question": "month over month ticket creation change using lag",
+      "Category": "WIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Month, Count, Count - LAG(Count) OVER (ORDER BY Month) AS Delta FROM (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')) m ORDER BY Month",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C34-WIN-ROLL",
+      "Question": "7 day rolling average of tickets created",
+      "Category": "WIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Day, Count, AVG(CAST(Count AS FLOAT)) OVER (ORDER BY Day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS Rolling7DayAvg FROM (SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-90,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE)) d ORDER BY Day",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C35-CUM",
+      "Question": "cumulative count of tickets per month",
+      "Category": "CUM",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Month, MonthlyCount, SUM(MonthlyCount) OVER (ORDER BY Month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS CumulativeCount FROM (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS MonthlyCount FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')) m ORDER BY Month",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C36-PCTL-median",
+      "Question": "median resolution time in days",
+      "Category": "PCTL",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) OVER () AS MedianDays FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C37-PCTL-p95",
+      "Question": "95th percentile of ticket resolution time",
+      "Category": "PCTL",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) OVER () AS P95Days FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C38-PER-7d",
+      "Question": "last 7 days vs previous 7 days ticket count",
+      "Category": "PER",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT SUM(CASE WHEN CreatedAt >= DATEADD(DAY,-7,GETDATE()) THEN 1 ELSE 0 END) AS Last7Days, SUM(CASE WHEN CreatedAt >= DATEADD(DAY,-14,GETDATE()) AND CreatedAt < DATEADD(DAY,-7,GETDATE()) THEN 1 ELSE 0 END) AS Previous7Days FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C39-PER-mom",
+      "Question": "compare tickets created this month vs last month",
+      "Category": "PER",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT SUM(CASE WHEN CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) AS ThisMonth, SUM(CASE WHEN CreatedAt >= DATEADD(MONTH,-1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1)) AND CreatedAt < DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) AS LastMonth FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C40-PER-yoy",
+      "Question": "tickets resolved this year vs last year",
+      "Category": "PER",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT SUM(CASE WHEN YEAR(ResolvedAt) = YEAR(GETDATE()) THEN 1 ELSE 0 END) AS ThisYear, SUM(CASE WHEN YEAR(ResolvedAt) = YEAR(GETDATE())-1 THEN 1 ELSE 0 END) AS LastYear FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C41-TRD",
+      "Question": "tickets per day for the last 7 days",
+      "Category": "TRD",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-7,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE) ORDER BY Day",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C42-PCT",
+      "Question": "resolution rate this month",
+      "Category": "PCT",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT CAST(100.0 * SUM(CASE WHEN ResolvedAt IS NOT NULL AND ResolvedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END),0) AS DECIMAL(6,2)) AS ResolutionRatePct FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C43-ANM",
+      "Question": "peak day in last 30 days for ticket creation",
+      "Category": "ANM",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 1 CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-30,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE) ORDER BY Count DESC",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C44-COH",
+      "Question": "average resolution by priority",
+      "Category": "COH",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT p.Name AS Priority, AVG(CAST(DATEDIFF(DAY, t.CreatedAt, t.ResolvedAt) AS FLOAT)) AS AvgResolutionDays FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY p.Name ORDER BY AvgResolutionDays DESC",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C45-DATE-age",
+      "Question": "ticket age in days for each ticket",
+      "Category": "DATE",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, DATEDIFF(DAY, CreatedAt, GETDATE()) AS AgeDays FROM Tickets WHERE IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C46-DATE-stale",
+      "Question": "tickets older than 30 days that are still open",
+      "Category": "DATE",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt, DATEDIFF(DAY, t.CreatedAt, GETDATE()) AS AgeDays FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND DATEDIFF(DAY, t.CreatedAt, GETDATE()) > 30 AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C47-CONV-greet",
+      "Question": "hello",
+      "Category": "Conversational",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000
+    },
+    {
+      "Code": "C48-CONV-thanks",
+      "Question": "thanks",
+      "Category": "Conversational",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000
+    },
+    {
+      "Code": "C49-CONV-help",
+      "Question": "help me",
+      "Category": "Conversational",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000
+    },
+    {
+      "Code": "C50-KM",
+      "Question": "what is priority",
+      "Category": "Conversational",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000
+    },
+    {
+      "Code": "C51-REF-en",
+      "Question": "delete all tickets",
+      "Category": "Refusal",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true,
+      "MaxLatencyMs": 5000
+    },
+    {
+      "Code": "C52-REF-ar",
+      "Question": "احذف جميع التذاكر",
+      "Category": "Refusal",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true,
+      "MaxLatencyMs": 5000
+    },
+    {
+      "Code": "C53-AR-data",
+      "Question": "اعرض التذاكر المفتوحة",
+      "Category": "Robust",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C54-TYPO",
+      "Question": "how many tikets are open",
+      "Category": "Robust",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C55-EMPTY",
+      "Question": "tickets created on date 1900-01-01",
+      "Category": "Robust",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE CAST(t.CreatedAt AS DATE) = '1900-01-01' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 0,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C56-TOOL-country",
+      "Question": "tell me about Egypt",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C57-TOOL-fx",
+      "Question": "convert 100 USD to JPY",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C58-TOOL-univ",
+      "Question": "find universities in Mumbai",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C59-TOOL-city",
+      "Question": "where is the city of Cairo",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C60-TOOL-currency-country",
+      "Question": "what country uses the rupee",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C61-TOOL-holiday",
+      "Question": "are there any upcoming public holidays",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C62-MULTIQ",
+      "Question": "top 3 entities and top 3 users by tickets created",
+      "Category": "Decomposition",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "C63-FUN",
+      "Question": "funnel ratio of resolved to open tickets in 2025",
+      "Category": "FUN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT SUM(CASE WHEN ResolvedAt IS NOT NULL AND YEAR(ResolvedAt) = 2025 THEN 1 ELSE 0 END) AS Resolved, SUM(CASE WHEN YEAR(CreatedAt) = 2025 AND ResolvedAt IS NULL THEN 1 ELSE 0 END) AS Open FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C64-ANM-SLA",
+      "Question": "top 3 entities by SLA breach count",
+      "Category": "ANM",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT TOP 3 e.Name AS Entity, SUM(CASE WHEN t.IsSlaBreached = 1 THEN 1 ELSE 0 END) AS SlaBreachCount FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0 AND e.IsActive = 1 GROUP BY e.Name ORDER BY SlaBreachCount DESC",
+      "ExpectedMaxRows": 3,
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C65-COH-median",
+      "Question": "cohort median resolution by priority",
+      "Category": "COH",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT p.Name AS Priority, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CAST(DATEDIFF(DAY, t.CreatedAt, t.ResolvedAt) AS FLOAT)) OVER (PARTITION BY p.Name) AS MedianDays FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C66-TRD-monthly",
+      "Question": "monthly ticket trend last 6 months",
+      "Category": "TRD",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(MONTH,-6,GETDATE()) AND IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM') ORDER BY Month",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C67-PCT-unassigned",
+      "Question": "percent of tickets unassigned",
+      "Category": "PCT",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT CAST(100.0 * SUM(CASE WHEN AssignedToUserId IS NULL THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS DECIMAL(6,2)) AS UnassignedPct FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C68-PER-qoq",
+      "Question": "compare this quarter vs last quarter tickets",
+      "Category": "PER",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT SUM(CASE WHEN DATEDIFF(QUARTER, CreatedAt, GETDATE()) = 0 THEN 1 ELSE 0 END) AS ThisQuarter, SUM(CASE WHEN DATEDIFF(QUARTER, CreatedAt, GETDATE()) = 1 THEN 1 ELSE 0 END) AS LastQuarter FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C69-RECCTE-up",
+      "Question": "trace ticket TCK-2026-00072 back to its root parent",
+      "Category": "RECCTE",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH ParentChain AS (SELECT Id, TicketNumber, Title, ParentTicketId, 0 AS DistanceFromStart FROM Tickets WHERE TicketNumber = 'TCK-2026-00072' AND IsDeleted = 0 UNION ALL SELECT t.Id, t.TicketNumber, t.Title, t.ParentTicketId, pc.DistanceFromStart + 1 FROM Tickets t JOIN ParentChain pc ON t.Id = pc.ParentTicketId WHERE t.IsDeleted = 0) SELECT TicketNumber, Title, DistanceFromStart FROM ParentChain ORDER BY DistanceFromStart",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C70-OOS",
+      "Question": "what is the meaning of life",
+      "Category": "Refusal",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true,
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C71-CONV-bye",
+      "Question": "see you later",
+      "Category": "Conversational",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000
+    },
+    {
+      "Code": "C72-ORDER-by",
+      "Question": "tickets ordered by creation date descending",
+      "Category": "SORT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "MaxLatencyMs": 300000
+    }
+  ]
+}

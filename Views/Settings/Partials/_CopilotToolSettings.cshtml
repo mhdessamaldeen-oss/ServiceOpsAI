@@ -1,0 +1,155 @@
+<div class="row g-4 animate__animated animate__fadeIn">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-lg mb-2" style="border-radius: 12px;">
+            <div class="card-header border-0 pb-0 pt-3 px-3 bg-transparent d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="fw-bold mb-1"><i class="bi bi-robot me-2 text-primary"></i>Copilot Tool Registry</h6>
+                    <p class="text-muted smaller mb-0">Manage internal and external tools available to the AI Assistant.</p>
+                </div>
+                <button class="btn btn-primary btn-sm rounded-pill shadow-sm px-3" onclick="openToolEditor('new')">
+                    <i class="bi bi-plus-lg me-1"></i>Add Tool
+                </button>
+            </div>
+            <div class="card-body p-2 px-3">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border-0">
+                        <thead>
+                            <tr class="text-muted small text-uppercase ls-1" style="border-bottom: 2px solid var(--border-color);">
+                                <th style="width: 50px;">Status</th>
+                                <th>Tool Identity</th>
+                                <th>Routing Context</th>
+                                <th>Test Prompt</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var tools = ViewBag.CopilotTools as List<AISupportAnalysisPlatform.Models.AI.CopilotToolDefinition> ?? new();
+                            }
+                            @if (!tools.Any())
+                            {
+                                <tr>
+                                    <td colspan="5" class="text-center py-5">
+                                        <div class="text-muted mb-2"><i class="bi bi-inbox-fill fs-1"></i></div>
+                                        <p class="mb-0">No tools registered. Use "Add Dynamic Tool" to begin.</p>
+                                    </td>
+                                </tr>
+                            }
+                            @foreach (var tool in tools)
+                            {
+                                <tr>
+                                    <td>
+                                        <form asp-action="ToggleCopilotTool" method="post" class="m-0">
+                                            <input type="hidden" name="id" value="@tool.Id" />
+                                            <input type="hidden" name="isEnabled" value="@(tool.IsEnabled ? "false" : "true")" />
+                                            <div class="form-check form-switch p-0 m-0 d-flex justify-content-center">
+                                                <input class="form-check-input ms-0 cursor-pointer" type="checkbox" role="switch" @(tool.IsEnabled ? "checked" : "") onchange="this.form.submit()">
+                                            </div>
+                                        </form>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-main">@tool.Title</div>
+                                        <div class="text-muted smaller text-truncate" style="max-width: 250px;">@tool.Description</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge rounded-pill bg-light text-dark border px-2 py-1 smaller">
+                                            <i class="bi bi-hash me-1 text-primary"></i>@tool.ToolKey
+                                        </span>
+                                        <div class="mt-1 smaller text-muted opacity-75">Service: @tool.CopilotMode</div>
+                                    </td>
+
+                                    <td>
+                                        <div class="smaller text-muted italic">
+                                            <i class="bi bi-chat-left-dots me-1"></i>@(string.IsNullOrWhiteSpace(tool.TestPrompt) ? "None" : tool.TestPrompt)
+                                        </div>
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group">
+                                            <button class="btn btn-outline-secondary btn-sm rounded-3 me-2" 
+                                                    onclick="openToolEditor(this)"
+                                                    data-tool-id="@tool.Id"
+                                                    data-tool-title="@tool.Title"
+                                                    data-tool-desc="@tool.Description"
+                                                    data-tool-key="@tool.ToolKey"
+                                                    data-tool-mode="@tool.CopilotMode"
+                                                    data-tool-type="@tool.ToolType"
+                                                    data-tool-url="@tool.EndpointUrl"
+                                                    data-tool-enabled="@tool.IsEnabled.ToString().ToLower()">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <form asp-action="DeleteCopilotTool" method="post" onsubmit="return confirm('Purge this tool from the registry?');" class="m-0">
+                                                <input type="hidden" name="id" value="@tool.Id" />
+                                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-3">
+                                                    <i class="bi bi-trash3-fill"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tool Architect Panel -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-lg sticky-top" style="top: 20px; border-radius: 12px;">
+            <div class="card-header border-0 pt-3 px-3 bg-transparent">
+                <h6 class="fw-bold mb-0 text-uppercase small ls-1 text-muted" id="tool-editor-title">Tool Architect</h6>
+                <p class="text-muted smaller mb-0">Design dynamic capabilities</p>
+            </div>
+            <div class="card-body p-3 pt-0">
+                <form id="toolEditorForm" asp-action="SaveCopilotTool" method="post">
+                    <input type="hidden" id="tool-id" name="Id" value="0" />
+                    <input type="hidden" id="tool-enabled" name="IsEnabled" value="true" />
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted text-uppercase ls-1">Tool Title</label>
+                        <input type="text" class="form-control bg-transparent shadow-none" id="tool-title" name="Title" required placeholder="e.g., Weather Hub" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted text-uppercase ls-1">Description (Internal Prompt)</label>
+                        <textarea class="form-control bg-transparent shadow-none" id="tool-desc" name="Description" rows="3" required placeholder="Explain to the AI when to use this tool..."></textarea>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase ls-1">Routing Key</label>
+                            <input type="text" class="form-control bg-transparent shadow-none" id="tool-key" name="ToolKey" required placeholder="WEATHER" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase ls-1">Copilot Mode</label>
+                            <select class="form-select bg-transparent shadow-none font-monospace" id="tool-mode" name="CopilotMode">
+                                <option value="ExternalUtility">ExternalUtility</option>
+                                <option value="TicketAnalysis">TicketAnalysis</option>
+                                <option value="KnowledgeBase">KnowledgeBase</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-4" id="url-field-container">
+                        <label class="form-label small fw-bold text-muted text-uppercase ls-1">Endpoint URL (Link)</label>
+                        <input type="text" class="form-control bg-transparent shadow-none" id="tool-url" name="EndpointUrl" placeholder="https://api.service.com/data?q={query}" />
+                        <div class="form-text smaller">Use <code>{query}</code> as a placeholder for LLM extraction.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase ls-1">Test Prompt / Sample Question</label>
+                        <textarea class="form-control bg-transparent shadow-none" id="tool-test-prompt" name="TestPrompt" rows="2" placeholder="e.g., What is the weather in London?"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 shadow-sm rounded-pill py-2 fw-bold">
+                        <i class="bi bi-cpu-fill me-2"></i>Register Tool Capability
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary w-100 mt-2 rounded-pill py-2 fw-bold" onclick="openToolEditor('new')">
+                        Reset Architect
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

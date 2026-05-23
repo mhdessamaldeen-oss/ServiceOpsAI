@@ -1,0 +1,51 @@
+2026-04-02 09:14:22.001 [INFO ] [reqId:up-7c9a3b01] UploadMiddleware - Incoming file upload request from user2@health.local
+2026-04-02 09:14:22.002 [INFO ] [reqId:up-7c9a3b01] UploadMiddleware - Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryaB3cD4eF5gH6
+2026-04-02 09:14:22.003 [DEBUG] [reqId:up-7c9a3b01] FileProcessor - Target: POST /api/v2/tickets/782/attachments | EntityId: 1
+2026-04-02 09:14:22.011 [DEBUG] [reqId:up-7c9a3b01] FileProcessor - Detected file: "quarterly-financial-review-Q1-2026.xlsx" (5.00 MB)
+2026-04-02 09:14:22.013 [INFO ] [reqId:up-7c9a3b01] FileProcessor - File size within limit (5.00 MB <= 10.00 MB). Proceeding.
+2026-04-02 09:14:22.014 [DEBUG] [reqId:up-7c9a3b01] AntivirusScanner - Submitting file to ClamAV daemon at clam01.tech.local:3310
+2026-04-02 09:14:22.800 [INFO ] [reqId:up-7c9a3b01] AntivirusScanner - Scan result: CLEAN (786ms)
+2026-04-02 09:14:22.802 [INFO ] [reqId:up-7c9a3b01] BlobStorageClient - Uploading to container 'ticket-attachments'
+2026-04-02 09:14:23.100 [DEBUG] [reqId:up-7c9a3b01] BlobStorageClient - Upload progress: 20%
+2026-04-02 09:14:23.500 [DEBUG] [reqId:up-7c9a3b01] BlobStorageClient - Upload progress: 40%
+2026-04-02 09:14:24.002 [DEBUG] [reqId:up-7c9a3b01] BlobStorageClient - Upload progress: 60%
+2026-04-02 09:14:24.500 [DEBUG] [reqId:up-7c9a3b01] BlobStorageClient - Upload progress: 80%
+2026-04-02 09:14:25.112 [DEBUG] [reqId:up-7c9a3b01] BlobStorageClient - Upload progress: 100%
+2026-04-02 09:14:25.113 [INFO ] [reqId:up-7c9a3b01] BlobStorageClient - Upload complete. ETag: "0x8DC53A1B2C3D4E5F"
+2026-04-02 09:14:25.115 [INFO ] [reqId:up-7c9a3b01] UploadMiddleware - 201 Created. Attachment ID: 4521. Total: 3113ms
+2026-04-02 09:22:05.001 [INFO ] [reqId:up-8d0b4c12] UploadMiddleware - Upload from user1@interior.local
+2026-04-02 09:22:05.003 [DEBUG] [reqId:up-8d0b4c12] FileProcessor - "employee-roster-full-export.csv" 14.00 MB
+2026-04-02 09:22:05.005 [WARN ] [reqId:up-8d0b4c12] FileProcessor - File size 14.00 MB exceeds max 10.00 MB
+2026-04-02 09:22:05.006 [INFO ] [reqId:up-8d0b4c12] UploadMiddleware - 413 Request Entity Too Large.
+2026-04-02 09:35:41.003 [WARN ] [reqId:up-9e1c5d23] FileProcessor - Extension '.sql' is blocked. Rejecting.
+2026-04-02 09:35:41.004 [INFO ] [reqId:up-9e1c5d23] SecurityAudit - BLOCKED UPLOAD: user3@education.local attempted '.sql'. IP: 10.0.5.33.
+2026-04-02 10:12:33.001 [INFO ] [reqId:up-b03e7f45] UploadMiddleware - Upload from user2@health.local
+2026-04-02 10:12:33.002 [DEBUG] [reqId:up-b03e7f45] FileProcessor - "MRI-scan-results-patient-44921.pdf" 8.50 MB
+2026-04-02 10:12:33.010 [DEBUG] [reqId:up-b03e7f45] AntivirusScanner - Submitting to ClamAV
+2026-04-02 10:12:33.012 [WARN ] [reqId:up-b03e7f45] AntivirusScanner - Connection refused. Retrying (1/3)...
+2026-04-02 10:12:34.012 [WARN ] [reqId:up-b03e7f45] AntivirusScanner - Connection refused. Retrying (2/3)...
+2026-04-02 10:12:35.013 [WARN ] [reqId:up-b03e7f45] AntivirusScanner - Connection refused. Retrying (3/3)...
+2026-04-02 10:12:36.013 [ERROR] [reqId:up-b03e7f45] AntivirusScanner - All retries exhausted. ClamAV unreachable.
+System.Net.Sockets.SocketException (111): Connection refused
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error)
+   at SupportFlow.Services.AntivirusScanner.ScanFileAsync(Stream fileStream, String fileName) in /src/Services/AntivirusScanner.cs:line 67
+2026-04-02 10:12:36.015 [WARN ] [reqId:up-b03e7f45] FileProcessor - AV unavailable. Fallback: ALLOW_WITH_FLAG
+2026-04-02 10:12:36.016 [INFO ] [reqId:up-b03e7f45] SecurityAudit - File uploaded WITHOUT AV scan. File: MRI-scan-results-patient-44921.pdf, User: user2@health.local, Ticket: 782.
+2026-04-02 10:12:38.340 [INFO ] [reqId:up-b03e7f45] UploadMiddleware - 201 Created. WARNING: AV scan skipped.
+2026-04-02 10:15:00.002 [ERROR] [tid:004] HealthCheckService - ClamAV unresponsive. 5 uploads without scan since failure.
+2026-04-02 10:18:44.001 [INFO ] [reqId:up-c14f8056] UploadMiddleware - Upload from user1@health.local
+2026-04-02 10:18:44.003 [DEBUG] [reqId:up-c14f8056] FileProcessor - "lab-results-batch-march.zip" 9.50 MB
+2026-04-02 10:18:44.010 [WARN ] [reqId:up-c14f8056] AntivirusScanner - ClamAV still unreachable. Fallback: ALLOW_WITH_FLAG
+2026-04-02 10:18:44.012 [WARN ] [reqId:up-c14f8056] SecurityAudit - ELEVATED RISK: ZIP archive uploaded without AV scan.
+2026-04-02 10:18:45.601 [INFO ] [reqId:up-c14f8056] BlobStorageClient - Complete. { avScanned: false, riskLevel: 'HIGH' }
+2026-04-02 10:25:00.003 [ERROR] [tid:004] SecurityAudit - SECURITY ESCALATION: 8 files (47.2 MB) uploaded without AV. ClamAV downtime: 12m27s. 2 ZIP archives flagged HIGH RISK.
+2026-04-02 10:30:00.002 [INFO ] [tid:004] AntivirusScanner - ClamAV reconnected. Service restored.
+2026-04-02 10:30:00.003 [INFO ] [tid:004] AntivirusScanner - Initiating retroactive scan of 8 flagged files.
+2026-04-02 10:30:02.445 [INFO ] [tid:004] AntivirusScanner - Retroactive 1/8: MRI-scan-results-patient-44921.pdf - CLEAN
+2026-04-02 10:30:03.778 [INFO ] [tid:004] AntivirusScanner - Retroactive 2/8: lab-results-batch-march.zip - CLEAN
+2026-04-02 10:30:05.112 [INFO ] [tid:004] AntivirusScanner - Retroactive 3/8: budget-proposal-draft.docx - CLEAN
+2026-04-02 10:30:06.445 [WARN ] [tid:004] AntivirusScanner - Retroactive 4/8: macro-enabled-report.xlsm - THREAT DETECTED: Win.Exploit.CVE_2024_38226
+2026-04-02 10:30:06.446 [ERROR] [tid:004] SecurityAudit - MALWARE DETECTED: 'macro-enabled-report.xlsm' by user3@interior.local. QUARANTINED. Ticket: 901.
+2026-04-02 10:30:06.890 [INFO ] [tid:004] NotificationService - Security alert sent to secops@tech.local
+2026-04-02 10:30:11.002 [INFO ] [tid:004] AntivirusScanner - Retroactive scan complete. 7/8 CLEAN, 1/8 QUARANTINED.
+2026-04-02 10:30:11.003 [WARN ] [tid:004] SecurityAudit - POST-INCIDENT: ClamAV down 17m27s. Root cause: OOM kill on clam01.tech.local.

@@ -1,0 +1,41 @@
+{
+  "name": "Suite 8 — Tool dispatch (external HTTP tools)",
+  "version": "1.0",
+  "description": "Tests the ToolHandler probe for the 6 registered tools (country_profile / currency / location / fx / public_holiday / university). Includes ambiguous + missing-param + DB-shaped-trap cases to verify routing safety.",
+  "Scenarios": [
+    { "Code": "S8-TOOL-clear-001", "Question": "tell me about Egypt",
+      "Category": "ToolDispatch", "Difficulty": "Easy", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "ToolDispatch", "Language": "en",
+      "ExpectedToolKey": "country_profile_lookup", "MaxLatencyMs": 30000 },
+    { "Code": "S8-TOOL-clear-002", "Question": "convert 100 USD to JPY",
+      "Category": "ToolDispatch", "Difficulty": "Easy", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "ToolDispatch", "Language": "en",
+      "ExpectedToolKey": "major_fx_snapshot", "MaxLatencyMs": 30000 },
+    { "Code": "S8-TOOL-clear-003", "Question": "find universities in Mumbai",
+      "Category": "ToolDispatch", "Difficulty": "Easy", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "ToolDispatch", "Language": "en",
+      "ExpectedToolKey": "university_registry_search", "MaxLatencyMs": 30000 },
+    { "Code": "S8-TOOL-clear-004", "Question": "what country uses the rupee",
+      "Category": "ToolDispatch", "Difficulty": "Easy", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "ToolDispatch", "Language": "en",
+      "ExpectedToolKey": "currency_country_lookup", "MaxLatencyMs": 30000 },
+
+    { "Code": "S8-TOOL-missing-001", "Question": "what's the weather",
+      "Category": "ToolDispatch", "Difficulty": "Medium", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "ToolDispatch", "Language": "en",
+      "MaxLatencyMs": 30000 },
+    { "Code": "S8-TOOL-missing-002", "Question": "are there any public holidays",
+      "Category": "ToolDispatch", "Difficulty": "Medium", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "ToolDispatch", "Language": "en",
+      "ExpectedToolKey": "public_holiday_watch", "MaxLatencyMs": 30000 },
+
+    { "Code": "S8-TOOL-DB-trap-001", "Question": "how many weather tickets are open",
+      "Category": "FLT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.Title LIKE '%weather%' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+    { "Code": "S8-TOOL-DB-trap-002", "Question": "list tickets about currency conversion issues",
+      "Category": "FLT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, Title FROM Tickets WHERE (Title LIKE '%currency%' OR Title LIKE '%conversion%') AND IsDeleted = 0",
+      "MaxLatencyMs": 180000 }
+  ]
+}

@@ -1,0 +1,49 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.DTOs.UserDto>
+
+<div class="table-responsive">
+    <table id="usersTable" class="table table-hover mb-0 align-middle datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">User Identity</th>
+                <th class="py-3">Email Address</th>
+                <th class="py-3">Entity</th>
+                <th class="py-3 no-sort">Access Status</th>
+                <th class="text-end pe-4 py-3 no-sort">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm rounded-circle d-flex align-items-center justify-content-center fw-bold me-3" style="width: 40px; height: 40px; background: rgba(var(--primary-color-rgb, 16,185,129), 0.1) !important; color: var(--primary-color) !important; border: 1px solid rgba(var(--primary-color-rgb, 16,185,129), 0.2) !important;">
+                                @(!string.IsNullOrEmpty(item.FirstName) ? item.FirstName[0] : (!string.IsNullOrEmpty(item.Email) ? item.Email[0] : 'U'))
+                            </div>
+                            <div class="fw-bold" style="color: var(--text-main) !important;">@item.FullName</div>
+                        </div>
+                    </td>
+                    <td class="text-muted small" style="color: var(--text-muted) !important;">@item.Email</td>
+                    <td>
+                        <span class="badge fw-semibold" style="background: var(--bg-main) !important; color: var(--text-muted) !important; border: 1px solid var(--border-color) !important;">@item.EntityName</span>
+                    </td>
+                    <td>
+                        @if (item.IsActive)
+                        {
+                            <span class="badge" style="background: rgba(var(--primary-color-rgb), 0.1) !important; color: var(--primary-color) !important; border: 1px solid var(--primary-color) !important;">Authorized</span>
+                        }
+                        else
+                        {
+                            <span class="badge" style="background: rgba(var(--danger-color-rgb), 0.1) !important; color: var(--danger-color) !important; border: 1px solid var(--danger-color) !important;">Restricted</span>
+                        }
+                    </td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-icon btn-sm btn-soft-primary shadow-none">
+                            <i class="bi bi-pencil-fill"></i>
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

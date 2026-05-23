@@ -1,0 +1,113 @@
+/* Status Badge Colors - Dynamic & Theme Aware */
+
+.badge-status {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    border-width: 1px;
+    border-style: solid;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+}
+
+/* Status: New */
+.status-new {
+    background: rgba(var(--primary-color-rgb), 0.1) !important;
+    color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Status: Open */
+.status-open {
+    background: rgba(245, 158, 11, 0.1) !important;
+    color: #f59e0b !important;
+    border-color: #f59e0b !important;
+}
+
+/* Status: In Progress */
+.status-inprogress {
+    background: rgba(34, 211, 238, 0.1) !important;
+    color: #2563eb !important;
+    border-color: #2563eb !important;
+}
+
+/* Status: Pending */
+.status-pending {
+    background: rgba(245, 158, 11, 0.05) !important;
+    color: #d97706 !important;
+    border-color: rgba(217, 119, 6, 0.2) !important;
+}
+
+/* Status: Resolved */
+.status-resolved {
+    background: rgba(var(--primary-color-rgb), 0.1) !important;
+    color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Status: Closed */
+.status-closed {
+    background: rgba(113, 113, 122, 0.1) !important;
+    color: #71717a !important;
+    border-color: #71717a !important;
+}
+
+/* Status: Rejected */
+.status-rejected {
+    background: rgba(239, 68, 68, 0.1) !important;
+    color: #ef4444 !important;
+    border-color: #ef4444 !important;
+}
+
+/* Prioritiy Badges */
+.badge-priority {
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-width: 1px;
+    border-style: solid;
+}
+
+.priority-low {
+    background: rgba(var(--primary-color-rgb), 0.1) !important;
+    color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+.priority-medium {
+    background: rgba(245, 158, 11, 0.1) !important;
+    color: #f59e0b !important;
+    border-color: #f59e0b !important;
+}
+
+.priority-high {
+    background: rgba(239, 68, 68, 0.1) !important;
+    color: #ef4444 !important;
+    border-color: #ef4444 !important;
+}
+
+.priority-critical {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #dc2626 !important;
+    border-color: #dc2626 !important;
+    animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+/* Category Badge */
+.category-badge {
+    background: rgba(var(--primary-color-rgb), 0.1) !important;
+    color: var(--primary-color) !important;
+    border: 1px solid var(--primary-color) !important;
+}

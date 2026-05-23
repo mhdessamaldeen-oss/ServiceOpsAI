@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "createdOnUtc": "2026-04-14T00:00:00Z",
+  "cases": [
+    {
+      "id": "ar-001",
+      "bucket": "Arabic",
+      "queryLanguage": "Arabic",
+      "queryText": "المستخدم لا يستطيع تسجيل الدخول بعد إعادة تعيين كلمة المرور",
+      "sourceTicketId": null,
+      "count": 5,
+      "includeAllStatuses": false,
+      "statusIds": [],
+      "expectedTicketIds": [1901, 1213, 933, 149],
+      "intent": "Authentication / login issue",
+      "notes": "Arabic query should retrieve resolved authentication-related tickets in Arabic or English."
+    },
+    {
+      "id": "en-001",
+      "bucket": "English",
+      "queryLanguage": "English",
+      "queryText": "Reporting add-in installs but no export option appears",
+      "sourceTicketId": null,
+      "count": 5,
+      "includeAllStatuses": false,
+      "statusIds": [],
+      "expectedTicketIds": [1546, 1226, 1178, 898, 530],
+      "intent": "Reporting export issue",
+      "notes": "English query should retrieve resolved reporting/export tickets across Arabic and English."
+    },
+    {
+      "id": "mix-001",
+      "bucket": "Mixed",
+      "queryLanguage": "Mixed",
+      "queryText": "الصفحة shows timeout after external callback but request is marked complete",
+      "sourceTicketId": null,
+      "count": 5,
+      "includeAllStatuses": false,
+      "statusIds": [],
+      "expectedTicketIds": [1973, 1685, 1093, 925, 557],
+      "intent": "Mixed-language timeout / integration issue",
+      "notes": "Mixed query should retrieve resolved timeout/completion mismatch tickets across Arabic and English."
+    }
+  ]
+}

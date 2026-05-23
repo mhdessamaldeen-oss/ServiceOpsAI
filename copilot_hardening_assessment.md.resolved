@@ -1,0 +1,179 @@
+# SuperAdminCopilot — Hardening Assessment
+
+> Full architectural review of the pipeline, trace persistence, background services, and operational guards.
+> Updated: 2026-05-13
+
+---
+
+## 1. Architecture Summary
+
+```mermaid
+graph TD
+    Q["User Question"] --> PF["Preflight (regex refusal)"]
+    PF --> OG["OperationalGuard (kill switch + rate limit)"]
+    OG --> RT["Router (HybridIntentRouter + probes)"]
+    RT -->|Conversational| CH["ConversationalHandler"]
+    RT -->|Knowledge| KH["KnowledgeMatchHandler"]
+    RT -->|Metadata| MH["MetadataHandler"]
+    RT -->|SemanticSearch| SS["SemanticSearchHandler"]
+    RT -->|Tool| TH["ToolHandler"]
+    RT -->|DataQuery| SE["Shape Engine (27 shapes)"]
+    SE -->|miss| LP["LLM Planner"]
+    SE -->|hit| CO["Compiler"]
+    LP --> CO
+    CO --> VA["Validator (AST + Intent + Shape)"]
+    VA --> EX["Executor (PII → CostGate → Cache → ReadOnly)"]
+    EX --> EXP["Explainer"]
+    EXP --> TR["TraceSink → CopilotTraceHistories"]
+```
+
+**Component count**: ~50 classes across 12 namespaces, 27 registered question shapes, 8 resolver types, 4-layer executor chain, 2 background hosted services.
+
+---
+
+## 2. Findings by Severity
+
+### 🔴 Critical — Fix Before Production
+
+| # | Area | Finding | Impact |
+|---|------|---------|--------|
+| C1 | **RetryBudget scope** | `RetryBudget` is Scoped but `Reset()` is never called explicitly — it relies on DI scope boundaries. If the orchestrator is ever invoked twice within the same HTTP scope (e.g. decomposition sub-questions), the budget carries forward correctly by design. BUT if a middleware or filter re-enters the pipeline, the stale budget silently caps the second entry. | Silent query refusal |
+| C2 | **CopilotTraceHistoryStore swallows all exceptions** | [SaveAsync L100](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Services/AI/Copilot/Trace/CopilotTraceHistoryStore.cs#L100-L104) catches `Exception` and returns `null`. A persistent DB failure (connection pool exhaustion, schema mismatch) will silently lose **every** trace with zero alerting — the only signal is a single `LogError` that drowns in noise. | Complete forensic data loss |
+| C3 | **ReadOnlyExecutor has no SQL injection guard** | [ReadOnlyExecutor L29-31](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Execution/ReadOnlyExecutor.cs#L29-L31) executes `compiled.Sql` directly. While the compiler produces parameterized SQL, the `CompiledSql` record is a public type — any future code path that constructs one manually bypasses the AST validator. Defence-in-depth requires a final `SELECT`-only assertion here. | Potential data mutation |
+| C4 | **PiiRedactingExecutor lazy field is not thread-safe** | [PiiRedactingExecutor L36-37](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Execution/PiiRedactingExecutor.cs#L36-L37) uses `_allSensitive` with a null-check-then-write pattern. As a Singleton wrapping another Singleton, concurrent first-requests can race and one thread sees a partial HashSet. | Sporadic PII leak on cold start |
+
+### 🟠 High — Significant Quality / Reliability Gaps
+
+| # | Area | Finding | Impact |
+|---|------|---------|--------|
+| H1 | **CopilotOrchestrator size** | 1642 lines with `RunSingleAsync` containing the entire Tier-1 + Tier-2 + shape-engine dispatch + retry loop. Cognitive load makes bugs invisible. | Maintainability risk |
+| H2 | **CostGateExecutor opens a separate DB connection** | [CostGateExecutor L79](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Execution/CostGateExecutor.cs#L79) opens its own `IDbConnectionFactory.Open()` for SHOWPLAN, then ReadOnlyExecutor opens ANOTHER. Under load this doubles connection consumption per query. | Connection pool pressure |
+| H3 | **SqlCompiler is 1390+ lines** | Partial-class split started (`SqlCompiler.Aggregation.cs`, `.Helpers.cs`) but the main file still holds BuildSelect/BuildFrom/BuildWhere/BuildGroupBy/BuildOrderBy/QualifyColumnsInExpression. A single typo in the 800-line expression qualifier breaks every query. | High blast radius |
+| H4 | **LlmPlanner NJsonSchema validation removed** | [LlmPlanner L121-123](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Pipeline/Stages/LlmPlanner.cs#L121-L123) — schema validation was removed due to PascalCase/camelCase mismatch. The comment says "the deserialize step handles real malformed JSON" but `JsonSerializer.Deserialize<QuerySpec>` with `PropertyNameCaseInsensitive=true` silently ignores unknown properties. A planner that emits `{ "rout": "Tickets" }` (typo) produces an empty spec that compiles to `SELECT * FROM` — a table scan. | Silent wrong answers |
+| H5 | **OperationalGuard rate limiter is in-memory only** | [OperationalGuard](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Pipeline/OperationalGuard.cs) uses `ConcurrentDictionary` — lost on app restart, not shared across instances in a scaled-out deployment. | Rate limit bypass in multi-instance |
+| H6 | **TraceRetentionHostedService timer drift** | The service loops with `Task.Delay(interval)` but never accounts for the time spent in `ExecuteDeleteAsync`. Over weeks, the actual pruning interval drifts. More importantly, if the delete takes longer than the interval, back-pressure is never signaled. | Unbounded trace growth |
+| H7 | **CachingExecutor uses SHA-256 over full SQL text** | [CachingExecutor L72-87](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Execution/CachingExecutor.cs#L72-L87) serializes all parameters to JSON, concatenates, then SHA-256 hashes. For large `IN (...)` filter lists this allocates a multi-KB string per cache lookup. Also, `JsonSerializer.Serialize(kv.Value)` on a `DBNull` or `DateTime` uses default formatting — two semantically identical dates with different `ToString()` forms miss the cache. | Cache misses, GC pressure |
+
+### 🟡 Medium — Technical Debt / Correctness Risks
+
+| # | Area | Finding |
+|---|------|---------|
+| M1 | **Duplicate `Truncate` methods** | `CopilotOrchestrator.Truncate(string,int)` at L1446 and `LlmPlanner.Truncate(string,int)` at L193 are identical private statics. |
+| M2 | **`IOptions<>` vs `IOptionsMonitor<>`** | Most services inject `IOptions<CopilotOptions>` (captured once at construction). But the DI registration uses `ValidateOnStart` + `IPostConfigureOptions`. Runtime hot-reload via the Settings UI only takes effect on next scope creation for Scoped services; Singletons (compiler, shapes, resolvers, all executors) keep stale values forever. |
+| M3 | **`ExtractKeyIds` column-name heuristic** | [CopilotOrchestrator L1398-1401](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Pipeline/CopilotOrchestrator.cs#L1398-L1401) picks the first column ending in "Id" — if the result has `StatusId` before `TicketId`, it threads status IDs into the next sub-question instead of ticket IDs. |
+| M4 | **`NaturalKeyResolver` compiles regex per call** | [Resolvers.cs L374](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Semantic/Resolvers.cs#L374) — `Regex.IsMatch(id, e.NaturalKeyFormat!)` creates a new Regex object for every entity × every question. With 10 entities, that's 10 regex compilations per request. |
+| M5 | **`ColumnResolver.ToPascal` crashes on single-char input** | [Resolvers.cs L174](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Semantic/Resolvers.cs#L174) — `w[1..]` on a 1-char word produces empty string, which is fine, but a 0-char word (from consecutive spaces) would throw `IndexOutOfRangeException`. The `RemoveEmptyEntries` flag protects against this today, but the code is fragile. |
+| M6 | **`BuildUnknownTableReply` uses `List.Contains` with comparer** | [CopilotOrchestrator L1495](file:///c:/Work/Lern/Improve/v1/AISupportAnalysisPlatform/Areas/SuperAdminCopilot/Pipeline/CopilotOrchestrator.cs#L1495) — `suggestions.Contains(e.Name, StringComparer.OrdinalIgnoreCase)` is O(n) per check; should be a HashSet for correctness at scale. |
+| M7 | **Shape engine registration order is fragile** | 27 shapes registered as `IQuestionShape` — tie-breaking is DI registration order. No runtime assertion or test verifies that registration order hasn't drifted. A new shape inserted at the wrong position can shadow an existing one. |
+
+---
+
+## 3. Trace Persistence Deep Dive
+
+### Current Flow
+```
+Orchestrator.PersistAndReturnAsync
+  → ITraceSink.RecordAsync (bridge)
+    → CopilotTraceHistoryStore.SaveAsync
+      → Validates session existence
+      → Serializes ExecutionDetails + timings to JSON
+      → Inserts CopilotTraceHistory row
+      → Returns row ID or null on failure
+```
+
+### Issues Found
+
+1. **Silent failure (C2 above)**: The entire `SaveAsync` is wrapped in a single `try/catch(Exception)` returning `null`. The orchestrator never checks the return — `traceId` can be `null` and the response still reports success. The structured log at L1343 logs `traceId ?? -1` but doesn't raise an alert.
+
+2. **Session validation round-trip**: Every trace save does a `FirstOrDefaultAsync` lookup on `CopilotChatSessions` to validate `sessionId`. This is an extra DB round-trip per question. If the session table grows large or the index is missing, this becomes a bottleneck.
+
+3. **Unbounded JSON serialization**: `executionJson` and `timingsJson` are serialized without size limits at the top of `SaveAsync`. The `CopilotTracePersistenceOptions` limits apply to CLONED copies inside `CreateAuditSafeExecutionDetails`, but the timing extraction at L46-53 serializes the raw steps with no cap. A question with 50+ pipeline steps produces a large `ExecutionTimes` column value.
+
+4. **`ErrorMessage` truncation mismatch**: Truncated to 2000 chars at L91, but the column type may be `nvarchar(MAX)`. Meanwhile `GeneratedScript` is stored raw — a 100KB SQL string from a pathological planner retry goes in verbatim.
+
+---
+
+## 4. Background Services
+
+### TraceRetentionHostedService
+- ✅ Handles `OperationCanceledException` for graceful shutdown (fixed in conversation `9f8128b6`)
+- ✅ Uses `IDbContextFactory` for independent scoping
+- ⚠️ **No backpressure**: If delete takes 30 minutes and interval is 1 hour, next delete starts only 30 minutes later
+- ⚠️ **No metrics**: Doesn't log how many rows were deleted or how long it took
+- ⚠️ **Fixed batch size**: No configurable batch size for the delete operation
+
+### CopilotWarmupHostedService
+- ✅ Non-blocking, fault-tolerant
+- ✅ Config validation at startup
+- ⚠️ **Fixed 5s delay**: Hardcoded `Task.Delay(5s)` — on slow DB hosts the catalog may not be ready
+- ⚠️ **Entity-vector warmup fires a real search**: `FindAsync("warmup", minConfidence: 1.0f)` — if the embedder is expensive, this is wasted work since `minConfidence: 1.0` guarantees zero results
+
+---
+
+## 5. Executor Chain Analysis
+
+```
+IExecutor (DI root)
+  └─ PiiRedactingExecutor (Singleton)  ← outermost, masks sensitive columns
+       └─ CostGateExecutor (Singleton)  ← SHOWPLAN_XML pre-check
+            └─ CachingExecutor (Singleton)  ← SHA-256 keyed memory cache
+                 └─ ReadOnlyExecutor (Singleton)  ← actual SQL execution
+```
+
+**Strengths**: Layered design with feature flags, each layer short-circuits when disabled.
+
+**Weaknesses**:
+- All 4 layers are **Singleton** injecting `IOptions<CopilotOptions>` (not `IOptionsMonitor`). Settings changes require app restart.
+- PiiRedactingExecutor's `_allSensitive` lazy init has a race condition (C4).
+- CostGateExecutor opens a separate connection (H2).
+- No circuit breaker: If the DB is down, every request burns through the full chain before failing.
+
+---
+
+## 6. Recommended Hardening Actions
+
+### Phase 1 — Immediate (Critical fixes)
+
+| Action | Effort | Files |
+|--------|--------|-------|
+| Add circuit breaker / consecutive-failure counter to `ReadOnlyExecutor` | S | `ReadOnlyExecutor.cs` |
+| Make `PiiRedactingExecutor._allSensitive` thread-safe via `Lazy<T>` | XS | `PiiRedactingExecutor.cs` |
+| Add `SELECT`-only assertion in `ReadOnlyExecutor` using ScriptDom | S | `ReadOnlyExecutor.cs` |
+| Add trace-save failure alerting (structured log with dedicated event ID + counter) | S | `CopilotTraceHistoryStore.cs` |
+
+### Phase 2 — Short-term (High-priority gaps)
+
+| Action | Effort | Files |
+|--------|--------|-------|
+| Add `Required` attributes or post-deserialize validation to `QuerySpec.Root` | S | `LlmPlanner.cs`, `PipelineModels.cs` |
+| Switch Singleton services to `IOptionsMonitor<CopilotOptions>` | M | All executors, compiler, shapes |
+| Cache compiled Regex objects in `NaturalKeyResolver` | XS | `Resolvers.cs` |
+| Add delete-count + elapsed logging to `TraceRetentionHostedService` | XS | `TraceRetentionHostedService.cs` |
+| Extract shape-engine dispatch from `RunSingleAsync` into a dedicated method | M | `CopilotOrchestrator.cs` |
+
+### Phase 3 — Medium-term (Quality + maintainability)
+
+| Action | Effort | Files |
+|--------|--------|-------|
+| Continue `SqlCompiler` partial-class decomposition | L | `SqlCompiler.cs` |
+| Add shape registration-order integration test | S | Test project |
+| Add `ExtractKeyIds` priority: prefer entity's NaturalKeyColumn over first `*Id` | S | `CopilotOrchestrator.cs` |
+| Add distributed rate limiter option (Redis or DB-backed) for multi-instance | M | `OperationalGuard.cs` |
+| Add trace-save retry with exponential backoff (1 retry, 500ms) | S | `CopilotTraceHistoryStore.cs` |
+
+---
+
+## 7. Positive Observations
+
+The system has significant architectural strengths that should be preserved:
+
+- **Cheap-path-first**: 27 deterministic shapes avoid LLM calls for ~70% of questions
+- **Defence-in-depth**: 4-layer executor (PII → Cost → Cache → ReadOnly)
+- **Budget guards**: `RetryBudget` prevents runaway LLM costs
+- **Telemetry coverage**: `StageNames.AssertGraphCoverage()` at startup catches orphaned stages
+- **Schema grounding**: Compiler + validator + shape validator + intent guard form a robust rejection stack
+- **Soft-delete auto-injection**: Compiler handles this transparently — LLM never needs to know
+- **Semantic-reference expansion**: `metric:` and `dimension:` tokens let the planner stay abstract
+- **Self-correction loop**: Translates SQL Server errors into concrete fix instructions
+
+The codebase is production-capable with the Critical fixes applied. The High-priority items prevent operational surprises under load.

@@ -1,0 +1,1488 @@
+{
+  "version": "1.0.0",
+  "description": "Copilot SQL Assessment - 100 scenarios covering selection, projection, filtering, sorting, limits, joins, aggregation, calculations, subqueries, and response shape. Base tables with JOINs only. No views.",
+  "lastUpdated": "2026-05-04",
+  "Scenarios": [
+    {
+      "Code": "SEL-001",
+      "Question": "Show me all tickets.",
+      "Category": "Selection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t ORDER BY t.CreatedAt DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "SEL-002",
+      "Question": "Show me some tickets with ticket number and title only.",
+      "Category": "Selection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "SEL-003",
+      "Question": "List the latest tickets in the system.",
+      "Category": "Selection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t ORDER BY t.CreatedAt DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "SEL-004",
+      "Question": "Show unresolved tickets only.",
+      "Category": "Selection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.ResolvedAt IS NULL",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "SEL-005",
+      "Question": "Show resolved tickets only.",
+      "Category": "Selection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.ResolvedAt FROM Tickets t WHERE t.ResolvedAt IS NOT NULL",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "ResolvedAt"
+        ]
+      }
+    },
+    {
+      "Code": "SEL-006",
+      "Question": "Show tickets that are still active.",
+      "Category": "Selection",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, s.Name AS StatusName FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.IsClosedState = 0",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "StatusName"
+        ]
+      }
+    },
+    {
+      "Code": "SEL-007",
+      "Question": "Show tickets that have SLA breached.",
+      "Category": "Selection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.IsSlaBreached FROM Tickets t WHERE t.IsSlaBreached = 1",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "IsSlaBreached"
+        ]
+      }
+    },
+    {
+      "Code": "SEL-008",
+      "Question": "Show tickets that do not have SLA breached.",
+      "Category": "Selection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.IsSlaBreached FROM Tickets t WHERE ISNULL(t.IsSlaBreached, 0) = 0",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "IsSlaBreached"
+        ]
+      }
+    },
+    {
+      "Code": "SEL-009",
+      "Question": "Show tickets with an external reference.",
+      "Category": "Selection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.ExternalReference FROM Tickets t WHERE t.ExternalReference IS NOT NULL AND t.ExternalReference <> ''",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "ExternalReference"
+        ]
+      }
+    },
+    {
+      "Code": "SEL-010",
+      "Question": "Show tickets without an external reference.",
+      "Category": "Selection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.ExternalReference IS NULL OR t.ExternalReference = ''",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "PROJ-001",
+      "Question": "Show ticket number, title, and created date only.",
+      "Category": "Projection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "PROJ-002",
+      "Question": "Show ticket number, title, status name, and priority name.",
+      "Category": "Projection",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, s.Name AS StatusName, p.Name AS PriorityName FROM Tickets t LEFT JOIN TicketStatuses s ON t.StatusId = s.Id LEFT JOIN TicketPriorities p ON t.PriorityId = p.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "StatusName",
+          "PriorityName"
+        ]
+      }
+    },
+    {
+      "Code": "PROJ-003",
+      "Question": "Show ticket number, title, entity name, and assigned agent name.",
+      "Category": "Projection",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, e.Name AS EntityName, u.FullName AS AssignedToName FROM Tickets t LEFT JOIN Entitys e ON t.EntityId = e.Id LEFT JOIN AspNetUsers u ON t.AssignedToUserId = u.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "EntityName",
+          "AssignedToName"
+        ]
+      }
+    },
+    {
+      "Code": "PROJ-004",
+      "Question": "Show ticket number, title, category name, and source name.",
+      "Category": "Projection",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, c.Name AS CategoryName, src.Name AS SourceName FROM Tickets t LEFT JOIN TicketCategories c ON t.CategoryId = c.Id LEFT JOIN TicketSources src ON t.SourceId = src.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CategoryName",
+          "SourceName"
+        ]
+      }
+    },
+    {
+      "Code": "PROJ-005",
+      "Question": "Show ticket number, title, due date, and resolved date.",
+      "Category": "Projection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.DueDate, t.ResolvedAt FROM Tickets t",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "DueDate",
+          "ResolvedAt"
+        ]
+      }
+    },
+    {
+      "Code": "PROJ-006",
+      "Question": "Show ticket number, title, escalation level, and approval status.",
+      "Category": "Projection",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.EscalationLevel, t.ApprovalStatus FROM Tickets t",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "EscalationLevel",
+          "ApprovalStatus"
+        ]
+      }
+    },
+    {
+      "Code": "PROJ-007",
+      "Question": "Show ticket title and description for open tickets.",
+      "Category": "Projection",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.Title, t.Description, s.Name AS StatusName FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Open'",
+        "ExpectedColumns": [
+          "Title",
+          "Description",
+          "StatusName"
+        ]
+      }
+    },
+    {
+      "Code": "PROJ-008",
+      "Question": "Show only user full name, username, and email.",
+      "Category": "Projection",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 u.FullName, u.UserName, u.Email FROM AspNetUsers u",
+        "ExpectedColumns": [
+          "FullName",
+          "UserName",
+          "Email"
+        ],
+        "Note": "Must not expose password or security fields."
+      }
+    },
+    {
+      "Code": "PROJ-009",
+      "Question": "Show ticket number with parent ticket number.",
+      "Category": "Projection",
+      "Difficulty": "Hard",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, p.TicketNumber AS ParentTicketNumber FROM Tickets t LEFT JOIN Tickets p ON t.ParentTicketId = p.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "ParentTicketNumber"
+        ]
+      }
+    },
+    {
+      "Code": "PROJ-010",
+      "Question": "Show ticket number with configuration item name.",
+      "Category": "Projection",
+      "Difficulty": "Hard",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, ci.Name AS ConfigItemName FROM Tickets t LEFT JOIN ConfigurationItems ci ON t.ConfigurationItemId = ci.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "ConfigItemName"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-001",
+      "Question": "Find tickets with Open status.",
+      "Category": "Filter",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, s.Name AS StatusName FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Open'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "StatusName"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-002",
+      "Question": "Find tickets with In Progress status.",
+      "Category": "Filter",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, s.Name AS StatusName FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'In Progress'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "StatusName"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-003",
+      "Question": "Find tickets with Critical priority.",
+      "Category": "Filter",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, p.Name AS PriorityName FROM Tickets t JOIN TicketPriorities p ON t.PriorityId = p.Id WHERE p.Name = 'Critical'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "PriorityName"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-004",
+      "Question": "Find tickets with High priority.",
+      "Category": "Filter",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, p.Name AS PriorityName FROM Tickets t JOIN TicketPriorities p ON t.PriorityId = p.Id WHERE p.Name = 'High'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "PriorityName"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-005",
+      "Question": "Find tickets assigned to Support Team.",
+      "Category": "Filter",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, tm.Name AS TeamName FROM Tickets t JOIN Teams tm ON t.TeamId = tm.Id WHERE tm.Name = 'Support Team'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "TeamName"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-006",
+      "Question": "Find tickets created by admin user.",
+      "Category": "Filter",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, u.FullName AS CreatedBy FROM Tickets t JOIN AspNetUsers u ON t.CreatedByUserId = u.Id WHERE u.UserName = 'admin'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedBy"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-007",
+      "Question": "Find unassigned tickets.",
+      "Category": "Filter",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.AssignedToUserId IS NULL",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-008",
+      "Question": "Find unassigned open tickets.",
+      "Category": "Filter",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, s.Name AS StatusName FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE t.AssignedToUserId IS NULL AND s.Name = 'Open'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "StatusName"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-009",
+      "Question": "Find tickets from Finance entity.",
+      "Category": "Filter",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, e.Name AS EntityName FROM Tickets t JOIN Entitys e ON t.EntityId = e.Id WHERE e.Name = 'Finance'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "EntityName"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-010",
+      "Question": "Find Critical tickets from Finance entity.",
+      "Category": "Filter",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, p.Name AS PriorityName, e.Name AS EntityName FROM Tickets t JOIN TicketPriorities p ON t.PriorityId = p.Id JOIN Entitys e ON t.EntityId = e.Id WHERE p.Name = 'Critical' AND e.Name = 'Finance'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "PriorityName",
+          "EntityName"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-011",
+      "Question": "Find tickets where title contains error.",
+      "Category": "Filter",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE '%error%'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-012",
+      "Question": "Find tickets where title or description contains server down.",
+      "Category": "Filter",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.Description FROM Tickets t WHERE t.Title LIKE '%server down%' OR t.Description LIKE '%server down%'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "Description"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-013",
+      "Question": "Find tickets mentioning database or DB.",
+      "Category": "Filter",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE '%database%' OR t.Title LIKE '%DB%' OR t.Description LIKE '%database%' OR t.Description LIKE '%DB%'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-014",
+      "Question": "Find tickets mentioning network, connectivity, or connection.",
+      "Category": "Filter",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.Description FROM Tickets t WHERE t.Title LIKE '%network%' OR t.Title LIKE '%connectivity%' OR t.Title LIKE '%connection%' OR t.Description LIKE '%network%' OR t.Description LIKE '%connectivity%' OR t.Description LIKE '%connection%'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "Description"
+        ]
+      }
+    },
+    {
+      "Code": "FIL-015",
+      "Question": "Find tickets containing urgent or critical keywords.",
+      "Category": "Filter",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, p.Name AS PriorityName FROM Tickets t LEFT JOIN TicketPriorities p ON t.PriorityId = p.Id WHERE t.Title LIKE '%urgent%' OR t.Title LIKE '%critical%' OR t.Description LIKE '%urgent%' OR t.Description LIKE '%critical%'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "PriorityName"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-001",
+      "Question": "Show tickets created today.",
+      "Category": "Temporal",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE CAST(t.CreatedAt AS DATE) = CAST(GETUTCDATE() AS DATE)",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-002",
+      "Question": "Show tickets created yesterday.",
+      "Category": "Temporal",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE CAST(t.CreatedAt AS DATE) = CAST(DATEADD(day, -1, GETUTCDATE()) AS DATE)",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-003",
+      "Question": "Show tickets created this week.",
+      "Category": "Temporal",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt >= DATEADD(day, -7, GETUTCDATE())",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-004",
+      "Question": "Show tickets created this month.",
+      "Category": "Temporal",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt >= DATEADD(month, -1, GETUTCDATE())",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-005",
+      "Question": "Show tickets created between 2026-01-01 and 2026-03-31.",
+      "Category": "Temporal",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt BETWEEN '2026-01-01' AND '2026-03-31'",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-006",
+      "Question": "Show tickets resolved in the last 24 hours.",
+      "Category": "Temporal",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.ResolvedAt FROM Tickets t WHERE t.ResolvedAt >= DATEADD(HOUR, -24, GETUTCDATE())",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "ResolvedAt"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-007",
+      "Question": "Show tickets escalated in the last 48 hours.",
+      "Category": "Temporal",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.EscalatedAt FROM Tickets t WHERE t.EscalatedAt >= DATEADD(HOUR, -48, GETUTCDATE())",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "EscalatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-008",
+      "Question": "Show tickets due within the next 7 days.",
+      "Category": "Temporal",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.DueDate FROM Tickets t WHERE t.DueDate IS NOT NULL AND t.DueDate BETWEEN GETUTCDATE() AND DATEADD(day, 7, GETUTCDATE()) AND t.ResolvedAt IS NULL",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "DueDate"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-009",
+      "Question": "Show overdue unresolved tickets.",
+      "Category": "Temporal",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.DueDate FROM Tickets t WHERE t.DueDate IS NOT NULL AND t.DueDate < GETUTCDATE() AND t.ResolvedAt IS NULL",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "DueDate"
+        ]
+      }
+    },
+    {
+      "Code": "DATE-010",
+      "Question": "Show tickets older than 30 days and still open.",
+      "Category": "Temporal",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, t.CreatedAt, s.Name AS StatusName FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE t.CreatedAt < DATEADD(day, -30, GETUTCDATE()) AND s.IsClosedState = 0",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt",
+          "StatusName"
+        ]
+      }
+    },
+    {
+      "Code": "SORT-001",
+      "Question": "Show top 10 most recently created tickets.",
+      "Category": "SortLimit",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 10 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t ORDER BY t.CreatedAt DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "SORT-002",
+      "Question": "Show oldest 20 unresolved tickets.",
+      "Category": "SortLimit",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 20 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.ResolvedAt IS NULL ORDER BY t.CreatedAt ASC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "SORT-003",
+      "Question": "Show tickets sorted by priority then created date.",
+      "Category": "SortLimit",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, p.Name AS PriorityName, t.CreatedAt FROM Tickets t JOIN TicketPriorities p ON t.PriorityId = p.Id ORDER BY p.SortOrder ASC, t.CreatedAt DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "PriorityName",
+          "CreatedAt"
+        ]
+      }
+    },
+    {
+      "Code": "SORT-004",
+      "Question": "Show tickets sorted alphabetically by title.",
+      "Category": "SortLimit",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t ORDER BY t.Title ASC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "SORT-005",
+      "Question": "Show tickets by due date ascending.",
+      "Category": "SortLimit",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.DueDate FROM Tickets t WHERE t.DueDate IS NOT NULL ORDER BY t.DueDate ASC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "DueDate"
+        ]
+      }
+    },
+    {
+      "Code": "LIMIT-001",
+      "Question": "Show only the first 5 tickets.",
+      "Category": "SortLimit",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 t.TicketNumber, t.Title FROM Tickets t ORDER BY t.CreatedAt DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "LIMIT-002",
+      "Question": "Show latest 25 resolved tickets.",
+      "Category": "SortLimit",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 25 t.TicketNumber, t.Title, t.ResolvedAt FROM Tickets t WHERE t.ResolvedAt IS NOT NULL ORDER BY t.ResolvedAt DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "ResolvedAt"
+        ]
+      }
+    },
+    {
+      "Code": "LIMIT-003",
+      "Question": "Show top 15 tickets with longest resolution time.",
+      "Category": "SortLimit",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 15 t.TicketNumber, t.Title, DATEDIFF(HOUR, t.CreatedAt, t.ResolvedAt) AS HoursToResolve FROM Tickets t WHERE t.ResolvedAt IS NOT NULL ORDER BY HoursToResolve DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "HoursToResolve"
+        ]
+      }
+    },
+    {
+      "Code": "LIMIT-004",
+      "Question": "Show top 10 entities with most tickets.",
+      "Category": "SortLimit",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 10 e.Name AS EntityName, COUNT(*) AS TicketCount FROM Tickets t JOIN Entitys e ON t.EntityId = e.Id GROUP BY e.Name ORDER BY TicketCount DESC",
+        "ExpectedColumns": [
+          "EntityName",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "LIMIT-005",
+      "Question": "Show top 20 agents by assigned ticket count.",
+      "Category": "SortLimit",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 20 u.FullName AS AgentName, COUNT(*) AS AssignedCount FROM Tickets t JOIN AspNetUsers u ON t.AssignedToUserId = u.Id GROUP BY u.FullName ORDER BY AssignedCount DESC",
+        "ExpectedColumns": [
+          "AgentName",
+          "AssignedCount"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-001",
+      "Question": "List tickets with status names.",
+      "Category": "Join",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, s.Name AS StatusName FROM Tickets t LEFT JOIN TicketStatuses s ON t.StatusId = s.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "StatusName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-002",
+      "Question": "List tickets with priority names.",
+      "Category": "Join",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, p.Name AS PriorityName FROM Tickets t LEFT JOIN TicketPriorities p ON t.PriorityId = p.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "PriorityName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-003",
+      "Question": "List tickets with entity names.",
+      "Category": "Join",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, e.Name AS EntityName FROM Tickets t LEFT JOIN Entitys e ON t.EntityId = e.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "EntityName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-004",
+      "Question": "List tickets with assigned agent full names.",
+      "Category": "Join",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, u.FullName AS AssignedToName FROM Tickets t LEFT JOIN AspNetUsers u ON t.AssignedToUserId = u.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "AssignedToName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-005",
+      "Question": "List tickets with creator full names.",
+      "Category": "Join",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, u.FullName AS CreatedByName FROM Tickets t LEFT JOIN AspNetUsers u ON t.CreatedByUserId = u.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedByName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-006",
+      "Question": "List tickets with creator and assignee names.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, creator.FullName AS CreatedByName, assignee.FullName AS AssignedToName FROM Tickets t LEFT JOIN AspNetUsers creator ON t.CreatedByUserId = creator.Id LEFT JOIN AspNetUsers assignee ON t.AssignedToUserId = assignee.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CreatedByName",
+          "AssignedToName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-007",
+      "Question": "List comments with ticket number and author name.",
+      "Category": "Join",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, c.Content, u.FullName AS AuthorName FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id LEFT JOIN AspNetUsers u ON c.CreatedByUserId = u.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Content",
+          "AuthorName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-008",
+      "Question": "List attachments with ticket number and file name.",
+      "Category": "Join",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, a.FileName, a.FileSize FROM TicketAttachments a JOIN Tickets t ON a.TicketId = t.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "FileName",
+          "FileSize"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-009",
+      "Question": "Show tickets with category, status, priority, and entity names.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, c.Name AS CategoryName, s.Name AS StatusName, p.Name AS PriorityName, e.Name AS EntityName FROM Tickets t LEFT JOIN TicketCategories c ON t.CategoryId = c.Id LEFT JOIN TicketStatuses s ON t.StatusId = s.Id LEFT JOIN TicketPriorities p ON t.PriorityId = p.Id LEFT JOIN Entitys e ON t.EntityId = e.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "CategoryName",
+          "StatusName",
+          "PriorityName",
+          "EntityName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-010",
+      "Question": "Show tickets with impact and urgency names.",
+      "Category": "Join",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, i.Name AS ImpactName, u.Name AS UrgencyName FROM Tickets t LEFT JOIN TicketImpacts i ON t.ImpactId = i.Id LEFT JOIN TicketUrgencies u ON t.UrgencyId = u.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "ImpactName",
+          "UrgencyName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-011",
+      "Question": "Show tickets with workflow step names.",
+      "Category": "Join",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, w.Name AS WorkflowStepName FROM Tickets t LEFT JOIN TicketWorkflowSteps w ON t.CurrentStepId = w.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "WorkflowStepName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-012",
+      "Question": "Show tickets with SLA level names.",
+      "Category": "Join",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, sl.Name AS SlaLevelName FROM Tickets t LEFT JOIN TicketSlaLevels sl ON t.SlaLevelId = sl.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "SlaLevelName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-013",
+      "Question": "Show tickets with source names.",
+      "Category": "Join",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, src.Name AS SourceName FROM Tickets t LEFT JOIN TicketSources src ON t.SourceId = src.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "SourceName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-014",
+      "Question": "Show tickets with department and location names.",
+      "Category": "Join",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, d.Name AS DepartmentName, l.Name AS LocationName FROM Tickets t LEFT JOIN Departments d ON t.DepartmentId = d.Id LEFT JOIN Locations l ON t.LocationId = l.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "DepartmentName",
+          "LocationName"
+        ]
+      }
+    },
+    {
+      "Code": "JOIN-015",
+      "Question": "Show tickets with approver names.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, a.FullName AS ApproverName FROM Tickets t LEFT JOIN AspNetUsers a ON t.ApproverUserId = a.Id",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "ApproverName"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-001",
+      "Question": "How many tickets are in the system?",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "ScalarCount",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) AS TicketCount FROM Tickets",
+        "ExpectedColumns": [
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-002",
+      "Question": "How many users are in the system?",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "ScalarCount",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) AS UserCount FROM AspNetUsers",
+        "ExpectedColumns": [
+          "UserCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-003",
+      "Question": "How many comments exist across all tickets?",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "ScalarCount",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) AS CommentCount FROM TicketComments",
+        "ExpectedColumns": [
+          "CommentCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-004",
+      "Question": "How many attachments exist across all tickets?",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "ScalarCount",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) AS AttachmentCount FROM TicketAttachments",
+        "ExpectedColumns": [
+          "AttachmentCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-005",
+      "Question": "How many open tickets exist?",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "ScalarCount",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) AS OpenCount FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.IsClosedState = 0",
+        "ExpectedColumns": [
+          "OpenCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-006",
+      "Question": "How many resolved tickets exist?",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "ScalarCount",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) AS ResolvedCount FROM Tickets t WHERE t.ResolvedAt IS NOT NULL",
+        "ExpectedColumns": [
+          "ResolvedCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-007",
+      "Question": "How many tickets breached SLA?",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "ScalarCount",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) AS BreachedCount FROM Tickets t WHERE t.IsSlaBreached = 1",
+        "ExpectedColumns": [
+          "BreachedCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-008",
+      "Question": "Count tickets by status name.",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT s.Name AS StatusName, COUNT(*) AS TicketCount FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id GROUP BY s.Name ORDER BY TicketCount DESC",
+        "ExpectedColumns": [
+          "StatusName",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-009",
+      "Question": "Count tickets by priority name.",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT p.Name AS PriorityName, COUNT(*) AS TicketCount FROM Tickets t JOIN TicketPriorities p ON t.PriorityId = p.Id GROUP BY p.Name ORDER BY TicketCount DESC",
+        "ExpectedColumns": [
+          "PriorityName",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-010",
+      "Question": "Count tickets by entity name.",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT e.Name AS EntityName, COUNT(*) AS TicketCount FROM Tickets t LEFT JOIN Entitys e ON t.EntityId = e.Id GROUP BY e.Name ORDER BY TicketCount DESC",
+        "ExpectedColumns": [
+          "EntityName",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-011",
+      "Question": "Count tickets by category name.",
+      "Category": "Aggregate",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT c.Name AS CategoryName, COUNT(*) AS TicketCount FROM Tickets t LEFT JOIN TicketCategories c ON t.CategoryId = c.Id GROUP BY c.Name ORDER BY TicketCount DESC",
+        "ExpectedColumns": [
+          "CategoryName",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-012",
+      "Question": "Count tickets by source name.",
+      "Category": "Aggregate",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT src.Name AS SourceName, COUNT(*) AS TicketCount FROM Tickets t LEFT JOIN TicketSources src ON t.SourceId = src.Id GROUP BY src.Name ORDER BY TicketCount DESC",
+        "ExpectedColumns": [
+          "SourceName",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-013",
+      "Question": "Count tickets by assigned agent.",
+      "Category": "Aggregate",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName AS AgentName, COUNT(*) AS TicketCount FROM Tickets t JOIN AspNetUsers u ON t.AssignedToUserId = u.Id GROUP BY u.FullName ORDER BY TicketCount DESC",
+        "ExpectedColumns": [
+          "AgentName",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-014",
+      "Question": "Count tickets by creator name.",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName AS CreatorName, COUNT(*) AS TicketCount FROM Tickets t JOIN AspNetUsers u ON t.CreatedByUserId = u.Id GROUP BY u.FullName ORDER BY TicketCount DESC",
+        "ExpectedColumns": [
+          "CreatorName",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-015",
+      "Question": "Count tickets by month created.",
+      "Category": "Aggregate",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS TicketCount FROM Tickets GROUP BY FORMAT(CreatedAt, 'yyyy-MM') ORDER BY Month",
+        "ExpectedColumns": [
+          "Month",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "AGG-016",
+      "Question": "Count tickets by year created.",
+      "Category": "Aggregate",
+      "Difficulty": "Easy",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT YEAR(CreatedAt) AS Year, COUNT(*) AS TicketCount FROM Tickets GROUP BY YEAR(CreatedAt) ORDER BY Year",
+        "ExpectedColumns": [
+          "Year",
+          "TicketCount"
+        ]
+      }
+    },
+    {
+      "Code": "CALC-001",
+      "Question": "Show tickets with days open.",
+      "Category": "Calculated",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, DATEDIFF(DAY, t.CreatedAt, ISNULL(t.ResolvedAt, GETUTCDATE())) AS DaysOpen FROM Tickets t ORDER BY DaysOpen DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "DaysOpen"
+        ]
+      }
+    },
+    {
+      "Code": "CALC-002",
+      "Question": "Show resolved tickets with hours to resolution.",
+      "Category": "Calculated",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, DATEDIFF(HOUR, t.CreatedAt, t.ResolvedAt) AS HoursToResolution FROM Tickets t WHERE t.ResolvedAt IS NOT NULL ORDER BY HoursToResolution DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "HoursToResolution"
+        ]
+      }
+    },
+    {
+      "Code": "CALC-003",
+      "Question": "Show average resolution time in hours.",
+      "Category": "Calculated",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "ScalarAverage",
+      "CorrectAnswer": {
+        "SQL": "SELECT AVG(DATEDIFF(HOUR, CreatedAt, ResolvedAt)) AS AvgResolutionHours FROM Tickets WHERE ResolvedAt IS NOT NULL",
+        "ExpectedColumns": [
+          "AvgResolutionHours"
+        ]
+      }
+    },
+    {
+      "Code": "CALC-004",
+      "Question": "Show average resolution time by priority.",
+      "Category": "Calculated",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT p.Name AS PriorityName, AVG(DATEDIFF(HOUR, t.CreatedAt, t.ResolvedAt)) AS AvgHours FROM Tickets t JOIN TicketPriorities p ON t.PriorityId = p.Id WHERE t.ResolvedAt IS NOT NULL GROUP BY p.Name",
+        "ExpectedColumns": [
+          "PriorityName",
+          "AvgHours"
+        ]
+      }
+    },
+    {
+      "Code": "CALC-005",
+      "Question": "Show average resolution time by entity.",
+      "Category": "Calculated",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT e.Name AS EntityName, AVG(DATEDIFF(HOUR, t.CreatedAt, t.ResolvedAt)) AS AvgHours FROM Tickets t JOIN Entitys e ON t.EntityId = e.Id WHERE t.ResolvedAt IS NOT NULL GROUP BY e.Name",
+        "ExpectedColumns": [
+          "EntityName",
+          "AvgHours"
+        ]
+      }
+    },
+    {
+      "Code": "CALC-006",
+      "Question": "Show SLA breach rate by priority.",
+      "Category": "Calculated",
+      "Difficulty": "Hard",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT p.Name AS PriorityName, CAST(SUM(CASE WHEN t.IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) * 100 / COUNT(*) AS BreachRate FROM Tickets t JOIN TicketPriorities p ON t.PriorityId = p.Id GROUP BY p.Name",
+        "ExpectedColumns": [
+          "PriorityName",
+          "BreachRate"
+        ]
+      }
+    },
+    {
+      "Code": "CALC-007",
+      "Question": "Show SLA success rate by hour of day.",
+      "Category": "Calculated",
+      "Difficulty": "Hard",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT DATEPART(hour, t.CreatedAt) AS HourOfDay, COUNT(*) AS TotalTickets, SUM(CASE WHEN t.IsSlaBreached = 1 THEN 1 ELSE 0 END) AS BreachedTickets, 100.0 - (CAST(SUM(CASE WHEN t.IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) * 100 / COUNT(*)) AS SlaSuccessRate FROM Tickets t WHERE t.CreatedAt >= DATEADD(month, -1, GETUTCDATE()) GROUP BY DATEPART(hour, t.CreatedAt) ORDER BY HourOfDay",
+        "ExpectedColumns": [
+          "HourOfDay",
+          "TotalTickets",
+          "BreachedTickets",
+          "SlaSuccessRate"
+        ]
+      }
+    },
+    {
+      "Code": "CALC-008",
+      "Question": "Show total estimated hours by status.",
+      "Category": "Calculated",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT s.Name AS StatusName, SUM(t.EstimatedHours) AS TotalEstimatedHours FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id GROUP BY s.Name",
+        "ExpectedColumns": [
+          "StatusName",
+          "TotalEstimatedHours"
+        ]
+      }
+    },
+    {
+      "Code": "CALC-009",
+      "Question": "Show total time spent per ticket.",
+      "Category": "Calculated",
+      "Difficulty": "Hard",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title, SUM(te.HoursSpent) AS TotalHours FROM Tickets t LEFT JOIN TicketTimeEntries te ON t.Id = te.TicketId GROUP BY t.TicketNumber, t.Title",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "TotalHours"
+        ]
+      }
+    },
+    {
+      "Code": "SUBQ-001",
+      "Question": "Find tickets with more than 5 comments.",
+      "Category": "Subquery",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketComments c WHERE c.TicketId = t.Id) > 5",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "SUBQ-002",
+      "Question": "Find tickets with no comments.",
+      "Category": "Subquery",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE NOT EXISTS (SELECT 1 FROM TicketComments c WHERE c.TicketId = t.Id)",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "SUBQ-003",
+      "Question": "Find tickets with no attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE NOT EXISTS (SELECT 1 FROM TicketAttachments a WHERE a.TicketId = t.Id)",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title"
+        ]
+      }
+    },
+    {
+      "Code": "RESP-001",
+      "Question": "Show a ticket summary with friendly names, not raw IDs.",
+      "Category": "ResponseShape",
+      "Difficulty": "Medium",
+      "ExpectedOutputShape": "List",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, s.Name AS StatusName, p.Name AS PriorityName, e.Name AS EntityName, assignee.FullName AS AssignedToName FROM Tickets t LEFT JOIN TicketStatuses s ON t.StatusId = s.Id LEFT JOIN TicketPriorities p ON t.PriorityId = p.Id LEFT JOIN Entitys e ON t.EntityId = e.Id LEFT JOIN AspNetUsers assignee ON t.AssignedToUserId = assignee.Id ORDER BY t.CreatedAt DESC",
+        "ExpectedColumns": [
+          "TicketNumber",
+          "Title",
+          "StatusName",
+          "PriorityName",
+          "EntityName",
+          "AssignedToName"
+        ],
+        "Note": "Must return friendly names instead of raw foreign key IDs."
+      }
+    },
+    {
+      "Code": "RESP-002",
+      "Question": "Show ticket analytics grouped by entity with total tickets, open tickets, closed tickets, and SLA breach rate.",
+      "Category": "ResponseShape",
+      "Difficulty": "Hard",
+      "ExpectedOutputShape": "GroupedList",
+      "CorrectAnswer": {
+        "SQL": "SELECT e.Name AS EntityName, COUNT(*) AS TotalTickets, SUM(CASE WHEN s.IsClosedState = 0 THEN 1 ELSE 0 END) AS OpenTickets, SUM(CASE WHEN s.IsClosedState = 1 THEN 1 ELSE 0 END) AS ClosedTickets, CAST(SUM(CASE WHEN t.IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) * 100 / NULLIF(COUNT(*), 0) AS SlaBreachRate FROM Tickets t LEFT JOIN Entitys e ON t.EntityId = e.Id LEFT JOIN TicketStatuses s ON t.StatusId = s.Id GROUP BY e.Name ORDER BY TotalTickets DESC",
+        "ExpectedColumns": [
+          "EntityName",
+          "TotalTickets",
+          "OpenTickets",
+          "ClosedTickets",
+          "SlaBreachRate"
+        ]
+      }
+    }
+  ]
+}

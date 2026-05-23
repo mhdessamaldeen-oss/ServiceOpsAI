@@ -1,0 +1,361 @@
+/* 
+   MODIFIED MODERN PREMIUM DESIGN SYSTEM 2026
+   Focus: Stability, RTL support, and Clean Architecture
+*/
+
+/* Sidebar RTL Support */
+[dir="rtl"] .sf-sidebar {
+    left: auto !important;
+    right: 0 !important;
+    border-right: none !important;
+    border-left: 1px solid var(--border-color) !important;
+    z-index: 1050 !important;
+}
+
+.sf-wrapper {
+    margin-left: var(--sidebar-width) !important;
+    margin-right: 0 !important;
+    flex: 1 !important;
+    width: auto !important;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+[dir="rtl"] .sf-wrapper {
+    margin-left: 0 !important;
+    margin-right: var(--sidebar-width) !important;
+    width: auto !important;
+    flex: 1 !important;
+}
+
+/* Collapsed sidebar — must use !important to win over the base rules above,
+   which also use !important. Without this, the wrapper keeps the full
+   --sidebar-width margin and a gap appears next to the collapsed rail. */
+html.sidebar-collapsed .sf-wrapper {
+    margin-left: var(--sidebar-collapsed-width) !important;
+}
+html.sidebar-collapsed [dir="rtl"] .sf-wrapper,
+[dir="rtl"] html.sidebar-collapsed .sf-wrapper {
+    margin-right: var(--sidebar-collapsed-width) !important;
+}
+
+[dir="rtl"] .navbar-nav {
+    flex-direction: row !important;
+    gap: 1.5rem !important;
+}
+
+[dir="rtl"] .header-titles {
+    text-align: right !important;
+}
+
+[dir="rtl"] .dropdown-menu {
+    text-align: right !important;
+}
+
+/* Base Adjustments */
+.sidebar-link i {
+    margin-inline-end: 1rem !important;
+}
+
+.sidebar-brand .icon-shape {
+    margin-inline-end: 1rem !important;
+}
+
+/* Login Partial Alignment Fix */
+.navbar-nav .nav-item {
+    display: flex;
+    align-items: center;
+}
+
+.text-nowrap {
+    white-space: nowrap !important;
+}
+
+/* Header Refinement */
+.sf-header {
+    height: 48px;
+    z-index: 1040;
+}
+
+/* Landing Language Switcher Button - Dynamic Theme Bound */
+.btn-lang-switcher {
+    background: rgba(var(--text-main-rgb), 0.05) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-main) !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    transition: all 0.3s ease !important;
+    backdrop-filter: blur(8px);
+}
+
+.btn-lang-switcher:hover {
+    background: rgba(var(--primary-color-rgb), 0.08) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Utility to prevent flex stacking crash */
+.flex-nowrap {
+    flex-wrap: nowrap !important;
+}
+
+/* ================== AI CORE UI STANDARDS — Aligned to .page-header ================== */
+.ai-header-shell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0 1rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.ai-icon-box {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--primary-color-rgb), 0.1);
+  color: var(--primary-color);
+  border: 1px solid rgba(var(--primary-color-rgb), 0.18);
+  border-radius: 12px;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.ai-header-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.ai-header-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin: 0;
+}
+
+/* ================== ELITE BUTTON DESIGN SYSTEM 2026 ================== */
+.btn {
+  font-weight: 700;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  letter-spacing: -0.01em;
+  font-size: 0.78rem;
+  padding: 0.35rem 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  white-space: nowrap;
+  border-radius: 11px;
+}
+
+.btn-pill {
+  border-radius: var(--radius-btn, 14px) !important;
+}
+
+/* Icon-only circular buttons (Perfect circles, no "eggs") */
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0 !important;
+  border-radius: var(--radius-btn, 14px) !important;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon.btn-sm {
+  width: 30px;
+  height: 30px;
+}
+
+.btn-icon.btn-lg {
+  width: 48px;
+  height: 48px;
+}
+
+.btn-icon i {
+  font-size: 1.15em;
+  line-height: 1;
+}
+
+/* Expanding Buttons (Icon -> Text on Hover) */
+.btn-expand {
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-btn, 14px) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 0.6rem 1.4rem !important;
+}
+
+.btn-expand:hover {
+  filter: brightness(1.1);
+}
+
+.btn-expand i {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.btn-expand span {
+  opacity: 1;
+  display: inline-block;
+  margin-left: 0.65rem;
+}
+
+.btn-primary {
+  background-color: var(--primary-color) !important;
+  border: 1px solid var(--primary-color) !important;
+  color: var(--primary-contrast-text) !important;
+  box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.15);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-color) !important;
+  filter: brightness(1.1);
+  box-shadow: 0 8px 25px rgba(var(--primary-color-rgb), 0.25);
+}
+
+.btn-secondary {
+  background-color: var(--warning-color) !important;
+  border: 1px solid var(--warning-color) !important;
+  color: var(--text-main) !important;
+}
+
+/* Soft Buttons (Clean Transparencies) */
+.btn-soft-primary {
+  background-color: rgba(var(--primary-color-rgb), 0.08) !important;
+  border: 1px solid rgba(var(--primary-color-rgb), 0.18) !important;
+  color: var(--primary-color) !important;
+}
+.btn-soft-primary:hover {
+  background-color: rgba(var(--primary-color-rgb), 0.14) !important;
+  border-color: var(--primary-color) !important;
+}
+
+.btn-soft-secondary {
+  background-color: rgba(var(--text-muted-rgb), 0.06) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-muted) !important;
+}
+.btn-soft-secondary:hover {
+  background-color: rgba(var(--text-muted-rgb), 0.12) !important;
+  border-color: var(--text-muted) !important;
+  color: var(--text-main) !important;
+}
+
+.btn-soft-danger {
+  background-color: rgba(var(--danger-color-rgb), 0.1) !important;
+  border: 1px solid rgba(var(--danger-color-rgb), 0.22) !important;
+  color: var(--danger-color) !important;
+}
+.btn-soft-danger:hover {
+  background-color: rgba(var(--danger-color-rgb), 0.16) !important;
+  border-color: var(--danger-color) !important;
+}
+
+.btn-soft-success {
+  background-color: rgba(var(--success-color-rgb), 0.1) !important;
+  border: 1px solid rgba(var(--success-color-rgb), 0.22) !important;
+  color: var(--success-color) !important;
+}
+
+.btn-soft-warning {
+  background-color: rgba(var(--warning-color-rgb), 0.1) !important;
+  border: 1px solid rgba(var(--warning-color-rgb), 0.22) !important;
+  color: var(--warning-color) !important;
+}
+
+.btn-soft-info {
+  background-color: rgba(var(--info-color-rgb), 0.1) !important;
+  border: 1px solid rgba(var(--info-color-rgb), 0.22) !important;
+  color: var(--info-color) !important;
+}
+
+/* Glass & Outline Variants */
+.btn-outline-primary {
+  background: transparent !important;
+  border: 1.5px solid var(--primary-color) !important;
+  color: var(--primary-color) !important;
+}
+.btn-outline-primary:hover {
+  background: rgba(var(--primary-color-rgb), 0.08) !important;
+}
+
+.btn-outline-secondary {
+  background: transparent !important;
+  border: 1.5px solid var(--border-color) !important;
+  color: var(--text-muted) !important;
+}
+.btn-outline-secondary:hover {
+  border-color: var(--text-muted) !important;
+  color: var(--text-main) !important;
+}
+
+/* Global Button Interactive Logic */
+.btn:active {
+  opacity: 0.8 !important;
+  transition: all 0.1s ease !important;
+}
+
+.btn:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.2) !important;
+}
+
+/* Fix for buttons with white backgrounds "disappearing" — re-themed to surface tokens */
+.bg-white.btn, .bg-light.btn {
+  background-color: var(--bg-surface-alt) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-main) !important;
+}
+.bg-white.btn:hover, .bg-light.btn:hover {
+  background-color: rgba(var(--primary-color-rgb), 0.06) !important;
+  border-color: var(--primary-color) !important;
+}
+
+/* ================== UNIVERSAL INPUT IDENTITY 2026 ================== */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea,
+.form-control,
+.form-select {
+    background-color: var(--bg-surface-alt) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    padding: 10px 16px !important;
+    transition: all 0.2s ease !important;
+    font-size: 0.9rem !important;
+}
+
+input:focus, select:focus, textarea:focus, .form-control:focus, .form-select:focus {
+    border-color: var(--primary-color) !important;
+    background-color: var(--bg-elevated) !important;
+    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.15) !important;
+    outline: none !important;
+}
+
+.form-check-input {
+    background-color: var(--bg-surface-alt) !important;
+    border: 2px solid var(--border-color) !important;
+    cursor: pointer !important;
+}
+
+.form-check-input:checked {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}

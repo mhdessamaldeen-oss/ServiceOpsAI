@@ -1,0 +1,125 @@
+@model AISupportAnalysisPlatform.Models.AI.AiInsightsDashboardViewModel
+@{
+    var filter = Model.Filter;
+    var page = Model.ReviewItems;
+    var totalCount = page.TotalCount;
+    var pageNumber = page.PageNumber;
+    var pageSize = page.PageSize;
+    var totalPages = page.TotalPages;
+    var displayStart = totalCount == 0 ? 0 : (((pageNumber - 1) * pageSize) + 1);
+    var displayEnd = totalCount == 0 ? 0 : Math.Min(pageNumber * pageSize, totalCount);
+
+    var routeData = new Dictionary<string, string?>
+    {
+        ["ConfidenceLevel"] = filter.ConfidenceLevel,
+        ["CurrentClassification"] = filter.CurrentClassification,
+        ["AiSuggestedClassification"] = filter.AiSuggestedClassification,
+        ["CurrentPriority"] = filter.CurrentPriority,
+        ["AiSuggestedPriority"] = filter.AiSuggestedPriority,
+        ["StartDate"] = filter.StartDate?.ToString("yyyy-MM-dd"),
+        ["EndDate"] = filter.EndDate?.ToString("yyyy-MM-dd"),
+        ["NeedsReviewOnly"] = filter.NeedsReviewOnly ? "true" : null,
+        ["MismatchOnly"] = filter.MismatchOnly ? "true" : null,
+        ["HasAttachmentsOnly"] = filter.HasAttachmentsOnly ? "true" : null
+    };
+
+    Func<int, Dictionary<string, string?>> getRouteWithPage = p =>
+    {
+        var dict = new Dictionary<string, string?>(routeData)
+        {
+            ["PageNumber"] = p.ToString(),
+            ["PageSize"] = filter.PageSize.ToString()
+        };
+        return dict;
+    };
+
+    Func<int, Dictionary<string, string?>> getRouteWithPageSize = ps =>
+    {
+        var dict = new Dictionary<string, string?>(routeData)
+        {
+            ["PageNumber"] = "1",
+            ["PageSize"] = ps.ToString()
+        };
+        return dict;
+    };
+}
+
+@if (totalPages > 1 || totalCount > 10)
+{
+    <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 py-4 px-4 border-top" style="border-color: var(--border-color) !important;">
+        <div class="text-muted small fw-semibold">
+            @Loc.Get("Showing") <span class="text-primary fw-bold">@displayStart</span>
+            – <span class="text-primary fw-bold">@displayEnd</span>
+            @Loc.Get("Of") <span class="text-main fw-bold">@totalCount</span> @Loc.Get("Records")
+        </div>
+
+        @if (totalPages > 1)
+        {
+            <nav aria-label="Page navigation">
+                <ul class="pagination mb-0 gap-1">
+                    <li class="page-item @(!page.HasPreviousPage ? "disabled" : "")">
+                        <a class="page-link ajax-pagination-link rounded-3 border-0 fw-bold shadow-none"
+                           style="background: var(--bg-card); color: var(--text-muted);"
+                           href="@Url.Action("Index", "AiInsights", getRouteWithPage(pageNumber - 1))">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+
+                    @{
+                        var startPage = Math.Max(1, pageNumber - 2);
+                        var endPage = Math.Min(totalPages, pageNumber + 2);
+                    }
+
+                    @if (startPage > 1)
+                    {
+                        <li class="page-item">
+                            <a class="page-link ajax-pagination-link rounded-3 border-0 shadow-none"
+                               style="background: var(--bg-card); color: var(--text-muted);"
+                               href="@Url.Action("Index", "AiInsights", getRouteWithPage(1))">1</a>
+                        </li>
+                        @if (startPage > 2) { <li class="page-item disabled"><span class="page-link border-0 bg-transparent text-muted">…</span></li> }
+                    }
+
+                    @for (int p = startPage; p <= endPage; p++)
+                    {
+                        <li class="page-item @(p == pageNumber ? "active" : "")">
+                            <a class="page-link ajax-pagination-link rounded-3 border-0 fw-bold shadow-none"
+                               style="@(p == pageNumber ? "background: var(--primary-color) !important; color: #000 !important;" : "background: var(--bg-card); color: var(--text-muted);")"
+                               href="@Url.Action("Index", "AiInsights", getRouteWithPage(p))">@p</a>
+                        </li>
+                    }
+
+                    @if (endPage < totalPages)
+                    {
+                        @if (endPage < totalPages - 1) { <li class="page-item disabled"><span class="page-link border-0 bg-transparent text-muted">…</span></li> }
+                        <li class="page-item">
+                            <a class="page-link ajax-pagination-link rounded-3 border-0 shadow-none"
+                               style="background: var(--bg-card); color: var(--text-muted);"
+                               href="@Url.Action("Index", "AiInsights", getRouteWithPage(totalPages))">@totalPages</a>
+                        </li>
+                    }
+
+                    <li class="page-item @(!page.HasNextPage ? "disabled" : "")">
+                        <a class="page-link ajax-pagination-link rounded-3 border-0 fw-bold shadow-none"
+                           style="background: var(--bg-card); color: var(--text-muted);"
+                           href="@Url.Action("Index", "AiInsights", getRouteWithPage(pageNumber + 1))">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        }
+
+        <div class="d-flex align-items-center gap-2 small text-muted">
+            <span>@(Loc.Get("ItemsPerPage")):</span>
+            @foreach (var size in new[] { 10, 25, 50, 100, -1 })
+            {
+                var isActive = filter.PageSize == size || (size == -1 && filter.PageSize == AISupportAnalysisPlatform.Models.Common.GridRequestModel.FullDataPageSize);
+                <a href="@Url.Action("Index", "AiInsights", getRouteWithPageSize(size))"
+                   data-page-size="@size"
+                   class="btn btn-sm ajax-pagination-link rounded-pill fw-bold px-3 shadow-none @(isActive ? "btn-primary text-black" : "btn-outline-secondary")"
+                   style="@(isActive ? "background: var(--primary-color) !important; color: #000 !important; border: none !important;" : "border-color: var(--border-color) !important; color: var(--text-muted) !important;")">@(size == -1 ? (Loc.IsRtl ? "الكل" : "All") : size.ToString())</a>
+            }
+        </div>
+    </div>
+}

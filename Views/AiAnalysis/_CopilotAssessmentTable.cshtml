@@ -1,0 +1,216 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.AI.CopilotAssessmentCaseGridItem>
+@functions {
+    // Pretty-print the suite filename for the table cell.
+    // "super-admin-01-selection-where-2026-05-09" → "01 · Selection / Where"
+    static string PrettySuite(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+        var name = System.Text.RegularExpressions.Regex
+            .Replace(raw, @"-\d{4}-\d{2}-\d{2}$", string.Empty);
+        if (name.StartsWith("super-admin-", StringComparison.OrdinalIgnoreCase))
+            name = name.Substring("super-admin-".Length);
+        var match = System.Text.RegularExpressions.Regex.Match(name, @"^(\d+)-(.*)$");
+        var prefix = string.Empty;
+        var rest = name;
+        if (match.Success)
+        {
+            prefix = match.Groups[1].Value.PadLeft(2, '0') + " · ";
+            rest = match.Groups[2].Value;
+        }
+        var words = rest.Split('-', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < words.Length; i++)
+        {
+            if (words[i].Equals("where", StringComparison.OrdinalIgnoreCase) ||
+                words[i].Equals("orderby", StringComparison.OrdinalIgnoreCase) ||
+                words[i].Equals("groupby", StringComparison.OrdinalIgnoreCase) ||
+                words[i].Equals("having", StringComparison.OrdinalIgnoreCase))
+            {
+                words[i] = words[i].ToUpperInvariant();
+            }
+            else
+            {
+                words[i] = char.ToUpperInvariant(words[i][0]) + words[i].Substring(1);
+            }
+        }
+        return prefix + string.Join(" / ", words);
+    }
+
+    // Stable color tone per category prefix (the segment before "/" if any).
+    static string CategoryTone(string category)
+    {
+        if (string.IsNullOrWhiteSpace(category)) return "secondary";
+        var key = category.Split('/')[0].Trim().ToLowerInvariant();
+        var palette = new[] { "primary", "info", "success", "warning", "danger", "secondary" };
+        int hash = 0;
+        foreach (var c in key) hash = unchecked(hash * 31 + c);
+        return palette[Math.Abs(hash) % palette.Length];
+    }
+}
+
+<div class="table-responsive">
+    <table id="copilotAssessmentTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true" data-page-length="@Model.PageSize" data-paging="false" data-info="false" data-searching="false">
+        <thead>
+            <tr>
+                <th class="ps-3 no-sort" style="width: 42px;">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="selectAllCases" />
+                    </div>
+                </th>
+                <th class="py-3" style="width: 100px;" data-sort="code">@Loc.Get("Code")</th>
+                <th class="py-3" style="width: 180px;" data-sort="suite">@Loc.Get("Suite")</th>
+                <th class="py-3" data-sort="scenario">@Loc.Get("Scenario")</th>
+                <th class="py-3" style="width: 160px;" data-sort="category">@Loc.Get("Category")</th>
+                <th class="py-3 text-center" style="width: 110px;" data-sort="difficulty">@Loc.Get("Difficulty")</th>
+                <th class="py-3 text-center" style="width: 90px;" data-sort="latency">@Loc.Get("Latency")</th>
+                <th class="py-3 text-center cost-col" style="width: 95px;" data-sort="cost">Cost</th>
+                <th class="py-3 text-end pe-3 no-sort" style="width: 140px;">@Loc.Get("Actions")</th>
+            </tr>
+        </thead>
+        <tbody id="testResultsBody">
+            @foreach (var item in Model.Items)
+            {
+                var difficultyColor = item.Difficulty switch
+                {
+                    "Easy" => "success",
+                    "Medium" => "info",
+                    "Hard" => "warning",
+                    "Complicated" => "danger",
+                    _ => "secondary"
+                };
+
+                var prettySuite = string.IsNullOrWhiteSpace(item.SourceSuite) ? "Ungrouped" : PrettySuite(item.SourceSuite);
+
+                <tr id="row-@item.Id"
+                    data-case-id="@item.Id"
+                    data-category="@item.Category"
+                    data-suite="@(item.SourceSuite ?? string.Empty)"
+                    data-suite-pretty="@prettySuite"
+                    data-answered="@(item.HasLatestResult ? "yes" : "no")"
+                    class="assessment-row">
+                    <td class="ps-3">
+                        <div class="form-check">
+                            <input class="form-check-input case-selector" type="checkbox" value="@item.Id" />
+                        </div>
+                    </td>
+                    <td class="code-col">
+                        <code class="text-primary fw-bold" style="font-size: 0.75rem;">@item.Code</code>
+                    </td>
+                    <td class="suite-col">
+                        @if (!string.IsNullOrWhiteSpace(item.SourceSuite))
+                        {
+                            <span class="badge bg-soft-primary text-primary rounded-pill" style="font-size: 0.7rem;" title="@item.SourceSuite">
+                                <i class="bi bi-collection me-1"></i>@PrettySuite(item.SourceSuite)
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-muted small">—</span>
+                        }
+                    </td>
+                    <td class="scenario-col">
+                        <div class="fw-semibold text-main">@item.Question</div>
+                        @if (!string.IsNullOrWhiteSpace(item.AnswerPreview))
+                        {
+                            <div class="mt-1 small text-muted text-truncate" style="max-width: 350px;">
+                                <i class="bi bi-chat-left-dots me-1"></i>@item.AnswerPreview
+                            </div>
+                        }
+                    </td>
+                    <td class="category-col">
+                        @{
+                            var catTone = CategoryTone(item.Category);
+                            var catParts = (item.Category ?? string.Empty).Split('/', 2, StringSplitOptions.TrimEntries);
+                            var catHead = catParts.Length > 0 ? catParts[0] : string.Empty;
+                            var catTail = catParts.Length > 1 ? catParts[1] : string.Empty;
+                        }
+                        <span class="badge bg-soft-@catTone text-@catTone rounded-pill" style="font-size: 0.7rem; font-weight: 600;" title="@item.Category">
+                            <span>@catHead</span>
+                            @if (!string.IsNullOrWhiteSpace(catTail))
+                            {
+                                <span class="opacity-75 ms-1">/ @catTail</span>
+                            }
+                        </span>
+                    </td>
+                    <td class="text-center difficulty-col">
+                        <span class="badge bg-soft-@difficultyColor text-@difficultyColor rounded-pill x-small">@item.Difficulty</span>
+                    </td>
+                    <td class="text-center latency-col">
+                        @if (item.LatencyMs.HasValue)
+                        {
+                            <span class="text-muted small">@((item.LatencyMs.Value / 1000.0).ToString("F2"))s</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">--</span>
+                        }
+                    </td>
+                    <td class="text-center cost-col" style="white-space:nowrap;">
+                        @if (item.EstimatedCostUsd.HasValue)
+                        {
+                            var cost = item.EstimatedCostUsd.Value;
+                            var costClass = cost == 0 ? "text-success" : "text-muted";
+                            var costStr = cost == 0 ? "free" : (cost >= 0.01m ? $"${cost:F4}" : $"${cost:F6}");
+                            <span class="small @costClass" title="@(item.LlmCallCount) LLM calls / @(item.TotalPromptTokens ?? 0)+@(item.TotalCompletionTokens ?? 0) tokens">@costStr</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">--</span>
+                        }
+                    </td>
+                    <td class="text-end pe-3">
+                        <div class="btn-group">
+                            <button class="btn btn-icon btn-soft-info btn-sm rounded-circle btn-view-details me-2"
+                                    title="@Loc.Get("Details")"
+                                    data-question="@item.Question"
+                                    data-answer="@item.AnswerPreview"
+                                    data-code="@item.Code"
+                                    data-suite="@item.SourceSuite"
+                                    data-category="@item.Category"
+                                    data-difficulty="@item.Difficulty"
+                                    data-has-answer="@(item.HasAnswer ? "true" : "false")"
+                                    data-expected-sql="@(item.ExpectedSql ?? string.Empty)"
+                                    data-generated-sql="@(item.GeneratedSql ?? string.Empty)"
+                                    data-detail="@item.Detail"
+                                    data-trace-id="@(item.TraceId?.ToString() ?? string.Empty)"
+                                    data-trace-session-id="@(item.TraceSessionId?.ToString() ?? string.Empty)"
+                                    data-latency-ms="@(item.LatencyMs?.ToString() ?? string.Empty)"
+                                    data-model-name="@(item.ModelName ?? string.Empty)"
+                                    data-latest-run-at="@(item.LatestRunAt?.ToString("u") ?? string.Empty)"
+                                    data-total-runs="@item.TotalRuns"
+                                    data-is-success="@(item.IsSuccess.HasValue ? (item.IsSuccess.Value ? "true" : "false") : "")"
+                                    data-has-latest-result="@(item.HasLatestResult ? "true" : "false")">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                            <button class="btn btn-icon btn-soft-secondary btn-sm rounded-circle btn-view-logic me-2"
+                                    title="View Logic"
+                                    data-logic="@item.Detail"
+                                    data-answer="@item.AnswerPreview"
+                                    data-expected-sql="@(item.ExpectedSql ?? string.Empty)"
+                                    data-generated-sql="@(item.GeneratedSql ?? string.Empty)"
+                                    @(string.IsNullOrWhiteSpace(item.Detail) && string.IsNullOrWhiteSpace(item.ExpectedSql) && string.IsNullOrWhiteSpace(item.GeneratedSql) ? "disabled" : "")>
+                                <i class="bi bi-code-square"></i>
+                            </button>
+                            <a class="btn btn-icon btn-soft-primary btn-sm rounded-circle"
+                               asp-controller="AiAnalysis"
+                               asp-action="Copilot"
+                               asp-route-prompt="@item.Question"
+                               asp-route-caseCode="@item.Code"
+                               asp-route-sourceSuite="@item.SourceSuite"
+                               title="Run in Chat">
+                                <i class="bi bi-play-fill"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Items.Any())
+    {
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-inbox fs-1 mb-3"></i>
+            <h6>@Loc.Get("NoDataAvailable")</h6>
+        </div>
+    }
+</div>

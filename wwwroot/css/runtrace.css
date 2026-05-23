@@ -1,0 +1,552 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Investigation — "Run trace" view.
+   Vertical stepper that shows ONLY what actually ran, typed by kind
+   (LLM / SQL / GATE), with totals header and skipped-step footer.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.investigation-runtrace {
+    color: var(--text-main);
+}
+
+/* ── Header strip ───────────────────────────────────────────────── */
+.runtrace-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.85rem 1.1rem;
+    background: rgba(var(--text-main-rgb), 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.runtrace-header-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+    padding-right: 0.85rem;
+    border-right: 1px solid var(--border-color);
+}
+
+.runtrace-header-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.runtrace-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.runtrace-stat strong {
+    color: var(--text-main);
+    font-weight: 600;
+}
+
+.runtrace-stat.free strong {
+    color: var(--success-color, #22c55e);
+}
+
+.runtrace-stat.intent {
+    background: rgba(var(--primary-color-rgb), 0.1);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.25);
+    color: var(--primary-color);
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    font-size: 0.72rem;
+}
+
+/* ── Timeline / rows ────────────────────────────────────────────── */
+.runtrace-timeline {
+    position: relative;
+}
+
+.runtrace-row {
+    position: relative;
+    display: flex;
+    gap: 0.85rem;
+    padding-bottom: 0.85rem;
+}
+
+/* Vertical guide line behind the bullets. Pseudo on each row so the line
+   only spans the actual visible timeline (no orphan trail under the swimlanes). */
+.runtrace-row:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 0.85rem;
+    top: 1.7rem;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--border-color), transparent);
+}
+
+.runtrace-row-bullet {
+    flex-shrink: 0;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 50%;
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    z-index: 1;
+}
+
+.runtrace-status-error .runtrace-row-bullet { border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); }
+.runtrace-status-warn  .runtrace-row-bullet { border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08); }
+.runtrace-status-ok    .runtrace-row-bullet { border-color: rgba(34, 197, 94, 0.4); }
+
+.runtrace-row-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.runtrace-row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0.85rem;
+    background: rgba(var(--text-main-rgb), 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: 0.65rem;
+    transition: background 0.12s ease;
+}
+
+.runtrace-row-head:hover {
+    background: rgba(var(--primary-color-rgb), 0.06);
+}
+
+.runtrace-row-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.runtrace-row-name {
+    font-weight: 600;
+    font-size: 0.92rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.runtrace-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+/* ── Kind badges (LLM / SQL / GATE) ─────────────────────────────── */
+.runtrace-kind-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 0.4rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1;
+}
+
+.runtrace-kind-badge.llm  { background: rgba(168, 85, 247, 0.12); color: #a855f7; }
+.runtrace-kind-badge.sql  { background: rgba(91, 141, 239, 0.12); color: #5b8def; }
+.runtrace-kind-badge.gate { background: rgba(34, 197, 94, 0.1);   color: #22c55e; }
+
+.runtrace-kind-badge i { font-size: 0.8em; }
+
+.runtrace-row-kind-llm  .runtrace-row-head { border-left: 3px solid rgba(168, 85, 247, 0.6); }
+.runtrace-row-kind-sql  .runtrace-row-head { border-left: 3px solid rgba(91, 141, 239, 0.6); }
+.runtrace-row-kind-gate .runtrace-row-head { border-left: 3px solid rgba(34, 197, 94, 0.4); }
+
+/* ── Meta chips (tokens / cost / time / model) ──────────────────── */
+.runtrace-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.4rem;
+    background: rgba(var(--text-main-rgb), 0.05);
+    border: 1px solid var(--border-color);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.runtrace-meta-chip.free   { color: var(--success-color, #22c55e); border-color: rgba(34, 197, 94, 0.3); }
+.runtrace-meta-chip.muted  { background: transparent; }
+.runtrace-meta-chip.slow   { color: var(--warning-color, #f59e0b); border-color: rgba(245, 158, 11, 0.35); }
+
+.runtrace-meta-chip i { opacity: 0.75; font-size: 0.85em; }
+
+.runtrace-row-chevron {
+    transition: transform 0.15s ease;
+    color: var(--text-muted);
+}
+
+.runtrace-row-expand {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease-out, padding 0.2s ease-out;
+    padding: 0 0.85rem;
+}
+
+.runtrace-row-expand.expanded {
+    max-height: 4000px;
+    padding: 0.85rem 1rem 1rem 1rem;
+}
+
+.runtrace-row-expand.expanded ~ * .runtrace-row-chevron,
+.runtrace-row-head:has(+ .runtrace-row-expand.expanded) .runtrace-row-chevron {
+    transform: rotate(180deg);
+}
+
+.runtrace-row-detail {
+    font-size: 0.84rem;
+    color: var(--text-muted);
+    padding: 0.35rem 0.85rem 0;
+}
+
+.runtrace-row-tech {
+    margin-top: 0.5rem;
+}
+
+/* Truncated text blob for Run Trace structured payload (Input / Output / Details). */
+.runtrace-blob {
+    position: relative;
+}
+.runtrace-blob-pre {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-main);
+    margin: 0;
+    font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+}
+.runtrace-blob[data-truncated="true"] .runtrace-blob-pre {
+    max-height: 240px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, black 65%, transparent);
+            mask-image: linear-gradient(to bottom, black 65%, transparent);
+}
+.runtrace-blob[data-truncated="false"] .runtrace-blob-pre {
+    max-height: 560px;
+    overflow: auto;
+}
+.runtrace-blob-toggle {
+    margin-top: 0.4rem;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--primary-color);
+    padding: 0.22rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.runtrace-blob-toggle:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+}
+
+.runtrace-row-tech-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+}
+
+.runtrace-row-tech-pre {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    max-height: 320px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-main);
+    margin: 0;
+}
+
+.runtrace-row-substeps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* New richer sub-step rendering — each sub-step gets a card with status border
+   and an optional inline tech payload (so a Compiler sub-step can show its SQL,
+   a SpecExtractor sub-step its prompt, etc., without forcing another expand). */
+.runtrace-substep {
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(var(--text-main-rgb), 0.03);
+    border-left: 3px solid var(--border-color);
+}
+.runtrace-substep.ok { border-left-color: #22c55e; }
+.runtrace-substep.err {
+    border-left-color: #ef4444;
+    background: rgba(239, 68, 68, 0.04);
+}
+
+.runtrace-substep-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.runtrace-substep-name { color: var(--text-main); font-weight: 600; }
+
+.runtrace-substep-detail {
+    color: var(--text-muted);
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.runtrace-substep-time {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.runtrace-substep-tech {
+    margin-top: 0.4rem;
+    max-height: 220px;
+    font-size: 0.75rem;
+}
+
+/* ── Section blocks inside the expanded row ─────────────────────
+   Mirrors the wide-panel design in workflow.css so the Run Trace's
+   per-step breakdown matches the Workflow tab's detail richness. */
+.runtrace-section { margin-top: 0.85rem; }
+.runtrace-section:first-of-type { margin-top: 0; }
+
+.runtrace-section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+}
+.runtrace-section-label > i { font-size: 0.95em; color: var(--primary-color); }
+
+.runtrace-desc {
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--text-main);
+    background: rgba(var(--text-main-rgb), 0.03);
+    border-left: 3px solid var(--primary-color);
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.4rem;
+}
+
+.runtrace-llm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.5rem;
+}
+.runtrace-llm-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.5rem 0.65rem;
+    background: rgba(168, 85, 247, 0.06);
+    border: 1px solid rgba(168, 85, 247, 0.2);
+    border-radius: 0.4rem;
+}
+.runtrace-k {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+.runtrace-v {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+}
+
+.runtrace-meta-chip.small {
+    font-size: 0.68rem;
+    padding: 0.05rem 0.4rem;
+}
+
+.runtrace-verdict {
+    margin-top: 0.85rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.runtrace-verdict.tone-ok    { background: rgba(34, 197, 94, 0.08); color: var(--text-main); }
+.runtrace-verdict.tone-warn  { background: rgba(245, 158, 11, 0.1); color: var(--text-main); }
+.runtrace-verdict.tone-error { background: rgba(239, 68, 68, 0.1);  color: var(--text-main); }
+.runtrace-verdict.tone-muted { background: rgba(var(--text-main-rgb), 0.04); color: var(--text-muted); }
+.runtrace-verdict.tone-ok > i    { color: #22c55e; }
+.runtrace-verdict.tone-warn > i  { color: #f59e0b; }
+.runtrace-verdict.tone-error > i { color: #ef4444; }
+.runtrace-verdict strong { font-weight: 700; }
+
+/* Row stays visually highlighted while expanded so the user knows what they're looking at. */
+.runtrace-row-head.is-open .runtrace-row-chevron {
+    transform: rotate(180deg);
+    color: var(--primary-color);
+}
+
+/* ── Swimlanes (decomposer fan-out) ─────────────────────────────── */
+.runtrace-swimlane-block {
+    margin: 0.5rem 0 1.5rem;
+    padding: 1rem;
+    background: rgba(var(--primary-color-rgb), 0.04);
+    border: 1px dashed rgba(var(--primary-color-rgb), 0.25);
+    border-radius: 0.85rem;
+}
+
+.runtrace-swimlane-header {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--primary-color);
+    font-weight: 700;
+    margin-bottom: 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.runtrace-swimlanes {
+    display: grid;
+    grid-template-columns: repeat(var(--lane-count, 2), minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.runtrace-swimlane {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.65rem;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.85rem;
+}
+
+.runtrace-swimlane-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.runtrace-swimlane-detail {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+}
+
+.runtrace-swimlane-time {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+}
+
+.runtrace-swimlane-substeps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.runtrace-swimlane-substeps li {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+/* ── Skipped / trivial footer ───────────────────────────────────── */
+.runtrace-hidden {
+    margin-top: 1rem;
+    padding: 0.65rem 0.85rem;
+    background: rgba(var(--text-main-rgb), 0.02);
+    border: 1px dashed var(--border-color);
+    border-radius: 0.65rem;
+    font-size: 0.8rem;
+}
+
+.runtrace-hidden > summary {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-weight: 500;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.runtrace-hidden > summary::-webkit-details-marker { display: none; }
+.runtrace-hidden[open] > summary { color: var(--text-main); margin-bottom: 0.5rem; }
+
+.runtrace-hidden-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.runtrace-hidden-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}

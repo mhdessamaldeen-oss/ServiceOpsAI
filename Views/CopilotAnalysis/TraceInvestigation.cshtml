@@ -1,0 +1,299 @@
+@using AISupportAnalysisPlatform.Services.AI.Copilot.Analysis
+@{
+    ViewData["Title"] = "Copilot Trace Investigation";
+    var report = ViewBag.Report as TraceAnalysisReport;
+    var patterns = ViewBag.Patterns as TracePatternAnalysis;
+    var anomalies = ViewBag.Anomalies as List<AnomalousTrace>;
+    var intentDist = ViewBag.IntentDistribution as IntentDistributionReport;
+
+    var traceInvHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Copilot Trace Deep Dive",
+        Subtitle = $"Analysis of {report?.TotalTracesAnalyzed ?? 0} traces to understand answer patterns",
+        IconClass = "bi bi-magnifying-glass",
+        Actions = new()
+        {
+            new() {
+                Text = "Inspect Data",
+                Href = "/AiAnalysis/CopilotAnalysis/InspectData",
+                IconClass = "bi bi-database",
+                CssClass = "btn btn-sm btn-soft-primary rounded-pill px-3 fw-bold"
+            },
+            new() {
+                Text = "Correctness Report",
+                Href = "/AiAnalysis/CopilotAnalysis/CorrectnessReport",
+                IconClass = "bi bi-check2-square",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="traceInvHeader" />
+
+<div class="container-fluid">
+    @if (report?.Recommendations?.Any() == true)
+    {
+        <div class="alert alert-info mb-4">
+            <h5 class="mb-2"><i class="bi bi-lightbulb @(Loc.IsRtl ? "ms-2" : "me-2")" style="color: var(--info-color);"></i>Key Recommendations</h5>
+            <ul class="mb-0">
+                @foreach (var rec in report.Recommendations)
+                {
+                    <li>@rec</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon"><i class="bi bi-collection"></i></div><div class="kpi-label">Traces Analyzed</div></div>
+                <div class="kpi-value">@(report?.TotalTracesAnalyzed ?? 0)</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--success-color-rgb),0.12); color: var(--success-color); border-color: rgba(var(--success-color-rgb),0.22);"><i class="bi bi-check-circle-fill"></i></div><div class="kpi-label">Success Rate</div></div>
+                <div class="kpi-value">@(patterns?.SuccessRate.ToString("F1") ?? "0")%</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--warning-color-rgb),0.12); color: var(--warning-color); border-color: rgba(var(--warning-color-rgb),0.22);"><i class="bi bi-bug-fill"></i></div><div class="kpi-label">Anomalies</div></div>
+                <div class="kpi-value">@(anomalies?.Count ?? 0)</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--info-color-rgb),0.12); color: var(--info-color); border-color: rgba(var(--info-color-rgb),0.22);"><i class="bi bi-stopwatch-fill"></i></div><div class="kpi-label">Avg Execution</div></div>
+                <div class="kpi-value">@(report?.ExecutionTimeStats?.AverageMs ?? 0)<span class="kpi-value-aux"> ms</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Intent Distribution -->
+    <div class="app-card mt-4">
+        <div class="app-card-header">
+            <h5 class="app-card-title"><i class="bi bi-pie-chart me-2"></i>Intent Distribution</h5>
+        </div>
+        <div class="app-card-body">
+            @if (intentDist?.Distribution?.Any() == true)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Intent</th>
+                                <th>Count</th>
+                                <th>Percentage</th>
+                                <th>Avg Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var intent in intentDist.Distribution)
+                            {
+                                <tr>
+                                    <td><span class="pill-badge" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">@intent.Intent</span></td>
+                                    <td>@intent.Count</td>
+                                    <td>@((intent.Count * 100.0 / intentDist.TotalTraces).ToString("F1"))%</td>
+                                    <td>@intent.AverageExecutionTimeMs ms</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Issues Found -->
+    <div class="app-card mt-4">
+        <div class="app-card-header">
+            <h5 class="app-card-title"><i class="bi bi-exclamation-triangle me-2"></i>Issues Found</h5>
+        </div>
+        <div class="app-card-body">
+            @if (report?.IssuesFound?.Any() == true)
+            {
+                <div class="accordion" id="issuesAccordion">
+                    @foreach (var issue in report.IssuesFound.Take(20))
+                    {
+                        var severityColor = issue.Severity == "High" ? "danger" : issue.Severity == "Medium" ? "warning" : "secondary";
+                        <div class="accordion-item mb-2 rounded-3" style="background: var(--bg-card); border: 1px solid var(--border-color);">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#issue-@issue.TraceId">
+                                    @if (severityColor == "secondary")
+                                    {
+                                        <span class="pill-badge me-2" style="background: var(--bg-surface-alt); color: var(--text-muted); border: 1px solid var(--border-color);">@issue.Severity</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pill-badge me-2" style="background: rgba(var(--@(severityColor)-color-rgb),0.1); color: var(--@(severityColor)-color); border: 1px solid rgba(var(--@(severityColor)-color-rgb),0.22);">@issue.Severity</span>
+                                    }
+                                    @issue.IssueType - @issue.Question
+                                </button>
+                            </h2>
+                            <div id="issue-@issue.TraceId" class="accordion-collapse collapse" data-bs-parent="#issuesAccordion">
+                                <div class="accordion-body">
+                                    <p><strong>Description:</strong> @issue.Description</p>
+                                    @if (!string.IsNullOrEmpty(issue.DetectedIntent))
+                                    {
+                                        <p><strong>Detected Intent:</strong> @issue.DetectedIntent</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(issue.RouteReason))
+                                    {
+                                        <p><strong>Route Reason:</strong> @issue.RouteReason</p>
+                                    }
+                                    @if (issue.ExecutionTimeMs.HasValue)
+                                    {
+                                        <p><strong>Execution Time:</strong> @issue.ExecutionTimeMs ms</p>
+                                    }
+                                    <a href="/AiAnalysis/Investigation/@issue.TraceId" class="btn btn-sm btn-primary">View Trace</a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-success">No significant issues found in recent traces.</div>
+            }
+        </div>
+    </div>
+
+    <!-- Anomalies -->
+    <div class="app-card mt-4">
+        <div class="app-card-header">
+            <h5 class="app-card-title"><i class="bi bi-bug me-2"></i>Anomalous Traces</h5>
+        </div>
+        <div class="app-card-body">
+            @if (anomalies?.Any() == true)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Question</th>
+                                <th>Reasons</th>
+                                <th>Time</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var anomaly in anomalies.Take(10))
+                            {
+                                <tr>
+                                    <td>#@anomaly.TraceId</td>
+                                    <td>@anomaly.Question</td>
+                                    <td>
+                                        @foreach (var reason in anomaly.AnomalyReasons)
+                                        {
+                                            <span class="pill-badge me-1" style="background: rgba(var(--warning-color-rgb),0.1); color: var(--warning-color); border: 1px solid rgba(var(--warning-color-rgb),0.22);">@reason</span>
+                                        }
+                                    </td>
+                                    <td>@anomaly.ExecutionTimeMs ms</td>
+                                    <td>
+                                        <a href="/AiAnalysis/Investigation/@anomaly.TraceId" class="btn btn-sm btn-outline-primary">Investigate</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Common Patterns -->
+    <div class="app-card mt-4">
+        <div class="app-card-header">
+            <h5 class="app-card-title"><i class="bi bi-diagram-2 me-2"></i>Common Question Patterns</h5>
+        </div>
+        <div class="app-card-body">
+            @if (patterns?.CommonPatterns?.Any() == true)
+            {
+                <div class="list-group">
+                    @foreach (var pattern in patterns.CommonPatterns.Take(10))
+                    {
+                        <div class="list-group-item" style="background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main);">
+                            <div class="d-flex justify-content-between">
+                                <h6 class="mb-1">@pattern.NormalizedForm</h6>
+                                <span class="pill-badge" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">@pattern.VariationCount variations</span>
+                            </div>
+                            <small class="text-muted">Examples: @string.Join(", ", pattern.Examples)</small>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Execution Time Stats -->
+    <div class="app-card mt-4">
+        <div class="app-card-header">
+            <h5 class="app-card-title"><i class="bi bi-stopwatch me-2"></i>Execution Time Analysis</h5>
+        </div>
+        <div class="app-card-body">
+            @if (report?.ExecutionTimeStats != null)
+            {
+                <div class="row text-center">
+                    <div class="col">
+                        <div class="h4">@report.ExecutionTimeStats.MinMs ms</div>
+                        <small class="text-muted">Min</small>
+                    </div>
+                    <div class="col">
+                        <div class="h4">@report.ExecutionTimeStats.AverageMs ms</div>
+                        <small class="text-muted">Average</small>
+                    </div>
+                    <div class="col">
+                        <div class="h4">@report.ExecutionTimeStats.MedianMs ms</div>
+                        <small class="text-muted">Median</small>
+                    </div>
+                    <div class="col">
+                        <div class="h4">@report.ExecutionTimeStats.P95Ms ms</div>
+                        <small class="text-muted">P95</small>
+                    </div>
+                    <div class="col">
+                        <div class="h4">@report.ExecutionTimeStats.MaxMs ms</div>
+                        <small class="text-muted">Max</small>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Routing Patterns -->
+    <div class="app-card mt-4">
+        <div class="app-card-header">
+            <h5 class="app-card-title"><i class="bi bi-signpost-split me-2"></i>Routing Patterns</h5>
+        </div>
+        <div class="app-card-body">
+            @if (report?.RoutingPatternAnalysis?.Any() == true)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Route (Intent -> Reason)</th>
+                                <th>Count</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var route in report.RoutingPatternAnalysis.Take(15))
+                            {
+                                <tr>
+                                    <td><code>@route.Route</code></td>
+                                    <td>@route.Count</td>
+                                    <td>@route.Percentage.ToString("F1")%</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

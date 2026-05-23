@@ -1,0 +1,225 @@
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:01.334Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Starting nightly HR synchronization job. Target: https://hr-api.partner.example.com/v3/employees"
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:01.445Z",
+  "service": "IntegrationGateway",
+  "level": "DEBUG",
+  "message": "Authenticating with client_credentials grant. ClientId: supportflow-prod-sync"
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:02.112Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "OAuth2 token acquired. Expires in 3600s. Scopes: employees.read,departments.read"
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:02.334Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Fetching employee directory page 1/unknown. GET https://hr-api.partner.example.com/v3/employees?page=1&limit=100"
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:03.778Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Page 1 received. 100 records. Total: 847. Pages: 9. Response time: 1444ms."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:04.001Z",
+  "service": "DataMapper",
+  "level": "DEBUG",
+  "message": "Mapping 100 external employee records to internal ApplicationUser schema."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:04.445Z",
+  "service": "DataMapper",
+  "level": "WARN",
+  "message": "Record EMP-4421: Field 'department_code' is NULL. Expected non-null value for active employee. Mapped to default entity 'Unassigned'."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:04.446Z",
+  "service": "DataMapper",
+  "level": "WARN",
+  "message": "Record EMP-4421: Field 'supervisor_id' references EMP-9999 which does not exist in the current dataset. Orphaned reference."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:04.890Z",
+  "service": "DataMapper",
+  "level": "INFO",
+  "message": "Page 1 mapping complete: 98 valid, 2 warnings, 0 errors."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:05.112Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Fetching page 2/9. GET https://hr-api.partner.example.com/v3/employees?page=2&limit=100"
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:06.556Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Page 2 received. 100 records. Response time: 1444ms."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:07.001Z",
+  "service": "DataMapper",
+  "level": "INFO",
+  "message": "Page 2 mapping: 100 valid, 0 warnings, 0 errors."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:07.334Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Fetching page 3/9."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:08.778Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Page 3 received. 100 records. Response time: 1444ms."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:09.112Z",
+  "service": "DataMapper",
+  "level": "INFO",
+  "message": "Page 3 mapping: 99 valid, 1 warnings, 0 errors."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:09.556Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Fetching page 4/9."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:14.889Z",
+  "service": "IntegrationGateway",
+  "level": "WARN",
+  "message": "Page 4 response slow. Elapsed: 5333ms. Expected < 3000ms."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:14.890Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Page 4 received. 100 records."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:15.334Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Fetching page 5/9."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:45.335Z",
+  "service": "IntegrationGateway",
+  "level": "ERROR",
+  "message": "Request to https://hr-api.partner.example.com/v3/employees?page=5&limit=100 timed out after 30000ms."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:45.336Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Retry policy activated. Waiting 5s before retry 1/3."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:00:50.337Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Retry 1/3: Fetching page 5/9."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:01:20.338Z",
+  "service": "IntegrationGateway",
+  "level": "ERROR",
+  "message": "Retry 1/3 failed. Timeout after 30000ms."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:01:20.339Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Waiting 15s before retry 2/3 (exponential backoff)."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:01:35.340Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Retry 2/3: Fetching page 5/9."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:01:42.550Z",
+  "service": "IntegrationGateway",
+  "level": "ERROR",
+  "message": "Retry 2/3 failed. HTTP 503 Service Unavailable. Response body: {\"error\":\"service_overloaded\",\"message\":\"Rate limit exceeded. Please retry after 60 seconds.\",\"retry_after\":60}"
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:01:42.551Z",
+  "service": "IntegrationGateway",
+  "level": "WARN",
+  "message": "Server returned retry_after=60s. Overriding backoff to 60s before retry 3/3."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:02:42.552Z",
+  "service": "IntegrationGateway",
+  "level": "INFO",
+  "message": "Retry 3/3: Fetching page 5/9."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:02:49.113Z",
+  "service": "IntegrationGateway",
+  "level": "ERROR",
+  "message": "Retry 3/3 failed. HTTP 503 Service Unavailable. Response: {\"error\":\"service_overloaded\",\"message\":\"Maintenance window active. Expected completion: 2026-04-02T23:00:00Z\"}"
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:02:49.114Z",
+  "service": "IntegrationGateway",
+  "level": "ERROR",
+  "message": "All retries exhausted for page 5/9. HR sync job FAILED.",
+  "exception": "System.Net.Http.HttpRequestException: Response status code does not indicate success: 503 (Service Unavailable).\n   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()\n   at SupportFlow.Integration.HrSyncClient.FetchPageAsync(Int32 page, Int32 limit) in /src/Integration/HrSyncClient.cs:line 89\n   at SupportFlow.Integration.HrSyncJob.ExecuteAsync(CancellationToken ct) in /src/Integration/HrSyncJob.cs:line 134"
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:02:49.120Z",
+  "service": "IntegrationGateway",
+  "level": "WARN",
+  "message": "PARTIAL SYNC RESULT: 400/847 employees synced (pages 1-4). Pages 5-9 (447 employees) NOT synced. Data inconsistency risk: HIGH. Departments with missing employees: Interior (est. 120 missing), Education (est. 95 missing), Health (est. 232 missing)."
+}
+{
+  "correlationId": "ext-sync-9f8e7d6c-5b4a-3c2d-1e0f-a9b8c7d6e5f4",
+  "timestamp": "2026-04-02T22:02:49.125Z",
+  "service": "IntegrationGateway",
+  "level": "ERROR",
+  "message": "Job 'NightlyHrSync' completed with status PARTIAL_FAILURE. Next scheduled run: 2026-04-03T22:00:00Z. Manual re-run recommended after verifying partner API status at https://status.partner.example.com."
+}

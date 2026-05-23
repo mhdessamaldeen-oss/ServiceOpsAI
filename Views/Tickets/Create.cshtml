@@ -1,0 +1,167 @@
+@model AISupportAnalysisPlatform.Models.Ticket
+
+@{
+    ViewData["Title"] = Loc.Get("CreateInquiry");
+    var ticketCreateHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("GenerateInquiry"),
+        Subtitle = Loc.Get("InquirySubtitle"),
+        IconClass = "bi bi-ticket-detailed-fill",
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("Cancel"),
+                Href = Url.Action("Index", "Tickets") ?? "#",
+                IconClass = "bi bi-arrow-left",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="ticketCreateHeader" />
+
+<div class="row">
+    <div class="col-xl-10 mx-auto">
+        <div class="app-card mb-5">
+            <div class="app-card-body p-4 p-lg-5">
+                <form asp-action="Create" enctype="multipart/form-data">
+                    <div asp-validation-summary="ModelOnly" class="app-form-error mb-4"></div>
+                    
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <label asp-for="Title" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("InquiryTitle")</label>
+                            <input asp-for="Title" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" placeholder="@Loc.Get("EnterConciseSummary")" />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Description" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("InquiryDetails")</label>
+                            <textarea asp-for="Description" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important; min-height: 200px;" placeholder="@Loc.Get("ProvideContext")"></textarea>
+                            <span asp-validation-for="Description" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="CategoryId" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("StrategicClassification")</label>
+                            <select asp-for="CategoryId" class="form-select border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.CategoryId"></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="PriorityId" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("PriorityLevel")</label>
+                            <select asp-for="PriorityId" class="form-select border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.PriorityId"></select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="EntityId" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("OrganizationalEntity")</label>
+                            @if (ViewBag.IsAdmin == true)
+                            {
+                                <select asp-for="EntityId" class="form-select border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.EntityId"></select>
+                            }
+                            else
+                            {
+                                <select asp-for="EntityId" class="form-select border-0 p-3 shadow-none" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.EntityId" disabled></select>
+                                <input type="hidden" asp-for="EntityId" />
+                            }
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="SourceId" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("IngestionChannel")</label>
+                            <select asp-for="SourceId" class="form-select border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.SourceId"></select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ProductArea" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("Category")</label>
+                            <input asp-for="ProductArea" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" placeholder="Portal Experience, Reporting, Identity..." />
+                            <span asp-validation-for="ProductArea" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EnvironmentName" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("Environment")</label>
+                            <input asp-for="EnvironmentName" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" placeholder="Production, UAT, Staging..." />
+                            <span asp-validation-for="EnvironmentName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="BrowserName" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("Browser")</label>
+                            <input asp-for="BrowserName" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" placeholder="Edge, Chrome, Safari..." />
+                            <span asp-validation-for="BrowserName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="OperatingSystem" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("OperatingSystem")</label>
+                            <input asp-for="OperatingSystem" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" placeholder="Windows 11, macOS, Ubuntu..." />
+                            <span asp-validation-for="OperatingSystem" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ExternalReferenceId" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("ExternalReference")</label>
+                            <input asp-for="ExternalReferenceId" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" placeholder="CRM case, Jira issue, batch run id..." />
+                            <span asp-validation-for="ExternalReferenceId" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ExternalSystemName" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("ExternalSystem")</label>
+                            <input asp-for="ExternalSystemName" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" placeholder="SSO Provider, HR Sync API, Upload API..." />
+                            <span asp-validation-for="ExternalSystemName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ImpactScope" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("ImpactScope")</label>
+                            <input asp-for="ImpactScope" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" placeholder="Single User, Team, Department..." />
+                            <span asp-validation-for="ImpactScope" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="AffectedUsersCount" class="form-label small fw-bold text-uppercase ls-1" style="color: var(--text-muted) !important;">@Loc.Get("AffectedUsers")</label>
+                            <input asp-for="AffectedUsersCount" type="number" min="1" class="form-control border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" placeholder="How many users are impacted?" />
+                            <span asp-validation-for="AffectedUsersCount" class="text-danger small"></span>
+                        </div>
+
+                        @if (ViewBag.IsAdmin == true || ViewBag.IsAgent == true)
+                        {
+                            <div class="col-md-6">
+                                <label asp-for="AssignedToUserId" class="form-label fw-bold small text-uppercase text-muted">@Loc.Get("ExpertAssignee")</label>
+                                <div class="input-group bg-light rounded-pill overflow-hidden border">
+                                    <span class="input-group-text bg-transparent border-0 @(Loc.IsRtl ? "ms-2" : "me-2")"><i class="bi bi-person-check text-info"></i></span>
+                                    <select asp-for="AssignedToUserId" class="form-select border-0 bg-transparent shadow-none" asp-items="ViewBag.AssignedToUserId">
+                                        <option value="">@Loc.Get("NoSpecialist")</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label asp-for="DueDate" class="form-label fw-bold small text-uppercase text-muted">@Loc.Get("DeadlineCommitment")</label>
+                                <div class="input-group bg-light rounded-pill overflow-hidden border">
+                                    <span class="input-group-text bg-transparent border-0 @(Loc.IsRtl ? "ms-2" : "me-2")"><i class="bi bi-calendar-event text-danger"></i></span>
+                                    <input asp-for="DueDate" type="date" class="form-control border-0 bg-transparent shadow-none p-3" />
+                                </div>
+                            </div>
+                        }
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase text-muted">@Loc.Get("SupplementalArtifacts")</label>
+                            <div class="input-group bg-light rounded-pill overflow-hidden border">
+                                <span class="input-group-text bg-transparent border-0 @(Loc.IsRtl ? "ms-2" : "me-2")"><i class="bi bi-paperclip text-secondary"></i></span>
+                                <input type="file" name="files" class="form-control border-0 bg-transparent shadow-none p-3" multiple />
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ParentTicketId" class="form-label fw-bold small text-uppercase text-muted">Parent Ticket</label>
+                            <select asp-for="ParentTicketId" class="form-select border-0 p-3 shadow-none focus-ring" style="background: var(--bg-main) !important; color: var(--text-main) !important;" asp-items="ViewBag.ParentTicketId">
+                                <option value="">-- None --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="app-form-actions mt-4">
+                        <a asp-action="Index" class="btn btn-sm btn-soft-secondary rounded-pill px-4 fw-bold app-form-actions-secondary">
+                            <i class="bi bi-arrow-left @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("Cancel")
+                        </a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm">
+                            <i class="bi bi-send-fill @(Loc.IsRtl ? "ms-2" : "me-2")"></i>@Loc.Get("FinalizeSubmission")
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Verify — 2 TOOL cases after ExpectedIntent fix",
+  "version": "1.0",
+  "description": "Quick 2-case verification of the TOOL-002/TOOL-004 ExpectedIntent change (Unsupported -> ExternalToolQuery).",
+  "Scenarios": [
+    { "Code": "VERIFY-TOOL-002", "Question": "convert 100 USD to EUR", "Category": "Tool", "Difficulty": "Easy", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "Tool", "Language": "en", "MaxLatencyMs": 180000 },
+    { "Code": "VERIFY-TOOL-004", "Question": "current bitcoin price", "Category": "Tool", "Difficulty": "Easy", "ExpectedIntent": "ExternalToolQuery",
+      "Branch": "Tool", "Language": "en", "MaxLatencyMs": 180000 }
+  ]
+}

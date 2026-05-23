@@ -1,0 +1,128 @@
+{
+  "name": "Manufacturing-Baseline Iter-5 — Analyst comparison + trend + ratio (2026-05-17)",
+  "version": "1.0",
+  "description": "Iter-5 analyst-focus suite. 20 questions of the shape a real data analyst would ask: period comparisons (today/yesterday, this month/last month, this year/last year, quarter, last 7 vs prev 7), trends (monthly/daily/yearly), percentages/ratios, cohort segmentation (avg by priority, median by category), anomaly/outlier (peak day, worst entity), funnel (last-week still-open, resolved-to-created ratio), cumulative (running total). All ExpectedSql uses conditional aggregation or window functions — the LLM is expected to FAIL on most. Each failure is informative about a missing analytical capability.",
+  "Scenarios": [
+
+    { "Code": "MBI5-PER-001", "Question": "tickets created today vs yesterday",
+      "Category": "PER", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Telegraphic", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT SUM(CASE WHEN CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Today, SUM(CASE WHEN CAST(CreatedAt AS DATE) = CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) THEN 1 ELSE 0 END) AS Yesterday FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-PER-002", "Question": "compare tickets created this month vs last month",
+      "Category": "PER", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Imperative", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT SUM(CASE WHEN CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) AS ThisMonth, SUM(CASE WHEN CreatedAt >= DATEADD(MONTH,-1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1)) AND CreatedAt < DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) AS LastMonth FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-PER-003", "Question": "tickets resolved this year vs last year",
+      "Category": "PER", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Telegraphic", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT SUM(CASE WHEN YEAR(ResolvedAt) = YEAR(GETDATE()) THEN 1 ELSE 0 END) AS ThisYear, SUM(CASE WHEN YEAR(ResolvedAt) = YEAR(GETDATE())-1 THEN 1 ELSE 0 END) AS LastYear FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-PER-004", "Question": "tickets created in 2025 vs 2024",
+      "Category": "PER", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Telegraphic", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT SUM(CASE WHEN YEAR(CreatedAt) = 2025 THEN 1 ELSE 0 END) AS Y2025, SUM(CASE WHEN YEAR(CreatedAt) = 2024 THEN 1 ELSE 0 END) AS Y2024 FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-PER-005", "Question": "this quarter vs last quarter ticket count",
+      "Category": "PER", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Telegraphic", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT SUM(CASE WHEN CreatedAt >= DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE()), 0) THEN 1 ELSE 0 END) AS ThisQuarter, SUM(CASE WHEN CreatedAt >= DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE())-1, 0) AND CreatedAt < DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE()), 0) THEN 1 ELSE 0 END) AS LastQuarter FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-PER-006", "Question": "tickets created in the last 7 days vs the previous 7 days",
+      "Category": "PER", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Verbose-multi-ask", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT SUM(CASE WHEN CreatedAt >= DATEADD(DAY,-7,GETDATE()) THEN 1 ELSE 0 END) AS Last7Days, SUM(CASE WHEN CreatedAt >= DATEADD(DAY,-14,GETDATE()) AND CreatedAt < DATEADD(DAY,-7,GETDATE()) THEN 1 ELSE 0 END) AS Previous7Days FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-TRD-001", "Question": "monthly ticket count for the last 6 months",
+      "Category": "TRD", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Telegraphic", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(MONTH,-6,GETDATE()) AND IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM') ORDER BY Month",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-TRD-002", "Question": "daily ticket creation count for the past 14 days",
+      "Category": "TRD", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Telegraphic", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-14,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE) ORDER BY Day",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-TRD-003", "Question": "ticket counts by year",
+      "Category": "TRD", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Telegraphic", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT YEAR(CreatedAt) AS Year, COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0 GROUP BY YEAR(CreatedAt) ORDER BY Year",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-PCT-001", "Question": "what percentage of tickets are critical priority",
+      "Category": "PCT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Question-form", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT CAST(100.0 * SUM(CASE WHEN p.Name = 'Critical' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS DECIMAL(5,2)) AS PercentCritical FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-PCT-002", "Question": "resolution rate this month — resolved divided by created",
+      "Category": "PCT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Formal", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT CAST(100.0 * SUM(CASE WHEN ResolvedAt IS NOT NULL AND ResolvedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END),0) AS DECIMAL(6,2)) AS ResolutionRatePct FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-PCT-003", "Question": "what percent of tickets are unassigned",
+      "Category": "PCT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Question-form", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT CAST(100.0 * SUM(CASE WHEN AssignedToUserId IS NULL THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS DECIMAL(5,2)) AS PercentUnassigned FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-COH-001", "Question": "average resolution time in days, grouped by priority",
+      "Category": "GRB", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Formal", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT p.Name AS Priority, AVG(CAST(DATEDIFF(DAY, t.CreatedAt, t.ResolvedAt) AS FLOAT)) AS AvgResolutionDays FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY p.Name",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-COH-002", "Question": "average ticket count per entity in the last 30 days",
+      "Category": "GRB", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Entitys", "Phrasing": "Formal", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT e.Name AS Entity, COUNT(t.Id) AS TicketCount FROM Entitys e LEFT JOIN Tickets t ON t.EntityId = e.Id AND t.CreatedAt >= DATEADD(DAY,-30,GETDATE()) AND t.IsDeleted = 0 WHERE e.IsActive = 1 GROUP BY e.Name",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-COH-003", "Question": "median resolution time in days across all resolved tickets",
+      "Category": "AGG", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Formal", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT DISTINCT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) OVER () AS MedianResolutionDays FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-ANM-001", "Question": "which day in the last 30 days had the most tickets created",
+      "Category": "TOP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Question-form", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT TOP 1 CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-30,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE) ORDER BY Count DESC",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-ANM-002", "Question": "top 3 entities by SLA breach count",
+      "Category": "TOP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Entitys", "Phrasing": "Telegraphic", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT TOP 3 e.Name AS Entity, SUM(CASE WHEN t.IsSlaBreached = 1 THEN 1 ELSE 0 END) AS SlaBreachCount FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0 AND e.IsActive = 1 GROUP BY e.Name ORDER BY SlaBreachCount DESC",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-FUN-001", "Question": "how many tickets created last week are still open",
+      "Category": "MFL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Question-form", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.CreatedAt >= DATEADD(DAY,-7,GETDATE()) AND s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-FUN-002", "Question": "ratio of resolved to open tickets in 2025",
+      "Category": "PCT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Formal", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT CAST(1.0 * SUM(CASE WHEN s.Name = 'Resolved' THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN s.Name = 'Open' THEN 1 ELSE 0 END),0) AS DECIMAL(8,3)) AS ResolvedToOpenRatio FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE YEAR(t.CreatedAt) = 2025 AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "MBI5-CUM-001", "Question": "running total of tickets created in the last 30 days, by day",
+      "Category": "TRD", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets", "Phrasing": "Formal", "Language": "en", "Branch": "DataQuery", "TrustTier": "LlmCold",
+      "ExpectedSql": "SELECT Day, SUM(DayCount) OVER (ORDER BY Day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS RunningTotal FROM (SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS DayCount FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-30,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE)) d ORDER BY Day",
+      "MaxLatencyMs": 180000 }
+
+  ]
+}

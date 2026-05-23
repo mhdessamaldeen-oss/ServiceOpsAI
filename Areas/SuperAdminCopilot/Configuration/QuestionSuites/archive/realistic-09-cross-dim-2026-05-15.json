@@ -1,0 +1,153 @@
+{
+  "name": "09 - Realistic Cross-Dimensional Analysis",
+  "version": "1.0",
+  "description": "Analyst questions that slice the data by two or more dimensions — status x priority, category x source, entity x assignee — plus percentage breakdowns and rank-by-share. Every question has a clean ExpectedSql. Designed to stress multi-lookup joins, conditional aggregation, and HAVING on multi-key groups.",
+  "Scenarios": [
+    {
+      "Code": "CD-01-STATUS-PRIORITY",
+      "Question": "Show ticket counts grouped by status and priority.",
+      "Category": "Multi-dim GROUP BY (2 lookups)",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT s.Name AS Status, p.Name AS Priority, COUNT(*) AS Cnt FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0 GROUP BY s.Name, p.Name ORDER BY Cnt DESC",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "CD-02-CATEGORY-SOURCE",
+      "Question": "Show ticket counts grouped by category and source.",
+      "Category": "Multi-dim GROUP BY (2 lookups)",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT c.Name AS Category, src.Name AS Source, COUNT(*) AS Cnt FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId JOIN TicketSources src ON src.Id = t.SourceId WHERE t.IsDeleted = 0 GROUP BY c.Name, src.Name ORDER BY Cnt DESC",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "CD-03-ENTITY-STATUS",
+      "Question": "Show ticket counts per entity broken down by status.",
+      "Category": "Multi-dim GROUP BY (entity x status)",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT e.Name AS Entity, s.Name AS Status, COUNT(*) AS Cnt FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY e.Name, s.Name ORDER BY e.Name, Cnt DESC",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "CD-04-PCT-RESOLVED-CLOSED",
+      "Question": "What percentage of tickets are resolved or closed?",
+      "Category": "Ratio via SUM(CASE)/COUNT",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 100.0 * SUM(CASE WHEN s.IsClosedState = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS PctResolvedOrClosed FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CD-05-PCT-PER-PRIORITY",
+      "Question": "Show the percentage share of tickets per priority.",
+      "Category": "Per-group ratio of total",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, COUNT(*) AS Cnt, 100.0 * COUNT(*) / NULLIF((SELECT COUNT(*) FROM Tickets WHERE IsDeleted = 0),0) AS Pct FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0 GROUP BY p.Name ORDER BY Cnt DESC",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "CD-06-CATEGORY-OVER-10",
+      "Question": "Which categories have more than 10 tickets?",
+      "Category": "HAVING on COUNT",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT c.Name AS Category, COUNT(*) AS Cnt FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0 GROUP BY c.Name HAVING COUNT(*) > 10 ORDER BY Cnt DESC",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "CD-07-PRIORITY-AVG-RES",
+      "Question": "Show average resolution time in hours per priority.",
+      "Category": "AVG DATEDIFF + GROUP BY priority",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, AVG(CAST(DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) AS DECIMAL(10,2))) AS AvgHours FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY p.Name ORDER BY AvgHours DESC",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "CD-08-CATEGORY-AVG-RES",
+      "Question": "Show average resolution time in hours per category.",
+      "Category": "AVG DATEDIFF + GROUP BY category",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT c.Name AS Category, AVG(CAST(DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) AS DECIMAL(10,2))) AS AvgHours FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY c.Name ORDER BY AvgHours DESC",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "CD-09-OPEN-PER-PRIORITY",
+      "Question": "How many open tickets are there per priority?",
+      "Category": "GROUP BY with status filter",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, COUNT(*) AS OpenCount FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0 GROUP BY p.Name ORDER BY OpenCount DESC",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CD-10-SOURCE-DISTRIBUTION",
+      "Question": "Show the distribution of tickets by source.",
+      "Category": "GROUP BY single lookup",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT src.Name AS Source, COUNT(*) AS Cnt FROM Tickets t JOIN TicketSources src ON src.Id = t.SourceId WHERE t.IsDeleted = 0 GROUP BY src.Name ORDER BY Cnt DESC",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "CD-11-DISTINCT-CATEGORIES",
+      "Question": "Show distinct ticket categories currently in use.",
+      "Category": "DISTINCT projection",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT DISTINCT c.Name AS Category FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "CD-12-TOP-CATEGORY-PER-STATUS",
+      "Question": "For each status, show the top category by ticket count.",
+      "Category": "Per-group TOP 1 (window-style)",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "WITH x AS (SELECT s.Name AS Status, c.Name AS Category, COUNT(*) AS Cnt, ROW_NUMBER() OVER (PARTITION BY s.Name ORDER BY COUNT(*) DESC) AS rn FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0 GROUP BY s.Name, c.Name) SELECT Status, Category, Cnt FROM x WHERE rn = 1",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "CD-13-CRITICAL-OPEN",
+      "Question": "How many critical priority tickets are still open?",
+      "Category": "Two filters — priority + status",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE p.Name = 'Critical' AND s.IsClosedState = 0 AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "CD-14-CATEGORY-AVG-HIGH",
+      "Question": "Which categories have an average resolution time longer than 24 hours?",
+      "Category": "HAVING on aggregate of DATEDIFF",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT c.Name AS Category, AVG(CAST(DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) AS DECIMAL(10,2))) AS AvgHours FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY c.Name HAVING AVG(CAST(DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) AS DECIMAL(10,2))) > 24 ORDER BY AvgHours DESC",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "CD-15-DISTINCT-STATUS",
+      "Question": "Show distinct ticket statuses currently in use.",
+      "Category": "DISTINCT projection",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT DISTINCT s.Name AS Status FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "CD-16-PCT-PER-ENTITY",
+      "Question": "Show the percentage share of tickets per entity.",
+      "Category": "Per-group ratio of total",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT e.Name AS Entity, COUNT(*) AS Cnt, 100.0 * COUNT(*) / NULLIF((SELECT COUNT(*) FROM Tickets WHERE IsDeleted = 0),0) AS Pct FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0 GROUP BY e.Name ORDER BY Cnt DESC",
+      "MaxLatencyMs": 30000
+    }
+  ]
+}

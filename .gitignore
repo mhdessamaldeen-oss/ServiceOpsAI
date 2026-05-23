@@ -1,0 +1,82 @@
+# Build results
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+publish/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.lscache
+*.userprefs
+*.cache
+*.VisualState.xml
+
+# Rider / JetBrains
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# Claude Code local config
+.claude/
+
+# Other agent / runtime state
+.codex-run/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.coverage
+*.coveragexml
+
+# ASP.NET / EF migrations runtime
+*.mdf
+*.ldf
+*.ndf
+*.ldb
+
+# OS / misc
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Project-specific runtime / data / scratch
+artifacts/
+brain/
+finetune/
+scratch/
+response.json
+run_*.bat
+*.tmp
+*.bak
+*.swp
+
+# Secrets / local overrides
+appsettings.*.Local.json
+secrets.json
+*.pfx
+*.snk

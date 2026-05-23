@@ -1,0 +1,102 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
+@using AISupportAnalysisPlatform.Models
+@using AISupportAnalysisPlatform.Extensions
+@using AISupportAnalysisPlatform.Constants
+
+@{
+    var analysesByTicketId = ViewBag.AnalysesByTicketId as Dictionary<int, TicketAiAnalysis> ?? new Dictionary<int, TicketAiAnalysis>();
+}
+
+<div class="table-responsive">
+    <table id="aiHubTicketsTable"
+           class="table table-hover align-middle mb-0 datatable-premium"
+           data-column-search="true"
+           data-paging="false"
+           data-info="false"
+           data-page-length-control="false">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3 no-sort" style="width: 56px;">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="select-all" />
+                    </div>
+                </th>
+                <th class="py-3">@Loc.Get("Ticket")</th>
+                <th class="py-3">@Loc.Get("Entity")</th>
+                <th class="py-3">@Loc.Get("Status")</th>
+                <th class="py-3">@Loc.Get("LatestAnalysis")</th>
+                <th class="py-3">@Loc.Get("Run")</th>
+                <th class="text-end pe-4 py-3 no-sort">@Loc.Get("Actions")</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var ticket in Model.Items)
+            {
+                var analysis = analysesByTicketId.TryGetValue(ticket.Id, out var foundAnalysis) ? foundAnalysis : null;
+                
+                <tr class="ticket-row" data-ticket-id="@ticket.Id">
+                    <td class="ps-4">
+                        <div class="form-check">
+                            <input class="form-check-input row-check shadow-none" type="checkbox" value="@ticket.Id" />
+                        </div>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-primary-custom">#@ticket.TicketNumber</div>
+                        <div class="fw-bold mb-1 text-main">@ticket.Title</div>
+                        <div class="d-flex gap-1 flex-wrap mt-1">
+                            <span class="badge rounded-pill @UIExtensions.GetPriorityBadgeClass(ticket.Priority?.Name)" style="font-size: 0.65rem;">@(ticket.Priority != null ? Loc.Get(ticket.Priority.Name) : "—")</span>
+                            <span class="badge rounded-pill pill-badge-primary" style="font-size: 0.65rem;">@(ticket.Category != null ? Loc.Get(ticket.Category.Name) : "—")</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-secondary border border-light-subtle shadow-sm">@(Loc.Get(ticket.Entity?.Name ?? "General"))</span>
+                    </td>
+                    <td style="min-width: 120px;">
+                        <span class="badge px-3 py-2 rounded-3 w-100 fw-bold @UIExtensions.GetStatusBadgeClass(ticket.Status?.Name)">@(ticket.Status != null ? Loc.Get(ticket.Status.Name) : Loc.Get("Pending"))</span>
+                    </td>
+                    <td>
+                        @if (analysis != null)
+                        {
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="badge rounded-pill bg-primary" style="font-size: 0.65rem;">@Loc.Get("Run") @analysis.RunNumber</span>
+                                <span class="fw-bold small text-main">@Loc.Get(analysis.AnalysisStatus.GetLocalizedDescription())</span>
+                            </div>
+                            <div class="small text-muted-custom text-truncate" style="max-width: 300px;">@analysis.Summary</div>
+                        }
+                        else
+                        {
+                            <span class="text-muted small italic">@Loc.Get("NoAnalysisYet")</span>
+                        }
+                    </td>
+                    <td>
+                        <div class="fw-bold text-center">
+                            <span class="badge rounded-2 pill-badge-primary">
+                                @(analysis?.RunNumber.ToString() ?? "0")
+                            </span>
+                        </div>
+                    </td>
+                    <td class="text-end pe-4">
+                        <div class="d-flex justify-content-end gap-2">
+                            @{
+                                var latestTraces = ViewBag.LatestTracesByTicketId as Dictionary<int, int> ?? new Dictionary<int, int>();
+                                var traceId = latestTraces.TryGetValue(ticket.Id, out var tid) ? (int?)tid : null;
+                            }
+                            @if (traceId.HasValue)
+                            {
+                                <a asp-controller="AiAnalysis" asp-action="Investigation" asp-route-id="@traceId.Value" class="btn btn-expand btn-soft-secondary" title="@Loc.Get("Investigation")">
+                                    <i class="bi bi-diagram-3-fill"></i><span>@Loc.Get("Trace")</span>
+                                </a>
+                            }
+                            <a asp-controller="Tickets" asp-action="Details" asp-route-id="@ticket.Id" class="btn btn-expand btn-soft-primary" title="@Loc.Get("Details")">
+                                <i class="bi bi-eye"></i><span>@Loc.Get("Details")</span>
+                            </a>
+                            <button type="button" class="btn btn-expand btn-primary single-run-btn shadow-sm" data-ticket-id="@ticket.Id" title="@Loc.Get("Analyze")">
+                                <i class="bi bi-play-fill text-black"></i><span class="text-black">@Loc.Get("DeepDive")</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

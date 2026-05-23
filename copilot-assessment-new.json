@@ -1,0 +1,3864 @@
+{
+  "Scenarios": [
+    {
+      "Code": "E-CNT-001",
+      "Question": "How many total tickets are in the system?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-002",
+      "Question": "What is the total number of open tickets?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-003",
+      "Question": "How many tickets are currently unassigned?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets WHERE AssignedToUserId IS NULL",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-004",
+      "Question": "What is the total number of open tickets?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-005",
+      "Question": "What is the total number of open tickets?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-006",
+      "Question": "How many critical priority tickets do we have?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketPriorities p ON t.PriorityId = p.Id WHERE p.Name = 'Critical'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-007",
+      "Question": "How many critical priority tickets do we have?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketPriorities p ON t.PriorityId = p.Id WHERE p.Name = 'Critical'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-008",
+      "Question": "How many tickets are currently unassigned?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets WHERE AssignedToUserId IS NULL",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-009",
+      "Question": "Count all tickets with Pending status.",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Pending'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-010",
+      "Question": "Count all tickets with Pending status.",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Pending'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-011",
+      "Question": "How many tickets are currently unassigned?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets WHERE AssignedToUserId IS NULL",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-012",
+      "Question": "What is the total number of open tickets?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-013",
+      "Question": "Count all tickets with Pending status.",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Pending'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-014",
+      "Question": "What is the total number of open tickets?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-015",
+      "Question": "Count all tickets with Pending status.",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Pending'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-016",
+      "Question": "What is the total number of open tickets?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-017",
+      "Question": "How many total tickets are in the system?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-018",
+      "Question": "What is the total number of open tickets?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId = s.Id WHERE s.Name = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-019",
+      "Question": "How many total tickets are in the system?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-CNT-020",
+      "Question": "How many tickets are currently unassigned?",
+      "Category": "Simple Count",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT COUNT(*) FROM Tickets WHERE AssignedToUserId IS NULL",
+        "QueryAnalysis": {
+          "Operation": "Count",
+          "Type": "Scalar"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-001",
+      "Question": "Show me the 5 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 5,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-002",
+      "Question": "Show me the 5 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 5,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-003",
+      "Question": "Show me the 20 most recent tickets from the Education entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 20 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Education' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 20,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-004",
+      "Question": "Show me the 5 most recent tickets from the Education entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Education' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 5,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-005",
+      "Question": "Show me the 10 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 10 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 10,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-006",
+      "Question": "Show me the 10 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 10 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 10,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-007",
+      "Question": "Show me the 5 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 5,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-008",
+      "Question": "Show me the 20 most recent tickets from the Education entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 20 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Education' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 20,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-009",
+      "Question": "Show me the 20 most recent tickets from the Finance entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 20 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 20,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-010",
+      "Question": "Show me the 20 most recent tickets from the Finance entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 20 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 20,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-011",
+      "Question": "Show me the 5 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 5,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-012",
+      "Question": "Show me the 10 most recent tickets from the Finance entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 10 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 10,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-013",
+      "Question": "Show me the 10 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 10 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 10,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-014",
+      "Question": "Show me the 10 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 10 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 10,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-015",
+      "Question": "Show me the 5 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 5,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-016",
+      "Question": "Show me the 10 most recent tickets from the Finance entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 10 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 10,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-017",
+      "Question": "Show me the 10 most recent tickets from the Education entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 10 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Education' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 10,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-018",
+      "Question": "Show me the 20 most recent tickets from the Finance entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 20 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 20,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-019",
+      "Question": "Show me the 5 most recent tickets from the Health entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Health' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 5,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "E-LST-020",
+      "Question": "Show me the 5 most recent tickets from the Education entity.",
+      "Category": "Simple List",
+      "Difficulty": "Easy",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 t.* FROM Tickets t JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Education' ORDER BY t.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "List",
+          "Limit": 5,
+          "Ordering": "CreatedAt DESC"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-001",
+      "Question": "Show me a breakdown of tickets by category.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY CategoryName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "category"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-002",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-003",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-004",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-005",
+      "Question": "Show me a breakdown of tickets by category.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY CategoryName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "category"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-006",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-007",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-008",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-009",
+      "Question": "Show me a breakdown of tickets by entity.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY EntityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "entity"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-010",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-011",
+      "Question": "Show me a breakdown of tickets by entity.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY EntityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "entity"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-012",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-013",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-014",
+      "Question": "Show me a breakdown of tickets by priority.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT PriorityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY PriorityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "priority"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-015",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-016",
+      "Question": "Show me a breakdown of tickets by category.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY CategoryName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "category"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-017",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-018",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-019",
+      "Question": "Show me a breakdown of tickets by category.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY CategoryName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "category"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-020",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-021",
+      "Question": "Show me a breakdown of tickets by priority.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT PriorityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY PriorityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "priority"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-022",
+      "Question": "Show me a breakdown of tickets by entity.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY EntityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "entity"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-023",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-024",
+      "Question": "Show me a breakdown of tickets by entity.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY EntityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "entity"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-025",
+      "Question": "Show me a breakdown of tickets by category.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY CategoryName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "category"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-026",
+      "Question": "Show me a breakdown of tickets by priority.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT PriorityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY PriorityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "priority"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-027",
+      "Question": "Show me a breakdown of tickets by priority.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT PriorityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY PriorityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "priority"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-028",
+      "Question": "Show me a breakdown of tickets by category.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY CategoryName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "category"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-029",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-030",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-031",
+      "Question": "Show me a breakdown of tickets by entity.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY EntityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "entity"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-032",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-033",
+      "Question": "Show me a breakdown of tickets by priority.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT PriorityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY PriorityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "priority"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-034",
+      "Question": "Show me a breakdown of tickets by source.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT SourceName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY SourceName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "source"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-035",
+      "Question": "Show me a breakdown of tickets by category.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY CategoryName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "category"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-036",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-037",
+      "Question": "Show me a breakdown of tickets by category.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY CategoryName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "category"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-038",
+      "Question": "Show me a breakdown of tickets by status.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT StatusName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY StatusName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "status"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-039",
+      "Question": "Show me a breakdown of tickets by priority.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT PriorityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY PriorityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "priority"
+        }
+      }
+    },
+    {
+      "Code": "M-GRP-040",
+      "Question": "Show me a breakdown of tickets by priority.",
+      "Category": "Grouping & Aggregation",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT PriorityName, COUNT(*) as Count FROM vw_TicketAnalytics GROUP BY PriorityName ORDER BY Count DESC",
+        "QueryAnalysis": {
+          "Operation": "Group",
+          "Dimension": "priority"
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-001",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-002",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-003",
+      "Question": "List all High priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-004",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-005",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-006",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-007",
+      "Question": "List all High priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-008",
+      "Question": "List all High priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-009",
+      "Question": "List all High priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-010",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-011",
+      "Question": "List all High priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-012",
+      "Question": "List all High priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-013",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-014",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-015",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-016",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-017",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-018",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-019",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-020",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-021",
+      "Question": "List all High priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-022",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-023",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-024",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-025",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-026",
+      "Question": "List all High priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-027",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-028",
+      "Question": "List all High priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-029",
+      "Question": "List all High priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-030",
+      "Question": "List all High priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-031",
+      "Question": "List all High priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-032",
+      "Question": "List all Critical priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-033",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-034",
+      "Question": "List all High priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-035",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-036",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-037",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-038",
+      "Question": "List all High priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-039",
+      "Question": "List all High priority tickets that are currently In Progress.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'High' AND StatusName = 'In Progress'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "High",
+            "In Progress"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "M-FLT-040",
+      "Question": "List all Critical priority tickets that are currently Open.",
+      "Category": "Filtering",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT * FROM vw_TicketAnalytics WHERE PriorityName = 'Critical' AND StatusName = 'Open'",
+        "QueryAnalysis": {
+          "Operation": "Filter",
+          "Conditions": [
+            "Critical",
+            "Open"
+          ]
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-001",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-002",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-003",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-004",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-005",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-006",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-007",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-008",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-009",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-010",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-011",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-012",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-013",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-014",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-015",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-016",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-017",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-018",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-019",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-020",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-021",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-022",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-023",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-024",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-025",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-026",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-027",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-028",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-029",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-030",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-031",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-032",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-033",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-034",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-035",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-036",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-037",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-038",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-039",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-040",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-041",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-042",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-043",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-044",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-045",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-046",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-047",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-048",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-049",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-050",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-051",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-052",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-053",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-054",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-055",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-056",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-057",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-058",
+      "Question": "Find tickets that have more than 3 attachments.",
+      "Category": "Subquery",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE (SELECT COUNT(*) FROM TicketAttachments a WHERE a.TicketId = t.Id) > 3",
+        "QueryAnalysis": {
+          "Operation": "Subquery"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-059",
+      "Question": "Which user has resolved the most tickets in the last 30 days?",
+      "Category": "Aggregation with Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT u.FullName, COUNT(*) as ResolvedCount FROM AspNetUsers u JOIN Tickets t ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt >= DATEADD(day, -30, GETUTCDATE()) GROUP BY u.Id, u.FullName ORDER BY ResolvedCount DESC",
+        "QueryAnalysis": {
+          "Operation": "Aggregation with Join"
+        }
+      }
+    },
+    {
+      "Code": "H-JSN-060",
+      "Question": "Show me the latest 5 comments for tickets in the Finance department.",
+      "Category": "Join",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 c.Content, c.CreatedAt, t.TicketNumber FROM TicketComments c JOIN Tickets t ON c.TicketId = t.Id JOIN Entities e ON t.EntityId = e.Id WHERE e.Name = 'Finance' ORDER BY c.CreatedAt DESC",
+        "QueryAnalysis": {
+          "Operation": "Join"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-001",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-002",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-003",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-004",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-005",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-006",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-007",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-008",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-009",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-010",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-011",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-012",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-013",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-014",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-015",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-016",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-017",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-018",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-019",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-020",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-021",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-022",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-023",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-024",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-025",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-026",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-027",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-028",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-029",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-030",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-031",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-032",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-033",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-034",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-035",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-036",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-037",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-038",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-039",
+      "Question": "Show me the average resolution time in hours by ticket category.",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT CategoryName, AVG(HoursToResolution) as AvgHours FROM vw_TicketAnalytics WHERE StatusName = 'Resolved' GROUP BY CategoryName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "H-PRF-040",
+      "Question": "What is the SLA breach rate for each entity?",
+      "Category": "Performance Analysis",
+      "Difficulty": "Hard",
+      "CorrectAnswer": {
+        "SQL": "SELECT EntityName, CAST(SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100 as BreachRate FROM vw_TicketAnalytics GROUP BY EntityName",
+        "QueryAnalysis": {
+          "Operation": "Performance"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-001",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-002",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-003",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-004",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-005",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-006",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-007",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-008",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-009",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-010",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-011",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-012",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-013",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-014",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-015",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-016",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-017",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-018",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-019",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-020",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-021",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-022",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-023",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-024",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-025",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-026",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-027",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-028",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-029",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-030",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-031",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-032",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-033",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-034",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-035",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-036",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-037",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-038",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-039",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "C-MLT-040",
+      "Question": "Show me the 5 oldest open tickets, who they are assigned to, and how many comments each has.",
+      "Category": "Complex Multi-Step",
+      "Difficulty": "Complicated",
+      "CorrectAnswer": {
+        "SQL": "SELECT TOP 5 TicketNumber, AssignedToName, CommentCount, DaysOpen FROM vw_TicketAnalytics WHERE StatusName = 'Open' ORDER BY CreatedAt ASC",
+        "QueryAnalysis": {
+          "Operation": "Multi-Step"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-001",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-002",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-003",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-004",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-005",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-006",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-007",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-008",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-009",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-010",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-011",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-012",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-013",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-014",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-015",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-016",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-017",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-018",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-019",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-020",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-021",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-022",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-023",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-024",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-025",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-026",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-027",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-028",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-029",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-030",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-031",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-032",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-033",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-034",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-035",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-036",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-037",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-038",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-039",
+      "Question": "Show me all active system settings.",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT [Key], [Value] FROM SystemSettings",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    },
+    {
+      "Code": "X-EXT-040",
+      "Question": "What are the available columns in the Tickets table?",
+      "Category": "Metadata & Tools",
+      "Difficulty": "Medium",
+      "CorrectAnswer": {
+        "SQL": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tickets'",
+        "QueryAnalysis": {
+          "Operation": "Metadata"
+        }
+      }
+    }
+  ]
+}

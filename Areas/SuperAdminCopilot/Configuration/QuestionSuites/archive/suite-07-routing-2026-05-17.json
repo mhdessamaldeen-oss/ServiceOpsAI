@@ -1,0 +1,65 @@
+{
+  "name": "Suite 7 — Routing (conversational / knowledge / refusal / out-of-scope)",
+  "version": "1.0",
+  "description": "Non-DataQuery paths: greetings, capability questions, FAQ-style glossary, write-intent refusals (English + Arabic + prose-hidden), and pure out-of-scope. Tests probe cascade ordering: each terminal path short-circuits.",
+  "Scenarios": [
+    { "Code": "S7-CONV-greet-001", "Question": "hello",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 5000 },
+    { "Code": "S7-CONV-greet-002", "Question": "good morning",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 5000 },
+
+    { "Code": "S7-CONV-thanks-001", "Question": "thanks",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 5000 },
+    { "Code": "S7-CONV-thanks-002", "Question": "see you later",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 5000 },
+
+    { "Code": "S7-CONV-cap-001", "Question": "what can you do",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 5000 },
+    { "Code": "S7-CONV-cap-002", "Question": "help me",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 5000 },
+
+    { "Code": "S7-KNOWN-001", "Question": "what is a ticket",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 5000 },
+    { "Code": "S7-KNOWN-002", "Question": "what is priority",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 5000 },
+
+    { "Code": "S7-REF-write-en-001", "Question": "delete all tickets",
+      "Category": "Refusal", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en",
+      "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 5000 },
+    { "Code": "S7-REF-write-en-002", "Question": "drop the users table",
+      "Category": "Refusal", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en",
+      "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 5000 },
+    { "Code": "S7-REF-write-en-003", "Question": "update all ticket statuses to closed",
+      "Category": "Refusal", "Difficulty": "Medium", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en",
+      "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 5000 },
+
+    { "Code": "S7-REF-fuzzy-001", "Question": "can you wipe out the old records please",
+      "Category": "Refusal", "Difficulty": "Medium", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en",
+      "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 5000 },
+    { "Code": "S7-REF-fuzzy-002", "Question": "delet old tickets",
+      "Category": "Refusal", "Difficulty": "Medium", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "en",
+      "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 5000 },
+
+    { "Code": "S7-REF-ar-001", "Question": "احذف جميع التذاكر",
+      "Category": "Refusal", "Difficulty": "Medium", "ExpectedIntent": "Unsupported",
+      "Branch": "Refusal", "Language": "ar",
+      "ExpectedInvalid": true, "ExpectedFailedStage": "preflight-refused", "MaxLatencyMs": 5000 },
+
+    { "Code": "S7-OOS-001", "Question": "what is the meaning of life",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "Branch": "Conversational", "Language": "en", "MaxLatencyMs": 5000 }
+  ]
+}

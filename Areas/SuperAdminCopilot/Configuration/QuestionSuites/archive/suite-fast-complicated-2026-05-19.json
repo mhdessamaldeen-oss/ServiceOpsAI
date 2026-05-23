@@ -1,0 +1,159 @@
+{
+  "name": "Suite Fast Complicated — 15 hard cases across all SQL shapes",
+  "version": "1.0",
+  "description": "Speed-test subset of the combined suite. One representative complicated case per SQL shape (WIN/CTE/MCTE/RECCTE/PCTL/PER/ANM/TOP-N/HAVING/ANT/Tool). MaxLatencyMs raised to 700s to match the new CopilotLlmCallTimeoutSeconds=600 ceiling.",
+  "Scenarios": [
+    {
+      "Code": "F26-WIN-RANK",
+      "Question": "rank entities by their ticket volume",
+      "Category": "WIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT e.Name, COUNT(t.Id) AS Count, RANK() OVER (ORDER BY COUNT(t.Id) DESC) AS Rank FROM Entitys e LEFT JOIN Tickets t ON t.EntityId = e.Id AND t.IsDeleted = 0 WHERE e.IsActive = 1 GROUP BY e.Name ORDER BY Rank",
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "F29-WIN-LAG",
+      "Question": "month over month change in ticket creation using lag",
+      "Category": "WIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Month, Count, Count - LAG(Count) OVER (ORDER BY Month) AS Delta FROM (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')) m ORDER BY Month",
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "F30-WIN-ROLL",
+      "Question": "rolling 7 day average of tickets created",
+      "Category": "WIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Day, Count, AVG(CAST(Count AS FLOAT)) OVER (ORDER BY Day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS Rolling7DayAvg FROM (SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-90,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE)) d ORDER BY Day",
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "F23-CTE",
+      "Question": "with a cte show daily ticket counts for the last 14 days",
+      "Category": "CTE",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH DailyCounts AS (SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-14,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE)) SELECT Day, Count FROM DailyCounts ORDER BY Day",
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "F24-MCTE",
+      "Question": "with two ctes compute monthly counts then keep only months above 30 tickets",
+      "Category": "MCTE",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH MonthlyCounts AS (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')), Filtered AS (SELECT Month, Count FROM MonthlyCounts WHERE Count > 30) SELECT Month, Count FROM Filtered ORDER BY Month",
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "F47-RECCTE-down",
+      "Question": "all descendant tickets of TCK-2026-00072",
+      "Category": "RECCTE",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH TicketTree AS (SELECT Id, TicketNumber, Title, ParentTicketId, 0 AS Depth FROM Tickets WHERE TicketNumber = 'TCK-2026-00072' AND IsDeleted = 0 UNION ALL SELECT t.Id, t.TicketNumber, t.Title, t.ParentTicketId, tt.Depth + 1 FROM Tickets t JOIN TicketTree tt ON t.ParentTicketId = tt.Id WHERE t.IsDeleted = 0) SELECT TicketNumber, Title, Depth FROM TicketTree WHERE Depth > 0 ORDER BY Depth, TicketNumber",
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "F32-PCTL-median",
+      "Question": "median ticket resolution time",
+      "Category": "PCTL",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) OVER () AS MedianDays FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "F33-PCTL-p95",
+      "Question": "95th percentile of ticket resolution time",
+      "Category": "PCTL",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) OVER () AS P95Days FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "RH-HR-001",
+      "Question": "Compare ticket counts between this month and last month.",
+      "Category": "Hard / Period compare",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 'ThisMonth' AS Period, COUNT(*) AS Total FROM Tickets WHERE YEAR(CreatedAt) = YEAR(GETDATE()) AND MONTH(CreatedAt) = MONTH(GETDATE()) AND IsDeleted = 0 UNION ALL SELECT 'LastMonth', COUNT(*) FROM Tickets WHERE YEAR(CreatedAt) = YEAR(DATEADD(month, -1, GETDATE())) AND MONTH(CreatedAt) = MONTH(DATEADD(month, -1, GETDATE())) AND IsDeleted = 0",
+      "ExpectedMaxRows": 2,
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "RH-HR-002",
+      "Question": "Compare ticket volume this year versus last year.",
+      "Category": "Hard / Year compare",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 'CurrentYear' AS Period, COUNT(*) AS Total FROM Tickets WHERE YEAR(CreatedAt) = YEAR(GETDATE()) AND IsDeleted = 0 UNION ALL SELECT 'LastYear', COUNT(*) FROM Tickets WHERE YEAR(CreatedAt) = YEAR(GETDATE()) - 1 AND IsDeleted = 0",
+      "ExpectedMaxRows": 2,
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "F42-ANM-peak",
+      "Question": "busiest day of the last 30 days for ticket creation",
+      "Category": "ANM",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TOP 1 CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-30,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE) ORDER BY Count DESC",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "RU-UW-01-TOP-CREATORS",
+      "Question": "Show the top 10 users by number of tickets created.",
+      "Category": "TOP N + GROUP BY + COUNT",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 u.UserName, COUNT(*) AS Cnt FROM AspNetUsers u JOIN Tickets t ON t.CreatedByUserId = u.Id WHERE t.IsDeleted = 0 GROUP BY u.UserName ORDER BY Cnt DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "RU-UW-10-USERS-OVER-N-TICKETS",
+      "Question": "Which users have created more than 5 tickets?",
+      "Category": "HAVING on COUNT",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, COUNT(*) AS Cnt FROM AspNetUsers u JOIN Tickets t ON t.CreatedByUserId = u.Id WHERE t.IsDeleted = 0 GROUP BY u.UserName HAVING COUNT(*) > 5 ORDER BY Cnt DESC",
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "RH-HR-005",
+      "Question": "Which tickets have no comments yet?",
+      "Category": "Hard / Anti-join",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title FROM Tickets t LEFT JOIN TicketComments c ON c.TicketId = t.Id WHERE c.Id IS NULL AND t.IsDeleted = 0",
+      "MaxLatencyMs": 700000
+    },
+    {
+      "Code": "F60-TOOL-fx",
+      "Question": "convert 100 USD to JPY",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 700000
+    }
+  ]
+}

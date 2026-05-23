@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "description": "External-utility tools the Copilot can route questions to. Seeded into CopilotToolDefinitions on app startup with UPSERT semantics: new rows inserted, existing rows have structural fields (Title/Description/ToolType/CopilotMode/EndpointUrl/TestPrompt) refreshed while admin-tuned fields (KeywordHints/QueryExtractionHint/ResponseFormatHint/IsEnabled/SortOrder) are preserved. Edit this file to add tools shipped with the DLL; admins layer customizations on top via the in-app UI.",
+  "tools": [
+    {
+      "toolKey": "country_profile_lookup",
+      "title": "Country Profile Lookup",
+      "description": "Retrieves country facts such as capital, population, currencies, region, and time zones using the public REST Countries API.",
+      "toolType": "External",
+      "copilotMode": "ExternalUtility",
+      "endpointUrl": "https://restcountries.com/v3.1/name/{query}?fields=name,capital,region,subregion,population,languages,currencies,timezones",
+      "keywordHints": "country profile,country facts,country capital,country population,country info,nation,tell me about,information about,details about",
+      "queryExtractionHint": "Extract the country name only, such as Saudi Arabia, Japan, or Canada.",
+      "responseFormatHint": "Summarize the top matching country result with capital, population, region, currencies, and time zones.",
+      "testPrompt": "Tell me about Saudi Arabia.",
+      "isEnabled": true,
+      "sortOrder": 101
+    },
+    {
+      "toolKey": "currency_country_lookup",
+      "title": "Currency Country Lookup",
+      "description": "Finds countries that use a given currency code through the REST Countries currency endpoint.",
+      "toolType": "External",
+      "copilotMode": "ExternalUtility",
+      "endpointUrl": "https://restcountries.com/v3.1/currency/{query}?fields=name,capital,currencies,population,region",
+      "keywordHints": "currency country,uses currency,which countries use,eur countries,usd countries,what country uses,which country uses,country that uses,countries that use,uses the rupee,uses the euro,uses the dollar,uses the yen,uses the pound,uses the yuan,uses the rupiah,uses the peso,uses the franc,uses the kroner,uses the lira,uses the krone,which country uses the,what country uses the,countries using",
+      "queryExtractionHint": "Extract the ISO currency code only, such as USD, EUR, AED, or SAR.",
+      "responseFormatHint": "Return the main countries that use the requested currency.",
+      "testPrompt": "Which countries use the SAR currency?",
+      "isEnabled": true,
+      "sortOrder": 102
+    },
+    {
+      "toolKey": "location_lookup",
+      "title": "Location Lookup",
+      "description": "Searches locations globally and returns place names, coordinates, country, population, and time zone using the Open-Meteo geocoding API.",
+      "toolType": "External",
+      "copilotMode": "ExternalUtility",
+      "endpointUrl": "https://geocoding-api.open-meteo.com/v1/search?name={query}&count=5&language=en&format=json",
+      "keywordHints": "location lookup,city lookup,coordinates,timezone,place search,where is,where is located",
+      "queryExtractionHint": "Extract the place or city name only.",
+      "responseFormatHint": "Return the best-matching locations with coordinates and time zone.",
+      "testPrompt": "Find the coordinates and timezone for Dubai.",
+      "isEnabled": true,
+      "sortOrder": 103
+    },
+    {
+      "toolKey": "major_fx_snapshot",
+      "title": "Major FX Snapshot",
+      "description": "Provides a quick snapshot of major exchange rates from USD to common currencies using the Frankfurter API.",
+      "toolType": "External",
+      "copilotMode": "ExternalUtility",
+      "endpointUrl": "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,GBP,AED,SAR,JPY",
+      "keywordHints": "exchange rates,fx snapshot,currency rates,usd rates,dollar rates,convert,convert usd,convert to,usd to,to jpy,to eur,to gbp,to inr,to cad,to aud,to chf,to sgd,to hkd,to nzd,to mxn,to brl,to zar,to cny,to rub,usd to jpy,usd to eur,usd to gbp,usd jpy,usd eur,usd gbp,convert currency,currency conversion,currency exchange,convert 100,convert 50,convert 10,convert 1000,fx rate,exchange rate",
+      "queryExtractionHint": "Default to the current/latest exchange rate when no specific date is mentioned. Do NOT ask the user to disambiguate between current and historical rates - assume current. Use this tool for any USD-to-X conversion or major exchange-rate question.",
+      "responseFormatHint": "Summarize the current/latest exchange rate from USD to the requested currency. If the user provided an amount (e.g. convert 100 USD to JPY), multiply that amount by the rate and present the result. Never ask the user for clarification about which rate to use - assume current.",
+      "testPrompt": "Show me the latest major exchange rates from USD.",
+      "isEnabled": true,
+      "sortOrder": 104
+    },
+    {
+      "toolKey": "public_holiday_watch",
+      "title": "Public Holiday Watch",
+      "description": "Lists the next public holidays worldwide using the Nager.Date public holiday API.",
+      "toolType": "External",
+      "copilotMode": "ExternalUtility",
+      "endpointUrl": "https://date.nager.at/api/v3/NextPublicHolidaysWorldwide",
+      "keywordHints": "public holidays,next holidays,holiday calendar,world holidays,holiday watch,upcoming holidays,are there any public holidays",
+      "queryExtractionHint": "No extraction needed; use this when the user asks about upcoming public holidays worldwide.",
+      "responseFormatHint": "Summarize the next worldwide public holidays with date and country.",
+      "testPrompt": "What are the next public holidays worldwide?",
+      "isEnabled": true,
+      "sortOrder": 105
+    },
+    {
+      "toolKey": "university_registry_search",
+      "title": "University Registry Search",
+      "description": "Searches universities by country using the public University Domains API.",
+      "toolType": "External",
+      "copilotMode": "ExternalUtility",
+      "endpointUrl": "http://universities.hipolabs.com/search?country={query}",
+      "keywordHints": "universities in country,colleges in country,academic registry,university search,schools by country,find universities,find universities in,universities in,university in,colleges in,college in,find colleges,list universities,show universities,university registry,academic institutions,higher education,find university,find a university",
+      "queryExtractionHint": "Extract the country name only.",
+      "responseFormatHint": "Return the matching universities with names and website domains.",
+      "testPrompt": "Find universities in Canada.",
+      "isEnabled": true,
+      "sortOrder": 106
+    }
+  ]
+}

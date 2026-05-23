@@ -1,0 +1,170 @@
+{
+  "name": "10 - Realistic Operational Health & SLA",
+  "version": "1.0",
+  "description": "Analyst questions an operations manager would ask: SLA breach counts and rates, first-response performance, backlog and aging, manager-review queue, reopen and escalation patterns, related-entity counts (comments/attachments per ticket). Every question has a clear single answer and a ExpectedSql aligned with the Tickets schema's SLA + escalation fields.",
+  "Scenarios": [
+    {
+      "Code": "OH-01-OPEN-COUNT",
+      "Question": "How many tickets are currently open?",
+      "Category": "Status filter via IsClosedState",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "OH-02-CLOSED-COUNT",
+      "Question": "How many tickets are closed?",
+      "Category": "Status filter — closed",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 1 AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "OH-03-SLA-BREACHED-COUNT",
+      "Question": "How many tickets have breached SLA?",
+      "Category": "Bool flag filter",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE IsSlaBreached = 1 AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "OH-04-SLA-RATE",
+      "Question": "What percentage of tickets have breached SLA?",
+      "Category": "Ratio via SUM(CASE)/COUNT",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 100.0 * SUM(CASE WHEN IsSlaBreached = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS PctBreached FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "OH-05-SLA-PER-PRIORITY",
+      "Question": "Show SLA breach count per priority.",
+      "Category": "GROUP BY with bool-flag filter",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, COUNT(*) AS BreachedCount FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsSlaBreached = 1 AND t.IsDeleted = 0 GROUP BY p.Name ORDER BY BreachedCount DESC",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "OH-06-NO-FIRST-RESPONSE",
+      "Question": "How many open tickets have not received a first response yet?",
+      "Category": "IS NULL on date column + status filter",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.FirstRespondedAt IS NULL AND s.IsClosedState = 0 AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "OH-07-ESCALATED-COUNT",
+      "Question": "How many tickets have been escalated?",
+      "Category": "IS NOT NULL on date column",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE EscalatedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "OH-08-MANAGER-REVIEW-QUEUE",
+      "Question": "List tickets that require manager review.",
+      "Category": "Bool flag filter — list",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TicketNumber, Title FROM Tickets WHERE RequiresManagerReview = 1 AND IsDeleted = 0",
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "OH-09-PENDING-WITH-REASON",
+      "Question": "List pending tickets along with their pending reason.",
+      "Category": "Filter by status with extra column",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.PendingReason FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Pending' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "OH-10-COMMENTS-PER-TICKET-TOP",
+      "Question": "Show the top 10 tickets by number of comments.",
+      "Category": "TOP N with COUNT on related table",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 t.TicketNumber, t.Title, COUNT(c.Id) AS CommentCount FROM Tickets t JOIN TicketComments c ON c.TicketId = t.Id WHERE t.IsDeleted = 0 GROUP BY t.TicketNumber, t.Title ORDER BY CommentCount DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "OH-11-ATTACHMENTS-COUNT",
+      "Question": "How many ticket attachments exist?",
+      "Category": "COUNT on related table",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM TicketAttachments",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "OH-12-TICKETS-WITH-ATTACHMENTS",
+      "Question": "How many tickets have at least one attachment?",
+      "Category": "DISTINCT COUNT on related table",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(DISTINCT a.TicketId) AS Total FROM TicketAttachments a JOIN Tickets t ON t.Id = a.TicketId WHERE t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "OH-13-TICKETS-NO-COMMENTS",
+      "Question": "List tickets that have no comments.",
+      "Category": "Anti-join on related table",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE NOT EXISTS (SELECT 1 FROM TicketComments c WHERE c.TicketId = t.Id) AND t.IsDeleted = 0",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "OH-14-CHILD-TICKETS",
+      "Question": "Show all child tickets and their parent ticket id.",
+      "Category": "Self-reference filter",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TicketNumber, Title, ParentTicketId FROM Tickets WHERE ParentTicketId IS NOT NULL AND IsDeleted = 0",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "OH-15-ESCALATION-LEVELS",
+      "Question": "Show ticket counts grouped by escalation level.",
+      "Category": "GROUP BY on integer column",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT EscalationLevel, COUNT(*) AS Cnt FROM Tickets WHERE IsDeleted = 0 GROUP BY EscalationLevel ORDER BY EscalationLevel",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "OH-16-OPEN-OVER-7-DAYS",
+      "Question": "How many open tickets are older than 7 days?",
+      "Category": "Date arithmetic + status filter",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.CreatedAt < DATEADD(day,-7,CAST(GETDATE() AS DATE)) AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "OH-17-RESOLUTION-RATE-PRIORITY",
+      "Question": "Show the resolution rate per priority as a percentage.",
+      "Category": "Per-group ratio via SUM(CASE)/COUNT + GROUP BY",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, 100.0 * SUM(CASE WHEN t.ResolvedAt IS NOT NULL THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) AS ResolutionRatePct FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0 GROUP BY p.Name ORDER BY ResolutionRatePct DESC",
+      "MaxLatencyMs": 30000
+    }
+  ]
+}

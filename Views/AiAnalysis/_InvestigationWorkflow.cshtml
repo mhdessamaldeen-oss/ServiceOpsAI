@@ -1,0 +1,897 @@
+@model AISupportAnalysisPlatform.Models.AI.AdminCopilotExecutionDetails
+@using AISupportAnalysisPlatform.Models.AI
+@{
+    var trace = ViewBag.Trace as CopilotTraceHistory;
+    var allSteps = Model.Steps ?? new List<CopilotExecutionStep>();
+
+    // ── Route detection ────────────────────────────────────────────────────────
+    // The orchestrator picks ONE of these 5 routes after the router classifier runs.
+    // We detect which fired from the actual step list (canonical, not from
+    // DetectedIntent alone — that can be stale on aborted runs).
+    var actions = allSteps.Select(s => (s.Action ?? string.Empty).ToLowerInvariant()).ToList();
+    var hadFailure = allSteps.Any(s => s.Status == CopilotStepStatus.Error);
+
+    bool ranData = allSteps.Any(s => s.Layer == CopilotExecutionLayer.DataPlanning ||
+                                      s.Layer == CopilotExecutionLayer.DataExecution ||
+                                      s.Layer == CopilotExecutionLayer.Executor);
+    bool ranClarification = actions.Any(a => a.Contains("clarification") || a.Contains("invalid"));
+    bool ranExternalTool = actions.Any(a => a.Contains("tool"));
+    bool ranGeneralChat = actions.Any(a => a.Contains("conversational") || a.Contains("knowledge")) && !ranData;
+    bool ranAborted = hadFailure || actions.Any(a => a.Contains("abort"));
+
+    // Stage extraction per zone.
+    var routerStep = allSteps.FirstOrDefault(s => s.Layer == CopilotExecutionLayer.Router);
+    var intakeStep = allSteps.FirstOrDefault(s => (s.Action ?? "").ToLowerInvariant().Contains("intake") ||
+                                                    (s.Action ?? "").ToLowerInvariant().Contains("preflight") ||
+                                                    (s.Action ?? "").ToLowerInvariant().Contains("operational"));
+    var formatterStep = allSteps.LastOrDefault(s => (s.Action ?? "").ToLowerInvariant().Contains("format") ||
+                                                      (s.Action ?? "").ToLowerInvariant().Contains("explain"));
+    var dataSteps = allSteps.Where(s => s.Layer == CopilotExecutionLayer.DataPlanning ||
+                                          s.Layer == CopilotExecutionLayer.DataExecution ||
+                                          s.Layer == CopilotExecutionLayer.Executor).ToList();
+
+    Func<long, string> formatMs = ms => ms >= 1000 ? $"{ms / 1000.0:0.00}s" : $"{ms}ms";
+
+    // ── StepPayload parsing ────────────────────────────────────────────────────
+    // The orchestrator now writes a structured JSON payload into PipelineStep.TechnicalData
+    // (kind / input / output / reason / details). Detection: presence of "_payload":"v1".
+    // When parsed, we render labeled Input / Output / Reason sections instead of a single
+    // opaque pre-box. Legacy traces (plain text, no _payload tag) return null per the
+    // approved plan's "hide legacy" decision — their TechnicalData simply isn't shown.
+    Func<string?, (string? Kind, string? Input, string? Output, string? Reason, string? DetailsJson)> parsePayload = raw =>
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return (null, null, null, null, null);
+        var trimmed = raw!.TrimStart();
+        if (!trimmed.StartsWith("{")) return (null, null, null, null, null);
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("_payload", out var ver) || ver.GetString() != "v1")
+                return (null, null, null, null, null);
+            string? Get(string n) => root.TryGetProperty(n, out var el) && el.ValueKind == System.Text.Json.JsonValueKind.String
+                ? el.GetString() : null;
+            string? detailsJson = null;
+            if (root.TryGetProperty("details", out var det) && det.ValueKind != System.Text.Json.JsonValueKind.Null)
+            {
+                detailsJson = System.Text.Json.JsonSerializer.Serialize(det, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            }
+            return (Get("kind"), Get("input"), Get("output"), Get("reason"), detailsJson);
+        }
+        catch { return (null, null, null, null, null); }
+    };
+
+    // Truncating <pre> with a "show full" toggle. Keeps the panel scannable when an LLM
+    // prompt is 5KB+ of system instructions. Decision locked in the plan: cap at 2 KB.
+    const int BlobTruncateChars = 2048;
+    Func<string, string, string> renderBlob = (label, raw) =>
+    {
+        if (string.IsNullOrEmpty(raw)) return string.Empty;
+        var encoded = System.Net.WebUtility.HtmlEncode(raw);
+        var sb = new System.Text.StringBuilder();
+        sb.Append($@"<div class='wfdetail-blob' data-truncated='{(raw.Length > BlobTruncateChars ? "true" : "false")}'>");
+        sb.Append($@"<pre class='wfdetail-blob-pre'>{encoded}</pre>");
+        if (raw.Length > BlobTruncateChars)
+        {
+            sb.Append($@"<button type='button' class='wfdetail-blob-toggle' onclick=""(function(b){{var p=b.parentElement;var on=p.getAttribute('data-truncated')==='true';p.setAttribute('data-truncated',on?'false':'true');b.textContent=on?'Show less':'Show full ({raw.Length:N0} chars)';}})(this)"">Show full ({raw.Length:N0} chars)</button>");
+        }
+        sb.Append("</div>");
+        return sb.ToString();
+    };
+
+    // ── Per-stage static descriptions ──────────────────────────────────────────
+    // "What this stage does" narrative for the expand panel. Keyed by canonical
+    // stage name (case-insensitive substring match). Unknown stages fall back to
+    // a generic "internal stage" line so the panel never reads empty.
+    Func<string, string> describeStage = action =>
+    {
+        var a = (action ?? string.Empty).ToLowerInvariant();
+        if (a.Contains("intake") || a.Contains("preflight"))
+            return "First gate. Rejects empty / write-shaped / injection-shaped questions before any LLM call. Pass = the question is safe and complete enough to plan.";
+        if (a.Contains("operational"))
+            return "Per-session retry-budget + cost-gate check. Refuses when the current chat has been hammering the LLM (cost runaway) or when the question would breach a configured cap.";
+        if (a.Contains("decomposer"))
+            return "Decides whether the question is atomic or compound. If compound (e.g. \"open AND closed tickets by category\"), splits into sub-questions that run in parallel.";
+        if (a.Contains("conversational") || a.Contains("knowledge"))
+            return "Tries to handle the question without SQL — greeting, meta-question, or known FAQ. If matched, the route ends here.";
+        if (a.Contains("semantic search"))
+            return "Vector retrieval over indexed entities — picks the most relevant rows by meaning, not keyword. Used when the question names a record.";
+        if (a.Contains("metadata"))
+            return "Schema introspection — answers \"what columns / tables / entities exist\" without hitting the data.";
+        if (a.Contains("tool"))
+            return "Routes to a registered external tool (Jira, Slack, Confluence). The copilot delegates instead of writing SQL.";
+        if (a.Contains("retriever"))
+            return "Pulls a top-K slice of schema tables (vector or keyword) so the planner only sees relevant tables in its prompt.";
+        if (a.Contains("specextractor"))
+            return "Form-filling LLM call. Reads the question + schema slice, emits a structured QuerySpec JSON (root, filters, aggregations, group-by). Replaces free-form SQL generation.";
+        if (a.Contains("specrefine") || a.Contains("retry"))
+            return "Retry of the spec extractor with the previous failure surfaced. The LLM gets a chance to fix what broke (compile error, validator complaint, executor error).";
+        if (a.Contains("intent"))
+            return "Maps the question's shape to one of the pipeline's known intents (DataQuery / Clarification / Tool / GeneralChat / Aborted). Drives the routing fan-out below.";
+        if (a.Contains("specenricher") || a.Contains("enrich"))
+            return "Deterministic post-LLM rules (R1-R7). Adds default projection, filter-proof columns, FK labels, group-by columns. Idempotent — runs every attempt.";
+        if (a.Contains("accesspolicy"))
+            return "Blocks tables/columns marked sensitive (PasswordHash, ApiKey, Secret, …) — even if the LLM tries to project them.";
+        if (a.Contains("compiler"))
+            return "QuerySpec → parameterised T-SQL. Applies join graph, soft-delete filter, MaxRows cap, computed-expression rendering. Fully deterministic.";
+        if (a.Contains("validator"))
+            return "AST-walks the generated SQL via ScriptDom. Rejects DML, multi-statement scripts, dangerous functions. Last gate before execution.";
+        if (a.Contains("sqlintentguard"))
+            return "Spec-shape sanity check (TOP-N without ORDER BY, anti-join with redundant filters, etc.). Independent of the validator's syntactic checks.";
+        if (a.Contains("executor"))
+            return "Runs the compiled SQL against the read-only DB connection. Stops reading at MaxRows; surfaces IsTruncated when capped.";
+        if (a.Contains("rowshape"))
+            return "Detects spurious empty / single-row results that may indicate a bad query (e.g. GROUP BY collapsed wrong). Doesn't reject, just flags.";
+        if (a.Contains("explainer"))
+            return "LLM call that summarises the result set as natural-language. Optional — skipped when the copilot prefers the templated reply.";
+        if (a.Contains("format"))
+            return "Renders the final answer (markdown table + citations + chart hint). Last stop before the user.";
+        return "Internal pipeline stage. Click for technical detail.";
+    };
+
+    // ── Per-stage verdict heuristic ─────────────────────────────────────────────
+    // Lightweight quality call so each panel has a takeaway. Combines status,
+    // elapsed time, and (for LLM stages) token / cost ranges. Returns icon+label.
+    Func<CopilotExecutionStep, (string Icon, string Label, string Tone)> verdictFor = s =>
+    {
+        if (s.Status == CopilotStepStatus.Error) return ("bi-x-circle-fill", "Failed", "error");
+        if (s.Status == CopilotStepStatus.Warn) return ("bi-exclamation-triangle-fill", "Warning", "warn");
+        if (s.Status == CopilotStepStatus.Skip) return ("bi-skip-forward-fill", "Skipped", "muted");
+
+        var elapsed = s.ElapsedMs;
+        var tokens = (s.PromptTokens ?? 0) + (s.CompletionTokens ?? 0);
+        var isLlm = tokens > 0 || s.PromptTokens.HasValue;
+        if (isLlm)
+        {
+            if (elapsed > 10000) return ("bi-hourglass-bottom", "Slow LLM (>10s)", "warn");
+            if (elapsed > 5000) return ("bi-hourglass-split", "Noticeable LLM time (>5s)", "warn");
+            if (tokens > 5000) return ("bi-cash-stack", "Expensive prompt (>5K tokens)", "warn");
+            return ("bi-check2-circle", "LLM call clean", "ok");
+        }
+        if (elapsed > 2000) return ("bi-hourglass", "Slow stage (>2s)", "warn");
+        return ("bi-check2-circle", "OK", "ok");
+    };
+
+    // ── Step rendering: row + detail (rendered to wide panel below the diagram) ─────
+    // Each step now produces TWO HTML fragments:
+    //   1. A compact row that lives inside its branch column (no inline expand panel).
+    //   2. A rich detail block stored in a hidden pool; the visible details panel below
+    //      the diagram copies one in on click. This way every step gets the FULL
+    //      horizontal width for its details (sub-steps, prompts, SQL, verdict) instead
+    //      of being squeezed into a 20%-wide branch column.
+    var detailPool = new Dictionary<string, string>();   // stepId → detail HTML
+
+    Func<CopilotExecutionStep, int, string> renderStep = (step, stepNum) =>
+    {
+        var rowId = $"wfstep-{Guid.NewGuid():N}";
+        var ok = step.Status == CopilotStepStatus.Ok;
+        var stageDesc = describeStage(step.Action);
+        var v = verdictFor(step);
+        var isLlm = (step.PromptTokens ?? 0) + (step.CompletionTokens ?? 0) > 0
+                    || !string.IsNullOrEmpty(step.LlmModelUsed);
+        var hasTech = !string.IsNullOrWhiteSpace(step.TechnicalData);
+        var tokensSum = (step.PromptTokens ?? 0) + (step.CompletionTokens ?? 0);
+
+        // ── 1. Row HTML (compact, clickable) ────────────────────────────────────────
+        // When stepNum > 0 a numeric badge is prepended so the user can read the
+        // execution order at a glance. stepNum == -1 means "don't number this
+        // row" (used for probes inside the Router — those are routing decisions,
+        // not pipeline steps).
+        var row = new System.Text.StringBuilder();
+        var numBadge = stepNum > 0
+            ? $@"<span class='workflow-step-num'>{stepNum}</span>"
+            : string.Empty;
+        row.Append($@"
+            <li class='workflow-step {(ok ? "ok" : "err")}' data-step-id='{rowId}' onclick=""window.showWorkflowStepDetail &amp;&amp; window.showWorkflowStepDetail('{rowId}', this)"">
+                <div class='workflow-step-summary'>
+                    {numBadge}
+                    <i class='bi {(ok ? "bi-check-circle-fill" : "bi-x-circle-fill")}'></i>
+                    <span class='workflow-step-name'>{System.Net.WebUtility.HtmlEncode(step.Action)}</span>");
+        if (!string.IsNullOrWhiteSpace(step.Detail))
+        {
+            row.Append($@"<span class='workflow-step-detail'>— {System.Net.WebUtility.HtmlEncode(step.Detail)}</span>");
+        }
+        if (isLlm)
+        {
+            row.Append($@"<span class='workflow-step-chip llm' title='LLM call'><i class='bi bi-cpu'></i> LLM</span>");
+        }
+        if (tokensSum > 0)
+        {
+            row.Append($@"<span class='workflow-step-chip tokens' title='prompt + completion tokens'><i class='bi bi-hash'></i> {(step.PromptTokens ?? 0):N0}+{(step.CompletionTokens ?? 0):N0}</span>");
+        }
+        if (step.EstimatedCostUsd.HasValue)
+        {
+            var cost = step.EstimatedCostUsd.Value;
+            var costStr = cost == 0 ? "free" : (cost >= 0.01m ? $"${cost:F4}" : $"${cost:F6}");
+            row.Append($@"<span class='workflow-step-chip cost {(cost == 0 ? "free" : "")}' title='estimated cost'><i class='bi bi-currency-dollar'></i> {costStr}</span>");
+        }
+        row.Append($@"<span class='workflow-step-time'>{formatMs(step.ElapsedMs)}</span>");
+        row.Append($@"<i class='bi bi-chevron-right workflow-step-chevron'></i>");
+        row.Append($@"</div></li>");
+
+        // ── 2. Detail HTML (rich, full-width, lives in the pool) ────────────────────
+        // Header: stage name + status pill + elapsed + LLM/tokens/cost chips at top.
+        var det = new System.Text.StringBuilder();
+        det.Append($@"
+            <div class='wfdetail-header'>
+                <div class='wfdetail-title'>
+                    <i class='bi {(ok ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger")}'></i>
+                    <span class='wfdetail-stage'>{System.Net.WebUtility.HtmlEncode(step.Action)}</span>
+                    <span class='wfdetail-status badge bg-soft-{(ok ? "success text-success" : "danger text-danger")}'>{step.Status}</span>
+                </div>
+                <div class='wfdetail-chips'>");
+        det.Append($@"<span class='wfdetail-chip'><i class='bi bi-clock-history'></i> {formatMs(step.ElapsedMs)}</span>");
+        if (isLlm)
+        {
+            det.Append($@"<span class='wfdetail-chip llm'><i class='bi bi-cpu'></i> LLM</span>");
+        }
+        if (!string.IsNullOrEmpty(step.LlmModelUsed))
+        {
+            det.Append($@"<span class='wfdetail-chip'><i class='bi bi-box'></i> {System.Net.WebUtility.HtmlEncode(step.LlmModelUsed)}</span>");
+        }
+        if (tokensSum > 0)
+        {
+            det.Append($@"<span class='wfdetail-chip tokens'><i class='bi bi-hash'></i> {(step.PromptTokens ?? 0):N0}+{(step.CompletionTokens ?? 0):N0} tok</span>");
+        }
+        if (step.EstimatedCostUsd.HasValue)
+        {
+            var cost = step.EstimatedCostUsd.Value;
+            var costStr = cost == 0 ? "free" : (cost >= 0.01m ? $"${cost:F4}" : $"${cost:F6}");
+            det.Append($@"<span class='wfdetail-chip cost {(cost == 0 ? "free" : "")}'><i class='bi bi-currency-dollar'></i> {costStr}</span>");
+        }
+        det.Append("</div></div>");
+
+        // What this stage does (always present).
+        det.Append($@"
+            <div class='wfdetail-section'>
+                <div class='wfdetail-section-label'><i class='bi bi-info-circle'></i> What this stage does</div>
+                <div class='wfdetail-desc'>{System.Net.WebUtility.HtmlEncode(stageDesc)}</div>
+            </div>");
+
+        // One-line detail summary (e.g. "5 tables retrieved").
+        if (!string.IsNullOrWhiteSpace(step.Detail))
+        {
+            det.Append($@"
+                <div class='wfdetail-section'>
+                    <div class='wfdetail-section-label'><i class='bi bi-card-text'></i> Summary</div>
+                    <div class='wfdetail-summary'>{System.Net.WebUtility.HtmlEncode(step.Detail)}</div>
+                </div>");
+        }
+
+        // LLM-call breakdown (only for LLM stages).
+        if (isLlm)
+        {
+            det.Append($@"
+                <div class='wfdetail-section'>
+                    <div class='wfdetail-section-label'><i class='bi bi-cpu'></i> LLM call</div>
+                    <div class='wfdetail-llm-grid'>
+                        <div><span class='wfdetail-k'>Model</span><span class='wfdetail-v'>{System.Net.WebUtility.HtmlEncode(step.LlmModelUsed ?? "—")}</span></div>
+                        <div><span class='wfdetail-k'>Prompt</span><span class='wfdetail-v'>{(step.PromptTokens ?? 0):N0} tok</span></div>
+                        <div><span class='wfdetail-k'>Completion</span><span class='wfdetail-v'>{(step.CompletionTokens ?? 0):N0} tok</span></div>
+                        <div><span class='wfdetail-k'>Total tokens</span><span class='wfdetail-v'>{tokensSum:N0}</span></div>
+                        <div><span class='wfdetail-k'>Cost</span><span class='wfdetail-v'>{(step.EstimatedCostUsd.HasValue ? (step.EstimatedCostUsd.Value == 0 ? "free" : (step.EstimatedCostUsd.Value >= 0.01m ? $"${step.EstimatedCostUsd.Value:F4}" : $"${step.EstimatedCostUsd.Value:F6}")) : "—")}</span></div>
+                        <div><span class='wfdetail-k'>Elapsed</span><span class='wfdetail-v'>{formatMs(step.ElapsedMs)}</span></div>
+                    </div>
+                </div>");
+        }
+
+        // Structured payload (input / output / reason / details). When the orchestrator wrote
+        // a StepPayload v1 into TechnicalData, render labeled sections instead of one opaque
+        // pre-box. Legacy traces (plain-text TechnicalData) return null from parsePayload and
+        // simply don't render the technical sections — per the approved plan.
+        var payload = parsePayload(step.TechnicalData);
+        if (payload.Kind is not null)
+        {
+            if (!string.IsNullOrEmpty(payload.Reason))
+            {
+                det.Append($@"
+                    <div class='wfdetail-section'>
+                        <div class='wfdetail-section-label'><i class='bi bi-signpost-split'></i> Decision rationale</div>
+                        <div class='wfdetail-desc'>{System.Net.WebUtility.HtmlEncode(payload.Reason)}</div>
+                    </div>");
+            }
+            if (!string.IsNullOrEmpty(payload.Input))
+            {
+                det.Append($@"
+                    <div class='wfdetail-section'>
+                        <div class='wfdetail-section-label'><i class='bi bi-box-arrow-in-right'></i> Input</div>
+                        {renderBlob("Input", payload.Input!)}
+                    </div>");
+            }
+            if (!string.IsNullOrEmpty(payload.Output))
+            {
+                det.Append($@"
+                    <div class='wfdetail-section'>
+                        <div class='wfdetail-section-label'><i class='bi bi-box-arrow-right'></i> Output</div>
+                        {renderBlob("Output", payload.Output!)}
+                    </div>");
+            }
+            if (!string.IsNullOrEmpty(payload.DetailsJson))
+            {
+                det.Append($@"
+                    <div class='wfdetail-section'>
+                        <div class='wfdetail-section-label'><i class='bi bi-braces'></i> Details</div>
+                        {renderBlob("Details", payload.DetailsJson!)}
+                    </div>");
+            }
+        }
+
+        // Sub-steps (nested events recorded inside this stage).
+        if (step.SubSteps is { Count: > 0 })
+        {
+            det.Append($@"
+                <div class='wfdetail-section'>
+                    <div class='wfdetail-section-label'><i class='bi bi-diagram-2'></i> Sub-steps ({step.SubSteps.Count})</div>
+                    <ol class='wfdetail-substeps'>");
+            foreach (var sub in step.SubSteps)
+            {
+                var subOk = sub.Status == CopilotStepStatus.Ok;
+                var subTokens = (sub.PromptTokens ?? 0) + (sub.CompletionTokens ?? 0);
+                det.Append($@"<li class='wfdetail-substep {(subOk ? "ok" : "err")}'>
+                    <div class='wfdetail-substep-row'>
+                        <i class='bi {(subOk ? "bi-check-circle text-success" : "bi-x-circle text-danger")}'></i>
+                        <span class='wfdetail-substep-name'>{System.Net.WebUtility.HtmlEncode(sub.Action)}</span>");
+                if (!string.IsNullOrWhiteSpace(sub.Detail))
+                {
+                    det.Append($@"<span class='wfdetail-substep-detail'>— {System.Net.WebUtility.HtmlEncode(sub.Detail)}</span>");
+                }
+                if (subTokens > 0)
+                {
+                    det.Append($@"<span class='wfdetail-chip tokens small'><i class='bi bi-hash'></i> {subTokens:N0} tok</span>");
+                }
+                det.Append($@"<span class='wfdetail-substep-time'>{formatMs(sub.ElapsedMs)}</span>
+                    </div>");
+                if (!string.IsNullOrWhiteSpace(sub.TechnicalData))
+                {
+                    det.Append($@"<pre class='wfdetail-tech wfdetail-tech-sub'>{System.Net.WebUtility.HtmlEncode(sub.TechnicalData)}</pre>");
+                }
+                det.Append("</li>");
+            }
+            det.Append("</ol></div>");
+        }
+
+        // Verdict (one-line takeaway).
+        det.Append($@"
+            <div class='wfdetail-verdict tone-{v.Tone}'>
+                <i class='bi {v.Icon}'></i>
+                <span><strong>Verdict:</strong> {System.Net.WebUtility.HtmlEncode(v.Label)}</span>
+            </div>");
+
+        detailPool[rowId] = det.ToString();
+        return row.ToString();
+    };
+
+    // ── Architectural lookup ───────────────────────────────────────────────────
+    // Build a canonical-name → recorded-step map so each descriptor in the architecture
+    // template can find its actual execution data (if it fired). Last-wins so a retry's
+    // recorded step overrides the initial-attempt step for the same canonical name.
+    var stepsByCanonical = new Dictionary<string, CopilotExecutionStep>();
+    foreach (var s in allSteps)
+    {
+        stepsByCanonical[SuperAdminCopilot.Pipeline.PipelineArchitecture.CanonicalNameOf(s.Action)] = s;
+    }
+
+    // Detect which router-outcome branch fired. The probe cascade short-circuits on the
+    // first match; if all probes fall through, DataQuery default fires. Mirror that order.
+    string firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchDataQuery;
+    if (stepsByCanonical.ContainsKey("conversational") || stepsByCanonical.ContainsKey("knowledgematch"))
+        firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchGeneralChat;
+    else if (stepsByCanonical.ContainsKey("semanticsearch"))
+        firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchSemanticSearch;
+    else if (stepsByCanonical.ContainsKey("tooldispatch"))
+        firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchExternalTool;
+    else if (stepsByCanonical.ContainsKey("verifiedquery"))
+        firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchVerifiedQuery;
+
+    // ── renderSkippedNode: dimmed clickable row for an architectural stage that didn't
+    // execute in this trace. Detail panel shows only the stage description (per the
+    // locked plan decision — no trigger condition, no why-not-fired, no historical stats).
+    Func<SuperAdminCopilot.Pipeline.PipelineStageDescriptor, string> renderSkippedNode = desc =>
+    {
+        var rowId = $"wfstep-skip-{Guid.NewGuid():N}";
+        var pillCls = desc.Mandatory ? "mandatory" : "optional";
+        var pillText = desc.Mandatory ? "MANDATORY" : "OPTIONAL";
+
+        var row = $@"
+            <li class='workflow-step is-not-fired' data-step-id='{rowId}' onclick=""window.showWorkflowStepDetail &amp;&amp; window.showWorkflowStepDetail('{rowId}', this)"">
+                <div class='workflow-step-summary'>
+                    <i class='bi bi-circle workflow-step-skipped-icon'></i>
+                    <span class='workflow-step-name'>{System.Net.WebUtility.HtmlEncode(desc.Label)}</span>
+                    <span class='workflow-step-pill {pillCls}'>{pillText}</span>
+                    <span class='workflow-step-time'>not run</span>
+                    <i class='bi bi-chevron-right workflow-step-chevron'></i>
+                </div>
+            </li>";
+
+        var det = $@"
+            <div class='wfdetail-header'>
+                <div class='wfdetail-title'>
+                    <i class='bi bi-circle text-muted'></i>
+                    <span class='wfdetail-stage'>{System.Net.WebUtility.HtmlEncode(desc.Label)}</span>
+                    <span class='wfdetail-status badge bg-soft-secondary text-muted'>Skipped</span>
+                </div>
+                <div class='wfdetail-chips'>
+                    <span class='wfdetail-chip {pillCls}'>{pillText}</span>
+                </div>
+            </div>
+            <div class='wfdetail-section'>
+                <div class='wfdetail-section-label'><i class='bi bi-info-circle'></i> What this stage does</div>
+                <div class='wfdetail-desc'>{System.Net.WebUtility.HtmlEncode(desc.Description)}</div>
+            </div>";
+        detailPool[rowId] = det;
+        return row;
+    };
+
+    // ── renderArchNode: unified entry point. Fired → delegate to renderStep + inject the
+    // MANDATORY/OPTIONAL pill into the row. Not-fired → renderSkippedNode.
+    // `stepNum` carries the position in execution order — pass -1 to suppress the
+    // numeric badge (probes inside the Router are decisions, not pipeline steps).
+    Func<SuperAdminCopilot.Pipeline.PipelineStageDescriptor, int, string> renderArchNode = (desc, stepNum) =>
+    {
+        if (stepsByCanonical.TryGetValue(desc.CanonicalName, out var matched))
+        {
+            var html = renderStep(matched, stepNum);
+            // Inject the MANDATORY/OPTIONAL pill right after the step-name span. Simple string
+            // replace keeps the renderStep helper unchanged for the runtrace + non-architectural
+            // call sites (Answer node) that don't need the pill.
+            var pillCls = desc.Mandatory ? "mandatory" : "optional";
+            var pillText = desc.Mandatory ? "MANDATORY" : "OPTIONAL";
+            var pillHtml = $"<span class='workflow-step-pill {pillCls}'>{pillText}</span>";
+            // Insert after the first closing </span> following workflow-step-name.
+            var marker = "</span>"; // first one closes workflow-step-name span
+            var idx = html.IndexOf("class='workflow-step-name'", StringComparison.Ordinal);
+            if (idx >= 0)
+            {
+                var close = html.IndexOf(marker, idx, StringComparison.Ordinal);
+                if (close >= 0)
+                {
+                    html = html.Substring(0, close + marker.Length) + pillHtml + html.Substring(close + marker.Length);
+                }
+            }
+            return html;
+        }
+        return renderSkippedNode(desc);
+    };
+
+    // Execution-order counter. Incremented for every stage that actually fired
+    // (in document order, which matches pipeline order). Skipped stages don't
+    // get a number — those aren't part of the "what happened" story.
+    int stepCounter = 0;
+
+    // Filter architecture by section / branch for the layout loop.
+    var arch = SuperAdminCopilot.Pipeline.PipelineArchitecture.Stages;
+    var railPre   = arch.Where(d => d.Section == SuperAdminCopilot.Pipeline.PipelineArchitecture.SectionRailPre).ToList();
+    var probes    = arch.Where(d => d.Section == SuperAdminCopilot.Pipeline.PipelineArchitecture.SectionRouterProbe).ToList();
+    var decomp    = arch.Where(d => d.Section == SuperAdminCopilot.Pipeline.PipelineArchitecture.SectionDecomposer).ToList();
+    var railPost  = arch.Where(d => d.Section == SuperAdminCopilot.Pipeline.PipelineArchitecture.SectionRailPost).ToList();
+
+    // 5 branch columns in router-outcome order. DataQuery has its own sub-pipeline; the
+    // other four are terminal in the cascade and don't carry sub-stage architecture (they
+    // each effectively map to "the matching probe fired + Explainer ran").
+    var branchOrder = new[]
+    {
+        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchGeneralChat,
+        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchSemanticSearch,
+        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchExternalTool,
+        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchVerifiedQuery,
+        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchDataQuery,
+    };
+    var branchLabels = new Dictionary<string, (string Label, string Icon)>
+    {
+        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchGeneralChat]    = ("General chat",    "bi-chat-left-text"),
+        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchSemanticSearch] = ("Semantic search", "bi-search"),
+        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchExternalTool]   = ("External tool",   "bi-cloud-arrow-down"),
+        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchVerifiedQuery]  = ("Trusted query",   "bi-shield-check"),
+        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchDataQuery]     = ("Live query",      "bi-database"),
+    };
+}
+
+<div class="investigation-workflow">
+
+    @* ── How-to-read banner — single compact line. Three tiny chips on one row
+         so the legend is always visible but takes minimal vertical space. *@
+    <div class="workflow-howto">
+        <span class="workflow-howto-item">
+            <span class="workflow-step-num workflow-howto-num">1</span> execution order
+        </span>
+        <span class="workflow-howto-item">
+            <span class="workflow-howto-swatch active"></span> ran
+        </span>
+        <span class="workflow-howto-item">
+            <span class="workflow-howto-swatch inactive"></span> didn't run
+        </span>
+    </div>
+
+    @* ── Top rail: Question → Operational Guard → Write-Intent Guard → Router → Decomposer
+         All vertically centered in ONE workflow-rail container so they line up under
+         the Question node and the layout doesn't drift. Connectors are emitted between
+         every pair so the flow reads top-to-bottom uninterrupted. *@
+    <div class="workflow-rail">
+        @{
+            // Active-path tracing. A rail node is "on the active path" when it actually fired
+            // (stepsByCanonical has a matching entry). Connectors between two on-path nodes pick
+            // up the green trace; connectors touching a skipped node stay neutral grey. The
+            // Question / Router / Fork / Answer endpoints are always on the path because they
+            // always run. Tracked via `prevLit` across the linear segments above/below the fork.
+            Func<SuperAdminCopilot.Pipeline.PipelineStageDescriptor, bool> isStageLit = d => stepsByCanonical.ContainsKey(d.CanonicalName);
+            bool prevLit = true; // Question is always lit.
+        }
+        <div class="workflow-node workflow-node-question is-on-active-path">
+            <i class="bi bi-chat-quote"></i>
+            <div>
+                <div class="workflow-node-label">Question</div>
+                <div class="workflow-node-detail">@(trace?.Question?.Length > 100 ? trace.Question.Substring(0, 100) + "…" : trace?.Question)</div>
+            </div>
+        </div>
+
+        @* Pre-rail: only render stages that actually fired. Skipped guards
+           (e.g. OperationalGuard on a session that never refused) are hidden
+           entirely instead of rendering as dashed cards — keeps the green
+           path continuous from Question all the way to Router. *@
+        @for (int i = 0; i < railPre.Count; i++)
+        {
+            var desc = railPre[i];
+            if (!isStageLit(desc)) { continue; }
+            int num = ++stepCounter;
+            <div class="workflow-connector is-on-active-path"></div>
+            <div class="workflow-node-wrap is-on-active-path">
+                <ol class="workflow-rail-steps">@Html.Raw(renderArchNode(desc, num))</ol>
+            </div>
+            prevLit = true;
+        }
+        @{
+            // Connector railPre → Router: lit iff the last pre-rail stage fired. Router itself is
+            // always lit (the fork always decides), so we re-arm prevLit=true after this point.
+            var preToRouterLit = prevLit;
+        }
+
+        @* Router · fork — ALWAYS picks exactly one branch. The 5 probes are evaluation
+             rules the router runs in priority order; whichever rule claims the question
+             wins. If no rule claims it, the default branch (Data query) is chosen — that's
+             still a decision, not a skipped step. The whole box is clickable: opens the
+             wide detail panel below with a full breakdown of which rule won and why. *@
+        @{
+            var matchedProbe = probes.FirstOrDefault(p => stepsByCanonical.ContainsKey(p.CanonicalName));
+            var routerReason = matchedProbe is not null
+                ? $"Rule '{matchedProbe.Label}' claimed the question first — its match condition was met, so the router routed to the {branchLabels[firedBranch].Label} branch. The remaining rules were not evaluated (cascade short-circuits on first match)."
+                : $"None of the 5 evaluation rules claimed the question. The router routed to the default branch, {branchLabels[firedBranch].Label}, which handles any data question that doesn't match a specialised rule.";
+            var routerRowId = $"wfstep-router-{Guid.NewGuid():N}";
+            var routerDetailBody = new System.Text.StringBuilder();
+            routerDetailBody.Append($@"
+                <div class='wfdetail-header'>
+                    <div class='wfdetail-title'>
+                        <i class='bi bi-bullseye text-success'></i>
+                        <span class='wfdetail-stage'>Router · intent classifier</span>
+                        <span class='wfdetail-status badge bg-soft-success text-success'>Decided → {System.Net.WebUtility.HtmlEncode(branchLabels[firedBranch].Label)}</span>
+                    </div>
+                    <div class='wfdetail-chips'><span class='wfdetail-chip mandatory'>MANDATORY · FORK</span></div>
+                </div>
+                <div class='wfdetail-section'>
+                    <div class='wfdetail-section-label'><i class='bi bi-info-circle'></i> How the router decides</div>
+                    <div class='wfdetail-desc'>The router is a deterministic fork: it ALWAYS picks exactly one of the 5 branches. To decide, it runs 5 evaluation rules in priority order — the first rule whose condition is met wins. If none match, the default branch (Live query) is chosen so every question still routes somewhere.</div>
+                </div>
+                <div class='wfdetail-section'>
+                    <div class='wfdetail-section-label'><i class='bi bi-signpost-split'></i> Decision rationale</div>
+                    <div class='wfdetail-desc'>{System.Net.WebUtility.HtmlEncode(routerReason)}</div>
+                </div>
+                <div class='wfdetail-section'>
+                    <div class='wfdetail-section-label'><i class='bi bi-list-check'></i> Rules evaluated (in order)</div>
+                    <ol class='wfdetail-substeps'>");
+            int probeIdx = 0;
+            foreach (var p in probes)
+            {
+                probeIdx++;
+                var matched = stepsByCanonical.ContainsKey(p.CanonicalName);
+                var stoppedHere = matchedProbe is not null && p.CanonicalName == matchedProbe.CanonicalName;
+                var evalState = stoppedHere ? "claimed the question — router stopped here"
+                              : matchedProbe is not null && probeIdx > probes.ToList().IndexOf(matchedProbe!) + 1 ? "not evaluated (router already decided above)"
+                              : "evaluated — did not claim the question";
+                var icon = stoppedHere ? "bi-check-circle-fill text-success"
+                         : evalState.StartsWith("not evaluated") ? "bi-dash-circle text-muted"
+                         : "bi-x-circle text-muted";
+                routerDetailBody.Append($@"
+                    <li class='wfdetail-substep {(stoppedHere ? "ok" : "")}'>
+                        <div class='wfdetail-substep-row'>
+                            <i class='bi {icon}'></i>
+                            <span class='wfdetail-substep-name'>{probeIdx}. {System.Net.WebUtility.HtmlEncode(p.Label)}</span>
+                            <span class='wfdetail-substep-detail'>— {System.Net.WebUtility.HtmlEncode(evalState)}</span>
+                        </div>
+                    </li>");
+            }
+            // Show the default-branch rule as the 6th implicit rule so the user sees the full picture.
+            var defaultStopped = matchedProbe is null;
+            routerDetailBody.Append($@"
+                <li class='wfdetail-substep {(defaultStopped ? "ok" : "")}'>
+                    <div class='wfdetail-substep-row'>
+                        <i class='bi {(defaultStopped ? "bi-check-circle-fill text-success" : "bi-dash-circle text-muted")}'></i>
+                        <span class='wfdetail-substep-name'>6. Live query (default)</span>
+                        <span class='wfdetail-substep-detail'>— {(defaultStopped ? "selected — no prior rule matched, so this default branch handles the question" : "not selected — a prior rule already claimed the question")}</span>
+                    </div>
+                </li>
+            </ol></div>");
+            detailPool[routerRowId] = routerDetailBody.ToString();
+        }
+        @{ int routerStepNum = ++stepCounter; }
+        <div class="workflow-connector @(preToRouterLit ? "is-on-active-path" : "")"></div>
+        <div class="workflow-router-box workflow-step is-on-active-path"
+             data-step-id="@routerRowId"
+             onclick="window.showWorkflowStepDetail &amp;&amp; window.showWorkflowStepDetail('@routerRowId', this)">
+            <div class="workflow-router-header">
+                <span class="workflow-step-num">@routerStepNum</span>
+                <i class="bi bi-bullseye"></i>
+                <div>
+                    <div class="workflow-node-label">Router · intent classifier <span class="workflow-step-pill mandatory">MANDATORY · FORK</span></div>
+                    <div class="workflow-router-outcome">
+                        Decision: <strong>@branchLabels[firedBranch].Label</strong>
+                        @if (matchedProbe is not null)
+                        {
+                            <span class="workflow-router-fallthrough">— matched rule: @matchedProbe.Label</span>
+                        }
+                        else
+                        {
+                            <span class="workflow-router-fallthrough">— default branch (no specialised rule matched)</span>
+                        }
+                    </div>
+                </div>
+                <i class="bi bi-chevron-right workflow-step-chevron workflow-router-chevron"></i>
+            </div>
+            <ol class="workflow-rail-steps workflow-router-probes" onclick="event.stopPropagation()">
+                @foreach (var probe in probes)
+                {
+                    @Html.Raw(renderArchNode(probe, -1))
+                }
+            </ol>
+        </div>
+
+        @* ── Fork gateway — the Router's 5 outcomes rendered as one workflow
+             step (not a separate "routes panel"). Reads as a BPMN exclusive
+             gateway: one of the 5 paths fires per run, and they all merge
+             back into the post-rail (Explainer → Coverage Check → Answer)
+             below. Each path is a clickable card; the active one is expanded
+             with its sub-stages so you can trace what actually ran without
+             losing sight of what else was available.
+
+             Decomposer is the first stage of the Data Query branch (it only
+             runs for Data Query — splits compound questions before the
+             planner runs), so it lives INSIDE that branch's card rather than
+             as a standalone rail step before this gateway. *@
+        <div class="workflow-connector is-on-active-path"></div>
+        <div class="workflow-node-wrap workflow-node-wrap-active is-on-active-path">
+            <div class="workflow-fork-step">
+                @{
+                    // Lane index of the active branch — used by CSS to light only the trunk
+                    // segment between the centre fork-dot and the active lane's drop.
+                    int activeLaneIdx = Array.IndexOf(branchOrder, firedBranch);
+                }
+                <div class="workflow-routes-list" data-active-lane="@activeLaneIdx">
+                    @foreach (var branchKey in branchOrder)
+                    {
+                        var lit = branchKey == firedBranch;
+                        var branchInfo = branchLabels[branchKey];
+                        var branchLabel = branchInfo.Label;
+                        var branchIcon = branchInfo.Icon;
+                        var rawBranchStages = arch.Where(d => d.BranchColumn == branchKey).ToList();
+                        // Decomposer is conceptually the first step of the Data Query
+                        // branch (only runs when the router picks DataQuery), so prepend
+                        // it to the DataQuery card's stage list rather than rendering it
+                        // as a standalone rail step.
+                        var isDataQuery = branchKey == SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchDataQuery;
+                        // Each branch shows ONLY the stages explicitly mapped to it. The old
+                        // "sharedPostRouterStages" trick (appending the full DataQuery stage
+                        // list into every non-DataQuery active lane) was wrong: those stages
+                        // never actually run for Verified Query / Tool / Semantic / General
+                        // Chat routes, so they rendered as dashed-not-fired clutter inside
+                        // the lane and broke the continuous green-path visual.
+                        var rawStages = isDataQuery
+                            ? decomp.Concat(rawBranchStages).ToList()
+                            : rawBranchStages;
+                        // For the active branch, hide stages that didn't actually fire in
+                        // this trace — the user wants a continuous fired-only path inside
+                        // the active lane, not architectural placeholders.
+                        var branchStages = lit
+                            ? rawStages.Where(d => stepsByCanonical.ContainsKey(d.CanonicalName)).ToList()
+                            : rawStages;
+                        var stageCount = branchStages.Count;
+                        var stageSuffix = stageCount == 1 ? "" : "s";
+                        var stageMeta = stageCount > 0 ? stageCount + " stage" + stageSuffix : "terminal";
+                        var litClass = lit ? "is-active" : "is-inactive";
+                        var badgeClass = lit ? "fired" : "idle";
+                        var badgeIcon = lit ? "bi-check-circle-fill" : "bi-circle";
+                        var badgeText = lit ? "fired" : "not taken";
+                        var openAttr = lit ? " open" : "";
+
+                        <details class="workflow-route @litClass"@Html.Raw(openAttr)>
+                            <summary class="workflow-route-summary">
+                                <i class="bi @branchIcon workflow-route-icon"></i>
+                                <span class="workflow-route-name">@branchLabel</span>
+                                <span class="workflow-route-badge workflow-route-badge-@badgeClass">
+                                    <i class="bi @badgeIcon"></i>
+                                    @badgeText
+                                </span>
+                                <span class="workflow-route-meta">@stageMeta</span>
+                                <i class="bi bi-chevron-down workflow-route-chevron"></i>
+                            </summary>
+                            <div class="workflow-route-body">
+                                @if (branchStages.Count > 0)
+                                {
+                                    <ol class="workflow-rail-steps workflow-route-stages">
+                                        @foreach (var stage in branchStages)
+                                        {
+                                            // Only the active branch shows its stages as
+                                            // actually fired / failed / ok. Inactive
+                                            // branches render every stage dimmed (skipped)
+                                            // regardless of whether a step exists in the
+                                            // trace — that prevents shared post-router
+                                            // stages (Validator / Executor / Explainer)
+                                            // from making both DataQuery and the actual
+                                            // active branch look lit at the same time.
+                                            if (lit)
+                                            {
+                                                // Number only stages that actually fired inside the active lane.
+                                                // Skipped stages inside the active lane (architectural placeholders
+                                                // that didn't run for this branch) stay un-numbered — the "1..N"
+                                                // sequence should read as "what executed", not "what could have".
+                                                var stageLit = stepsByCanonical.ContainsKey(stage.CanonicalName);
+                                                int stageNum = stageLit ? ++stepCounter : -1;
+                                                @Html.Raw(renderArchNode(stage, stageNum))
+                                            }
+                                            else
+                                            {
+                                                @Html.Raw(renderSkippedNode(stage))
+                                            }
+                                        }
+                                    </ol>
+                                }
+                                else
+                                {
+                                    <div class="workflow-route-hint">
+                                        Terminal branch — when this route fires, the answer is produced by the matching probe in the router above plus the shared Explainer below. No sub-stages run inside this branch.
+                                    </div>
+                                }
+                            </div>
+                        </details>
+                    }
+                </div>
+                <div class="workflow-fork-step-merge" aria-hidden="true"></div>
+            </div>
+        </div>
+
+        @* Post-route stages (Explainer + Coverage Check) continue vertically in
+           the SAME rail so the flow reads as one straight line top-to-bottom. *@
+        @{
+            // After the fork, the active path resumes. Fork is always lit; each post-rail node
+            // is lit iff it fired. Connectors keep the trace alive as long as both endpoints fire.
+            prevLit = true; // fork is always on path
+        }
+        @* Post-rail: only render stages that actually fired (same rule as
+           pre-rail). CoverageCheck on a VerifiedQuery trace disappears here
+           because the orchestrator short-circuits before CoverageCheck runs. *@
+        @for (int i = 0; i < railPost.Count; i++)
+        {
+            var desc = railPost[i];
+            if (!isStageLit(desc)) { continue; }
+            int num = ++stepCounter;
+            <div class="workflow-connector is-on-active-path"></div>
+            <div class="workflow-node-wrap is-on-active-path">
+                <ol class="workflow-rail-steps">@Html.Raw(renderArchNode(desc, num))</ol>
+            </div>
+            prevLit = true;
+        }
+
+        @* ── Terminal Answer node — stays inside the SAME rail so the eye never
+             leaves the single vertical line from Question all the way down to
+             Answer. Conditionally rendered: only synthesised when the run
+             produced something to show (text or rows). *@
+        @if (!string.IsNullOrWhiteSpace(trace?.Answer) || (Model.ResultCount ?? 0) > 0)
+        {
+        var answerText = trace?.Answer ?? "";
+        var answerPreview = answerText.Length > 160 ? answerText.Substring(0, 160) + "…" : answerText;
+        var totalTokens = (trace?.TotalPromptTokens ?? 0) + (trace?.TotalCompletionTokens ?? 0);
+        var costStr = trace?.EstimatedCostUsd switch
+        {
+            null => "n/a",
+            0 => "free",
+            decimal c when c >= 0.01m => $"${c:F4}",
+            decimal c => $"${c:F6}"
+        };
+        var answerReason = !string.IsNullOrWhiteSpace(Model.DetectedIntent)
+            ? $"Terminal node — what the user received. The pipeline classified this question as '{Model.DetectedIntent}' and ran the matching branch end-to-end."
+            : "Terminal node — what the user received from the pipeline after all steps completed.";
+        var answerPayload = SuperAdminCopilot.Pipeline.StepPayload.Of(
+            kind: "answer",
+            input: trace?.Question ?? "",
+            output: answerText,
+            reason: answerReason,
+            details: new
+            {
+                detectedIntent = Model.DetectedIntent,
+                routeReason = Model.RouteReason,
+                rowCount = Model.ResultCount,
+                llmCalls = trace?.LlmCallCount,
+                promptTokens = trace?.TotalPromptTokens,
+                completionTokens = trace?.TotalCompletionTokens,
+                totalTokens,
+                estimatedCostUsd = trace?.EstimatedCostUsd,
+                totalElapsedMs = Model.TotalElapsedMs,
+                modelName = trace?.ModelName,
+                suggestedChartType = (string?)null
+            });
+        var answerStep = new CopilotExecutionStep
+        {
+            Layer = CopilotExecutionLayer.Context,
+            Action = "Answer",
+            Status = string.IsNullOrEmpty(trace?.ErrorMessage) ? CopilotStepStatus.Ok : CopilotStepStatus.Error,
+            Detail = string.IsNullOrEmpty(answerPreview) ? $"{Model.ResultCount ?? 0} row(s)" : answerPreview,
+            TechnicalData = answerPayload,
+            ElapsedMs = Model.TotalElapsedMs,
+            PromptTokens = trace?.TotalPromptTokens,
+            CompletionTokens = trace?.TotalCompletionTokens,
+            EstimatedCostUsd = trace?.EstimatedCostUsd,
+            LlmModelUsed = trace?.ModelName
+        };
+        int answerStepNum = ++stepCounter;
+            <div class="workflow-connector @(prevLit ? "is-on-active-path" : "")"></div>
+            <div class="workflow-node-wrap workflow-node-wrap-answer is-on-active-path">
+                <ol class="workflow-rail-steps">@Html.Raw(renderStep(answerStep, answerStepNum))</ol>
+            </div>
+        }
+    </div>
+
+    @* ── Legend ──────────────────────────────────────────────────── *@
+    <div class="workflow-legend">
+        <span class="workflow-legend-item"><span class="workflow-legend-swatch active"></span>Active path — what actually ran</span>
+        <span class="workflow-legend-item"><span class="workflow-legend-swatch inactive"></span>Alternative paths — available but didn't fire</span>
+        <span class="workflow-legend-item text-muted small ms-auto">Click any step to see its full breakdown in the panel below.</span>
+    </div>
+
+    @* ── Wide step-detail panel ─────────────────────────────────────────────────
+       Lives BELOW the diagram so each step gets the full canvas width for its
+       sub-steps / prompts / SQL / verdict, instead of being squeezed into a
+       narrow branch column. Clicking a step copies its detail HTML in here. *@
+    <div class="wfdetail" id="workflow-detail-panel" data-empty="true">
+        <div class="wfdetail-empty">
+            <i class="bi bi-hand-index"></i>
+            <div class="wfdetail-empty-title">Click any step above to inspect it</div>
+            <div class="wfdetail-empty-sub">You'll see the description, sub-steps, LLM prompt / response, SQL, tokens, cost, elapsed time, and a verdict — all in this panel.</div>
+        </div>
+        <div class="wfdetail-body" id="workflow-detail-body" hidden></div>
+    </div>
+
+    @* ── Hidden detail pool — one block per step. The visible panel above copies
+         from here on click. We render every step's full detail HTML once and
+         leave it offscreen until requested, which keeps clicks instant. *@
+    <div class="wfdetail-pool" hidden>
+        @foreach (var kv in detailPool)
+        {
+            <template id="wfdetail-tpl-@kv.Key">@Html.Raw(kv.Value)</template>
+        }
+    </div>
+</div>
+
+<script>
+    // Show a step's detail block in the wide panel below the diagram. The block
+    // lives in a <template> in the hidden pool above; we copy its contents into
+    // the visible panel so the user sees full-width details with all sub-steps.
+    window.showWorkflowStepDetail = function (stepId, rowEl) {
+        var panel = document.getElementById('workflow-detail-panel');
+        var body = document.getElementById('workflow-detail-body');
+        var tpl = document.getElementById('wfdetail-tpl-' + stepId);
+        if (!panel || !body || !tpl) return;
+
+        // Clear active highlight from any previously-clicked row.
+        document.querySelectorAll('.workflow-step.is-open').forEach(function (el) {
+            if (el !== rowEl) el.classList.remove('is-open');
+        });
+        if (rowEl) rowEl.classList.add('is-open');
+
+        // Swap content. Using innerHTML preserves the rendered structure inside the
+        // <template> (template contents are otherwise inert document fragments).
+        body.innerHTML = tpl.innerHTML;
+        body.hidden = false;
+        panel.removeAttribute('data-empty');
+
+        // Smooth scroll the panel into view so the user actually sees the change.
+        // Anchor at the top so the header + chips are visible above the fold.
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+</script>

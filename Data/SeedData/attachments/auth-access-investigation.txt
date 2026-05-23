@@ -1,0 +1,106 @@
+==============================================================================================
+AUTH/ACCESS INVESTIGATION LOG — INCIDENT INC-2026-0412
+Collected by: Security Operations Center (SOC)
+Time Range: 2026-04-01 08:00:00 UTC to 2026-04-01 16:00:00 UTC
+Systems: IdentityServer, ApplicationGateway, AuditLogger, RoleEngine
+==============================================================================================
+
+--- SECTION 1: Normal morning authentication activity ---
+
+2026-04-01 08:01:12.334 [INFO ] IdentityServer - Login success: admin@tech.local from 10.0.1.5 (Chrome/124, Windows 11). Session: sess-aabb1122
+2026-04-01 08:01:12.445 [DEBUG] RoleEngine - Resolved roles for admin@tech.local: [Admin]. Entity: Technologies. TenantId: 4.
+2026-04-01 08:01:12.446 [DEBUG] AuthorizationMiddleware - Access granted: admin@tech.local -> GET /Dashboard (requires: Admin|SupportAgent)
+2026-04-01 08:03:44.112 [INFO ] IdentityServer - Login success: agent1@tech.local from 10.0.4.51 (Edge/124, Windows 11). Session: sess-ccdd3344
+2026-04-01 08:03:44.223 [DEBUG] RoleEngine - Resolved roles for agent1@tech.local: [SupportAgent]. Entity: Technologies. TenantId: 4.
+2026-04-01 08:05:00.001 [INFO ] IdentityServer - Login success: user1@health.local from 10.0.2.10 (Chrome/124, macOS). Session: sess-eeff5566
+2026-04-01 08:05:00.112 [DEBUG] RoleEngine - Resolved roles for user1@health.local: [EndUser]. Entity: Health. TenantId: 1.
+2026-04-01 08:07:33.556 [INFO ] IdentityServer - Login success: user2@interior.local from 10.0.3.22 (Firefox/126, Ubuntu). Session: sess-7788aabb
+2026-04-01 08:07:33.667 [DEBUG] RoleEngine - Resolved roles for user2@interior.local: [EndUser]. Entity: Interior. TenantId: 2.
+
+--- SECTION 2: First signs of anomaly — elevated access inconsistency ---
+
+2026-04-01 09:15:22.001 [INFO ] AuthorizationMiddleware - Access check: user1@health.local -> GET /api/v2/tickets?entityId=2
+2026-04-01 09:15:22.002 [DEBUG] TenantIsolationFilter - user1@health.local belongs to Entity 1 (Health). Requested entityId=2 (Interior). 
+2026-04-01 09:15:22.003 [WARN ] TenantIsolationFilter - CROSS-ENTITY ACCESS ATTEMPT: user1@health.local (Entity:Health) requested data for Entity:Interior.
+2026-04-01 09:15:22.004 [INFO ] AuthorizationMiddleware - Access DENIED. Returning 403 Forbidden.
+2026-04-01 09:15:22.005 [INFO ] AuditLogger - Event: ACCESS_DENIED | User: user1@health.local | Resource: /api/v2/tickets?entityId=2 | Reason: cross_entity_violation
+
+2026-04-01 09:22:45.112 [INFO ] AuthorizationMiddleware - Access check: user1@health.local -> GET /api/v2/entities/2/users
+2026-04-01 09:22:45.113 [WARN ] TenantIsolationFilter - CROSS-ENTITY ACCESS ATTEMPT: user1@health.local -> Entity:Interior user list.
+2026-04-01 09:22:45.114 [INFO ] AuthorizationMiddleware - Access DENIED. 403.
+2026-04-01 09:22:45.115 [INFO ] AuditLogger - Event: ACCESS_DENIED | User: user1@health.local | Resource: /api/v2/entities/2/users | Reason: cross_entity_violation
+
+2026-04-01 09:23:01.334 [INFO ] AuthorizationMiddleware - Access check: user1@health.local -> GET /api/v2/entities/3/users
+2026-04-01 09:23:01.335 [WARN ] TenantIsolationFilter - CROSS-ENTITY ACCESS ATTEMPT: user1@health.local -> Entity:Education user list.
+2026-04-01 09:23:01.336 [INFO ] AuthorizationMiddleware - Access DENIED. 403.
+2026-04-01 09:23:01.337 [WARN ] AuditLogger - PATTERN DETECTED: user1@health.local has made 3 cross-entity access attempts in 8 minutes. Possible enumeration attempt.
+
+--- SECTION 3: Role modification audit trail ---
+
+2026-04-01 10:30:00.001 [INFO ] IdentityServer - POST /api/admin/users/user1@health.local/roles | Caller: admin@tech.local | IP: 10.0.1.5
+2026-04-01 10:30:00.002 [DEBUG] RoleEngine - Current roles for user1@health.local: [EndUser]
+2026-04-01 10:30:00.003 [INFO ] RoleEngine - Role change requested: user1@health.local: ADD role 'SupportAgent'. Requested by: admin@tech.local.
+2026-04-01 10:30:00.045 [INFO ] RoleEngine - Role 'SupportAgent' added to user1@health.local. New roles: [EndUser, SupportAgent].
+2026-04-01 10:30:00.046 [INFO ] AuditLogger - Event: ROLE_CHANGED | User: user1@health.local | Change: +SupportAgent | By: admin@tech.local
+2026-04-01 10:30:00.050 [WARN ] RoleEngine - NOTE: user1@health.local now has SupportAgent role but belongs to Entity 'Health' (TenantId: 1). SupportAgent role typically grants cross-entity read access. Verify this is intentional.
+
+--- SECTION 4: Post-role-change access behavior ---
+
+2026-04-01 10:35:12.001 [INFO ] AuthorizationMiddleware - Access check: user1@health.local -> GET /api/v2/tickets (all entities)
+2026-04-01 10:35:12.002 [DEBUG] RoleEngine - Resolved roles for user1@health.local: [EndUser, SupportAgent].
+2026-04-01 10:35:12.003 [DEBUG] TenantIsolationFilter - User has SupportAgent role. Cross-entity read access GRANTED.
+2026-04-01 10:35:12.004 [INFO ] AuthorizationMiddleware - Access GRANTED. user1@health.local -> full ticket read.
+2026-04-01 10:35:12.005 [WARN ] AuditLogger - SENSITIVE: user1@health.local (Health entity) now reading tickets from ALL entities including Interior and Education. Role change was 5 minutes ago.
+
+2026-04-01 10:40:33.001 [INFO ] AuthorizationMiddleware - Access check: user1@health.local -> GET /api/v2/entities/2/users
+2026-04-01 10:40:33.002 [DEBUG] TenantIsolationFilter - SupportAgent cross-entity access GRANTED for user directory.
+2026-04-01 10:40:33.003 [WARN ] AuditLogger - user1@health.local accessed Interior entity user directory (45 records). Previously denied for same request at 09:22:45.
+
+2026-04-01 10:45:22.001 [INFO ] AuthorizationMiddleware - Access check: user1@health.local -> GET /api/v2/tickets/export?format=csv
+2026-04-01 10:45:22.002 [DEBUG] TenantIsolationFilter - SupportAgent: export access GRANTED (all entities).
+2026-04-01 10:45:22.334 [INFO ] ExportService - user1@health.local exported 1,247 tickets (all entities) as CSV. File size: 2.8 MB.
+2026-04-01 10:45:22.335 [WARN ] AuditLogger - BULK DATA EXPORT: user1@health.local exported ALL tickets across all entities. User's entity: Health. Role: SupportAgent (granted 15 minutes ago). This export includes sensitive data from Interior and Education entities.
+
+--- SECTION 5: Anomalous session behavior ---
+
+2026-04-01 11:22:00.001 [INFO ] IdentityServer - Login attempt: user1@health.local from 185.234.72.91 (Chrome/124, Windows 10). NEW IP ADDRESS.
+2026-04-01 11:22:00.002 [WARN ] GeoIpService - IP 185.234.72.91 geolocated to: Bucharest, Romania. Previous logins all from 10.0.2.x (internal network).
+2026-04-01 11:22:00.003 [WARN ] AnomalyDetector - IMPOSSIBLE TRAVEL: user1@health.local authenticated from 10.0.2.10 (internal) at 08:05:00 and now attempting from 185.234.72.91 (Romania) at 11:22:00. Distance: ~4000km in 3h17m.
+2026-04-01 11:22:00.004 [INFO ] IdentityServer - MFA challenge triggered for user1@health.local due to anomaly score.
+2026-04-01 11:22:15.445 [INFO ] IdentityServer - MFA challenge: PASSED. Code verified via SMS to +971-50-XXX-1234.
+2026-04-01 11:22:15.446 [WARN ] AnomalyDetector - MFA passed but impossible travel flag remains. Session risk: ELEVATED.
+2026-04-01 11:22:15.500 [INFO ] IdentityServer - Login success: user1@health.local from 185.234.72.91. Session: sess-xxyy9900. Risk: ELEVATED.
+
+2026-04-01 11:25:00.001 [INFO ] AuthorizationMiddleware - Access check: user1@health.local (sess-xxyy9900) -> GET /api/v2/tickets
+2026-04-01 11:25:00.002 [DEBUG] RoleEngine - Roles: [EndUser, SupportAgent]. Cross-entity access: YES.
+2026-04-01 11:25:00.003 [WARN ] AuditLogger - user1@health.local accessing tickets from ELEVATED risk session (foreign IP). Roles include recently granted SupportAgent.
+
+2026-04-01 11:30:22.001 [INFO ] AuthorizationMiddleware - user1@health.local (sess-xxyy9900) -> GET /api/v2/users (all)
+2026-04-01 11:30:22.445 [WARN ] AuditLogger - SENSITIVE: user1@health.local from foreign IP viewing complete user directory (all entities, 52 users).
+
+2026-04-01 11:35:44.001 [INFO ] AuthorizationMiddleware - user1@health.local (sess-xxyy9900) -> POST /api/v2/tickets/bulk-export
+2026-04-01 11:35:44.890 [INFO ] ExportService - Bulk export: 1,247 tickets, 3,421 comments, 892 attachments metadata. Format: JSON. Size: 18.4 MB.
+2026-04-01 11:35:44.891 [ERROR] AuditLogger - CRITICAL DATA EXFILTRATION RISK: user1@health.local from foreign IP (185.234.72.91, Romania) performed bulk export of entire ticket database including all entities. Export includes PII. Session risk was ELEVATED. SupportAgent role was granted only 65 minutes ago by admin@tech.local.
+
+--- SECTION 6: Concurrent session detection ---
+
+2026-04-01 11:40:00.001 [INFO ] SessionManager - user1@health.local has 2 active sessions:
+  Session 1: sess-eeff5566 | IP: 10.0.2.10 | Started: 08:05:00 | Last activity: 10:45:22 | Risk: NORMAL
+  Session 2: sess-xxyy9900 | IP: 185.234.72.91 | Started: 11:22:15 | Last activity: 11:35:44 | Risk: ELEVATED
+2026-04-01 11:40:00.002 [WARN ] AnomalyDetector - Concurrent sessions from geographically impossible locations. Confidence of account compromise: 78%.
+2026-04-01 11:40:00.003 [INFO ] IncidentResponse - Auto-creating security incident INC-2026-0412. Assigned to: secops@tech.local.
+2026-04-01 11:40:00.004 [INFO ] SessionManager - Revoking session sess-xxyy9900 (foreign IP) per automated response policy.
+2026-04-01 11:40:00.005 [INFO ] IdentityServer - Session sess-xxyy9900 terminated. user1@health.local forced logout from 185.234.72.91.
+2026-04-01 11:40:00.006 [INFO ] NotificationService - Sending compromise alert to user1@health.local, admin@tech.local, secops@tech.local.
+
+--- SECTION 7: Post-incident investigation notes ---
+
+2026-04-01 14:00:00.001 [INFO ] AuditLogger - INVESTIGATION UPDATE for INC-2026-0412:
+  - user1@health.local confirmed they did NOT log in from Romania.
+  - SMS MFA code received at 11:22:10 was NOT initiated by the legitimate user.
+  - Possible SIM swap or SMS interception attack.
+  - admin@tech.local confirmed the SupportAgent role grant at 10:30 was legitimate (approved request).
+  - The foreign attacker exploited the timing: role was granted, then compromised account used the new elevated access.
+  - Bulk export data (18.4 MB) was downloaded to the foreign IP before session revocation.
+  - Remediation: Password reset forced, MFA method changed to authenticator app, SupportAgent role temporarily revoked pending review.
+  - Root cause: Account compromised via SMS-based MFA bypass (likely SIM swap). The attacker waited for the legitimate role elevation before acting.

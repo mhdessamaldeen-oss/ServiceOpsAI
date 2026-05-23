@@ -1,0 +1,222 @@
+@model AISupportAnalysisPlatform.Models.AI.AdminCopilotExecutionDetails
+@using AISupportAnalysisPlatform.Models.AI
+@{
+    var trace = ViewBag.Trace as CopilotTraceHistory;
+    var allSteps = Model.Steps ?? new List<CopilotExecutionStep>();
+
+    // Classify each step into one of four "kinds" for visual treatment. Drives the row
+    // icon, the right-side badges, and which expand panels show.
+    //   llm   — fired an LLM call (decomposer / spec / classifier / explainer)
+    //   sql   — generated or executed SQL
+    //   gate  — a guard / validator that either passed-through or refused
+    //   info  — neutral wiring step (intake / formatter / etc.)
+    static string ClassifyStep(string action)
+    {
+        var a = (action ?? string.Empty).ToLowerInvariant();
+        if (a.Contains("decomposer") || a.Contains("specextractor") || a.Contains("specrefine")
+            || a.Contains("intentclassifier") || a.Contains("explainer") || a.Contains("toolselector")
+            || a.Contains("llm")) return "llm";
+        if (a.Contains("compiler") || a.Contains("executor") || a.Contains("validator")
+            || a.Contains("sqlintentguard")) return "sql";
+        if (a.Contains("guard") || a.Contains("policy") || a.Contains("preflight")
+            || a.Contains("rowshapesanity")) return "gate";
+        return "info";
+    }
+
+    // Did the step actually have anything to surface? Used to demote "trivial pass" gate
+    // rows into the collapsed footer instead of cluttering the timeline. Heuristic: a step
+    // is "trivial" when it succeeded, has no technical data, and no detail beyond "ok"/"passed".
+    static bool IsTrivialGate(CopilotExecutionStep s)
+    {
+        var kind = ClassifyStep(s.Action);
+        if (kind != "gate") return false;
+        if (s.Status != CopilotStepStatus.Ok) return false;
+        if (!string.IsNullOrWhiteSpace(s.TechnicalData)) return false;
+        var d = (s.Detail ?? string.Empty).Trim().ToLowerInvariant();
+        return string.IsNullOrEmpty(d) || d == "ok" || d == "passed" || d == "pass";
+    }
+
+    // Sub-question rows split the timeline into swimlanes. Detect them by Action prefix.
+    static bool IsSubQuestionRow(CopilotExecutionStep s) =>
+        (s.Action ?? string.Empty).StartsWith("Sub-question", StringComparison.OrdinalIgnoreCase);
+
+    static string StatusIcon(CopilotStepStatus s) => s switch
+    {
+        CopilotStepStatus.Ok    => "bi-check-circle-fill text-success",
+        CopilotStepStatus.Warn  => "bi-exclamation-triangle-fill text-warning",
+        CopilotStepStatus.Error => "bi-x-circle-fill text-danger",
+        CopilotStepStatus.Skip  => "bi-skip-forward-fill text-muted",
+        _ => "bi-circle text-muted",
+    };
+
+    static string KindBadge(string kind) => kind switch
+    {
+        "llm"  => "<span class=\"runtrace-kind-badge llm\"><i class=\"bi bi-cpu\"></i> LLM</span>",
+        "sql"  => "<span class=\"runtrace-kind-badge sql\"><i class=\"bi bi-database\"></i> SQL</span>",
+        "gate" => "<span class=\"runtrace-kind-badge gate\"><i class=\"bi bi-shield-check\"></i> GATE</span>",
+        _ => string.Empty,
+    };
+
+    static string FormatMs(long ms) =>
+        ms >= 1000 ? $"{ms / 1000.0:0.00}s" : $"{ms}ms";
+
+    // Partition the steps into the main timeline (visible) and the collapsed-footer
+    // trivial gates / skipped stages (still listed, just one-liner each).
+    var visibleSteps = new List<CopilotExecutionStep>();
+    var hiddenSteps = new List<CopilotExecutionStep>();
+    foreach (var s in allSteps)
+    {
+        if (s.Status == CopilotStepStatus.Skip || IsTrivialGate(s)) hiddenSteps.Add(s);
+        else visibleSteps.Add(s);
+    }
+
+    // Group consecutive Sub-question rows under one swimlane header. This is the
+    // decomposer-fanout case: each sub-question row appears in the original step list as
+    // its own entry; we render them as parallel columns of mini-steppers instead.
+    var anySubQuestions = visibleSteps.Any(IsSubQuestionRow);
+}
+
+<div class="investigation-runtrace">
+
+    @* ── Header strip ───────────────────────────────────────────────── *@
+    <div class="runtrace-header">
+        @{
+            var headerStatus = Model.Steps?.Any(s => s.Status == CopilotStepStatus.Error) == true ? "error"
+                : Model.Steps?.Any(s => s.Status == CopilotStepStatus.Warn) == true ? "warn"
+                : "ok";
+            var headerIcon = headerStatus switch
+            {
+                "error" => ("bi-x-circle-fill", "text-danger", Loc.Get("RunFailed")),
+                "warn"  => ("bi-exclamation-triangle-fill", "text-warning", Loc.Get("RunCompletedWithWarnings")),
+                _ => ("bi-check-circle-fill", "text-success", Loc.Get("RunCompletedSuccessfully")),
+            };
+        }
+        <div class="runtrace-header-status @headerStatus">
+            <i class="bi @headerIcon.Item1 @headerIcon.Item2"></i>
+            <span class="fw-semibold">@headerIcon.Item3</span>
+        </div>
+        <div class="runtrace-header-stats">
+            <span class="runtrace-stat" title="Total elapsed time">
+                <i class="bi bi-stopwatch"></i><strong>@FormatMs(Model.TotalElapsedMs)</strong>
+            </span>
+            <span class="runtrace-stat" title="Pipeline stages executed">
+                <i class="bi bi-list-ol"></i><strong>@visibleSteps.Count</strong> @Loc.Get("StepsWord")
+            </span>
+            @if (trace?.LlmCallCount is > 0)
+            {
+                <span class="runtrace-stat" title="LLM calls fired">
+                    <i class="bi bi-cpu"></i><strong>@trace.LlmCallCount</strong> calls
+                </span>
+                <span class="runtrace-stat" title="Prompt + completion tokens">
+                    <i class="bi bi-hash"></i><strong>@($"{(trace.TotalPromptTokens ?? 0):N0}+{(trace.TotalCompletionTokens ?? 0):N0}")</strong>
+                </span>
+                @if (trace.EstimatedCostUsd is { } cost)
+                {
+                    <span class="runtrace-stat @(cost == 0 ? "free" : "")" title="Estimated cost from ModelPricing">
+                        <i class="bi bi-currency-dollar"></i>
+                        <strong>@(cost == 0 ? "free" : (cost >= 0.01m ? cost.ToString("0.0000") : cost.ToString("0.000000")))</strong>
+                    </span>
+                }
+            }
+            @if (Model.ResultCount is > 0)
+            {
+                <span class="runtrace-stat">
+                    <i class="bi bi-table"></i><strong>@Model.ResultCount</strong> rows
+                </span>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.DetectedIntent))
+            {
+                <span class="runtrace-stat intent">
+                    <i class="bi bi-bullseye"></i>@Model.DetectedIntent
+                </span>
+            }
+        </div>
+    </div>
+
+    @* ── Main timeline ───────────────────────────────────────────────── *@
+    <div class="runtrace-timeline">
+        @{
+            var indexedSteps = visibleSteps.Select((s, i) => new { Step = s, Idx = i }).ToList();
+        }
+        @if (anySubQuestions)
+        {
+            @* Swimlane layout: render pre-decomposition steps as a normal stack, then a
+               swimlane block for sub-questions side-by-side. *@
+            var preDecomp = visibleSteps.TakeWhile(s => !IsSubQuestionRow(s)).ToList();
+            var subQ = visibleSteps.Where(IsSubQuestionRow).ToList();
+            var postDecomp = visibleSteps.SkipWhile(s => !IsSubQuestionRow(s))
+                                          .Where(s => !IsSubQuestionRow(s)).ToList();
+            foreach (var step in preDecomp)
+            {
+                <partial name="_InvestigationRunTraceRow" model="step" />
+            }
+            <div class="runtrace-swimlane-block">
+                <div class="runtrace-swimlane-header">
+                    <i class="bi bi-arrow-right-square"></i>
+                    @subQ.Count sub-questions in parallel
+                </div>
+                <div class="runtrace-swimlanes" style="--lane-count: @subQ.Count;">
+                    @foreach (var sq in subQ)
+                    {
+                        <div class="runtrace-swimlane">
+                            <div class="runtrace-swimlane-title">
+                                <i class="bi @StatusIcon(sq.Status).Split(' ')[0]"></i>
+                                <span>@sq.Action</span>
+                            </div>
+                            <div class="runtrace-swimlane-detail">@sq.Detail</div>
+                            <div class="runtrace-swimlane-time">@FormatMs(sq.ElapsedMs)</div>
+                            @if (sq.SubSteps?.Count > 0)
+                            {
+                                <ol class="runtrace-swimlane-substeps">
+                                    @foreach (var sub in sq.SubSteps)
+                                    {
+                                        <li>
+                                            <i class="bi @StatusIcon(sub.Status).Split(' ')[0]"></i>
+                                            <span>@sub.Action</span>
+                                            <span class="text-muted ms-1">@FormatMs(sub.ElapsedMs)</span>
+                                        </li>
+                                    }
+                                </ol>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+            foreach (var step in postDecomp)
+            {
+                <partial name="_InvestigationRunTraceRow" model="step" />
+            }
+        }
+        else
+        {
+            foreach (var step in visibleSteps)
+            {
+                <partial name="_InvestigationRunTraceRow" model="step" />
+            }
+        }
+    </div>
+
+    @* ── Collapsed footer for skipped / trivial gates ──────────────── *@
+    @if (hiddenSteps.Count > 0)
+    {
+        <details class="runtrace-hidden">
+            <summary>
+                <i class="bi bi-three-dots"></i>
+                @hiddenSteps.Count step(s) skipped or pass-through — @string.Join(", ", hiddenSteps.Select(s => s.Action).Distinct().Take(8))
+            </summary>
+            <ul class="runtrace-hidden-list">
+                @foreach (var s in hiddenSteps)
+                {
+                    <li>
+                        <i class="bi @StatusIcon(s.Status).Split(' ')[0]"></i>
+                        <span>@s.Action</span>
+                        @if (!string.IsNullOrWhiteSpace(s.Detail))
+                        {
+                            <span class="text-muted ms-2">— @s.Detail</span>
+                        }
+                    </li>
+                }
+            </ul>
+        </details>
+    }
+</div>

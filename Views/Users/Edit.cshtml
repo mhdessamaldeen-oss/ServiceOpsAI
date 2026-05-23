@@ -1,0 +1,91 @@
+@model AISupportAnalysisPlatform.Models.ApplicationUser
+
+@{
+    ViewData["Title"] = "Edit User";
+    var userEditHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Edit User",
+        Subtitle = $"Modify access for {Model.FullName ?? Model.Email}",
+        IconClass = "bi bi-person-gear",
+        Actions = new()
+        {
+            new() {
+                Text = "Cancel",
+                Href = Url.Action("Index", "Users") ?? "#",
+                IconClass = "bi bi-arrow-left",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="userEditHeader" />
+
+<div class="row">
+    <div class="col-xl-7 col-lg-9 mx-auto">
+        <div class="app-card">
+            <div class="app-card-body p-4 p-lg-5">
+                <form asp-action="Edit" class="app-form-grid">
+                    <div asp-validation-summary="All" class="app-form-error mb-3"></div>
+                    <input type="hidden" asp-for="Id" />
+
+                    <div class="app-form-row">
+                        <div class="app-form-field">
+                            <label class="app-form-label">Email (read-only)</label>
+                            <input value="@Model.Email" class="form-control" disabled />
+                        </div>
+                    </div>
+
+                    <div class="app-form-row">
+                        <div class="app-form-field app-form-field-half">
+                            <label asp-for="FirstName" class="app-form-label"></label>
+                            <input asp-for="FirstName" class="form-control" required />
+                        </div>
+                        <div class="app-form-field app-form-field-half">
+                            <label asp-for="LastName" class="app-form-label"></label>
+                            <input asp-for="LastName" class="form-control" required />
+                        </div>
+                    </div>
+
+                    <div class="app-form-row">
+                        <div class="app-form-field">
+                            <label asp-for="EntityId" class="app-form-label">Entity</label>
+                            <select asp-for="EntityId" class="form-select" asp-items="ViewBag.EntityId" required></select>
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded-3" style="background: var(--bg-surface-alt); border: 1px solid var(--border-color);">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input @(Loc.IsRtl ? "ms-0 ms-3" : "me-3") mt-1" type="checkbox" name="isAdmin" value="true" id="isAdminCheck" @(ViewBag.CurrentRole == "Admin" ? "checked" : "")>
+                            <label class="form-check-label fw-bold" style="color: var(--primary-color);" for="isAdminCheck">Grant Administrator Privileges</label>
+                        </div>
+                        <div class="text-muted small ms-4 ps-2">Promotes the user to System Administrator, overriding the standard role below.</div>
+                    </div>
+
+                    <div class="app-form-row">
+                        <div class="app-form-field app-form-field-half">
+                            <label class="app-form-label">Standard Role (if not admin)</label>
+                            <select name="role" class="form-select" asp-items="ViewBag.Roles" required></select>
+                        </div>
+                        <div class="app-form-field app-form-field-half">
+                            <label class="app-form-label">Account Status</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" asp-for="IsActive">
+                                <label class="form-check-label" asp-for="IsActive">Active User Account</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="app-form-actions">
+                        <a asp-action="Index" class="btn btn-sm btn-soft-secondary rounded-pill px-4 fw-bold app-form-actions-secondary">
+                            <i class="bi bi-arrow-left @(Loc.IsRtl ? "ms-1" : "me-1")"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm">
+                            <i class="bi bi-save-fill @(Loc.IsRtl ? "ms-2" : "me-2")"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

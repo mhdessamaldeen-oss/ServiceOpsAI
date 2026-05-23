@@ -1,0 +1,184 @@
+{
+  "name": "07 - Realistic Time-Series Analytics",
+  "version": "1.0",
+  "description": "Analyst-style time-based questions: trends, period comparisons, year-over-year, age and aging buckets, daily/weekly/monthly rollups. Every question has a clear, single-interpretation answer and a ExpectedSql. Designed by analyst persona over real Tickets schema.",
+  "Scenarios": [
+    {
+      "Code": "TS-01-CREATED-TODAY",
+      "Question": "How many tickets were created today?",
+      "Category": "Date filter — single day",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "TS-02-CREATED-YESTERDAY",
+      "Question": "How many tickets were created yesterday?",
+      "Category": "Date filter — yesterday",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE CAST(CreatedAt AS DATE) = CAST(DATEADD(day,-1,GETDATE()) AS DATE) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "TS-03-LAST-7-DAYS",
+      "Question": "How many tickets were created in the last 7 days?",
+      "Category": "Date filter — relative window",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE CreatedAt >= DATEADD(day,-7,CAST(GETDATE() AS DATE)) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "TS-04-LAST-30-DAYS",
+      "Question": "How many tickets were created in the last 30 days?",
+      "Category": "Date filter — relative window",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE CreatedAt >= DATEADD(day,-30,CAST(GETDATE() AS DATE)) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "TS-05-THIS-MONTH",
+      "Question": "How many tickets were created this month?",
+      "Category": "Date filter — calendar month",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "TS-06-LAST-MONTH",
+      "Question": "How many tickets were created last month?",
+      "Category": "Date filter — previous calendar month",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE CreatedAt >= DATEFROMPARTS(YEAR(DATEADD(month,-1,GETDATE())),MONTH(DATEADD(month,-1,GETDATE())),1) AND CreatedAt < DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "TS-07-MONTH-OVER-MONTH",
+      "Question": "Compare ticket counts this month vs last month.",
+      "Category": "Period comparison — month over month",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT SUM(CASE WHEN CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) AS ThisMonth, SUM(CASE WHEN CreatedAt >= DATEFROMPARTS(YEAR(DATEADD(month,-1,GETDATE())),MONTH(DATEADD(month,-1,GETDATE())),1) AND CreatedAt < DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) AS LastMonth FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "TS-08-YEAR-OVER-YEAR",
+      "Question": "Compare ticket counts this year vs last year.",
+      "Category": "Period comparison — year over year",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT SUM(CASE WHEN YEAR(CreatedAt) = YEAR(GETDATE()) THEN 1 ELSE 0 END) AS ThisYear, SUM(CASE WHEN YEAR(CreatedAt) = YEAR(GETDATE()) - 1 THEN 1 ELSE 0 END) AS LastYear FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "TS-09-MONTHLY-LAST-6",
+      "Question": "Show ticket counts per month for the last 6 months.",
+      "Category": "Date bucket — monthly rollup",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT FORMAT(CreatedAt,'yyyy-MM') AS Month, COUNT(*) AS Cnt FROM Tickets WHERE CreatedAt >= DATEADD(month,-6,CAST(GETDATE() AS DATE)) AND IsDeleted = 0 GROUP BY FORMAT(CreatedAt,'yyyy-MM') ORDER BY Month",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "TS-10-DAILY-LAST-14",
+      "Question": "Show ticket counts per day for the last 14 days.",
+      "Category": "Date bucket — daily rollup",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Cnt FROM Tickets WHERE CreatedAt >= DATEADD(day,-14,CAST(GETDATE() AS DATE)) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE) ORDER BY Day",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "TS-11-WEEKLY-LAST-8",
+      "Question": "Show ticket counts per week for the last 8 weeks.",
+      "Category": "Date bucket — weekly rollup",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT DATEPART(year,CreatedAt) AS Yr, DATEPART(iso_week,CreatedAt) AS Wk, COUNT(*) AS Cnt FROM Tickets WHERE CreatedAt >= DATEADD(week,-8,CAST(GETDATE() AS DATE)) AND IsDeleted = 0 GROUP BY DATEPART(year,CreatedAt), DATEPART(iso_week,CreatedAt) ORDER BY Yr, Wk",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "TS-12-AVG-AGE-DAYS",
+      "Question": "What is the average age of open tickets in days?",
+      "Category": "AVG over DATEDIFF — current age",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT AVG(CAST(DATEDIFF(day, t.CreatedAt, GETDATE()) AS DECIMAL(10,2))) AS AvgAgeDays FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "TS-13-OLDEST-OPEN",
+      "Question": "Show the 10 oldest open tickets.",
+      "Category": "TOP N oldest by created date",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0 ORDER BY t.CreatedAt ASC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "TS-14-CREATED-IN-APRIL",
+      "Question": "How many tickets were created in April 2026?",
+      "Category": "Date filter — specific month",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE CreatedAt >= '2026-04-01' AND CreatedAt < '2026-05-01' AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "TS-15-AVG-RESOLUTION-TIME",
+      "Question": "What is the average resolution time in hours?",
+      "Category": "AVG over DATEDIFF between two date columns",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT AVG(CAST(DATEDIFF(hour, CreatedAt, ResolvedAt) AS DECIMAL(10,2))) AS AvgHours FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "TS-16-AVG-FIRST-RESPONSE",
+      "Question": "What is the average first response time in hours?",
+      "Category": "AVG over DATEDIFF — first response",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT AVG(CAST(DATEDIFF(hour, CreatedAt, FirstRespondedAt) AS DECIMAL(10,2))) AS AvgHours FROM Tickets WHERE FirstRespondedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "TS-17-RESOLVED-TODAY",
+      "Question": "How many tickets were resolved today?",
+      "Category": "Date filter on a different date column",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE CAST(ResolvedAt AS DATE) = CAST(GETDATE() AS DATE) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "TS-18-AGING-BUCKETS",
+      "Question": "How many open tickets are aged 0-1 day, 2-7 days, 8-30 days, and over 30 days?",
+      "Category": "Conditional aggregation — aging buckets",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT SUM(CASE WHEN DATEDIFF(day, t.CreatedAt, GETDATE()) <= 1 THEN 1 ELSE 0 END) AS Days_0_1, SUM(CASE WHEN DATEDIFF(day, t.CreatedAt, GETDATE()) BETWEEN 2 AND 7 THEN 1 ELSE 0 END) AS Days_2_7, SUM(CASE WHEN DATEDIFF(day, t.CreatedAt, GETDATE()) BETWEEN 8 AND 30 THEN 1 ELSE 0 END) AS Days_8_30, SUM(CASE WHEN DATEDIFF(day, t.CreatedAt, GETDATE()) > 30 THEN 1 ELSE 0 END) AS Over_30 FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 30000
+    }
+  ]
+}

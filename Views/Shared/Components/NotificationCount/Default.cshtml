@@ -1,0 +1,11 @@
+@model int
+
+<a class="nav-link position-relative text-secondary d-flex align-items-center justify-content-center p-2" asp-controller="Notifications" asp-action="Index" title="Live System Alerts">
+    <i class="bi bi-bell-fill fs-5 mb-0"></i>
+    @if (Model > 0)
+    {
+        <span class="position-absolute translate-middle-y badge rounded-pill bg-danger shadow-sm border border-white" style="font-size: 0.6rem; top: 5px; @(Loc.IsRtl ? "left: 5px;" : "right: 5px;")">
+            @Model
+        </span>
+    }
+</a>

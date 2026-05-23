@@ -1,0 +1,26 @@
+@{
+    ViewData["Title"] = "Home";
+    var homeHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Welcome to SupportFlow AI",
+        Subtitle = "Operations intelligence and AI-assisted ticket triage",
+        IconClass = "bi bi-house-door-fill"
+    };
+}
+
+<partial name="_PageHeader" model="homeHeader" />
+
+<div class="app-card">
+    <div class="app-card-body p-4 p-lg-5 text-center">
+        <h2 class="display-6 fw-bold mb-3" style="color: var(--text-main);">Get started</h2>
+        <p class="text-muted mb-4">Open the Dashboard to see today's operational picture, or jump straight into the ticket queue.</p>
+        <div class="d-flex justify-content-center gap-2 flex-wrap">
+            <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+                <i class="bi bi-grid-1x2-fill me-2"></i>Open Dashboard
+            </a>
+            <a asp-controller="Tickets" asp-action="Index" class="btn btn-soft-secondary rounded-pill px-4 fw-bold">
+                <i class="bi bi-ticket-detailed-fill me-2"></i>View Tickets
+            </a>
+        </div>
+    </div>
+</div>

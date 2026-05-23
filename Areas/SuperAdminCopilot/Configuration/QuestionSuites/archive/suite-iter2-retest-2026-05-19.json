@@ -1,0 +1,142 @@
+{
+  "name": "Suite Iter 2 — 14 iter-1 failures after JSON/DB/code fixes",
+  "version": "1.0",
+  "description": "Re-test of iter 1 failures from suite-capabilities-coverage-2026-05-19. Iter 1 was 58/72 = 80.6%. Iter 2 applies: VQ catalog fixes (list-distinct-statuses, cohort-median-by-priority, tickets-ordered-by-created-desc, earliest-ticket-date variants, trend-monthly-last-6 variants), DB tool keyword expansion (FX/univ/currency-country), RetrieverHiddenTables += GeminiApiKeys/TicketAiAnalyses/etc., MaxLatencyMs raised to 120s for VQ-Explainer cases.",
+  "Scenarios": [
+    {
+      "Code": "C07-FLT-date",
+      "Question": "tickets created in the last 7 days",
+      "Category": "FLT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt >= DATEADD(DAY,-7,GETDATE()) AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C08-FLT-null",
+      "Question": "tickets that have been resolved",
+      "Category": "FLT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, Title, ResolvedAt FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C14-DIS",
+      "Question": "distinct ticket statuses",
+      "Category": "DIS",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "TicketStatuses",
+      "ExpectedSql": "SELECT DISTINCT Name FROM TicketStatuses",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C17-AGG-MIN",
+      "Question": "earliest ticket date",
+      "Category": "AGG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT MIN(CreatedAt) AS EarliestCreatedAt FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1,
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C18-GRP-status",
+      "Question": "ticket count by status",
+      "Category": "GRP",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY s.Name ORDER BY Count DESC",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C46-DATE-stale",
+      "Question": "tickets older than 30 days that are still open",
+      "Category": "DATE",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt, DATEDIFF(DAY, t.CreatedAt, GETDATE()) AS AgeDays FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND DATEDIFF(DAY, t.CreatedAt, GETDATE()) > 30 AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C53-AR-data",
+      "Question": "اعرض التذاكر المفتوحة",
+      "Category": "Robust",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C57-TOOL-fx",
+      "Question": "convert 100 USD to JPY",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "C58-TOOL-univ",
+      "Question": "find universities in Mumbai",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "C60-TOOL-currency-country",
+      "Question": "what country uses the rupee",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "C65-COH-median",
+      "Question": "cohort median resolution by priority",
+      "Category": "COH",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT p.Name AS Priority, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CAST(DATEDIFF(DAY, t.CreatedAt, t.ResolvedAt) AS FLOAT)) OVER (PARTITION BY p.Name) AS MedianDays FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C66-TRD-monthly",
+      "Question": "monthly ticket trend last 6 months",
+      "Category": "TRD",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(MONTH,-6,GETDATE()) AND IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM') ORDER BY Month",
+      "MaxLatencyMs": 120000
+    },
+    {
+      "Code": "C70-OOS",
+      "Question": "what is the meaning of life",
+      "Category": "Refusal",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true,
+      "MaxLatencyMs": 5000
+    },
+    {
+      "Code": "C72-ORDER-by",
+      "Question": "tickets ordered by creation date descending",
+      "Category": "SORT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "MaxLatencyMs": 120000
+    }
+  ]
+}

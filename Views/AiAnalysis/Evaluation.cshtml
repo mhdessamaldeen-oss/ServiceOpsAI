@@ -1,0 +1,204 @@
+@model AISupportAnalysisPlatform.Models.AI.CopilotEvaluationViewModel
+
+@{
+    ViewData["Title"] = Loc.Get("CopilotEvaluation");
+    var evalHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("CopilotEvaluation"),
+        IconClass = "bi bi-shield-check",
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("Hub"),
+                Href = Url.Action("Hub", "AiAnalysis") ?? "#",
+                IconClass = "bi bi-grid",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/ai-evaluation.css" asp-append-version="true" />
+}
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success border-0 shadow-sm">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger border-0 shadow-sm">@TempData["Error"]</div>
+}
+
+<partial name="_PageHeader" model="evalHeader" />
+
+<div class="eval-shell">
+    <div class="eval-card p-4">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="eval-stat">
+                    <div class="text-muted small text-uppercase fw-bold mb-2">@Loc.Get("TotalEvaluations")</div>
+                    <div class="display-6 fw-bold">@Model.TotalEvaluations</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="eval-stat">
+                    <div class="text-muted small text-uppercase fw-bold mb-2">@Loc.Get("PassedEvaluations")</div>
+                    <div class="display-6 fw-bold text-success">@Model.PassedEvaluations</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="eval-stat">
+                    <div class="text-muted small text-uppercase fw-bold mb-2">@Loc.Get("FailedEvaluations")</div>
+                    <div class="display-6 fw-bold text-danger">@Model.FailedEvaluations</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="eval-card p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+                <h5 class="fw-bold mb-1">@Loc.Get("RecentTicketsForEvaluation")</h5>
+                <div class="text-muted small">@Loc.Get("CopilotEvaluationHint")</div>
+            </div>
+        </div>
+
+        <div class="d-grid gap-3">
+            @foreach (var ticket in Model.Tickets)
+            {
+                var existing = Model.ExistingEvaluations.FirstOrDefault(e => e.TicketId == ticket.TicketId);
+                <div class="eval-ticket">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+                        <div>
+                            <div class="fw-bold">@ticket.TicketNumber</div>
+                            <div class="small" style="color: var(--text-main);">@ticket.Title</div>
+                            <div class="small text-muted mt-1">@ticket.ProductArea • @ticket.Status • @ticket.CreatedAt.ToString("yyyy-MM-dd HH:mm")</div>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a class="btn btn-sm btn-outline-secondary rounded-pill" asp-controller="Tickets" asp-action="Details" asp-route-id="@ticket.TicketId" target="_blank">
+                                @Loc.Get("OpenTicket")
+                            </a>
+                            <button type="button" class="btn btn-sm btn-success rounded-pill" onclick="loadCopilotResult(@ticket.TicketId, this)">
+                                @Loc.Get("LoadCopilotResult")
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="copilot-result-@ticket.TicketId" class="eval-result d-none mb-3"></div>
+
+                    <form asp-controller="AiAnalysis" asp-action="SaveEvaluation" method="post" class="eval-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="TicketId" value="@ticket.TicketId" />
+                        <input type="hidden" name="TicketNumber" value="@ticket.TicketNumber" />
+                        <input type="hidden" name="TicketTitle" value="@ticket.Title" />
+                        <div class="row g-3">
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold">@Loc.Get("SimilarTicketsEvidence")</label>
+                                <select class="form-select" name="SimilarTicketsRating">
+                                    @foreach (var option in new[] { "Good", "Partial", "Poor" })
+                                    {
+                                        <option selected="@(existing?.SimilarTicketsRating == option)">@option</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold">@Loc.Get("KnowledgeBaseEvidence")</label>
+                                <select class="form-select" name="KnowledgeBaseRating">
+                                    @foreach (var option in new[] { "Good", "Partial", "Poor" })
+                                    {
+                                        <option selected="@(existing?.KnowledgeBaseRating == option)">@option</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">@Loc.Get("RecommendedNextStep")</label>
+                                <select class="form-select" name="RecommendedActionRating">
+                                    @foreach (var option in new[] { "Correct", "Partial", "Wrong" })
+                                    {
+                                        <option selected="@(existing?.RecommendedActionRating == option)">@option</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold">@Loc.Get("EvidenceStrength")</label>
+                                <select class="form-select" name="EvidenceStrengthRating">
+                                    @foreach (var option in new[] { "Honest", "TooHigh", "TooLow" })
+                                    {
+                                        <option selected="@(existing?.EvidenceStrengthRating == option)">@option</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">@Loc.Get("OverallOutcome")</label>
+                                <select class="form-select" name="OverallOutcome">
+                                    @foreach (var option in new[] { "Pass", "Fail", "NeedsWork" })
+                                    {
+                                        <option selected="@(existing?.OverallOutcome == option)">@option</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-bold">@Loc.Get("EvaluationNotes")</label>
+                                <textarea class="form-control" name="Notes" rows="3" placeholder="@Loc.Get("CopilotEvaluationNotesHint")">@existing?.Notes</textarea>
+                            </div>
+                            <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="small text-muted">
+                                    @if (existing != null)
+                                    {
+                                        @($"{Loc.Get("UpdatedOn")}: {existing.EvaluatedOnUtc:yyyy-MM-dd HH:mm} UTC")
+                                    }
+                                </div>
+                                <button type="submit" class="btn btn-primary rounded-pill px-4">@Loc.Get("SaveEvaluation")</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadCopilotResult(ticketId, button) {
+        const container = document.getElementById(`copilot-result-${ticketId}`);
+        const previousText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '@Loc.Get("Loading")...';
+
+        try {
+            const response = await fetch(`@Url.Action("GetCopilotRecommendation", "AiAnalysis")/${ticketId}`);
+            if (!response.ok) {
+                const raw = await response.text();
+                throw new Error(raw || `HTTP ${response.status}`);
+            }
+            const envelope = await response.json();
+            // Peel the ApiResponse<T> wrapper that the controller returns.
+            if (envelope && envelope.success === false) {
+                throw new Error(envelope.error || envelope.message || 'Copilot result failed.');
+            }
+            const data = (envelope && Object.prototype.hasOwnProperty.call(envelope, 'success'))
+                ? (envelope.data || {})
+                : envelope;
+
+            const tickets = (data.similarTickets || []).map(t => `${t.ticketNumber} (${t.score}%)`).join(', ') || '@Loc.Get("NoSimilarTicketEvidence")';
+            const docs = (data.knowledgeMatches || []).map(d => `${d.documentName} (${d.score}%)`).join(', ') || '@Loc.Get("NoKnowledgeBaseEvidence")';
+
+            container.innerHTML = `
+                <div class="fw-bold mb-2">${data.summary || ''}</div>
+                <div class="small mb-2"><strong>@Loc.Get("RecommendedNextStep"):</strong> ${data.recommendedAction || ''}</div>
+                <div class="small mb-1"><strong>@Loc.Get("EvidenceStrength"):</strong> ${data.evidenceStrength || ''}</div>
+                <div class="small mb-1"><strong>@Loc.Get("SimilarTicketsEvidence"):</strong> ${tickets}</div>
+                <div class="small"><strong>@Loc.Get("KnowledgeBaseEvidence"):</strong> ${docs}</div>`;
+            container.classList.remove('d-none');
+        } catch (error) {
+            container.innerHTML = `<div class="text-danger small">${error.message}</div>`;
+            container.classList.remove('d-none');
+        } finally {
+            button.disabled = false;
+            button.innerHTML = previousText;
+        }
+    }
+</script>

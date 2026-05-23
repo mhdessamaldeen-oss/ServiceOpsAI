@@ -1,0 +1,160 @@
+@model AISupportAnalysisPlatform.Models.AI.CopilotTraceDetailPageViewModel
+@{
+    ViewData["Title"] = Loc.Get("Investigation");
+    var queryTab = Context.Request.Query["tab"].ToString();
+    var queryView = Context.Request.Query["view"].ToString();
+    // Two-tab layout:
+    //   Run trace  — linear timeline of what actually happened (default)
+    //   Workflow   — architecture diagram: router + 5 branches, active one bright
+    // Legacy "story" / "view" / "tree" query params route to the closest match
+    // (story → workflow because that's where the routing decision now lives;
+    //  view/tree → workflow because that replaced the Mermaid graph).
+    var activeTab = queryTab switch
+    {
+        "workflow" => "workflow",
+        "story" => "workflow",          // legacy redirect
+        "view" => "workflow",            // legacy redirect
+        "trace" => "trace",
+        _ => string.Equals(queryView, "tree", StringComparison.OrdinalIgnoreCase) ? "workflow" : "trace"
+    };
+
+    var investigationHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("TraceContextSummary"),
+        Subtitle = $"#{Model.Trace.Id} • {Model.Trace.ModelName} • {Model.Trace.TotalElapsedMs} ms",
+        IconClass = "bi bi-diagram-3-fill",
+        Chips = new()
+        {
+            new() { Text = $"{Loc.Get("StoryId")} #{Model.Trace.Id}", IconClass = "bi bi-hash" },
+            new() { Text = $"{Model.ArchiveCount} {Loc.Get("Samples")}", IconClass = "bi bi-server" }
+        },
+        // Unified action buttons — every action in the page header now uses the same
+        // pill-shaped icon+label pattern from ui-paradigm.css. Primary action is
+        // .btn-action; secondary actions are .btn-action-soft.
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("BackToChat"),
+                Href = Url.Action("Copilot", "AiAnalysis") ?? "#",
+                IconClass = "bi bi-chat-dots",
+                CssClass = "btn-action btn-action-sm"
+            },
+            new() {
+                Text = Loc.Get("BackToArchive"),
+                Href = Url.Action("InvestigationHistory", "AiAnalysis") ?? "#",
+                IconClass = "bi bi-archive",
+                CssClass = "btn-action-soft btn-action-sm"
+            },
+            new() {
+                Text = Loc.Get("Hub"),
+                Href = Url.Action("Hub", "AiAnalysis") ?? "#",
+                IconClass = "bi bi-grid",
+                CssClass = "btn-action-ghost btn-action-sm"
+            }
+        }
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/copilot.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ai-history.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+    <link rel="stylesheet" href="~/css/pipeline-viewer.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/runtrace.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/workflow.css" asp-append-version="true" />
+    <script>
+        document.documentElement.classList.add('investigation-page-body');
+    </script>
+}
+
+<partial name="_PageHeader" model="investigationHeader" />
+
+<div class="investigation-page-shell investigation-canvas">
+    @* ── Single compact strip — was two stacked sections with big section labels
+         (Question column + TraceMeta column). The question text now sits on one
+         line next to inline metadata chips so the workflow/run-trace below sits
+         closer to the viewport top. *@
+    <div class="investigation-topstrip">
+        <div class="investigation-topstrip-q">
+            <i class="bi bi-chat-quote"></i>
+            <span>@Model.Trace.Question</span>
+        </div>
+        <div class="investigation-topstrip-meta">
+            <span class="pill-badge" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">@Model.ExecutionDetails.DetectedIntent</span>
+            <span class="pill-badge bg-soft-secondary" style="color: var(--text-muted); border: 1px solid var(--border-color);">@Model.Trace.ModelName</span>
+            <span class="pill-badge bg-soft-secondary" style="color: var(--text-muted); border: 1px solid var(--border-color);">@Model.Trace.TotalElapsedMs ms</span>
+            <span class="pill-badge bg-soft-secondary" style="color: var(--text-muted); border: 1px solid var(--border-color);">@Model.Trace.CreatedAt.ToString("MMM dd • HH:mm")</span>
+        </div>
+    </div>
+
+    <!-- Tabs Navigation — pill-style segmented control. Two tabs:
+         Run trace (default) — linear timeline of what actually ran.
+         Workflow — architecture diagram: router + 5 branches with the active one bright. -->
+    <div class="d-flex justify-content-center mb-2">
+        <div class="tab-pills is-fluid w-100" role="tablist" id="investigationTabs" style="max-width: 480px;">
+            <a class="tab-pill @(activeTab == "trace" ? "is-active" : "")"
+               data-tab-target="#trace-tab" data-tab-key="trace" href="?tab=trace" role="tab">
+                <i class="bi bi-list-check"></i>Run trace
+            </a>
+            <a class="tab-pill @(activeTab == "workflow" ? "is-active" : "")"
+               data-tab-target="#workflow-tab" data-tab-key="workflow" href="?tab=workflow" role="tab">
+                <i class="bi bi-diagram-3"></i>Workflow
+            </a>
+        </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- Run trace (default) — linear stepper with all stages + LLM/SQL/GATE typed rows -->
+        <div class="tab-pane fade @(activeTab == "trace" ? "show active" : "")" id="trace-tab" role="tabpanel">
+            @await Html.PartialAsync("_InvestigationRunTrace", Model.ExecutionDetails, new ViewDataDictionary(ViewData)
+            {
+                ["Trace"] = Model.Trace
+            })
+        </div>
+
+        <!-- Workflow — router + 5 routes, active bright + greyed inactive with tooltip -->
+        <div class="tab-pane fade @(activeTab == "workflow" ? "show active" : "")" id="workflow-tab" role="tabpanel">
+            @await Html.PartialAsync("_InvestigationWorkflow", Model.ExecutionDetails, new ViewDataDictionary(ViewData)
+            {
+                ["Trace"] = Model.Trace
+            })
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="~/js/copilot-trace-visuals.js" asp-append-version="true"></script>
+    <script src="~/js/investigation-pipeline.js" asp-append-version="true"></script>
+    <script>
+        // Investigation tab toggle — instant in-page swap, query-string updated for shareable links
+        (function () {
+            const tabBar = document.getElementById('investigationTabs');
+            if (!tabBar) return;
+            const triggers = tabBar.querySelectorAll('[data-tab-target]');
+            triggers.forEach(t => {
+                t.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const key = this.dataset.tabKey;
+                    const targetSel = this.dataset.tabTarget;
+                    // Support both legacy .active and new .is-active class names so the
+                    // pill highlight follows the click whichever stylesheet is in play.
+                    triggers.forEach(x => x.classList.remove('active', 'is-active'));
+                    this.classList.add('active', 'is-active');
+                    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('show', 'active'));
+                    const target = document.querySelector(targetSel);
+                    if (target) target.classList.add('show', 'active');
+                    // Update URL without reload so refresh / direct-link still work
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('tab', key);
+                    history.replaceState(null, '', url.toString());
+                });
+            });
+        })();
+    </script>
+}

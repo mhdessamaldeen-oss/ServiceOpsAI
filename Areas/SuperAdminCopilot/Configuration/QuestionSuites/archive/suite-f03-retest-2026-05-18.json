@@ -1,0 +1,11 @@
+{
+  "name": "Suite F03 retest — single case verifying tickets-critical-priority new verified entry",
+  "version": "1.0",
+  "description": "Verifies the new verified-query entry 'tickets-critical-priority' matches at sim=1.00 verbatim and produces correct rows.",
+  "Scenarios": [
+    { "Code": "F03-FLT-retest", "Question": "tickets with critical priority",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name = 'Critical' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 60000 }
+  ]
+}

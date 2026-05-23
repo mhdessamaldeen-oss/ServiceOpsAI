@@ -1,0 +1,51 @@
+{
+  "FkRoles": {
+    "Patterns": [
+      {
+        "Role": "creator",
+        "Patterns": [ "CreatedBy", "OpenedBy", "RaisedBy", "AuthoredBy" ],
+        "QuestionVerbs": [ "created by", "opened by", "raised by", "authored by", "made by" ]
+      },
+      {
+        "Role": "modifier",
+        "Patterns": [ "ModifiedBy", "UpdatedBy", "EditedBy", "ChangedBy", "LastModifiedBy" ],
+        "QuestionVerbs": [ "modified by", "updated by", "edited by", "changed by", "last modified by" ]
+      },
+      {
+        "Role": "resolver",
+        "Patterns": [ "ResolvedBy", "ClosedBy", "CompletedBy" ],
+        "QuestionVerbs": [ "resolved by", "closed by", "completed by", "fixed by" ]
+      },
+      {
+        "Role": "assignee",
+        "Patterns": [ "AssignedTo", "AssigneeId", "AssignedUserId", "HandledBy" ],
+        "QuestionVerbs": [ "assigned to", "handled by", "owned by" ]
+      },
+      {
+        "Role": "owner",
+        "Patterns": [ "OwnerId", "OwnedBy", "OwnerUserId" ],
+        "QuestionVerbs": [ "owner", "owned by" ]
+      },
+      {
+        "Role": "approver",
+        "Patterns": [ "ApprovedBy", "AuthorizedBy" ],
+        "QuestionVerbs": [ "approved by", "authorized by" ]
+      },
+      {
+        "Role": "reviewer",
+        "Patterns": [ "ReviewedBy" ],
+        "QuestionVerbs": [ "reviewed by" ]
+      },
+      {
+        "Role": "deleter",
+        "Patterns": [ "DeletedBy" ],
+        "QuestionVerbs": [ "deleted by" ]
+      },
+      {
+        "Role": "submitter",
+        "Patterns": [ "SubmittedBy" ],
+        "QuestionVerbs": [ "submitted by" ]
+      }
+    ]
+  }
+}

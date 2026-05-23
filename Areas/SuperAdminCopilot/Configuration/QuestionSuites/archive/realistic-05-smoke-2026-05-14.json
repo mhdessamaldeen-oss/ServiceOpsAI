@@ -1,0 +1,126 @@
+{
+  "name": "05 - Realistic Smoke Suite",
+  "version": "1.0",
+  "description": "Fast smoke test — 12 representative questions across difficulty levels. Use this before the full run to catch regressions in 3-5 minutes.",
+  "Scenarios": [
+    {
+      "Code": "SM-001",
+      "Question": "How many tickets in total?",
+      "Category": "Smoke / Easy",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "SM-002",
+      "Question": "How many tickets are open right now?",
+      "Category": "Smoke / Easy",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS OpenTickets FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "SM-003",
+      "Question": "How many tickets were created today?",
+      "Category": "Smoke / Today",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Today FROM Tickets WHERE CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "SM-004",
+      "Question": "How many tickets does each entity have?",
+      "Category": "Smoke / Medium group-by",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT e.Name AS Entity, COUNT(*) AS Total FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0 GROUP BY e.Name ORDER BY Total DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "SM-005",
+      "Question": "How many tickets did Sara Hassan create?",
+      "Category": "Smoke / Named user",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS SaraTickets FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE u.FirstName = 'Sara' AND u.LastName = 'Hassan' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "SM-006",
+      "Question": "Show me tickets created this week.",
+      "Category": "Smoke / This week",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt >= DATEADD(day, -DATEPART(weekday, GETDATE()) + 1, CAST(GETDATE() AS DATE)) AND t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "SM-007",
+      "Question": "Compare ticket counts this month vs last month.",
+      "Category": "Smoke / Period compare",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 'ThisMonth' AS Period, COUNT(*) AS Total FROM Tickets WHERE YEAR(CreatedAt) = YEAR(GETDATE()) AND MONTH(CreatedAt) = MONTH(GETDATE()) AND IsDeleted = 0 UNION ALL SELECT 'LastMonth', COUNT(*) FROM Tickets WHERE YEAR(CreatedAt) = YEAR(DATEADD(month, -1, GETDATE())) AND MONTH(CreatedAt) = MONTH(DATEADD(month, -1, GETDATE())) AND IsDeleted = 0",
+      "ExpectedMaxRows": 2,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "SM-008",
+      "Question": "Top 5 users by tickets created.",
+      "Category": "Smoke / Top-N",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 5 u.FirstName + ' ' + u.LastName AS UserName, COUNT(*) AS Tickets FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE t.IsDeleted = 0 GROUP BY u.FirstName, u.LastName ORDER BY Tickets DESC",
+      "ExpectedMaxRows": 5,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "SM-009",
+      "Question": "What is the average resolution time in hours?",
+      "Category": "Smoke / Metric",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT AVG(CAST(DATEDIFF(hour, CreatedAt, ResolvedAt) AS FLOAT)) AS AvgResolutionHours FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "SM-010",
+      "Question": "Show ticket counts by status and source.",
+      "Category": "Smoke / Cross-tab",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT s.Name AS Status, src.Name AS Source, COUNT(*) AS Total FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketSources src ON src.Id = t.SourceId WHERE t.IsDeleted = 0 GROUP BY s.Name, src.Name ORDER BY s.Name, src.Name",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "SM-011",
+      "Question": "Daily ticket creation count for the last 14 days.",
+      "Category": "Smoke / Time series",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Total FROM Tickets WHERE CreatedAt >= DATEADD(day, -14, GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE) ORDER BY Day",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "SM-012",
+      "Question": "Update ticket TCK-2026-00001 to status Closed.",
+      "Category": "Smoke / Refusal",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true,
+      "ExpectedFailedStage": "preflight-refused",
+      "MaxLatencyMs": 5000
+    }
+  ]
+}

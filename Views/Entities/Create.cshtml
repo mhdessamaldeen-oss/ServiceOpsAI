@@ -1,0 +1,63 @@
+@model AISupportAnalysisPlatform.Models.Entity
+
+@{
+    ViewData["Title"] = Loc.Get("CreateEntity");
+    var entityCreateHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("ProvisionNewEntity"),
+        Subtitle = Loc.Get("ProvisionEntityDesc"),
+        IconClass = "bi bi-building-add",
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("Cancel"),
+                Href = Url.Action("Index", "Entities") ?? "#",
+                IconClass = "bi bi-arrow-left",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="entityCreateHeader" />
+
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-md-9">
+        <div class="app-card">
+            <div class="app-card-body p-4 p-lg-5">
+                <form asp-action="Create" class="app-form-grid">
+                    <div asp-validation-summary="ModelOnly" class="app-form-error mb-3"></div>
+
+                    <div class="app-form-row">
+                        <div class="app-form-field">
+                            <label asp-for="Name" class="app-form-label">@Loc.Get("OfficialEntityDesignation")</label>
+                            <input asp-for="Name" class="form-control" placeholder="@Loc.Get("EntityNameHint")" />
+                            <span asp-validation-for="Name" class="app-form-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded-3" style="background: var(--bg-surface-alt); border: 1px solid var(--border-color);">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input @(Loc.IsRtl ? "me-0 ms-3" : "ms-0 me-3")" type="checkbox" asp-for="IsActive" checked>
+                            <label class="form-check-label fw-bold" asp-for="IsActive">@Loc.Get("EnableEntityScope")</label>
+                        </div>
+                        <div class="form-text mt-1 text-muted small">@Loc.Get("EntityScopeDesc")</div>
+                    </div>
+
+                    <div class="app-form-actions">
+                        <a asp-action="Index" class="btn btn-sm btn-soft-secondary rounded-pill px-4 fw-bold app-form-actions-secondary">
+                            <i class="bi bi-arrow-left @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("Cancel")
+                        </a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm">
+                            <i class="bi bi-check-lg @(Loc.IsRtl ? "ms-2" : "me-2")"></i>@Loc.Get("CommitEntity")
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

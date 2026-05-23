@@ -1,0 +1,54 @@
+/* 
+   AI PERFORMANCE EVALUATION & ASSESSMENT - MODULAR STYLES
+   Focus: Stress-Testing, Grounding Metrics, and Scorecards
+*/
+
+.eval-shell {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.eval-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 1.25rem;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
+}
+
+.eval-stat {
+    border-radius: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border-color);
+    background: rgba(var(--primary-color-rgb), 0.02);
+}
+
+.eval-ticket {
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1rem;
+    background: rgba(var(--primary-color-rgb), 0.01);
+}
+
+.eval-result {
+    border-radius: 1rem;
+    padding: 1rem;
+    background: rgba(var(--primary-color-rgb), 0.04);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.12);
+    color: var(--text-main);
+}
+
+.eval-form select,
+.eval-form textarea {
+    background: var(--bg-main) !important;
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+
+/* Assessment Specific (Lab) */
+.ls-wide { 
+    letter-spacing: 0.5px; 
+}
+
+.bg-soft-success { background-color: rgba(16, 185, 129, 0.1) !important; }
+.bg-soft-danger { background-color: rgba(239, 68, 68, 0.1) !important; }
+.bg-soft-secondary { background-color: rgba(100, 116, 139, 0.1) !important; }

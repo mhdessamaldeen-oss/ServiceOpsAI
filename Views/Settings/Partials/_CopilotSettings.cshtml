@@ -1,0 +1,315 @@
+@{
+    bool IsTrue(object? value) => bool.TryParse(value?.ToString(), out var parsed) && parsed;
+    string ValueOf(string name) => (ViewData[name] ?? ViewBag.GetType().GetProperty(name)?.GetValue(ViewBag) ?? "").ToString() ?? "";
+}
+
+<div class="animate__animated animate__fadeIn">
+    <form asp-action="SaveCopilotSettings" method="post">
+        @Html.AntiForgeryToken()
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="fw-bolder mb-1">Copilot Settings</h5>
+                <p class="text-muted small mb-0">Runtime policy for schema access, local-model cost, retrieval, validation, and answer behavior.</p>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-save me-1"></i>Save Copilot Settings
+            </button>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-xl-6">
+                <section class="app-card p-3 h-100">
+                    <h6 class="fw-bold mb-3">Schema Access</h6>
+
+                    <label class="form-label small fw-semibold">Table exposure mode</label>
+                    <select class="form-select form-select-sm mb-3" name="tableExposureMode">
+                        <option value="AllExceptBlocked" selected="@(ValueOf("CopilotTableExposureMode") == "AllExceptBlocked")">All discovered tables except blocked</option>
+                        <option value="ConfiguredOnly" selected="@(ValueOf("CopilotTableExposureMode") == "ConfiguredOnly")">Only semantic-layer configured tables</option>
+                    </select>
+
+                    <label class="form-label small fw-semibold">Blocked tables</label>
+                    <textarea class="form-control form-control-sm mb-3" name="blockedTables" rows="4" placeholder="__EFMigrationsHistory">@ValueOf("CopilotBlockedTables")</textarea>
+
+                    <label class="form-label small fw-semibold">Blocked table patterns</label>
+                    <textarea class="form-control form-control-sm mb-3" name="blockedTablePatterns" rows="4" placeholder="Audit*&#10;*Secret*&#10;*Token*">@ValueOf("CopilotBlockedTablePatterns")</textarea>
+
+                    <label class="form-label small fw-semibold">Blocked columns</label>
+                    <textarea class="form-control form-control-sm mb-3" name="blockedColumns" rows="5" placeholder="*.PasswordHash&#10;*.ApiKey">@ValueOf("CopilotBlockedColumns")</textarea>
+
+                    <label class="form-label small fw-semibold">Sensitive columns</label>
+                    <textarea class="form-control form-control-sm" name="sensitiveColumns" rows="4" placeholder="*.Email&#10;*.PhoneNumber">@ValueOf("CopilotSensitiveColumns")</textarea>
+                </section>
+            </div>
+
+            <div class="col-xl-6">
+                <section class="app-card p-3 h-100">
+                    <h6 class="fw-bold mb-3">Local Model Budget</h6>
+
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Max LLM calls per question</label>
+                            <input class="form-control form-control-sm" type="number" min="0" max="20" name="maxLlmCallsPerQuestion" value="@ValueOf("CopilotMaxLlmCallsPerQuestion")" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Self-correction retries</label>
+                            <input class="form-control form-control-sm" type="number" min="0" max="5" name="maxSelfCorrectionRetries" value="@ValueOf("CopilotMaxSelfCorrectionRetries")" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">LLM call timeout seconds</label>
+                            <input class="form-control form-control-sm" type="number" min="5" max="600" name="llmCallTimeoutSeconds" value="@ValueOf("CopilotLlmCallTimeoutSeconds")" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">Question wall-clock seconds</label>
+                            <input class="form-control form-control-sm" type="number" min="0" max="600" name="maxQuestionWallClockSeconds" value="@ValueOf("CopilotMaxQuestionWallClockSeconds")" />
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mt-3">
+                        <input type="hidden" name="useLlmExplainer" value="false" />
+                        <input class="form-check-input" type="checkbox" name="useLlmExplainer" value="true" checked="@IsTrue(ViewBag.CopilotUseLlmExplainer)" />
+                        <label class="form-check-label small">Use LLM explainer for larger result sets</label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input type="hidden" name="usePastQuestionRag" value="false" />
+                        <input class="form-check-input" type="checkbox" name="usePastQuestionRag" value="true" checked="@IsTrue(ViewBag.CopilotUsePastQuestionRag)" />
+                        <label class="form-check-label small">Use past-question RAG examples</label>
+                    </div>
+                </section>
+            </div>
+
+            <div class="col-xl-6">
+                <section class="app-card p-3 h-100">
+                    <h6 class="fw-bold mb-3">Retrieval And Prompt Size</h6>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Retriever top K</label>
+                            <input class="form-control form-control-sm" type="number" min="1" max="50" name="retrieverTopK" value="@ValueOf("CopilotRetrieverTopK")" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Few-shot top K</label>
+                            <input class="form-control form-control-sm" type="number" min="0" max="20" name="fewShotTopK" value="@ValueOf("CopilotFewShotTopK")" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Schema prompt</label>
+                            <select class="form-select form-select-sm" name="schemaPromptStrategy">
+                                <option value="Minimal" selected="@(ValueOf("CopilotSchemaPromptStrategy") == "Minimal")">Minimal</option>
+                                <option value="Full" selected="@(ValueOf("CopilotSchemaPromptStrategy") == "Full")">Full</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mt-3">
+                        <input type="hidden" name="useVectorRetriever" value="false" />
+                        <input class="form-check-input" type="checkbox" name="useVectorRetriever" value="true" checked="@IsTrue(ViewBag.CopilotUseVectorRetriever)" />
+                        <label class="form-check-label small">Use embedding-based vector retriever</label>
+                    </div>
+                </section>
+            </div>
+
+            <div class="col-xl-6">
+                <section class="app-card p-3 h-100">
+                    <h6 class="fw-bold mb-3">Execution And Validation</h6>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Max rows</label>
+                            <input class="form-control form-control-sm" type="number" min="1" max="100000" name="maxRows" value="@ValueOf("CopilotMaxRows")" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">SQL timeout seconds</label>
+                            <input class="form-control form-control-sm" type="number" min="1" max="600" name="commandTimeoutSeconds" value="@ValueOf("CopilotCommandTimeoutSeconds")" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Cache TTL seconds</label>
+                            <input class="form-control form-control-sm" type="number" min="0" max="86400" name="resultCacheTtlSeconds" value="@ValueOf("CopilotResultCacheTtlSeconds")" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Max estimated cost</label>
+                            <input class="form-control form-control-sm" type="number" min="0.01" step="0.01" name="maxEstimatedQueryCost" value="@ValueOf("CopilotMaxEstimatedQueryCost")" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Ambiguity threshold</label>
+                            <input class="form-control form-control-sm" type="number" min="0" max="1" step="0.01" name="ambiguityClarificationThreshold" value="@ValueOf("CopilotAmbiguityClarificationThreshold")" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Resolver min confidence</label>
+                            <input class="form-control form-control-sm" type="number" min="0" max="1" step="0.01" name="resolverMinConfidence" value="@ValueOf("CopilotResolverMinConfidence")" />
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input type="hidden" name="enableSchemaIntrospection" value="false" />
+                                <input class="form-check-input" type="checkbox" name="enableSchemaIntrospection" value="true" checked="@IsTrue(ViewBag.CopilotEnableSchemaIntrospection)" />
+                                <label class="form-check-label small">Enable metadata questions</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input type="hidden" name="restrictMetadataToConfiguredEntities" value="false" />
+                                <input class="form-check-input" type="checkbox" name="restrictMetadataToConfiguredEntities" value="true" checked="@IsTrue(ViewBag.CopilotRestrictMetadataToConfiguredEntities)" />
+                                <label class="form-check-label small">Restrict metadata to configured entities</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input type="hidden" name="enableResultCache" value="false" />
+                                <input class="form-check-input" type="checkbox" name="enableResultCache" value="true" checked="@IsTrue(ViewBag.CopilotEnableResultCache)" />
+                                <label class="form-check-label small">Enable result cache</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input type="hidden" name="enableCostGate" value="false" />
+                                <input class="form-check-input" type="checkbox" name="enableCostGate" value="true" checked="@IsTrue(ViewBag.CopilotEnableCostGate)" />
+                                <label class="form-check-label small">Enable SQL cost gate</label>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </form>
+
+    <section class="app-card p-3 mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h6 class="fw-bold mb-1">Schema Knowledge</h6>
+                <p class="text-muted small mb-0">
+                    Auto-extracted facts (soft-delete columns, PII, label columns, bridge / lookup / person tables, date roles)
+                    derived from your live database schema. Generated on demand — not at startup. Safe to delete and regenerate
+                    after schema changes.
+                </p>
+            </div>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Schema inference actions">
+                <button type="button" id="schemaGenerateBtn" class="btn btn-primary">
+                    <i class="bi bi-arrow-clockwise me-1"></i><span id="schemaGenerateBtnText">Generate</span>
+                </button>
+                <button type="button" id="schemaPreviewBtn" class="btn btn-outline-secondary">
+                    <i class="bi bi-eye me-1"></i>Preview
+                </button>
+                <button type="button" id="schemaDeleteBtn" class="btn btn-outline-danger">
+                    <i class="bi bi-trash me-1"></i>Delete
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-3 small">
+            <div class="col-md-3">
+                <div class="text-muted">Status</div>
+                <div id="schemaStatus" class="fw-semibold">—</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted">Last generated</div>
+                <div id="schemaLastGen" class="fw-semibold">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="text-muted">Tables</div>
+                <div id="schemaTableCount" class="fw-semibold">—</div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted">File</div>
+                <div id="schemaFilePath" class="fw-semibold text-truncate" title="">—</div>
+            </div>
+        </div>
+
+        <div id="schemaProgressWrap" class="mt-3" style="display:none;">
+            <div class="d-flex justify-content-between align-items-center mb-1 small">
+                <span id="schemaProgressText" class="text-muted">Processing…</span>
+                <span id="schemaProgressPct" class="text-muted">0%</span>
+            </div>
+            <div class="progress" style="height:6px;">
+                <div id="schemaProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                     role="progressbar" style="width:0%"></div>
+            </div>
+        </div>
+
+        <div id="schemaError" class="alert alert-danger mt-3 small mb-0 py-2" style="display:none;"></div>
+    </section>
+</div>
+
+<script>
+    (function () {
+        const api = '/api/super-admin-copilot/schema-inference';
+        let pollTimer = null;
+
+        function fmt(dt) {
+            if (!dt) return '—';
+            try { return new Date(dt).toLocaleString(); } catch { return dt; }
+        }
+        function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '—'; }
+        function pick(s, lower, upper) { return s[lower] !== undefined ? s[lower] : s[upper]; }
+
+        async function refresh() {
+            try {
+                const r = await fetch(api + '/status', { headers: { 'Accept': 'application/json' } });
+                if (!r.ok) return;
+                renderState(await r.json());
+            } catch (e) { /* silent — next poll will retry */ }
+        }
+
+        function renderState(s) {
+            const status = (pick(s, 'status', 'Status') || 'Idle').toString();
+            const fileExists = pick(s, 'fileExists', 'FileExists') === true;
+            const lastGen = pick(s, 'fileLastGeneratedAt', 'FileLastGeneratedAt');
+            const tableCount = pick(s, 'fileTableCount', 'FileTableCount');
+            const filePath = pick(s, 'filePath', 'FilePath');
+            const tablesTotal = pick(s, 'tablesTotal', 'TablesTotal') || 0;
+            const tablesDone = pick(s, 'tablesDone', 'TablesDone') || 0;
+            const currentTable = pick(s, 'currentTable', 'CurrentTable');
+            const percent = pick(s, 'percentComplete', 'PercentComplete') || 0;
+            const error = pick(s, 'error', 'Error');
+            const isRunning = status.toLowerCase() === 'running';
+
+            document.getElementById('schemaStatus').textContent = capitalize(status);
+            document.getElementById('schemaLastGen').textContent = fileExists ? fmt(lastGen) : 'Not generated';
+            document.getElementById('schemaTableCount').textContent = fileExists ? (tableCount ?? '—') : '—';
+            const fileEl = document.getElementById('schemaFilePath');
+            fileEl.textContent = filePath || '—';
+            fileEl.title = filePath || '';
+
+            const wrap = document.getElementById('schemaProgressWrap');
+            wrap.style.display = isRunning ? 'block' : 'none';
+            if (isRunning) {
+                document.getElementById('schemaProgressText').textContent =
+                    currentTable
+                        ? 'Processing ' + currentTable + ' (' + tablesDone + '/' + tablesTotal + ')'
+                        : (tablesDone + '/' + tablesTotal + ' tables');
+                document.getElementById('schemaProgressPct').textContent = percent + '%';
+                document.getElementById('schemaProgressBar').style.width = percent + '%';
+            }
+
+            const errEl = document.getElementById('schemaError');
+            if (error) { errEl.textContent = error; errEl.style.display = 'block'; }
+            else { errEl.style.display = 'none'; }
+
+            document.getElementById('schemaGenerateBtn').disabled = isRunning;
+            document.getElementById('schemaDeleteBtn').disabled = isRunning || !fileExists;
+            document.getElementById('schemaPreviewBtn').disabled = isRunning || !fileExists;
+            document.getElementById('schemaGenerateBtnText').textContent = fileExists ? 'Regenerate' : 'Generate';
+
+            if (isRunning && !pollTimer) {
+                pollTimer = setInterval(refresh, 500);
+            } else if (!isRunning && pollTimer) {
+                clearInterval(pollTimer); pollTimer = null;
+            }
+        }
+
+        document.getElementById('schemaGenerateBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('schemaGenerateBtn');
+            btn.disabled = true;
+            try { await fetch(api + '/generate', { method: 'POST' }); }
+            catch (e) { /* status poll will surface failure */ }
+            refresh();
+        });
+
+        document.getElementById('schemaDeleteBtn').addEventListener('click', async () => {
+            if (!confirm('Delete schema-inferred.json? You can regenerate it any time.')) return;
+            try { await fetch(api, { method: 'DELETE' }); }
+            catch (e) { }
+            refresh();
+        });
+
+        document.getElementById('schemaPreviewBtn').addEventListener('click', () => {
+            window.open(api + '/preview', '_blank');
+        });
+
+        refresh();
+    })();
+</script>

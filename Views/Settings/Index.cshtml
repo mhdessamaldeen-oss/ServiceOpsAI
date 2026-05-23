@@ -1,0 +1,1402 @@
+@model List<AISupportAnalysisPlatform.Models.CustomTheme>
+@{
+    ViewData["Title"] = Loc.Get("Settings");
+    var activeTab = ViewBag.ActiveTab as string ?? "ai";
+    var settingsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("PlatformSettings"),
+        Subtitle = Loc.Get("PlatformSettingsDescription"),
+        IconClass = "bi bi-gear-wide-connected"
+    };
+}
+
+<partial name="_PageHeader" model="settingsHeader" />
+
+<div class="settings-hub-container animate__animated animate__fadeIn">
+    <div class="row g-0 overflow-hidden shadow-lg border-0" style="border-radius: 16px; min-height: auto; background: var(--bg-main);">
+        <!-- ═══════════════ SIDEBAR NAVIGATION ═══════════════ -->
+        <div class="col-md-3 col-lg-2 d-flex flex-column p-0" style="background: var(--bg-card); border-inline-end: 1px solid var(--border-color);">
+            <div class="p-3" style="border-bottom: 1px solid var(--border-color);">
+                <h6 class="fw-bolder text-uppercase small ls-2 mb-0" style="font-size: 0.7rem; color: var(--primary-color);">@Loc.Get("PlatformSettings")</h6>
+            </div>
+
+            <ul class="app-tabs app-tabs-vertical" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(activeTab == "ai" ? "active" : "")"
+                            data-bs-toggle="pill" data-bs-target="#tab-ai" type="button" role="tab">
+                        <i class="bi bi-cpu-fill"></i>@Loc.Get("AiInfrastructure")
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(activeTab == "chatbot" ? "active" : "")"
+                            data-bs-toggle="pill" data-bs-target="#tab-chatbot" type="button" role="tab">
+                        <i class="bi bi-robot"></i>@Loc.Get("CopilotTools")
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(activeTab == "copilot" ? "active" : "")"
+                            data-bs-toggle="pill" data-bs-target="#tab-copilot" type="button" role="tab">
+                        <i class="bi bi-sliders2-vertical"></i>Copilot Settings
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(activeTab == "data" ? "active" : "")"
+                            data-bs-toggle="pill" data-bs-target="#tab-data" type="button" role="tab">
+                        <i class="bi bi-database-fill-gear"></i>@Loc.Get("DataAndMigrations")
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(activeTab == "themes" ? "active" : "")"
+                            data-bs-toggle="pill" data-bs-target="#tab-themes" type="button" role="tab">
+                        <i class="bi bi-palette-fill"></i>@Loc.Get("ThemeStudio")
+                    </button>
+                </li>
+            </ul>
+
+            <div class="mt-auto p-4 border-top">
+                <div class="d-flex align-items-center gap-2 text-muted small">
+                    <i class="bi bi-shield-check text-success"></i>
+                    <span>@Loc.Get("SystemIntegrityOptimal")</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ MAIN CONTENT AREA ═══════════════ -->
+        <div class="col-md-9 col-lg-10 p-3 p-xl-4">
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success border-0 shadow-sm alert-dismissible fade show mb-4 rounded-4" role="alert">
+                    <i class="bi bi-check-circle-fill me-2"></i> @TempData["Success"]
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger border-0 shadow-sm alert-dismissible fade show mb-4 rounded-4" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i> @TempData["Error"]
+                    <button type="button" class="btn-close shadow-none" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
+            <div class="tab-content" id="v-pills-tabContent">
+                <div class="tab-pane fade @(activeTab == "ai" ? "show active" : "")" id="tab-ai" role="tabpanel">
+                    <partial name="Partials/_AiProviderSettings" />
+                </div>
+                <div class="tab-pane fade @(activeTab == "chatbot" ? "show active" : "")" id="tab-chatbot" role="tabpanel">
+                    <partial name="Partials/_CopilotToolSettings" />
+                </div>
+                <div class="tab-pane fade @(activeTab == "copilot" ? "show active" : "")" id="tab-copilot" role="tabpanel">
+                    <partial name="Partials/_CopilotSettings" />
+                </div>
+                <div class="tab-pane fade @(activeTab == "data" ? "show active" : "")" id="tab-data" role="tabpanel">
+                    <partial name="Partials/_DataSettings" />
+                </div>
+                <div class="tab-pane fade @(activeTab == "themes" ? "show active" : "")" id="tab-themes" role="tabpanel">
+                    <partial name="Partials/_IdentitySettings" model="Model" />
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .ls-2 { letter-spacing: 2px; }
+    /* Sidebar uses .app-tabs.app-tabs-vertical from site.css; provider row
+       below uses plain .app-tabs — same styling rules as Investigation. */
+    .settings-hub-container .app-tabs-vertical { width: 100%; padding: 6px; }
+    .btn-xs { padding: 0.15rem 0.5rem; font-size: 0.7rem; }
+
+    /* AI Config Styling */
+    .provider-selector-btn {
+        border: 1px solid var(--border-color) !important;
+        border-radius: 14px !important;
+        min-width: 160px;
+        transition: all 0.2s ease;
+        text-align: start;
+        padding: 12px 20px;
+    }
+    .provider-selector-btn.active {
+        background: var(--primary-color) !important;
+        color: var(--primary-contrast-text) !important;
+        border-color: var(--primary-color) !important;
+    }
+
+    .form-control, .form-select {
+        border-radius: 12px !important;
+        border: 1px solid var(--border-color) !important;
+        padding: 10px 16px;
+    }
+    .form-control:focus {
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 0 0 4px rgba(var(--primary-color-rgb), 0.1) !important;
+    }
+
+    .theme-card { cursor: pointer; transition: all 0.3s ease; }
+    .theme-card.active-theme { border: 2px solid var(--primary-color) !important; transform: scale(1.02); }
+
+    /* Workload-routing cascade: mark a slot as awaiting model selection after the
+       user changes the provider but hasn't picked a model yet. The form does NOT
+       save until a model selection commits the change. */
+    .routing-slot-pending {
+        outline: 2px solid var(--warning-color);
+        outline-offset: 2px;
+        background: rgba(var(--warning-color-rgb), 0.04) !important;
+    }
+    .workload-model-needs-selection {
+        border-color: var(--warning-color) !important;
+        box-shadow: 0 0 0 3px rgba(var(--warning-color-rgb), 0.18) !important;
+        animation: cascade-pulse 1.6s ease-in-out infinite;
+    }
+    @@keyframes cascade-pulse {
+        0%, 100% { box-shadow: 0 0 0 3px rgba(var(--warning-color-rgb), 0.18); }
+        50%      { box-shadow: 0 0 0 5px rgba(var(--warning-color-rgb), 0.28); }
+    }
+</style>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if we are on AI tab before loading models
+            if (document.getElementById('tab-ai').classList.contains('active')) {
+                onAiTabActivated();
+            }
+
+            // Re-load when tab changes
+            document.querySelectorAll('#v-pills-tab .nav-link').forEach(link => {
+                link.addEventListener('shown.bs.tab', function (e) {
+                    if (e.target.dataset.bsTarget === '#tab-ai') {
+                        onAiTabActivated();
+                    }
+                });
+            });
+        });
+
+        function onAiTabActivated() {
+            // Inventory cards (live discovery — info-only display, no Add/Remove).
+            // For Ollama and Docker the list of available models IS the source of
+            // truth for the workload routing dropdowns; we don't curate a separate
+            // allowed list for them. Cloud providers (OpenAI/Gemini/Groq/Cloud) keep
+            // a curated allowed-models list (their /models endpoints return hundreds
+            // of options that the user has to narrow down by tagging).
+            loadProviderModels('DockerLocal', 'models-container');
+            loadProviderModels('Ollama', 'ollama-models-container-p');
+            // Allowed-models sections are only rendered for cloud providers now.
+            ['OpenAI','Gemini','Groq','Cloud'].forEach(loadAllowedModelsList);
+            // Populate the Quick Test model picker for every provider tab.
+            ['DockerLocal','Ollama','OpenAI','Gemini','Groq','Cloud'].forEach(populateQuickTestModelSelect);
+        }
+
+        // Lightweight toast — used to be undefined, which silently broke
+        // the "Activate" flow on Ollama/Docker model cards (the success
+        // handler threw a ReferenceError, so the spinner never cleared).
+        function showToast(title, message) {
+            const stack = (() => {
+                let el = document.getElementById('settings-toast-stack');
+                if (el) return el;
+                el = document.createElement('div');
+                el.id = 'settings-toast-stack';
+                el.style.cssText = 'position:fixed;top:1rem;right:1rem;z-index:1080;display:flex;flex-direction:column;gap:.5rem;max-width:380px;';
+                document.body.appendChild(el);
+                return el;
+            })();
+            const isError = /error|fail/i.test(title || '');
+            const card = document.createElement('div');
+            card.className = `app-card shadow-sm small px-3 py-2 ${isError ? 'border-danger' : 'border-success'}`;
+            card.style.cssText = 'border-left:4px solid var(--' + (isError ? 'danger-color' : 'success-color') + ');background:var(--bg-card);';
+            card.innerHTML = `<div class="fw-bold mb-1">${escapeHtmlSafe(title)}</div><div class="text-muted">${escapeHtmlSafe(message)}</div>`;
+            stack.appendChild(card);
+            setTimeout(() => { card.style.opacity = '0'; card.style.transition = 'opacity .25s'; }, 4000);
+            setTimeout(() => card.remove(), 4400);
+        }
+
+        // ... [Rest of your existing JS logic exactly as before] ...
+        function openToolEditor(obj) {
+            const form = document.getElementById('toolEditorForm');
+            const titleEl = document.getElementById('tool-editor-title');
+            if (obj === 'new') {
+                titleEl.innerText = 'Tool Architect';
+                form.reset();
+                document.getElementById('tool-id').value = '0';
+                document.getElementById('tool-enabled').value = 'true';
+                toggleUrlField('External');
+            } else {
+                titleEl.innerText = 'Refine Capability';
+                const btn = obj;
+                document.getElementById('tool-id').value = btn.getAttribute('data-tool-id');
+                document.getElementById('tool-title').value = btn.getAttribute('data-tool-title');
+                document.getElementById('tool-desc').value = btn.getAttribute('data-tool-desc');
+                document.getElementById('tool-key').value = btn.getAttribute('data-tool-key');
+                document.getElementById('tool-mode').value = btn.getAttribute('data-tool-mode');
+                document.getElementById('tool-type').value = btn.getAttribute('data-tool-type');
+                document.getElementById('tool-url').value = btn.getAttribute('data-tool-url');
+                document.getElementById('tool-enabled').value = btn.getAttribute('data-tool-enabled');
+                toggleUrlField(btn.getAttribute('data-tool-type'));
+            }
+        }
+
+        function toggleUrlField(type) {
+            const container = document.getElementById('url-field-container');
+            if (type === 'Internal') container?.classList.add('d-none');
+            else container?.classList.remove('d-none');
+        }
+
+        function openArchitect(element) {
+            const title = document.getElementById('studio-title');
+            if (element === 'new') {
+                title.innerText = 'Establish New Architecture';
+                document.getElementById('architectForm').reset();
+                document.getElementById('theme-id').value = 0;
+            } else {
+                const theme = element.dataset;
+                title.innerText = `Refine: ${theme.themeName}`;
+                document.getElementById('theme-id').value = theme.themeId;
+                document.getElementById('theme-name').value = theme.themeName;
+                document.getElementById('theme-primary').value = theme.themePrimary;
+                document.getElementById('theme-bgmain').value = theme.themeBgmain;
+                document.getElementById('theme-bgcard').value = theme.themeBgcard;
+                document.getElementById('theme-bgsidebar').value = theme.themeBgsidebar;
+                document.getElementById('theme-bgheader').value = theme.themeBgheader;
+                document.getElementById('theme-textmain').value = theme.themeTextmain;
+                document.getElementById('theme-textmuted').value = theme.themeTextmuted;
+                document.getElementById('theme-border').value = theme.themeBorder;
+                document.getElementById('theme-issystem').value = theme.themeIssystem;
+                document.getElementById('theme-sysid').value = theme.themeSysid || '';
+                // Extended tokens (each has a sensible default if a custom theme leaves them blank)
+                document.getElementById('theme-primarycontrast').value = theme.themePrimarycontrast || '#ffffff';
+                document.getElementById('theme-bgsurfacealt').value    = theme.themeBgsurfacealt    || theme.themeBgcard;
+                document.getElementById('theme-bgelevated').value      = theme.themeBgelevated      || theme.themeBgcard;
+                document.getElementById('theme-success').value         = theme.themeSuccess         || '#16a34a';
+                document.getElementById('theme-warning').value         = theme.themeWarning         || '#d97706';
+                document.getElementById('theme-danger').value          = theme.themeDanger          || '#dc2626';
+                document.getElementById('theme-info').value            = theme.themeInfo            || '#2563eb';
+                document.getElementById('theme-shadow').value          = theme.themeShadow          || 'rgba(15, 23, 42, 0.08)';
+            }
+        }
+
+        function validateProvider(type, btn) {
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Testing...';
+            btn.disabled = true;
+            fetch(`/Settings/ValidateProvider?providerType=${type}`)
+                .then(r => r.json())
+                .then(data => {
+                    // Show the actual message (success OR failure) — previously only an icon was shown
+                    // which hid the real error from the user (e.g. "Gemini HTTP 429: quota exceeded").
+                    const msg = data.message || data.error || (data.success ? 'OK' : 'Failed');
+                    showProviderTestResult(btn, type, data.success, msg);
+                    btn.innerHTML = data.success
+                        ? '<i class="bi bi-check-circle text-success"></i>'
+                        : '<i class="bi bi-x-circle text-danger"></i>';
+                    setTimeout(() => { btn.innerHTML = originalHtml; btn.disabled = false; }, 5000);
+                })
+                .catch(err => {
+                    showProviderTestResult(btn, type, false, 'Network error: ' + err.message);
+                    btn.innerHTML = '<i class="bi bi-x-circle text-danger"></i>';
+                    setTimeout(() => { btn.innerHTML = originalHtml; btn.disabled = false; }, 5000);
+                });
+        }
+
+        function showProviderTestResult(btn, providerType, success, message) {
+            // Render an inline alert directly under the test button so the user can read the error
+            // text without checking the console. Re-uses Bootstrap alert classes; one alert per panel.
+            const panel = btn.closest('.tab-pane') || btn.parentElement;
+            if (!panel) { alert(`${providerType}: ${message}`); return; }
+            let alertEl = panel.querySelector('.provider-test-result');
+            if (!alertEl) {
+                alertEl = document.createElement('div');
+                alertEl.className = 'provider-test-result alert alert-dismissible mt-3 small';
+                alertEl.style.wordBreak = 'break-word';
+                btn.insertAdjacentElement('afterend', alertEl);
+            }
+            alertEl.classList.remove('alert-success', 'alert-danger');
+            alertEl.classList.add(success ? 'alert-success' : 'alert-danger');
+            alertEl.innerHTML = `<strong>${providerType} test ${success ? 'passed' : 'failed'}:</strong> ${escapeHtmlSafe(message)}` +
+                `<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+        }
+
+        function escapeHtmlSafe(v) {
+            return String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+        }
+
+        // Heuristic: name-based detection of embedding-only models (which Ollama
+        // and others reject from chat endpoints with "does not support chat").
+        // The chat workload dropdowns (Analysis / RAG generation / Copilot / Classifier)
+        // need a chat-capable model — embeddings have their own slot in the Ollama tab.
+        // Covers BGE, E5, GTE, MiniLM, nomic-embed, mxbai-embed, snowflake-arctic-embed,
+        // granite-embedding, and any name containing "embed".
+        function isLikelyEmbeddingModel(name) {
+            if (!name) return false;
+            const n = String(name).toLowerCase();
+            if (n.includes('embed')) return true;
+            if (/^(bge|e5|gte)[-:]/i.test(n)) return true;
+            if (n.startsWith('all-minilm')) return true;
+            return false;
+        }
+
+        // ─── Gemini Key Pool UI ───────────────────────────────────────────────
+        // Drives the multi-key panel inside the Gemini tab. All work is done via the SettingsController
+        // endpoints (List/Add/Remove/SetActive/Reset/Rename); this script only renders + posts.
+
+        function statusBadge(s) {
+            const map = {
+                ok:           { cls: 'bg-soft-success text-success',   icon: 'bi-check-circle-fill', text: 'Ready' },
+                rate_limited: { cls: 'bg-soft-warning text-warning',   icon: 'bi-clock-history',     text: 'Rate-limited' },
+                exhausted:    { cls: 'bg-soft-danger text-danger',     icon: 'bi-battery',           text: 'Quota exhausted' },
+                disabled:     { cls: 'bg-soft-secondary text-secondary', icon: 'bi-pause-circle',    text: 'Disabled' },
+                dead:         { cls: 'bg-soft-danger text-danger',     icon: 'bi-x-circle-fill',     text: 'Auto-disabled (dead)' }
+            };
+            const m = map[s] || map['ok'];
+            return `<span class="badge ${m.cls} rounded-pill"><i class="bi ${m.icon} me-1"></i>${m.text}</span>`;
+        }
+
+        function relativeTime(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (sec < 60) return `${sec}s ago`;
+            if (sec < 3600) return `${Math.floor(sec/60)}m ago`;
+            if (sec < 86400) return `${Math.floor(sec/3600)}h ago`;
+            return d.toLocaleDateString();
+        }
+
+        async function loadGeminiPool() {
+            const tbody = document.getElementById('gemini-pool-tbody');
+            const summary = document.getElementById('gemini-pool-summary');
+            if (!tbody) return;
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>`;
+            if (summary) summary.innerHTML = '';
+            try {
+                const res = await fetch('/Settings/ListGeminiKeys');
+                const d = await res.json();
+                const data = d.data || d.Data;
+                const keys = (data && (data.keys || data.Keys)) || [];
+
+                if (keys.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-3 small">
+                        No keys yet — add your first one above. The legacy single key in the form above is also still used as a fallback.
+                    </td></tr>`;
+                    if (summary) summary.innerHTML = '';
+                    return;
+                }
+
+                // ── Normalize each key, then sort by rotation priority ─────────────────
+                // Status priority (lower = picked first / shown first):
+                //   ok < rate_limited < exhausted < disabled < dead
+                // Within `ok` group, lowest DailyRequestCount = next-pick (matches the pool's selection rule).
+                const statusOrder = { ok: 0, rate_limited: 1, exhausted: 2, disabled: 3, dead: 4 };
+                const normalized = keys.map(k => ({
+                    id: k.id ?? k.Id,
+                    label: k.label || k.Label || '',
+                    owner: k.ownerEmail || k.OwnerEmail || '',
+                    sharesQuota: !!(k.sharesQuotaWithSibling ?? k.SharesQuotaWithSibling),
+                    masked: k.maskedKey || k.MaskedKey || '—',
+                    status: (k.status || k.Status || 'ok'),
+                    used: k.dailyRequestCount ?? k.DailyRequestCount ?? 0,
+                    remaining: k.estimatedRemainingToday ?? k.EstimatedRemainingToday ?? 0,
+                    isActive: !!(k.isActive ?? k.IsActive),
+                    lastUsed: k.lastUsedAtUtc || k.LastUsedAtUtc,
+                    lastErr: k.lastErrorMessage || k.LastErrorMessage,
+                    rateLimitedUntil: k.rateLimitedUntilUtc || k.RateLimitedUntilUtc,
+                    consecutiveFailures: k.consecutiveFailures ?? k.ConsecutiveFailures ?? 0
+                }));
+                normalized.sort((a, b) => {
+                    const sa = statusOrder[a.status] ?? 9;
+                    const sb = statusOrder[b.status] ?? 9;
+                    if (sa !== sb) return sa - sb;
+                    if (a.status === 'ok') return a.used - b.used;          // lowest-count first within ok
+                    return (b.used || 0) - (a.used || 0);                    // higher-count first within parked tiers
+                });
+
+                // ── Pool health summary ────────────────────────────────────────────────
+                const okList = normalized.filter(k => k.status === 'ok');
+                const coolList = normalized.filter(k => k.status === 'rate_limited');
+                const exhList = normalized.filter(k => k.status === 'exhausted');
+                const disabledList = normalized.filter(k => k.status === 'disabled');
+                const deadList = normalized.filter(k => k.status === 'dead');
+
+                const totalUsed = normalized.reduce((s, k) => s + (k.used || 0), 0);
+                const totalCapacity = normalized.length * 240;  // 240 = our daily safety ceiling per key
+                const totalRemaining = totalCapacity - totalUsed;
+                const usagePct = totalCapacity > 0 ? Math.min(100, Math.round(100 * totalUsed / totalCapacity)) : 0;
+
+                // "Next pick" = first ok key after sort (lowest count among ready)
+                const nextPick = okList.length > 0 ? okList[0] : null;
+                // "Last used" = most recently used key across all (regardless of status)
+                const lastUsedKey = normalized
+                    .filter(k => k.lastUsed)
+                    .sort((a, b) => new Date(b.lastUsed) - new Date(a.lastUsed))[0] || null;
+
+                // Estimated future capacity: how many benchmark cases (assume ~5 LLM calls/case)
+                // can the pool still handle today before all keys hit their ceiling
+                const callsLeft = totalRemaining;
+                const benchmarkCasesLeft = Math.max(0, Math.floor(callsLeft / 5));
+
+                // Dot row visualization: one dot per key, colored by status
+                const dotColor = s => ({ ok: 'text-success', rate_limited: 'text-warning', exhausted: 'text-danger', disabled: 'text-secondary', dead: 'text-dark' })[s] || 'text-muted';
+                const dots = normalized.map(k => `<i class="bi bi-circle-fill ${dotColor(k.status)} me-1" title="${escapeHtmlSafe(k.label)} — ${escapeHtmlSafe(k.status)}"></i>`).join('');
+
+                // Build the summary card
+                const healthBarColor = usagePct > 85 ? 'bg-danger' : (usagePct > 60 ? 'bg-warning' : 'bg-success');
+                let recommendation;
+                if (okList.length === 0) {
+                    recommendation = `<div class="text-danger small mt-2"><i class="bi bi-exclamation-octagon me-1"></i><strong>Pool exhausted</strong> — no keys available for the next call. The system will fall back to the legacy single key (if set) or error out.</div>`;
+                } else if (benchmarkCasesLeft < 81) {
+                    recommendation = `<div class="text-warning small mt-2"><i class="bi bi-exclamation-triangle me-1"></i><strong>Tight capacity</strong> — only ~${benchmarkCasesLeft} more benchmark cases possible today (a single 81-case run needs ${81 * 5} calls). Consider adding ${Math.ceil((81 * 5 - callsLeft) / 240)} more keys, or wait until midnight Pacific reset.</div>`;
+                } else {
+                    const iterations = Math.floor(benchmarkCasesLeft / 81);
+                    recommendation = `<div class="text-success small mt-2"><i class="bi bi-check-circle me-1"></i><strong>Healthy capacity</strong> — ~${iterations} more 81-case benchmark iterations possible today (≈${benchmarkCasesLeft} cases).</div>`;
+                }
+
+                summary.innerHTML = `
+                    <div class="card border-0 shadow-sm rounded-3 bg-light">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <h6 class="fw-bold mb-0 me-3"><i class="bi bi-heart-pulse me-1 text-danger"></i>Pool Health</h6>
+                                <div class="ms-auto small text-muted">${dots} <span class="ms-2">${okList.length} ready · ${coolList.length + exhList.length} parked · ${disabledList.length + deadList.length} out</span></div>
+                            </div>
+
+                            <div class="row g-3 small">
+                                <div class="col-md-4">
+                                    <div class="text-muted text-uppercase ls-1" style="font-size: 10px;">Currently in rotation</div>
+                                    ${nextPick ? `
+                                        <div class="fw-bold mt-1"><i class="bi bi-bullseye text-primary me-1"></i>${escapeHtmlSafe(nextPick.label)} <span class="badge bg-primary-subtle text-primary ms-1">next pick</span></div>
+                                        <div class="small text-muted">used ${nextPick.used}/240 today · ${nextPick.remaining} remaining</div>
+                                    ` : `<div class="text-danger fw-bold mt-1"><i class="bi bi-x-circle me-1"></i>None — pool empty</div>`}
+                                    ${lastUsedKey && (!nextPick || lastUsedKey.id !== nextPick.id) ? `
+                                        <div class="small text-muted mt-1"><i class="bi bi-clock-history me-1"></i>Last call used <strong>${escapeHtmlSafe(lastUsedKey.label)}</strong> (${relativeTime(lastUsedKey.lastUsed)})</div>
+                                    ` : (lastUsedKey ? `<div class="small text-muted mt-1"><i class="bi bi-clock-history me-1"></i>Last call: ${relativeTime(lastUsedKey.lastUsed)}</div>` : '')}
+                                </div>
+
+                                <div class="col-md-4">
+                                    <div class="text-muted text-uppercase ls-1" style="font-size: 10px;">Today's usage</div>
+                                    <div class="fw-bold mt-1">${totalUsed} / ${totalCapacity} calls</div>
+                                    <div class="progress mt-1" style="height: 6px;">
+                                        <div class="progress-bar ${healthBarColor}" style="width: ${usagePct}%;"></div>
+                                    </div>
+                                    <div class="small text-muted mt-1">${usagePct}% of pool capacity</div>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <div class="text-muted text-uppercase ls-1" style="font-size: 10px;">Status breakdown</div>
+                                    <div class="mt-1 small">
+                                        ${okList.length > 0 ? `<div><i class="bi bi-circle-fill text-success me-1"></i><strong>${okList.length} ready</strong>: ${okList.map(k => escapeHtmlSafe(k.label)).join(', ')}</div>` : ''}
+                                        ${coolList.length > 0 ? `<div><i class="bi bi-circle-fill text-warning me-1"></i><strong>${coolList.length} cooling</strong>: ${coolList.map(k => escapeHtmlSafe(k.label) + ' (RPM, ~60s)').join(', ')}</div>` : ''}
+                                        ${exhList.length > 0 ? `<div><i class="bi bi-circle-fill text-danger me-1"></i><strong>${exhList.length} done for today</strong>: ${exhList.map(k => escapeHtmlSafe(k.label) + ' (resets at midnight Pacific)').join(', ')}</div>` : ''}
+                                        ${disabledList.length > 0 ? `<div><i class="bi bi-circle-fill text-secondary me-1"></i><strong>${disabledList.length} paused</strong>: ${disabledList.map(k => escapeHtmlSafe(k.label)).join(', ')}</div>` : ''}
+                                        ${deadList.length > 0 ? `<div><i class="bi bi-circle-fill text-dark me-1"></i><strong>${deadList.length} dead</strong>: ${deadList.map(k => escapeHtmlSafe(k.label) + ' (needs investigation)').join(', ')}</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+
+                            ${recommendation}
+                        </div>
+                    </div>`;
+
+                // ── Render rows (already sorted by priority) ──────────────────────────
+                tbody.innerHTML = normalized.map((k, idx) => {
+                    const usagePercent = Math.min(100, Math.round((k.used / 240) * 100));
+                    const usageBarColor = usagePercent > 85 ? 'bg-danger' : (usagePercent > 60 ? 'bg-warning' : 'bg-success');
+                    const isNextPick = nextPick && k.id === nextPick.id;
+                    const rowClass = isNextPick ? 'table-primary' : '';
+                    const nextPickBadge = isNextPick ? ' <span class="badge bg-primary text-white ms-1" title="Next request will use this key (lowest count among ready)">next</span>' : '';
+
+                    const ownerCell = k.owner
+                        ? `<span class="small">${escapeHtmlSafe(k.owner)}</span>${k.sharesQuota ? ` <i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Another key in the pool uses this email — they share the same daily quota."></i>` : ''}`
+                        : `<span class="small text-muted fst-italic">(unset)</span>`;
+
+                    return `
+                        <tr class="${rowClass}">
+                            <td><strong>${escapeHtmlSafe(k.label)}</strong>${nextPickBadge}</td>
+                            <td>${ownerCell}</td>
+                            <td><code class="small text-muted">${escapeHtmlSafe(k.masked)}</code></td>
+                            <td>${statusBadge(k.status)}${k.lastErr ? `<div class="small text-danger mt-1" style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlSafe(k.lastErr)}"><i class="bi bi-exclamation-triangle me-1"></i>${escapeHtmlSafe(k.lastErr)}</div>` : ''}</td>
+                            <td class="text-center">
+                                <div class="small fw-bold">${k.used} / 240</div>
+                                <div class="progress" style="height: 4px; width: 80px; margin: 0 auto;">
+                                    <div class="progress-bar ${usageBarColor}" style="width: ${usagePercent}%;"></div>
+                                </div>
+                            </td>
+                            <td class="text-center"><span class="fw-bold">${k.remaining}</span></td>
+                            <td class="small text-muted">${relativeTime(k.lastUsed)}</td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-info" title="Test this key (fires a probe call to Gemini)"
+                                            onclick="testGeminiKey(${k.id}, '${escapeJsAttr(k.label)}', this)">
+                                        <i class="bi bi-broadcast"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" title="${k.isActive ? 'Disable' : 'Enable'}"
+                                            onclick="setGeminiKeyActive(${k.id}, ${!k.isActive})">
+                                        <i class="bi ${k.isActive ? 'bi-pause' : 'bi-play'}"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" title="Reset counter"
+                                            onclick="resetGeminiKeyCount(${k.id})">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" title="Rename"
+                                            onclick="renameGeminiKey(${k.id}, '${escapeJsAttr(k.label)}')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger" title="Remove"
+                                            onclick="removeGeminiKey(${k.id}, '${escapeJsAttr(k.label)}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>`;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-3 small">Failed to load: ${escapeHtmlSafe(err.message)}</td></tr>`;
+                if (summary) summary.innerHTML = '';
+            }
+        }
+
+        function showPoolAlert(kind, message) {
+            const a = document.getElementById('gemini-pool-add-alert');
+            if (!a) return;
+            a.className = `alert alert-${kind} small py-2`;
+            a.innerHTML = message;
+            a.classList.remove('d-none');
+        }
+        function hidePoolAlert() {
+            const a = document.getElementById('gemini-pool-add-alert');
+            if (a) a.classList.add('d-none');
+        }
+
+        async function addGeminiKey() {
+            const labelEl = document.getElementById('gemini-pool-label');
+            const ownerEl = document.getElementById('gemini-pool-owner');
+            const keyEl = document.getElementById('gemini-pool-key');
+            const apiKey = (keyEl?.value || '').trim();
+            if (!apiKey) { keyEl?.focus(); return; }
+
+            hidePoolAlert();
+            const fd = new URLSearchParams();
+            fd.append('label', labelEl?.value || '');
+            fd.append('ownerEmail', ownerEl?.value || '');
+            fd.append('apiKey', apiKey);
+            const res = await fetch('/Settings/AddGeminiKey', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: fd
+            });
+            const d = await res.json();
+
+            if (d.success === true) {
+                // Clear inputs and refresh table.
+                if (labelEl) labelEl.value = '';
+                if (ownerEl) ownerEl.value = '';
+                if (keyEl) keyEl.value = '';
+                showPoolAlert('success', `<i class="bi bi-check-circle me-1"></i>${escapeHtmlSafe(d.message || 'Key added.')}`);
+                loadGeminiPool();
+                setTimeout(hidePoolAlert, 4000);
+                return;
+            }
+
+            // Duplicate detected — surface the existing label so the operator knows what's going on.
+            const data = d.data || {};
+            const dupLabel = data.duplicateLabel || data.DuplicateLabel;
+            if (dupLabel) {
+                showPoolAlert('warning',
+                    `<i class="bi bi-exclamation-triangle me-1"></i><strong>Already in pool</strong> as "${escapeHtmlSafe(dupLabel)}". ` +
+                    `Adding the same key twice would double-count its quota — refusing.`);
+                if (keyEl) keyEl.focus();
+                return;
+            }
+
+            // Generic failure (empty key, server exception, etc.).
+            showPoolAlert('danger', `<i class="bi bi-x-circle me-1"></i>${escapeHtmlSafe(d.message || 'Add failed.')}`);
+        }
+
+        async function setGeminiKeyActive(id, active) {
+            const fd = new URLSearchParams();
+            fd.append('id', id);
+            fd.append('active', active);
+            await fetch('/Settings/SetGeminiKeyActive', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd });
+            loadGeminiPool();
+        }
+
+        async function testGeminiKey(id, label, btn) {
+            // Disable + spinner while in-flight so the user can't double-click.
+            const original = btn?.innerHTML;
+            if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>`; }
+            try {
+                const fd = new URLSearchParams();
+                fd.append('id', id);
+                const res = await fetch('/Settings/TestGeminiKey', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd });
+                const d = await res.json();
+                const data = d.data || d.Data || {};
+                const verdict = data.verdict || data.Verdict || 'unknown';
+                const status = data.httpStatus ?? data.HttpStatus ?? '?';
+                const ms = data.elapsedMs ?? data.ElapsedMs ?? 0;
+                const kind = verdict === 'ok' ? 'success'
+                           : verdict === 'rate-limited' ? 'warning'
+                           : 'danger';
+                showPoolAlert(kind, `<i class="bi bi-broadcast me-1"></i><strong>${escapeHtmlSafe(label)}</strong>: ${escapeHtmlSafe(verdict)} (HTTP ${status}) in ${ms}ms`);
+                setTimeout(hidePoolAlert, 6000);
+            } catch (err) {
+                showPoolAlert('danger', `<i class="bi bi-x-circle me-1"></i>Test failed: ${escapeHtmlSafe(err.message)}`);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerHTML = original; }
+            }
+        }
+
+        async function resetGeminiKeyCount(id) {
+            const fd = new URLSearchParams();
+            fd.append('id', id);
+            await fetch('/Settings/ResetGeminiKeyCount', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd });
+            loadGeminiPool();
+        }
+
+        async function renameGeminiKey(id, currentLabel) {
+            const next = prompt('Rename key:', currentLabel);
+            if (next === null) return;
+            const trimmed = next.trim();
+            if (!trimmed) return;
+            const fd = new URLSearchParams();
+            fd.append('id', id);
+            fd.append('label', trimmed);
+            await fetch('/Settings/RenameGeminiKey', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd });
+            loadGeminiPool();
+        }
+
+        async function removeGeminiKey(id, label) {
+            if (!confirm(`Remove key "${label}" permanently?`)) return;
+            const fd = new URLSearchParams();
+            fd.append('id', id);
+            await fetch('/Settings/RemoveGeminiKey', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd });
+            loadGeminiPool();
+        }
+
+        function escapeJsAttr(v) {
+            return String(v ?? '').replace(/[\\'"]/g, ch => '\\' + ch);
+        }
+
+        // ─── Groq Pool — mirrors Gemini handlers, plus shows real `x-ratelimit-*` numbers from the last call. ───
+
+        async function loadGroqPool() {
+            const tbody = document.getElementById('groq-pool-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-3">Loading…</td></tr>`;
+            try {
+                const res = await fetch('/Settings/ListGroqKeys');
+                const d = await res.json();
+                const data = d.data || d.Data;
+                const keys = (data && (data.keys || data.Keys)) || [];
+
+                if (keys.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-3 small">
+                        No keys yet — add your first one above. The legacy single key in the form above is also still used as a fallback.
+                    </td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = keys.map(k => {
+                    const used = k.dailyRequestCount ?? k.DailyRequestCount ?? 0;
+                    const remReq = k.remainingRequests ?? k.RemainingRequests;
+                    const remTok = k.remainingTokens ?? k.RemainingTokens;
+                    const limReq = k.limitRequests ?? k.LimitRequests;
+                    const limTok = k.limitTokens ?? k.LimitTokens;
+                    const status = (k.status || k.Status || 'ok');
+                    const masked = k.maskedKey || k.MaskedKey || '—';
+                    const label = k.label || k.Label || '';
+                    const owner = k.ownerEmail || k.OwnerEmail || '';
+                    const sharesQuota = !!(k.sharesQuotaWithSibling ?? k.SharesQuotaWithSibling);
+                    const id = k.id || k.Id;
+                    const isActive = !!(k.isActive ?? k.IsActive);
+                    const lastUsed = k.lastUsedAtUtc || k.LastUsedAtUtc;
+                    const lastErr = k.lastErrorMessage || k.LastErrorMessage;
+                    const snapAt = k.quotaSnapshotAtUtc || k.QuotaSnapshotAtUtc;
+
+                    // Live cells — these come straight from Groq's response headers, not estimates.
+                    // Fade them when the snapshot is missing (key never used) or older than 90s.
+                    const stale = !snapAt || (Date.now() - new Date(snapAt).getTime()) > 90_000;
+                    const liveClass = stale ? 'text-muted' : 'fw-bold';
+                    const remReqCell = remReq == null
+                        ? `<span class="small text-muted fst-italic">—</span>`
+                        : `<span class="${liveClass}">${remReq}${limReq ? ` / ${limReq}` : ''}</span>`;
+                    const remTokCell = remTok == null
+                        ? `<span class="small text-muted fst-italic">—</span>`
+                        : `<span class="${liveClass}">${Number(remTok).toLocaleString()}${limTok ? ` / ${Number(limTok).toLocaleString()}` : ''}</span>`;
+
+                    const ownerCell = owner
+                        ? `<span class="small">${escapeHtmlSafe(owner)}</span>${sharesQuota ? ` <i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Another key uses this email — shares the same daily account quota."></i>` : ''}`
+                        : `<span class="small text-muted fst-italic">(unset)</span>`;
+
+                    return `
+                        <tr>
+                            <td><strong>${escapeHtmlSafe(label)}</strong></td>
+                            <td>${ownerCell}</td>
+                            <td><code class="small text-muted">${escapeHtmlSafe(masked)}</code></td>
+                            <td>${statusBadge(status)}${lastErr ? `<div class="small text-danger mt-1" style="max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlSafe(lastErr)}"><i class="bi bi-exclamation-triangle me-1"></i>${escapeHtmlSafe(lastErr)}</div>` : ''}</td>
+                            <td class="text-center"><span class="small fw-bold">${used}</span></td>
+                            <td class="text-center">${remReqCell}</td>
+                            <td class="text-center">${remTokCell}</td>
+                            <td class="small text-muted">${relativeTime(lastUsed)}</td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-secondary" title="${isActive ? 'Disable' : 'Enable'}"
+                                            onclick="setGroqKeyActive(${id}, ${!isActive})">
+                                        <i class="bi ${isActive ? 'bi-pause' : 'bi-play'}"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" title="Reset counter"
+                                            onclick="resetGroqKeyCount(${id})">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" title="Rename"
+                                            onclick="renameGroqKey(${id}, '${escapeJsAttr(label)}')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger" title="Remove"
+                                            onclick="removeGroqKey(${id}, '${escapeJsAttr(label)}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>`;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger py-3 small">Failed to load: ${escapeHtmlSafe(err.message)}</td></tr>`;
+            }
+        }
+
+        function showGroqPoolAlert(kind, message) {
+            const a = document.getElementById('groq-pool-add-alert');
+            if (!a) return;
+            a.className = `alert alert-${kind} small py-2`;
+            a.innerHTML = message;
+            a.classList.remove('d-none');
+        }
+        function hideGroqPoolAlert() {
+            const a = document.getElementById('groq-pool-add-alert');
+            if (a) a.classList.add('d-none');
+        }
+
+        async function addGroqKey() {
+            const labelEl = document.getElementById('groq-pool-label');
+            const ownerEl = document.getElementById('groq-pool-owner');
+            const keyEl = document.getElementById('groq-pool-key');
+            const apiKey = (keyEl?.value || '').trim();
+            if (!apiKey) { keyEl?.focus(); return; }
+
+            hideGroqPoolAlert();
+            const fd = new URLSearchParams();
+            fd.append('label', labelEl?.value || '');
+            fd.append('ownerEmail', ownerEl?.value || '');
+            fd.append('apiKey', apiKey);
+            const res = await fetch('/Settings/AddGroqKey', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: fd
+            });
+            const d = await res.json();
+
+            if (d.success === true) {
+                if (labelEl) labelEl.value = '';
+                if (ownerEl) ownerEl.value = '';
+                if (keyEl) keyEl.value = '';
+                showGroqPoolAlert('success', `<i class="bi bi-check-circle me-1"></i>${escapeHtmlSafe(d.message || 'Key added.')}`);
+                loadGroqPool();
+                setTimeout(hideGroqPoolAlert, 4000);
+                return;
+            }
+
+            const data = d.data || {};
+            const dupLabel = data.duplicateLabel || data.DuplicateLabel;
+            if (dupLabel) {
+                showGroqPoolAlert('warning',
+                    `<i class="bi bi-exclamation-triangle me-1"></i><strong>Already in pool</strong> as "${escapeHtmlSafe(dupLabel)}". ` +
+                    `Adding the same key twice would double-count its quota — refusing.`);
+                if (keyEl) keyEl.focus();
+                return;
+            }
+            showGroqPoolAlert('danger', `<i class="bi bi-x-circle me-1"></i>${escapeHtmlSafe(d.message || 'Add failed.')}`);
+        }
+
+        async function setGroqKeyActive(id, active) {
+            const fd = new URLSearchParams();
+            fd.append('id', id);
+            fd.append('active', active);
+            await fetch('/Settings/SetGroqKeyActive', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd });
+            loadGroqPool();
+        }
+
+        async function resetGroqKeyCount(id) {
+            const fd = new URLSearchParams();
+            fd.append('id', id);
+            await fetch('/Settings/ResetGroqKeyCount', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd });
+            loadGroqPool();
+        }
+
+        async function renameGroqKey(id, currentLabel) {
+            const next = prompt('Rename key:', currentLabel);
+            if (next === null) return;
+            const trimmed = next.trim();
+            if (!trimmed) return;
+            const fd = new URLSearchParams();
+            fd.append('id', id);
+            fd.append('label', trimmed);
+            await fetch('/Settings/RenameGroqKey', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd });
+            loadGroqPool();
+        }
+
+        async function removeGroqKey(id, label) {
+            if (!confirm(`Remove key "${label}" permanently?`)) return;
+            const fd = new URLSearchParams();
+            fd.append('id', id);
+            await fetch('/Settings/RemoveGroqKey', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: fd });
+            loadGroqPool();
+        }
+
+        // Auto-load when the AI tab becomes visible (or immediately if it's already active).
+        document.addEventListener('DOMContentLoaded', () => {
+            if (document.getElementById('gemini-pool-tbody')) {
+                loadGeminiPool();
+            }
+            if (document.getElementById('groq-pool-tbody')) {
+                loadGroqPool();
+            }
+        });
+
+        // Populate the Quick Test panel's model dropdown for one provider tab.
+        // Local providers (Ollama / Docker) draw from live discovery; cloud
+        // providers draw from their curated Allowed Models list. Every available
+        // model is shown — the user can pick any one and any runtime error from
+        // the provider (e.g. "does not support chat") surfaces in the response panel.
+        async function populateQuickTestModelSelect(providerType) {
+            const lc = String(providerType).toLowerCase();
+            const select = document.getElementById(`${lc}-test-model`);
+            if (!select) return;
+            const previous = select.value;
+
+            select.innerHTML = '<option value="">— Loading models —</option>';
+            const models = await fetchAllowedProviderModels(providerType);
+
+            select.innerHTML = '';
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = models.length === 0
+                ? (__localDiscoveryProviders.has(providerType)
+                    ? '— No models discovered —'
+                    : '— No models in Allowed list. Add some above. —')
+                : '— Pick a model —';
+            placeholder.disabled = models.length === 0;
+            select.appendChild(placeholder);
+
+            for (const m of models) {
+                const name = m.name || m.Name;
+                if (!name) continue;
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                if (name === previous) opt.selected = true;
+                select.appendChild(opt);
+            }
+        }
+
+        // Send a one-off prompt to a provider via the Quick Test panel. The user
+        // MUST pick a model first (the selected model is also persisted as the
+        // provider's default chat model). Shows raw response/error verbatim so the
+        // admin can diagnose 503 / 429 / model-incompatibility issues without
+        // going through the copilot pipeline.
+        function askProvider(type, btn) {
+            const lcType = String(type).toLowerCase();
+            const ta = document.getElementById(`${lcType}-test-question`);
+            const meta = document.getElementById(`${lcType}-test-meta`);
+            const panel = document.getElementById(`${lcType}-test-response`);
+            const pre = panel ? panel.querySelector('pre') : null;
+            const modelSelect = document.getElementById(`${lcType}-test-model`);
+            if (!ta || !panel || !pre) return;
+
+            const question = (ta.value || '').trim();
+            if (!question) { ta.focus(); return; }
+
+            const model = modelSelect ? (modelSelect.value || '').trim() : '';
+            if (!model) {
+                showToast('Pick a model first', 'Choose a model from the dropdown before sending the test.');
+                if (modelSelect) modelSelect.focus();
+                return;
+            }
+
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending...';
+            btn.disabled = true;
+            if (meta) meta.textContent = '';
+            panel.classList.add('d-none');
+
+            const formData = new URLSearchParams();
+            formData.append('providerType', type);
+            formData.append('question', question);
+            formData.append('model', model);
+
+            fetch('/Settings/AskProvider', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            })
+                .then(r => r.json())
+                .then(data => {
+                    panel.classList.remove('d-none');
+                    const card = panel.querySelector('.card');
+                    card.classList.remove('bg-soft-secondary', 'bg-soft-success', 'bg-soft-danger');
+                    if (data.success) {
+                        card.classList.add('bg-soft-success');
+                        pre.textContent = data.response || '(empty response)';
+                    } else {
+                        card.classList.add('bg-soft-danger');
+                        pre.textContent = '❌ ' + (data.error || 'Unknown error');
+                    }
+                    if (meta) {
+                        meta.textContent = `Model: ${data.modelName} · ${data.latencyMs}ms`;
+                    }
+                })
+                .catch(err => {
+                    panel.classList.remove('d-none');
+                    const card = panel.querySelector('.card');
+                    card.classList.remove('bg-soft-secondary', 'bg-soft-success');
+                    card.classList.add('bg-soft-danger');
+                    pre.textContent = '❌ Network error: ' + err.message;
+                })
+                .finally(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                });
+        }
+
+        // ─── Workload-routing model dropdown population ─────────────────────────
+        // Source: each provider's curated "allowed models" list (managed in the provider
+        // tab). NOT the live discovery endpoint — the curated list keeps the dropdowns
+        // short and meaningful (1–3 models per provider). When the provider dropdown
+        // changes we re-fetch; on first load every model select is populated from its
+        // current provider value. The currently saved value is kept as a sticky option.
+        const __workloadModelCache = {};
+
+        // Local providers (Ollama / Docker) have a real-time discovery endpoint —
+        // whatever models the engine has installed are eligible. Cloud providers
+        // expose huge model catalogs through /models, so we keep a curated allowed
+        // list per provider that the user has explicitly tagged.
+        const __localDiscoveryProviders = new Set(['Ollama', 'DockerLocal']);
+
+        async function fetchAllowedProviderModels(providerType) {
+            if (!providerType) return [];
+            if (__workloadModelCache[providerType]) return __workloadModelCache[providerType];
+            const url = __localDiscoveryProviders.has(providerType)
+                ? `/Settings/GetProviderModels?providerType=${encodeURIComponent(providerType)}`
+                : `/Settings/GetAllowedProviderModels?providerType=${encodeURIComponent(providerType)}`;
+            try {
+                const resp = await fetch(url).then(r => r.json());
+                if (!resp.success) return [];
+                const data = resp.data || {};
+                // GetProviderModels returns objects with {name, isActive, ...}; GetAllowedProviderModels
+                // returns plain string[]. Normalise both to {name} objects.
+                const list = data.models || data.Models || [];
+                const models = list.map(m => (typeof m === 'string' ? { name: m } : m));
+                __workloadModelCache[providerType] = models;
+                return models;
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function invalidateWorkloadModelCache(providerType) {
+            if (providerType && __workloadModelCache[providerType]) {
+                delete __workloadModelCache[providerType];
+            }
+        }
+
+        async function populateWorkloadModelSelect(modelSelect) {
+            if (!modelSelect) return;
+            const providerSelectId = modelSelect.dataset.providerSelectId;
+            const providerSelect = providerSelectId ? document.getElementById(providerSelectId) : null;
+            const providerType = providerSelect ? providerSelect.value : '';
+            const currentVal = modelSelect.dataset.currentValue || modelSelect.value || '';
+
+            // Reset options: keep "(provider default)" + the saved value as a sticky entry.
+            modelSelect.innerHTML = '';
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = '(provider default)';
+            if (!currentVal) defaultOpt.selected = true;
+            modelSelect.appendChild(defaultOpt);
+
+            const seen = new Set();
+            if (currentVal) {
+                const stickyOpt = document.createElement('option');
+                stickyOpt.value = currentVal;
+                stickyOpt.textContent = currentVal;
+                stickyOpt.selected = true;
+                modelSelect.appendChild(stickyOpt);
+                seen.add(currentVal);
+            }
+
+            if (!providerType) return; // no provider selected → only default option visible
+
+            const models = await fetchAllowedProviderModels(providerType);
+            // Show every model the user can pick — no role filtering. Picking an
+            // embedding model for a chat workload will fail at runtime with the
+            // provider's own error (Ollama returns 400 "does not support chat"),
+            // which is the appropriate feedback channel.
+            if (models.length === 0) {
+                const empty = document.createElement('option');
+                empty.value = '';
+                empty.disabled = true;
+                empty.textContent = '— No allowed models. Add some in the provider tab below. —';
+                modelSelect.appendChild(empty);
+                return;
+            }
+            for (const m of models) {
+                const name = m.name || m.Name;
+                if (!name || seen.has(name)) continue;
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                modelSelect.appendChild(opt);
+                seen.add(name);
+            }
+        }
+
+        // Cascade contract:
+        // 1. User changes the provider dropdown — we DO NOT save. We just repopulate
+        //    the model dropdown from that provider's allowed-models list and prompt
+        //    the user to make a selection. Provider alone is not enough to commit.
+        // 2. User picks a model (or "(provider default)") — that's the explicit
+        //    confirmation that submits the form.
+        // The only exception is GLOBALDEFAULT, which has no model dropdown — there
+        // we save on provider change because there's no follow-up step.
+        function onWorkloadProviderChange(providerSelect) {
+            const modelSelectId = providerSelect.dataset.modelSelectId;
+            if (!modelSelectId) {
+                // GLOBALDEFAULT: no cascade, save now.
+                document.getElementById('workloadRoutingForm').submit();
+                return;
+            }
+            const modelSelect = document.getElementById(modelSelectId);
+            if (!modelSelect) {
+                document.getElementById('workloadRoutingForm').submit();
+                return;
+            }
+            // Switching providers invalidates the prior model — drop the sticky value.
+            modelSelect.dataset.currentValue = '';
+            populateWorkloadModelSelect(modelSelect);
+
+            // Mark the slot as awaiting a model selection so the user sees what to do next.
+            const slot = providerSelect.closest('.routing-slot');
+            if (slot) slot.classList.add('routing-slot-pending');
+            modelSelect.classList.add('workload-model-needs-selection');
+            const hint = slot ? slot.querySelector('.routing-cascade-hint') : null;
+            if (hint) hint.classList.remove('d-none');
+
+            // Defer focus so populate finishes first.
+            setTimeout(() => modelSelect.focus(), 50);
+        }
+
+        function onWorkloadModelChange(modelSelect) {
+            // The user explicitly picked a model (or "(provider default)") — this
+            // is the commit point of the cascade. Submit so the server saves both
+            // provider AND model atomically. The page reload clears the pending
+            // visual state automatically.
+            document.getElementById('workloadRoutingForm').submit();
+        }
+
+        function refreshAllWorkloadModelSelects() {
+            document.querySelectorAll('.workload-model-select').forEach(populateWorkloadModelSelect);
+        }
+
+        function clearCascadePending(modelSelect) {
+            if (!modelSelect) return;
+            modelSelect.classList.remove('workload-model-needs-selection');
+            const slot = modelSelect.closest('.routing-slot');
+            if (slot) {
+                slot.classList.remove('routing-slot-pending');
+                const hint = slot.querySelector('.routing-cascade-hint');
+                if (hint) hint.classList.add('d-none');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshAllWorkloadModelSelects();
+            // Allowed-models lists are loaded lazily when the AI tab becomes active
+            // (see the loadAllAllowedModelsLists call further below).
+
+            // Delegated click handler for Add/Remove buttons in inventory cards and
+            // allowed-models chips. Using data-attributes (not inline onclick) avoids
+            // HTML-attribute escaping pitfalls when model names contain special chars
+            // (e.g. quotes, colons in tags like "llama3.2:latest").
+            document.addEventListener('click', e => {
+                const addBtn = e.target.closest('[data-add-allowed]');
+                if (addBtn) {
+                    e.preventDefault();
+                    addAllowedModel(addBtn.dataset.provider, addBtn.dataset.model);
+                    return;
+                }
+                const removeBtn = e.target.closest('[data-remove-allowed]');
+                if (removeBtn) {
+                    e.preventDefault();
+                    removeAllowedModel(removeBtn.dataset.provider, removeBtn.dataset.model);
+                }
+            });
+        });
+
+        // ─── Allowed-models curation ────────────────────────────────────────
+        // Each provider tab renders the partial _AllowedModelsSection which expects
+        // these helpers to manage the chip list and the manual-add input.
+        const __allowedModelAccent = {
+            DockerLocal: 'primary',
+            Ollama:      'warning',
+            OpenAI:      'primary',
+            Gemini:      'info',
+            Groq:        'success',
+            Cloud:       'secondary'
+        };
+
+        async function loadAllowedModelsList(providerType) {
+            const listEl = document.getElementById(`allowed-models-list-${providerType}`);
+            const countEl = document.getElementById(`allowed-models-count-${providerType}`);
+            if (!listEl) return;
+            try {
+                const resp = await fetch(`/Settings/GetAllowedProviderModels?providerType=${encodeURIComponent(providerType)}`)
+                    .then(r => r.json());
+                if (!resp.success) {
+                    listEl.innerHTML = `<span class="text-danger small">${escapeHtmlSafe(resp.error || 'Failed to load.')}</span>`;
+                    return;
+                }
+                const data = resp.data || {};
+                const models = data.models || data.Models || [];
+                renderAllowedModelChips(providerType, models);
+                if (countEl) countEl.textContent = String(models.length);
+            } catch (e) {
+                listEl.innerHTML = `<span class="text-danger small">Network error: ${escapeHtmlSafe(e.message)}</span>`;
+            }
+        }
+
+        function renderAllowedModelChips(providerType, models) {
+            const listEl = document.getElementById(`allowed-models-list-${providerType}`);
+            const countEl = document.getElementById(`allowed-models-count-${providerType}`);
+            if (!listEl) return;
+            const accent = __allowedModelAccent[providerType] || 'primary';
+            if (!models || models.length === 0) {
+                listEl.innerHTML = `<span class="text-muted small fst-italic">No models added yet. Use the field below to add one.</span>`;
+                if (countEl) countEl.textContent = '0';
+                return;
+            }
+            listEl.innerHTML = models.map(name => `
+                <span class="badge bg-soft-${accent} text-${accent} border border-${accent} border-opacity-25 d-inline-flex align-items-center gap-2 px-3 py-2 fw-semibold rounded-pill" style="font-size: 0.75rem;">
+                    <i class="bi bi-cpu"></i>
+                    <span>${escapeHtmlSafe(name)}</span>
+                    <button type="button" class="btn-close btn-close-sm p-0 ms-1" aria-label="Remove" title="Remove from allowed list" data-remove-allowed data-provider="${escapeHtmlSafe(providerType)}" data-model="${escapeHtmlSafe(name)}"></button>
+                </span>
+            `).join('');
+            if (countEl) countEl.textContent = String(models.length);
+        }
+
+        async function addAllowedModel(providerType, modelNameOverride) {
+            const inputId = `allowed-models-input-${providerType}`;
+            const input = document.getElementById(inputId);
+            const name = (modelNameOverride !== undefined ? modelNameOverride : (input ? input.value : '')).trim();
+            if (!name) {
+                if (input) input.focus();
+                return;
+            }
+            try {
+                const resp = await fetch('/Settings/AddAllowedProviderModel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ProviderType: providerType, ModelName: name })
+                }).then(r => r.json());
+                if (!resp.success) { showToast('Error', resp.error || 'Failed to add model.'); return; }
+                if (input && modelNameOverride === undefined) input.value = '';
+                const data = resp.data || {};
+                renderAllowedModelChips(providerType, data.models || []);
+                invalidateWorkloadModelCache(providerType);
+                refreshAllWorkloadModelSelects();
+                populateQuickTestModelSelect(providerType);
+                showToast('Added', `'${name}' is now allowed for ${providerType}.`);
+            } catch (e) {
+                showToast('Error', 'Network error: ' + e.message);
+            }
+        }
+
+        async function removeAllowedModel(providerType, modelName) {
+            try {
+                const resp = await fetch('/Settings/RemoveAllowedProviderModel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ProviderType: providerType, ModelName: modelName })
+                }).then(r => r.json());
+                if (!resp.success) { showToast('Error', resp.error || 'Failed to remove.'); return; }
+                const data = resp.data || {};
+                renderAllowedModelChips(providerType, data.models || []);
+                invalidateWorkloadModelCache(providerType);
+                refreshAllWorkloadModelSelects();
+                populateQuickTestModelSelect(providerType);
+            } catch (e) {
+                showToast('Error', 'Network error: ' + e.message);
+            }
+        }
+
+        function loadAllAllowedModelsLists() {
+            ['DockerLocal','Ollama','OpenAI','Gemini','Groq','Cloud'].forEach(loadAllowedModelsList);
+        }
+
+        function loadProviderModels(type, containerId) {
+            // Info-only inventory for local providers (Docker / Ollama). The live
+            // discovery list IS the source for the workload-routing dropdowns —
+            // there's no separate "allowed" list to curate. Embedding models get
+            // a badge so the user can tell them apart from chat models, but they're
+            // automatically excluded from chat workload dropdowns elsewhere.
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '<div class="col-12 text-center py-4"><span class="spinner-border text-primary"></span></div>';
+
+            fetch(`/Settings/GetProviderModels?providerType=${type}`).then(r => r.json()).then(resp => {
+                if (!resp.success) {
+                    container.innerHTML = `<div class="col-12 text-center py-4"><p class="text-danger small">${resp.error || "Unknown Error"}</p></div>`;
+                    return;
+                }
+
+                const data = resp.data || {};
+                const models = data.models || data.Models || [];
+
+                if (models.length === 0) {
+                    container.innerHTML = `<div class="col-12 text-center py-4"><p class="text-muted small">No discovered models in ${type}.</p></div>`;
+                    return;
+                }
+
+                container.innerHTML = '';
+                models.forEach(model => {
+                    const name = model.name || model.Name || "Unknown";
+                    const size = model.size || model.Size || "N/A";
+                    const ctx = model.contextWindow || model.ContextWindow || "";
+                    const param = model.parameterSize || model.ParameterSize || 'N/A';
+                    const isEmbedding = isLikelyEmbeddingModel(name);
+
+                    const roleBadge = isEmbedding
+                        ? `<span class="badge bg-soft-warning text-warning border-0 fw-bold" style="font-size: 0.6rem;" title="Embedding model — used for semantic search / RAG retrieval. Not selectable for chat workloads."><i class="bi bi-vector-pen me-1"></i>EMBED</span>`
+                        : `<span class="badge bg-soft-success text-success border-0 fw-bold" style="font-size: 0.6rem;" title="Chat-capable model — eligible for Analysis / RAG generation / Copilot / Classifier workloads."><i class="bi bi-chat-dots me-1"></i>CHAT</span>`;
+
+                    container.innerHTML += `
+                        <div class="col-md-6 col-xl-4 mb-2">
+                            <div class="card h-100 border-0 shadow-sm transition-all" style="background: rgba(var(--primary-color-rgb), 0.03); border: 1px solid var(--border-color) !important; border-radius: 12px !important;">
+                                <div class="card-body p-2 px-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <div class="text-truncate">
+                                            <h6 class="fw-bold mb-0 text-truncate" style="font-size: 0.8rem;" title="${name}">${name}</h6>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="fw-bold text-primary" style="font-size: 0.7rem;">${size}</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                        <div class="d-flex gap-1 align-items-center">
+                                            ${roleBadge}
+                                            ${ctx ? `<span class="badge bg-soft-primary text-primary border-0 fw-bold" style="font-size: 0.6rem;"><i class="bi bi-brain me-1"></i>${ctx}</span>` : ''}
+                                            <span class="badge bg-light text-muted border-0 fw-normal" style="font-size: 0.6rem;">${param}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                });
+            }).catch(err => {
+                container.innerHTML = `<div class="col-12 text-center py-4"><p class="text-danger small">Network Error: ${err.message}</p></div>`;
+            });
+        }
+
+        function setProviderModel(type, modelName, btnArg) {
+            // btnArg is passed via onclick="setProviderModel(..., this)"; fall back
+            // to event.target for older callers so nothing breaks during refresh.
+            const btn = btnArg || (typeof event !== 'undefined' ? event.target.closest('button') : null);
+            const originalHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Activating...';
+                btn.disabled = true;
+            }
+            const restoreBtn = () => { if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; } };
+
+            fetch('/Settings/SetProviderModel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ProviderType: type, ModelName: modelName })
+            }).then(async r => {
+                if (!r.ok) {
+                    const text = await r.text();
+                    throw new Error(`Server returned ${r.status}: ${text || 'Empty response'}`);
+                }
+                return r.json();
+            }).then(resp => {
+                try { showToast(resp.success ? 'Success' : 'Error', resp.message || resp.error || ''); } catch {}
+                if (resp.success) {
+                    // Re-render the matching panel — covers Docker/Ollama (the only
+                    // providers SetProviderModel actually accepts today).
+                    const containerId = type === 'Ollama' ? 'ollama-models-container-p' : 'models-container';
+                    loadProviderModels(type, containerId);
+                } else {
+                    restoreBtn();
+                }
+            }).catch(err => {
+                try { showToast('Error', 'Activation failed: ' + err.message); } catch {}
+                restoreBtn();
+            });
+        }
+
+        function pullProviderModel(providerType, inputId, statusId) {
+            const modelName = document.getElementById(inputId).value.trim();
+            if (!modelName) { alert('Specify model name'); return; }
+            const statusContainer = document.getElementById(statusId);
+            const progressBar = statusContainer.querySelector('.progress-bar');
+            const statusText = document.getElementById(statusId.replace('status', 'text'));
+            statusContainer.classList.remove('d-none');
+            progressBar.style.width = '0%';
+            statusText.innerText = `Pulling ${modelName}...`;
+
+            fetch(providerType === 'Ollama' ? '/Settings/PullOllamaModel' : '/Settings/PullDockerModel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modelName })
+            }).then(async response => {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    lines.forEach(line => {
+                        if (!line.trim()) return;
+                        try {
+                            const data = JSON.parse(line);
+                            if (data.status) {
+                                statusText.innerText = data.status;
+                                if (data.completed && data.total) progressBar.style.width = `${Math.round((data.completed / data.total) * 100)}%`;
+                            }
+                        } catch (e) { statusText.innerText = line; }
+                    });
+                }
+                statusText.innerHTML = '<span class="text-success fw-bold">Ready!</span>';
+                progressBar.style.width = '100%';
+                setTimeout(() => {
+                    if (providerType === 'Ollama') {
+                        loadProviderModels('Ollama', 'ollama-models-container-p');
+                    } else {
+                        loadProviderModels(providerType, 'models-container');
+                    }
+                    // Re-populate Quick Test pickers so the freshly-pulled model is selectable.
+                    populateQuickTestModelSelect(providerType);
+                    // And refresh any workload dropdown driven by live discovery.
+                    refreshAllWorkloadModelSelects();
+                }, 1000);
+            });
+        }
+
+        function setDatabaseServer(serverName) { document.getElementById('db-server-name').value = serverName; }
+        function syncConnectionStringFromBuilder() {
+            const server = document.getElementById('db-server-name').value;
+            const db = document.getElementById('db-database-name').value;
+            document.getElementById('db-connection-string').value = `Server=${server};Database=${db};Integrated Security=True;TrustServerCertificate=True;`;
+        }
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            input.type = input.type === 'password' ? 'text' : 'password';
+            btn.innerHTML = input.type === 'password' ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
+        }
+    </script>
+}

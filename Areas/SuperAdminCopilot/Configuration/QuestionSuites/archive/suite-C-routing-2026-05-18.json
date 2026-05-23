@@ -1,0 +1,38 @@
+{
+  "name": "Suite C — Routing fast-paths (8 conversational/knowledge/refusal cases)",
+  "version": "1.0",
+  "description": "Non-data-query routing: conversational greetings/farewells/capabilities, knowledge-match concept questions, write-intent refusals. Validates the ConversationalHandler regex fix (help me, see you later) and KnowledgeMatchHandler optional-determiner fix (what is priority). Every case should fast-path in <500ms with zero LLM calls.",
+  "Scenarios": [
+    { "Code": "C01", "Question": "hello",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "C02", "Question": "good morning",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "C03", "Question": "thanks",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "C04", "Question": "help me",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "C05", "Question": "see you later",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "C06", "Question": "what is a ticket",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "C07", "Question": "what is priority",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "C08", "Question": "delete all tickets",
+      "Category": "Refusal", "Difficulty": "Easy", "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true, "MaxLatencyMs": 5000 }
+  ]
+}

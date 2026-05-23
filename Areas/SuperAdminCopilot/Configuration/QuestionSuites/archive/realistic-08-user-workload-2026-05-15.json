@@ -1,0 +1,166 @@
+{
+  "name": "08 - Realistic User & Workload Analytics",
+  "version": "1.0",
+  "description": "Analyst-style questions about people: top creators, top assignees, top resolvers, workload distribution, unassigned queue, response/resolution rates per user, role mapping. Every question has a clear single answer + ExpectedSql. Designed for the same Tickets/AspNetUsers/AspNetRoles graph the production app exposes.",
+  "Scenarios": [
+    {
+      "Code": "UW-01-TOP-CREATORS",
+      "Question": "Show the top 10 users by number of tickets created.",
+      "Category": "TOP N + GROUP BY + COUNT",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 u.UserName, COUNT(*) AS Cnt FROM AspNetUsers u JOIN Tickets t ON t.CreatedByUserId = u.Id WHERE t.IsDeleted = 0 GROUP BY u.UserName ORDER BY Cnt DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "UW-02-TOP-ASSIGNEES",
+      "Question": "Show the top 10 assignees by number of tickets assigned to them.",
+      "Category": "TOP N + GROUP BY + COUNT on different FK",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 u.UserName, COUNT(*) AS Cnt FROM AspNetUsers u JOIN Tickets t ON t.AssignedToUserId = u.Id WHERE t.IsDeleted = 0 GROUP BY u.UserName ORDER BY Cnt DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "UW-03-TOP-RESOLVERS",
+      "Question": "Show the top 10 users by number of tickets they have resolved.",
+      "Category": "TOP N on ResolvedByUserId with IS NOT NULL",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 u.UserName, COUNT(*) AS Cnt FROM AspNetUsers u JOIN Tickets t ON t.ResolvedByUserId = u.Id WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY u.UserName ORDER BY Cnt DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "UW-04-UNASSIGNED-COUNT",
+      "Question": "How many tickets are unassigned?",
+      "Category": "COUNT with IS NULL on FK",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE AssignedToUserId IS NULL AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "UW-05-UNASSIGNED-LIST",
+      "Question": "List unassigned tickets.",
+      "Category": "List with IS NULL filter",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TicketNumber, Title FROM Tickets WHERE AssignedToUserId IS NULL AND IsDeleted = 0",
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "UW-06-USERS-NO-TICKETS",
+      "Question": "List users who have not created any tickets.",
+      "Category": "Anti-join — users with no tickets created",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, u.Email FROM AspNetUsers u WHERE NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.CreatedByUserId = u.Id AND t.IsDeleted = 0)",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "UW-07-AVG-PER-CREATOR",
+      "Question": "What is the average number of tickets per creator?",
+      "Category": "Two-level aggregation (count then average)",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT AVG(CAST(Cnt AS DECIMAL(10,2))) AS AvgTicketsPerUser FROM (SELECT CreatedByUserId, COUNT(*) AS Cnt FROM Tickets WHERE IsDeleted = 0 GROUP BY CreatedByUserId) x",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "UW-08-USER-AND-ROLE",
+      "Question": "Show users with their roles.",
+      "Category": "M:M through bridge table",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, r.Name AS Role FROM AspNetUsers u JOIN AspNetUserRoles ur ON ur.UserId = u.Id JOIN AspNetRoles r ON r.Id = ur.RoleId",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "UW-09-COUNT-PER-ROLE",
+      "Question": "How many users are in each role?",
+      "Category": "GROUP BY on role label",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT r.Name AS Role, COUNT(*) AS UserCount FROM AspNetUserRoles ur JOIN AspNetRoles r ON r.Id = ur.RoleId GROUP BY r.Name ORDER BY UserCount DESC",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "UW-10-USERS-OVER-N-TICKETS",
+      "Question": "Which users have created more than 5 tickets?",
+      "Category": "HAVING on COUNT",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, COUNT(*) AS Cnt FROM AspNetUsers u JOIN Tickets t ON t.CreatedByUserId = u.Id WHERE t.IsDeleted = 0 GROUP BY u.UserName HAVING COUNT(*) > 5 ORDER BY Cnt DESC",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "UW-11-ASSIGNEE-WITH-EMAIL",
+      "Question": "Show tickets with their assignee username and email.",
+      "Category": "FK join + label augmentation",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, u.UserName, u.Email FROM Tickets t LEFT JOIN AspNetUsers u ON u.Id = t.AssignedToUserId WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "UW-12-AVG-RESOLUTION-PER-USER",
+      "Question": "Show average resolution time in hours per resolver.",
+      "Category": "AVG DATEDIFF + GROUP BY user",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, AVG(CAST(DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) AS DECIMAL(10,2))) AS AvgHours FROM Tickets t JOIN AspNetUsers u ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY u.UserName ORDER BY AvgHours ASC",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "UW-13-AGENT-OPEN-LOAD",
+      "Question": "How many open tickets does each assignee currently have?",
+      "Category": "GROUP BY assignee + filter on status",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, COUNT(*) AS OpenCount FROM Tickets t JOIN AspNetUsers u ON u.Id = t.AssignedToUserId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0 GROUP BY u.UserName ORDER BY OpenCount DESC",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "UW-14-INACTIVE-USERS",
+      "Question": "List inactive users.",
+      "Category": "Bool flag filter",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT UserName, Email FROM AspNetUsers WHERE IsActive = 0",
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "UW-15-ACTIVE-USER-COUNT",
+      "Question": "How many active users are there?",
+      "Category": "COUNT with bool filter",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM AspNetUsers WHERE IsActive = 1",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "UW-16-USER-CREATED-RESOLVED",
+      "Question": "For each user, show how many tickets they created and how many they resolved.",
+      "Category": "Conditional aggregation per user",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, SUM(CASE WHEN t.CreatedByUserId = u.Id THEN 1 ELSE 0 END) AS Created, SUM(CASE WHEN t.ResolvedByUserId = u.Id AND t.ResolvedAt IS NOT NULL THEN 1 ELSE 0 END) AS Resolved FROM AspNetUsers u LEFT JOIN Tickets t ON (t.CreatedByUserId = u.Id OR t.ResolvedByUserId = u.Id) AND t.IsDeleted = 0 GROUP BY u.UserName ORDER BY Created DESC",
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "UW-17-USERS-BY-ENTITY",
+      "Question": "How many users belong to each entity?",
+      "Category": "GROUP BY on lookup FK",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT e.Name AS Entity, COUNT(*) AS UserCount FROM AspNetUsers u JOIN Entitys e ON e.Id = u.EntityId GROUP BY e.Name ORDER BY UserCount DESC",
+      "MaxLatencyMs": 20000
+    }
+  ]
+}

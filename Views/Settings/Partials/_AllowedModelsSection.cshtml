@@ -1,0 +1,45 @@
+@* Allowed-models section — drop-in for each provider tab.
+   Model: a tuple (string ProviderType, string AccentClass).
+   - ProviderType matches AiProviderType enum names (Ollama, OpenAI, ...).
+   - AccentClass is a Bootstrap colour suffix (primary/warning/info/success/secondary).
+   Renders a chip list of allowed models + a manual-entry input. The matching
+   per-provider script in Settings/Index.cshtml calls
+   /Settings/GetAllowedProviderModels and Add/Remove endpoints.
+*@
+@model (string ProviderType, string AccentClass)
+@{
+    var pt = Model.ProviderType;
+    var accent = string.IsNullOrWhiteSpace(Model.AccentClass) ? "primary" : Model.AccentClass;
+    var listId = $"allowed-models-list-{pt}";
+    var inputId = $"allowed-models-input-{pt}";
+}
+<div class="mt-4 pt-4 border-top">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="fw-bold mb-0 text-uppercase small ls-1 text-muted">
+            <i class="bi bi-bookmark-check me-1"></i>Allowed Models
+        </h6>
+        <span class="badge bg-soft-@accent text-@accent border-0" id="allowed-models-count-@pt" style="font-size: 0.6rem;">0</span>
+    </div>
+    <p class="form-text small mb-3">
+        Curate a short list of models for this provider. Only these models appear in the
+        Workload Orchestration dropdowns above (Analysis / Knowledge RAG / Copilot Chat / Classifier).
+    </p>
+
+    <div id="@listId" class="d-flex flex-wrap gap-2 mb-3">
+        <span class="text-muted small">Loading…</span>
+    </div>
+
+    <div class="row g-2 align-items-end">
+        <div class="col-md-9">
+            <label class="form-label small fw-bold text-muted text-uppercase ls-1">Model name / tag</label>
+            <input type="text" id="@inputId" class="form-control"
+                   placeholder="e.g. @(pt == "Ollama" ? "llama3.2:latest" : (pt == "OpenAI" ? "gpt-4o-mini" : (pt == "Gemini" ? "gemini-2.5-flash" : (pt == "Groq" ? "llama-3.3-70b-versatile" : "model-id"))))"
+                   onkeydown="if(event.key==='Enter'){ event.preventDefault(); addAllowedModel('@pt'); }" />
+        </div>
+        <div class="col-md-3">
+            <button type="button" class="btn btn-@accent w-100 rounded-pill" onclick="addAllowedModel('@pt')">
+                <i class="bi bi-plus-circle me-1"></i>Add
+            </button>
+        </div>
+    </div>
+</div>

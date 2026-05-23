@@ -1,0 +1,100 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
+
+<div class="table-responsive">
+    <table id="ticketsTable"
+           class="table table-hover align-middle mb-0 datatable-premium"
+           data-column-search="true"
+           data-paging="false"
+           data-info="false"
+           data-page-length-control="false">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3 no-sort" style="width: 40px;">
+                    <div class="form-check">
+                        <input class="form-check-input select-all-checkbox shadow-none" type="checkbox" id="selectAll">
+                    </div>
+                </th>
+                <th data-col="ref" data-col-name="@Loc.Get("Reference")" class="py-3">@Loc.Get("Reference")</th>
+                <th data-col="entity" data-col-name="@Loc.Get("Entity")" class="py-3 text-center">@Loc.Get("Entity")</th>
+                <th data-col="details" data-col-name="@Loc.Get("InquiryDetails")" class="py-3">@Loc.Get("InquiryDetails")</th>
+                <th data-col="status" data-col-name="@Loc.Get("Status")" class="py-3 text-center">@Loc.Get("Status")</th>
+                <th data-col="files" data-col-name="@Loc.Get("Files")" class="py-3 text-center">@Loc.Get("Files")</th>
+                <th data-col="actions" data-col-name="@Loc.Get("Actions")" class="py-3 text-center no-sort">@Loc.Get("Actions")</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr class="ticket-row" data-id="@item.Id">
+                    <td class="ps-4">
+                        <div class="form-check">
+                            <input class="form-check-input row-checkbox shadow-none" type="checkbox" value="@item.Id">
+                        </div>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-primary-custom">#@item.TicketNumber</div>
+                        <div class="text-muted-custom small">@item.CreatedAt.ToString("MMM dd, yyyy")</div>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-light text-secondary border border-light-subtle shadow-sm">@(item.Entity != null ? Loc.Get(item.Entity.Name) : Loc.Get("General"))</span>
+                    </td>
+                    <td>
+                        <div class="fw-bold mb-1 text-main">@item.Title</div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <span class="badge rounded-pill @UIExtensions.GetPriorityBadgeClass(item.Priority?.Name)" style="font-size: 0.7rem;">@(item.Priority != null ? Loc.Get(item.Priority.Name) : Loc.Get("TBD"))</span>
+                            <span class="badge rounded-pill pill-badge-primary" style="font-size: 0.7rem;">@(item.Category != null ? Loc.Get(item.Category.Name) : Loc.Get("TBD"))</span>
+                            @if (!string.IsNullOrWhiteSpace(item.ProductArea))
+                            {
+                                <span class="badge rounded-pill badge-info-subtle" style="font-size: 0.7rem;">@item.ProductArea</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(item.EnvironmentName))
+                            {
+                                <span class="badge rounded-pill badge-purple-subtle" style="font-size: 0.7rem;">@item.EnvironmentName</span>
+                            }
+                        </div>
+                        <div class="text-muted-custom small mt-2 d-flex align-items-center gap-1">
+                            <span>@(string.IsNullOrWhiteSpace(item.ExternalReferenceId) ? Loc.Get("NoExternalRef") : item.ExternalReferenceId)</span>
+                            @if (!string.IsNullOrWhiteSpace(item.BrowserName))
+                            {
+                                <span>• @item.BrowserName</span>
+                            }
+                            @if (item.AffectedUsersCount.HasValue)
+                            {
+                                <span>• @item.AffectedUsersCount @Loc.Get("Impacted")</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(item.AssignedToUser?.FullName))
+                        {
+                            <div class="small mt-2 text-muted-custom">
+                                <i class="bi bi-person-badge @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@item.AssignedToUser.FullName
+                            </div>
+                        }
+                    </td>
+                    <td style="min-width: 120px;">
+                        <span class="badge px-3 py-2 rounded-3 w-100 fw-bold @UIExtensions.GetStatusBadgeClass(item.Status?.Name)">@(item.Status != null ? Loc.Get(item.Status.Name) : Loc.Get("Pending"))</span>
+                    </td>
+                    <td class="text-center">
+                        @{
+                            var attachCount = item.Attachments?.Count ?? 0;
+                        }
+                        @if (attachCount > 0)
+                        {
+                            <span class="badge rounded-pill fw-bold badge-secondary-subtle">
+                                <i class="bi bi-paperclip @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@attachCount
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-muted-custom small">—</span>
+                        }
+                    </td>
+                    <td class="text-center">
+                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-icon btn-sm btn-soft-primary">
+                            <i class="bi bi-eye-fill"></i>
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

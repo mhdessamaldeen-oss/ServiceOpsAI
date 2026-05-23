@@ -1,0 +1,857 @@
+{
+  "Metadata": {
+    "Version": "7.0.0",
+    "TotalCases": 206,
+    "Description": "206 Copilot assessment scenarios. Fresh catalog (drops the prior v6.0.0 70-case set). Grounded in live AISupportAnalysisDB values: entity names (Transport, Finance, HR, Health, Education, Legal), statuses, priorities, categories, sources, ticket-number prefixes (TCK-2026-, TCK-AR-2026-). Adds new intent coverage (Similarity, KnowledgeBase, PlatformAction, ExternalTool, Conversational) plus 20 fake/control cases (10 off-topic + 10 mis-labeled) so the suite measures both happy-path accuracy AND router robustness.",
+    "GeneratedDate": "2026-05-07",
+    "EntityCoverage": ["Tickets","Entitys","TicketStatuses","TicketPriorities","TicketCategories","TicketSources","TicketComments","TicketAttachments","TicketHistories","TicketSemanticEmbeddings","AspNetUsers","AspNetRoles","AspNetUserRoles"],
+    "DifficultyDistribution": { "Easy": 60, "Medium": 90, "Hard": 56 },
+    "CategoryDistribution": {
+      "Selection": 12,
+      "Projection": 8,
+      "Filtering": 18,
+      "Sorting": 6,
+      "Joins": 12,
+      "Aggregation": 14,
+      "GroupBy": 12,
+      "Having": 6,
+      "Temporal": 12,
+      "DetailById": 6,
+      "Semantic": 8,
+      "Compound": 12,
+      "MultiTable": 8,
+      "RelatedEntity": 12,
+      "UsersRoles": 8,
+      "Similarity": 6,
+      "KnowledgeBase": 6,
+      "PlatformAction": 6,
+      "ExternalTool": 4,
+      "Conversational": 4,
+      "Negative": 6,
+      "FakeOffTopic": 10,
+      "FakeMisLabeled": 10
+    },
+    "TestTypes": { "Positive": 174, "Negative": 6, "Fake": 20 }
+  },
+  "Scenarios": [
+
+    { "Code": "SEL-001", "Question": "Show me all tickets.", "Category": "Selection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEL-002", "Question": "List the 10 newest tickets.", "Category": "Selection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedLimit": 10,
+      "CorrectAnswer": { "SQL": "SELECT TOP 10 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEL-003", "Question": "Show the 5 oldest tickets.", "Category": "Selection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedLimit": 5,
+      "CorrectAnswer": { "SQL": "SELECT TOP 5 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t ORDER BY t.CreatedAt ASC", "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEL-004", "Question": "Show all tickets from Health.", "Category": "Selection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id WHERE e.Name='Health' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Entity=Health"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEL-005", "Question": "Show only unresolved tickets.", "Category": "Selection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.ResolvedAt IS NULL ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["ResolvedAt IS NULL"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEL-006", "Question": "List tickets that have been closed.", "Category": "Selection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.ClosedAt FROM Tickets t WHERE t.ClosedAt IS NOT NULL ORDER BY t.ClosedAt DESC", "ExpectedFilters": ["ClosedAt IS NOT NULL"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEL-007", "Question": "Tickets that are still pending.", "Category": "Selection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name='Pending' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Status=Pending"], "ExpectedAnswerKeywords": ["Pending"] } },
+
+    { "Code": "SEL-008", "Question": "Give me the top 25 tickets that were updated most recently.", "Category": "Selection", "Difficulty": "Medium", "ExpectedLimit": 25,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 25 t.TicketNumber, t.Title, t.UpdatedAt FROM Tickets t ORDER BY t.UpdatedAt DESC", "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEL-009", "Question": "Show tickets that have a parent ticket.", "Category": "Selection", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.ParentTicketId FROM Tickets t WHERE t.ParentTicketId IS NOT NULL ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["ParentTicketId IS NOT NULL"], "ExpectedAnswerKeywords": ["ParentTicketId"] } },
+
+    { "Code": "SEL-010", "Question": "List Arabic-numbered tickets.", "Category": "Selection", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.TicketNumber LIKE 'TCK-AR-%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["TicketNumber LIKE TCK-AR-%"], "ExpectedAnswerKeywords": ["TCK-AR"] } },
+
+    { "Code": "SEL-011", "Question": "Show all tickets in the Education entity.", "Category": "Selection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id WHERE e.Name='Education' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Entity=Education"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEL-012", "Question": "Get me 100 tickets — any 100 will do.", "Category": "Selection", "Difficulty": "Hard", "ExpectedLimit": 100,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 100 t.TicketNumber, t.Title FROM Tickets t ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "PROJ-001", "Question": "Show ticket numbers and titles only.", "Category": "Projection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedFields": ["TicketNumber","Title"],
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t", "ExpectedAnswerKeywords": ["TicketNumber","Title"] } },
+
+    { "Code": "PROJ-002", "Question": "Show ticket number, title, and SLA breach flag.", "Category": "Projection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedFields": ["TicketNumber","Title","IsSlaBreached"],
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.IsSlaBreached FROM Tickets t", "ExpectedAnswerKeywords": ["IsSlaBreached"] } },
+
+    { "Code": "PROJ-003", "Question": "Show ticket number with status name and priority name.", "Category": "Projection", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedFields": ["TicketNumber","StatusName","PriorityName"],
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, s.Name AS StatusName, p.Name AS PriorityName FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id JOIN TicketPriorities p ON t.PriorityId=p.Id", "ExpectedAnswerKeywords": ["StatusName","PriorityName"] } },
+
+    { "Code": "PROJ-004", "Question": "Show ticket number, title, entity name, and created date.", "Category": "Projection", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedFields": ["TicketNumber","Title","EntityName","CreatedAt"],
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, e.Name AS EntityName, t.CreatedAt FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id", "ExpectedAnswerKeywords": ["EntityName"] } },
+
+    { "Code": "PROJ-005", "Question": "Show only ticket number and resolution summary.", "Category": "Projection", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedFields": ["TicketNumber","ResolutionSummary"],
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.ResolutionSummary FROM Tickets t WHERE t.ResolutionSummary IS NOT NULL", "ExpectedAnswerKeywords": ["ResolutionSummary"] } },
+
+    { "Code": "PROJ-006", "Question": "Show ticket number, due date, and resolution due date.", "Category": "Projection", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedFields": ["TicketNumber","DueDate","ResolutionDueAt"],
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.DueDate, t.ResolutionDueAt FROM Tickets t", "ExpectedAnswerKeywords": ["DueDate","ResolutionDueAt"] } },
+
+    { "Code": "PROJ-007", "Question": "Show ticket number with the impact scope and affected user count.", "Category": "Projection", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedFields": ["TicketNumber","ImpactScope","AffectedUsersCount"],
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.ImpactScope, t.AffectedUsersCount FROM Tickets t", "ExpectedAnswerKeywords": ["ImpactScope","AffectedUsersCount"] } },
+
+    { "Code": "PROJ-008", "Question": "Show ticket number, browser, operating system, and environment.", "Category": "Projection", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedFields": ["TicketNumber","BrowserName","OperatingSystem","EnvironmentName"],
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.BrowserName, t.OperatingSystem, t.EnvironmentName FROM Tickets t", "ExpectedAnswerKeywords": ["BrowserName","OperatingSystem","EnvironmentName"] } },
+
+    { "Code": "FIL-001", "Question": "Show tickets with status Open.", "Category": "Filtering", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name='Open' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Status=Open"], "ExpectedAnswerKeywords": ["Open"] } },
+
+    { "Code": "FIL-002", "Question": "Show critical tickets.", "Category": "Filtering", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id WHERE p.Name='Critical' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Priority=Critical"], "ExpectedAnswerKeywords": ["Critical"] } },
+
+    { "Code": "FIL-003", "Question": "Show tickets in the Hardware category.", "Category": "Filtering", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketCategories c ON t.CategoryId=c.Id WHERE c.Name='Hardware' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Category=Hardware"], "ExpectedAnswerKeywords": ["Hardware"] } },
+
+    { "Code": "FIL-004", "Question": "Tickets created via Email.", "Category": "Filtering", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketSources src ON t.SourceId=src.Id WHERE src.Name='Email' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Source=Email"], "ExpectedAnswerKeywords": ["Email"] } },
+
+    { "Code": "FIL-005", "Question": "Tickets where the SLA is breached.", "Category": "Filtering", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.IsSlaBreached=1 ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["IsSlaBreached=true"], "ExpectedAnswerKeywords": ["IsSlaBreached"] } },
+
+    { "Code": "FIL-006", "Question": "Show unassigned tickets.", "Category": "Filtering", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.AssignedToUserId IS NULL ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["AssignedToUserId IS NULL"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "FIL-007", "Question": "Show escalated tickets.", "Category": "Filtering", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.EscalationLevel FROM Tickets t WHERE t.EscalationLevel IS NOT NULL ORDER BY t.EscalatedAt DESC", "ExpectedFilters": ["EscalationLevel IS NOT NULL"], "ExpectedAnswerKeywords": ["EscalationLevel"] } },
+
+    { "Code": "FIL-008", "Question": "Tickets that require manager review.", "Category": "Filtering", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.RequiresManagerReview=1 ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["RequiresManagerReview=true"], "ExpectedAnswerKeywords": ["RequiresManagerReview"] } },
+
+    { "Code": "FIL-009", "Question": "Show tickets where the affected users count is greater than 10.", "Category": "Filtering", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.AffectedUsersCount FROM Tickets t WHERE t.AffectedUsersCount > 10 ORDER BY t.AffectedUsersCount DESC", "ExpectedFilters": ["AffectedUsersCount>10"], "ExpectedAnswerKeywords": ["AffectedUsersCount"] } },
+
+    { "Code": "FIL-010", "Question": "Show tickets with status In Progress.", "Category": "Filtering", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name='In Progress' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Status=In Progress"], "ExpectedAnswerKeywords": ["In Progress"] } },
+
+    { "Code": "FIL-011", "Question": "Tickets where root cause is not set.", "Category": "Filtering", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.RootCause IS NULL ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["RootCause IS NULL"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "FIL-012", "Question": "Tickets where the resolution summary is filled in.", "Category": "Filtering", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.ResolutionSummary FROM Tickets t WHERE t.ResolutionSummary IS NOT NULL ORDER BY t.ResolvedAt DESC", "ExpectedFilters": ["ResolutionSummary IS NOT NULL"], "ExpectedAnswerKeywords": ["ResolutionSummary"] } },
+
+    { "Code": "FIL-013", "Question": "Tickets in product area Endpoint Health Service.", "Category": "Filtering", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.ProductArea FROM Tickets t WHERE t.ProductArea='Endpoint Health Service' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["ProductArea=Endpoint Health Service"], "ExpectedAnswerKeywords": ["ProductArea"] } },
+
+    { "Code": "FIL-014", "Question": "Tickets reported on Windows.", "Category": "Filtering", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.OperatingSystem FROM Tickets t WHERE t.OperatingSystem LIKE 'Windows%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["OperatingSystem LIKE Windows%"], "ExpectedAnswerKeywords": ["Windows"] } },
+
+    { "Code": "FIL-015", "Question": "Tickets where the due date is in the past and still unresolved.", "Category": "Filtering", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.DueDate FROM Tickets t WHERE t.DueDate < GETUTCDATE() AND t.ResolvedAt IS NULL ORDER BY t.DueDate ASC", "ExpectedFilters": ["DueDate<now","ResolvedAt IS NULL"], "ExpectedAnswerKeywords": ["DueDate"] } },
+
+    { "Code": "FIL-016", "Question": "Tickets created by an Admin user.", "Category": "Filtering", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN AspNetUserRoles ur ON t.CreatedByUserId=ur.UserId JOIN AspNetRoles r ON ur.RoleId=r.Id WHERE r.Name='Admin' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Reporter Role=Admin"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "FIL-017", "Question": "Tickets with affected users between 5 and 50.", "Category": "Filtering", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.AffectedUsersCount FROM Tickets t WHERE t.AffectedUsersCount BETWEEN 5 AND 50 ORDER BY t.AffectedUsersCount DESC", "ExpectedFilters": ["AffectedUsersCount BETWEEN 5 AND 50"], "ExpectedAnswerKeywords": ["AffectedUsersCount"] } },
+
+    { "Code": "FIL-018", "Question": "Tickets with an external reference id set.", "Category": "Filtering", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.ExternalReferenceId, t.ExternalSystemName FROM Tickets t WHERE t.ExternalReferenceId IS NOT NULL ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["ExternalReferenceId IS NOT NULL"], "ExpectedAnswerKeywords": ["ExternalReferenceId"] } },
+
+    { "Code": "SORT-001", "Question": "Show 20 tickets sorted by creation date descending.", "Category": "Sorting", "Difficulty": "Easy", "ExpectedLimit": 20,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 20 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["TCK-2026","CreatedAt"] } },
+
+    { "Code": "SORT-002", "Question": "Sort tickets by priority then by creation date.", "Category": "Sorting", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, p.Name AS PriorityName, t.CreatedAt FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id ORDER BY p.Level DESC, t.CreatedAt DESC", "ExpectedAnswerKeywords": ["PriorityName","CreatedAt"] } },
+
+    { "Code": "SORT-003", "Question": "Top 10 tickets by affected users count.", "Category": "Sorting", "Difficulty": "Medium", "ExpectedLimit": 10,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 10 t.TicketNumber, t.Title, t.AffectedUsersCount FROM Tickets t ORDER BY t.AffectedUsersCount DESC", "ExpectedAnswerKeywords": ["AffectedUsersCount"] } },
+
+    { "Code": "SORT-004", "Question": "Show tickets sorted by escalation level (highest first).", "Category": "Sorting", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.EscalationLevel FROM Tickets t WHERE t.EscalationLevel IS NOT NULL ORDER BY t.EscalationLevel DESC", "ExpectedAnswerKeywords": ["EscalationLevel"] } },
+
+    { "Code": "SORT-005", "Question": "Sort tickets by due date ascending.", "Category": "Sorting", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.DueDate FROM Tickets t WHERE t.DueDate IS NOT NULL ORDER BY t.DueDate ASC", "ExpectedAnswerKeywords": ["DueDate"] } },
+
+    { "Code": "SORT-006", "Question": "Show oldest unresolved tickets first.", "Category": "Sorting", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.ResolvedAt IS NULL ORDER BY t.CreatedAt ASC", "ExpectedFilters": ["ResolvedAt IS NULL"], "ExpectedAnswerKeywords": ["CreatedAt"] } },
+
+    { "Code": "JOIN-001", "Question": "Show tickets with their status name.", "Category": "Joins", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, s.Name AS StatusName FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["StatusName"] } },
+
+    { "Code": "JOIN-002", "Question": "Show tickets with their priority name.", "Category": "Joins", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, p.Name AS PriorityName FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["PriorityName"] } },
+
+    { "Code": "JOIN-003", "Question": "Show tickets with their entity name.", "Category": "Joins", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, e.Name AS EntityName FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["EntityName"] } },
+
+    { "Code": "JOIN-004", "Question": "Show tickets with their category name.", "Category": "Joins", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, c.Name AS CategoryName FROM Tickets t JOIN TicketCategories c ON t.CategoryId=c.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["CategoryName"] } },
+
+    { "Code": "JOIN-005", "Question": "Show tickets with their source name.", "Category": "Joins", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, src.Name AS SourceName FROM Tickets t JOIN TicketSources src ON t.SourceId=src.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["SourceName"] } },
+
+    { "Code": "JOIN-006", "Question": "Show tickets with the assigned user's full name.", "Category": "Joins", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, (u.FirstName+' '+u.LastName) AS AssignedToName FROM Tickets t JOIN AspNetUsers u ON t.AssignedToUserId=u.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["AssignedToName"] } },
+
+    { "Code": "JOIN-007", "Question": "Show tickets with the reporter's full name.", "Category": "Joins", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, (u.FirstName+' '+u.LastName) AS ReporterName FROM Tickets t JOIN AspNetUsers u ON t.CreatedByUserId=u.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["ReporterName"] } },
+
+    { "Code": "JOIN-008", "Question": "Show tickets with the resolver's full name.", "Category": "Joins", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, (u.FirstName+' '+u.LastName) AS ResolvedByName FROM Tickets t JOIN AspNetUsers u ON t.ResolvedByUserId=u.Id ORDER BY t.ResolvedAt DESC", "ExpectedAnswerKeywords": ["ResolvedByName"] } },
+
+    { "Code": "JOIN-009", "Question": "Show tickets with the entity name and the assigned user's name.", "Category": "Joins", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, e.Name AS EntityName, (u.FirstName+' '+u.LastName) AS AssignedToName FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id LEFT JOIN AspNetUsers u ON t.AssignedToUserId=u.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["EntityName","AssignedToName"] } },
+
+    { "Code": "JOIN-010", "Question": "List tickets with status, priority and entity together.", "Category": "Joins", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, s.Name AS StatusName, p.Name AS PriorityName, e.Name AS EntityName FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id JOIN TicketPriorities p ON t.PriorityId=p.Id JOIN Entitys e ON t.EntityId=e.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["StatusName","PriorityName","EntityName"] } },
+
+    { "Code": "JOIN-011", "Question": "Show resolved tickets with the resolver and the resolution-approver names.", "Category": "Joins", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, (r.FirstName+' '+r.LastName) AS ResolvedByName, (a.FirstName+' '+a.LastName) AS ApprovedByName FROM Tickets t LEFT JOIN AspNetUsers r ON t.ResolvedByUserId=r.Id LEFT JOIN AspNetUsers a ON t.ResolutionApprovedByUserId=a.Id WHERE t.ResolvedAt IS NOT NULL ORDER BY t.ResolvedAt DESC", "ExpectedFilters": ["ResolvedAt IS NOT NULL"], "ExpectedAnswerKeywords": ["ResolvedByName","ApprovedByName"] } },
+
+    { "Code": "JOIN-012", "Question": "Show tickets with their parent ticket's number.", "Category": "Joins", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, parent.TicketNumber AS ParentTicketNumber FROM Tickets t JOIN Tickets parent ON t.ParentTicketId=parent.Id ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["ParentTicketId IS NOT NULL"], "ExpectedAnswerKeywords": ["ParentTicketNumber"] } },
+
+    { "Code": "AGG-001", "Question": "How many tickets are there in total?", "Category": "Aggregation", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Count",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS TotalTickets FROM Tickets", "ExpectedAnswerKeywords": ["TotalTickets"] } },
+
+    { "Code": "AGG-002", "Question": "Sum of affected users across all tickets.", "Category": "Aggregation", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Sum",
+      "CorrectAnswer": { "SQL": "SELECT SUM(AffectedUsersCount) AS TotalAffectedUsers FROM Tickets", "ExpectedAnswerKeywords": ["TotalAffectedUsers"] } },
+
+    { "Code": "AGG-003", "Question": "Average affected users per ticket.", "Category": "Aggregation", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Avg",
+      "CorrectAnswer": { "SQL": "SELECT AVG(CAST(AffectedUsersCount AS float)) AS AverageAffectedUsers FROM Tickets", "ExpectedAnswerKeywords": ["AverageAffectedUsers"] } },
+
+    { "Code": "AGG-004", "Question": "Highest affected users count on any single ticket.", "Category": "Aggregation", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Max",
+      "CorrectAnswer": { "SQL": "SELECT MAX(AffectedUsersCount) AS MaxAffectedUsers FROM Tickets", "ExpectedAnswerKeywords": ["MaxAffectedUsers"] } },
+
+    { "Code": "AGG-005", "Question": "Lowest affected users count on any ticket.", "Category": "Aggregation", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Min",
+      "CorrectAnswer": { "SQL": "SELECT MIN(AffectedUsersCount) AS MinAffectedUsers FROM Tickets", "ExpectedAnswerKeywords": ["MinAffectedUsers"] } },
+
+    { "Code": "AGG-006", "Question": "How many distinct entities have tickets?", "Category": "Aggregation", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Count",
+      "CorrectAnswer": { "SQL": "SELECT COUNT(DISTINCT EntityId) AS DistinctEntities FROM Tickets", "ExpectedAnswerKeywords": ["DistinctEntities"] } },
+
+    { "Code": "AGG-007", "Question": "How many open tickets are there?", "Category": "Aggregation", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Count",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS OpenCount FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name='Open'", "ExpectedFilters": ["Status=Open"], "ExpectedAnswerKeywords": ["OpenCount"] } },
+
+    { "Code": "AGG-008", "Question": "How many critical tickets are there?", "Category": "Aggregation", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Count",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS CriticalCount FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id WHERE p.Name='Critical'", "ExpectedFilters": ["Priority=Critical"], "ExpectedAnswerKeywords": ["CriticalCount"] } },
+
+    { "Code": "AGG-009", "Question": "How many tickets breached the SLA?", "Category": "Aggregation", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Count",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS SlaBreachCount FROM Tickets WHERE IsSlaBreached=1", "ExpectedFilters": ["IsSlaBreached=true"], "ExpectedAnswerKeywords": ["SlaBreachCount"] } },
+
+    { "Code": "AGG-010", "Question": "Average escalation level across escalated tickets.", "Category": "Aggregation", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Avg",
+      "CorrectAnswer": { "SQL": "SELECT AVG(CAST(EscalationLevel AS float)) AS AverageEscalation FROM Tickets WHERE EscalationLevel IS NOT NULL", "ExpectedFilters": ["EscalationLevel IS NOT NULL"], "ExpectedAnswerKeywords": ["AverageEscalation"] } },
+
+    { "Code": "AGG-011", "Question": "How many distinct categories are in use?", "Category": "Aggregation", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Count",
+      "CorrectAnswer": { "SQL": "SELECT COUNT(DISTINCT CategoryId) AS DistinctCategories FROM Tickets", "ExpectedAnswerKeywords": ["DistinctCategories"] } },
+
+    { "Code": "AGG-012", "Question": "How many tickets are unassigned?", "Category": "Aggregation", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Count",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS UnassignedCount FROM Tickets WHERE AssignedToUserId IS NULL", "ExpectedFilters": ["AssignedToUserId IS NULL"], "ExpectedAnswerKeywords": ["UnassignedCount"] } },
+
+    { "Code": "AGG-013", "Question": "How many resolved tickets do we have?", "Category": "Aggregation", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Count",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS ResolvedCount FROM Tickets WHERE ResolvedAt IS NOT NULL", "ExpectedFilters": ["ResolvedAt IS NOT NULL"], "ExpectedAnswerKeywords": ["ResolvedCount"] } },
+
+    { "Code": "AGG-014", "Question": "Average ticket resolution time in hours.", "Category": "Aggregation", "Difficulty": "Hard", "ExpectedOperation": "Avg",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT AVG(DATEDIFF(HOUR, CreatedAt, ResolvedAt)*1.0) AS AvgResolutionHours FROM Tickets WHERE ResolvedAt IS NOT NULL", "ExpectedFilters": ["ResolvedAt IS NOT NULL"], "ExpectedAnswerKeywords": ["AvgResolutionHours"] } },
+
+    { "Code": "GRP-001", "Question": "Count of tickets per entity.", "Category": "GroupBy", "Difficulty": "Medium", "ExpectedGroupBy": ["EntityId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT e.Name AS EntityName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id GROUP BY e.Name ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "GRP-002", "Question": "Count of tickets per status.", "Category": "GroupBy", "Difficulty": "Medium", "ExpectedGroupBy": ["StatusId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT s.Name AS StatusName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id GROUP BY s.Name ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "GRP-003", "Question": "Count of tickets per priority.", "Category": "GroupBy", "Difficulty": "Medium", "ExpectedGroupBy": ["PriorityId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT p.Name AS PriorityName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id GROUP BY p.Name ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "GRP-004", "Question": "Count of tickets per source.", "Category": "GroupBy", "Difficulty": "Medium", "ExpectedGroupBy": ["SourceId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT src.Name AS SourceName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN TicketSources src ON t.SourceId=src.Id GROUP BY src.Name ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "GRP-005", "Question": "Count of tickets per category.", "Category": "GroupBy", "Difficulty": "Medium", "ExpectedGroupBy": ["CategoryId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT c.Name AS CategoryName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN TicketCategories c ON t.CategoryId=c.Id GROUP BY c.Name ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "GRP-006", "Question": "Average affected users by entity.", "Category": "GroupBy", "Difficulty": "Hard", "ExpectedGroupBy": ["EntityId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT e.Name AS EntityName, AVG(CAST(AffectedUsersCount AS float)) AS AverageAffectedUsers FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id GROUP BY e.Name ORDER BY AverageAffectedUsers DESC", "ExpectedAnswerKeywords": ["AverageAffectedUsers"] } },
+
+    { "Code": "GRP-007", "Question": "Total escalation level by priority.", "Category": "GroupBy", "Difficulty": "Hard", "ExpectedGroupBy": ["PriorityId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT p.Name AS PriorityName, SUM(EscalationLevel) AS TotalEscalation FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id WHERE EscalationLevel IS NOT NULL GROUP BY p.Name ORDER BY TotalEscalation DESC", "ExpectedAnswerKeywords": ["TotalEscalation"] } },
+
+    { "Code": "GRP-008", "Question": "How many SLA breaches per entity?", "Category": "GroupBy", "Difficulty": "Hard", "ExpectedGroupBy": ["EntityId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT e.Name AS EntityName, SUM(CASE WHEN IsSlaBreached=1 THEN 1 ELSE 0 END) AS SlaBreachCount FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id GROUP BY e.Name ORDER BY SlaBreachCount DESC", "ExpectedAnswerKeywords": ["SlaBreachCount"] } },
+
+    { "Code": "GRP-009", "Question": "Tickets per environment.", "Category": "GroupBy", "Difficulty": "Easy", "ExpectedGroupBy": ["EnvironmentName"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT EnvironmentName, COUNT_BIG(1) AS TicketCount FROM Tickets WHERE EnvironmentName IS NOT NULL GROUP BY EnvironmentName ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "GRP-010", "Question": "Tickets per browser.", "Category": "GroupBy", "Difficulty": "Easy", "ExpectedGroupBy": ["BrowserName"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT BrowserName, COUNT_BIG(1) AS TicketCount FROM Tickets WHERE BrowserName IS NOT NULL GROUP BY BrowserName ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "GRP-011", "Question": "Tickets per impact scope.", "Category": "GroupBy", "Difficulty": "Medium", "ExpectedGroupBy": ["ImpactScope"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT ImpactScope, COUNT_BIG(1) AS TicketCount FROM Tickets WHERE ImpactScope IS NOT NULL GROUP BY ImpactScope ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "GRP-012", "Question": "Tickets per assignee, top 10.", "Category": "GroupBy", "Difficulty": "Hard", "ExpectedGroupBy": ["AssignedToUserId"], "ExpectedLimit": 10,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 10 (u.FirstName+' '+u.LastName) AS AssignedToName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN AspNetUsers u ON t.AssignedToUserId=u.Id GROUP BY u.FirstName, u.LastName ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["AssignedToName","TicketCount"] } },
+
+    { "Code": "HAV-001", "Question": "Entities with more than 100 tickets.", "Category": "Having", "Difficulty": "Hard", "ExpectedGroupBy": ["EntityId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedHavingFilters": [{ "Function": "count", "Operator": "gt", "Value": 100 }],
+      "CorrectAnswer": { "SQL": "SELECT e.Name AS EntityName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id GROUP BY e.Name HAVING COUNT_BIG(1)>100 ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "HAV-002", "Question": "Priorities with more than 300 tickets.", "Category": "Having", "Difficulty": "Hard", "ExpectedGroupBy": ["PriorityId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedHavingFilters": [{ "Function": "count", "Operator": "gt", "Value": 300 }],
+      "CorrectAnswer": { "SQL": "SELECT p.Name AS PriorityName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id GROUP BY p.Name HAVING COUNT_BIG(1)>300 ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "HAV-003", "Question": "Categories with more than 50 tickets.", "Category": "Having", "Difficulty": "Hard", "ExpectedGroupBy": ["CategoryId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedHavingFilters": [{ "Function": "count", "Operator": "gt", "Value": 50 }],
+      "CorrectAnswer": { "SQL": "SELECT c.Name AS CategoryName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN TicketCategories c ON t.CategoryId=c.Id GROUP BY c.Name HAVING COUNT_BIG(1)>50 ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "HAV-004", "Question": "Statuses with at least 50 tickets each.", "Category": "Having", "Difficulty": "Medium", "ExpectedGroupBy": ["StatusId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedHavingFilters": [{ "Function": "count", "Operator": "gte", "Value": 50 }],
+      "CorrectAnswer": { "SQL": "SELECT s.Name AS StatusName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id GROUP BY s.Name HAVING COUNT_BIG(1)>=50 ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } },
+
+    { "Code": "HAV-005", "Question": "Sources where average affected users is over 5.", "Category": "Having", "Difficulty": "Hard", "ExpectedGroupBy": ["SourceId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedHavingFilters": [{ "Function": "avg", "Operator": "gt", "Value": 5 }],
+      "CorrectAnswer": { "SQL": "SELECT src.Name AS SourceName, AVG(CAST(AffectedUsersCount AS float)) AS AverageAffectedUsers FROM Tickets t JOIN TicketSources src ON t.SourceId=src.Id GROUP BY src.Name HAVING AVG(CAST(AffectedUsersCount AS float))>5 ORDER BY AverageAffectedUsers DESC", "ExpectedAnswerKeywords": ["AverageAffectedUsers"] } },
+
+    { "Code": "HAV-006", "Question": "Entities where total affected users exceeds 1000.", "Category": "Having", "Difficulty": "Hard", "ExpectedGroupBy": ["EntityId"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedHavingFilters": [{ "Function": "sum", "Operator": "gt", "Value": 1000 }],
+      "CorrectAnswer": { "SQL": "SELECT e.Name AS EntityName, SUM(AffectedUsersCount) AS TotalAffectedUsers FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id GROUP BY e.Name HAVING SUM(AffectedUsersCount)>1000 ORDER BY TotalAffectedUsers DESC", "ExpectedAnswerKeywords": ["TotalAffectedUsers"] } },
+
+    { "Code": "TIME-001", "Question": "Tickets created in the last 7 days.", "Category": "Temporal", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt>=DATEADD(day,-7,GETUTCDATE()) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["CreatedAt within last 7 days"], "ExpectedAnswerKeywords": ["CreatedAt"] } },
+
+    { "Code": "TIME-002", "Question": "Tickets created last month.", "Category": "Temporal", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt>=DATEADD(month,-1,DATEFROMPARTS(YEAR(GETUTCDATE()),MONTH(GETUTCDATE()),1)) AND t.CreatedAt<DATEFROMPARTS(YEAR(GETUTCDATE()),MONTH(GETUTCDATE()),1) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["CreatedAt in previous calendar month"], "ExpectedAnswerKeywords": ["CreatedAt"] } },
+
+    { "Code": "TIME-003", "Question": "Tickets created this month.", "Category": "Temporal", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt>=DATEFROMPARTS(YEAR(GETUTCDATE()),MONTH(GETUTCDATE()),1) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["CreatedAt in current calendar month"], "ExpectedAnswerKeywords": ["CreatedAt"] } },
+
+    { "Code": "TIME-004", "Question": "Tickets created since 2026-04-01.", "Category": "Temporal", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt>='2026-04-01' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["CreatedAt>=2026-04-01"], "ExpectedAnswerKeywords": ["2026-04"] } },
+
+    { "Code": "TIME-005", "Question": "Tickets resolved in the last 30 days.", "Category": "Temporal", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.ResolvedAt FROM Tickets t WHERE t.ResolvedAt>=DATEADD(day,-30,GETUTCDATE()) ORDER BY t.ResolvedAt DESC", "ExpectedFilters": ["ResolvedAt within last 30 days"], "ExpectedAnswerKeywords": ["ResolvedAt"] } },
+
+    { "Code": "TIME-006", "Question": "Tickets created today.", "Category": "Temporal", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE CAST(t.CreatedAt AS date)=CAST(GETUTCDATE() AS date) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["CreatedAt=today"], "ExpectedAnswerKeywords": ["CreatedAt"] } },
+
+    { "Code": "TIME-007", "Question": "Tickets created yesterday.", "Category": "Temporal", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE CAST(t.CreatedAt AS date)=CAST(DATEADD(day,-1,GETUTCDATE()) AS date) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["CreatedAt=yesterday"], "ExpectedAnswerKeywords": ["CreatedAt"] } },
+
+    { "Code": "TIME-008", "Question": "Tickets due in the next 7 days.", "Category": "Temporal", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.DueDate FROM Tickets t WHERE t.DueDate BETWEEN GETUTCDATE() AND DATEADD(day,7,GETUTCDATE()) ORDER BY t.DueDate ASC", "ExpectedFilters": ["DueDate within next 7 days"], "ExpectedAnswerKeywords": ["DueDate"] } },
+
+    { "Code": "TIME-009", "Question": "Tickets that are overdue.", "Category": "Temporal", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.DueDate FROM Tickets t WHERE t.DueDate<GETUTCDATE() AND t.ResolvedAt IS NULL ORDER BY t.DueDate ASC", "ExpectedFilters": ["DueDate<now","ResolvedAt IS NULL"], "ExpectedAnswerKeywords": ["DueDate"] } },
+
+    { "Code": "TIME-010", "Question": "Tickets created between 2026-01-01 and 2026-03-31.", "Category": "Temporal", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt BETWEEN '2026-01-01' AND '2026-03-31 23:59:59' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["CreatedAt BETWEEN 2026-01-01 AND 2026-03-31"], "ExpectedAnswerKeywords": ["2026"] } },
+
+    { "Code": "TIME-011", "Question": "Tickets that took more than 48 hours to resolve.", "Category": "Temporal", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, DATEDIFF(HOUR, t.CreatedAt, t.ResolvedAt) AS ResolutionHours FROM Tickets t WHERE t.ResolvedAt IS NOT NULL AND DATEDIFF(HOUR, t.CreatedAt, t.ResolvedAt)>48 ORDER BY ResolutionHours DESC", "ExpectedFilters": ["ResolutionHours>48"], "ExpectedAnswerKeywords": ["ResolutionHours"] } },
+
+    { "Code": "TIME-012", "Question": "Tickets escalated in the last 14 days.", "Category": "Temporal", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.EscalatedAt, t.EscalationLevel FROM Tickets t WHERE t.EscalatedAt>=DATEADD(day,-14,GETUTCDATE()) ORDER BY t.EscalatedAt DESC", "ExpectedFilters": ["EscalatedAt within last 14 days"], "ExpectedAnswerKeywords": ["EscalatedAt"] } },
+
+    { "Code": "DET-001", "Question": "Show details of ticket 1.", "Category": "DetailById", "Difficulty": "Easy", "ExpectedResultsCount": 1, "ExpectedAnyResults": true,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.* FROM Tickets t WHERE t.Id=1", "ExpectedFilters": ["Id=1"], "ExpectedAnswerKeywords": ["TCK-2026-00001"] } },
+
+    { "Code": "DET-002", "Question": "Show details of ticket TCK-2026-00500.", "Category": "DetailById", "Difficulty": "Easy", "ExpectedResultsCount": 1, "ExpectedAnyResults": true,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.* FROM Tickets t WHERE t.TicketNumber='TCK-2026-00500'", "ExpectedFilters": ["TicketNumber=TCK-2026-00500"], "ExpectedAnswerKeywords": ["TCK-2026-00500"] } },
+
+    { "Code": "DET-003", "Question": "Show details of ticket TCK-AR-2026-00150.", "Category": "DetailById", "Difficulty": "Medium", "ExpectedResultsCount": 1, "ExpectedAnyResults": true,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.* FROM Tickets t WHERE t.TicketNumber='TCK-AR-2026-00150'", "ExpectedFilters": ["TicketNumber=TCK-AR-2026-00150"], "ExpectedAnswerKeywords": ["TCK-AR-2026-00150"] } },
+
+    { "Code": "DET-004", "Question": "What is the status of ticket TCK-2026-00100?", "Category": "DetailById", "Difficulty": "Easy", "ExpectedAnyResults": true,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.TicketNumber, s.Name AS StatusName FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE t.TicketNumber='TCK-2026-00100'", "ExpectedFilters": ["TicketNumber=TCK-2026-00100"], "ExpectedAnswerKeywords": ["TCK-2026-00100"] } },
+
+    { "Code": "DET-005", "Question": "Who is assigned to ticket TCK-2026-00050?", "Category": "DetailById", "Difficulty": "Medium", "ExpectedAnyResults": true,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.TicketNumber, (u.FirstName+' '+u.LastName) AS AssignedToName FROM Tickets t LEFT JOIN AspNetUsers u ON t.AssignedToUserId=u.Id WHERE t.TicketNumber='TCK-2026-00050'", "ExpectedFilters": ["TicketNumber=TCK-2026-00050"], "ExpectedAnswerKeywords": ["TCK-2026-00050"] } },
+
+    { "Code": "DET-006", "Question": "Show me the resolution summary for ticket TCK-2026-00200.", "Category": "DetailById", "Difficulty": "Medium", "ExpectedAnyResults": true,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.TicketNumber, t.ResolutionSummary FROM Tickets t WHERE t.TicketNumber='TCK-2026-00200'", "ExpectedFilters": ["TicketNumber=TCK-2026-00200"], "ExpectedAnswerKeywords": ["TCK-2026-00200"] } },
+
+    { "Code": "SEM-001", "Question": "Find tickets containing 'printer' in the title.", "Category": "Semantic", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE N'%printer%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Title contains printer"], "ExpectedAnswerKeywords": ["printer"] } },
+
+    { "Code": "SEM-002", "Question": "Find tickets about 'data loss' or 'data corruption'.", "Category": "Semantic", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE N'%data loss%' OR t.Title LIKE N'%data corruption%' OR t.Description LIKE N'%data loss%' OR t.Description LIKE N'%data corruption%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Title or Description contains data loss/corruption"], "ExpectedAnswerKeywords": ["data"] } },
+
+    { "Code": "SEM-003", "Question": "Show tickets where the description mentions 'network'.", "Category": "Semantic", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.Description LIKE N'%network%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Description contains network"], "ExpectedAnswerKeywords": ["network"] } },
+
+    { "Code": "SEM-004", "Question": "Tickets whose title starts with 'Detailed'.", "Category": "Semantic", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE N'Detailed%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Title starts with Detailed"], "ExpectedAnswerKeywords": ["Detailed"] } },
+
+    { "Code": "SEM-005", "Question": "Tickets containing 'login' or 'authentication' in the title.", "Category": "Semantic", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE N'%login%' OR t.Title LIKE N'%authentication%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Title contains login OR authentication"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEM-006", "Question": "Find tickets mentioning 'VPN' in title or description.", "Category": "Semantic", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE N'%VPN%' OR t.Description LIKE N'%VPN%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Title or Description contains VPN"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SEM-007", "Question": "Tickets whose resolution mentions 'restart'.", "Category": "Semantic", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.ResolutionSummary FROM Tickets t WHERE t.ResolutionSummary LIKE N'%restart%' ORDER BY t.ResolvedAt DESC", "ExpectedFilters": ["ResolutionSummary contains restart"], "ExpectedAnswerKeywords": ["restart"] } },
+
+    { "Code": "SEM-008", "Question": "Tickets where the technical assessment mentions 'memory leak'.", "Category": "Semantic", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.TechnicalAssessment FROM Tickets t WHERE t.TechnicalAssessment LIKE N'%memory leak%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["TechnicalAssessment contains memory leak"], "ExpectedAnswerKeywords": ["memory"] } },
+
+    { "Code": "COMP-001", "Question": "Show open critical tickets.", "Category": "Compound", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, s.Name AS StatusName, p.Name AS PriorityName FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id JOIN TicketPriorities p ON t.PriorityId=p.Id WHERE s.Name='Open' AND p.Name='Critical' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Status=Open","Priority=Critical"], "ExpectedAnswerKeywords": ["Open","Critical"] } },
+
+    { "Code": "COMP-002", "Question": "Tickets at High or Critical priority.", "Category": "Compound", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, p.Name AS PriorityName FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id WHERE p.Name IN ('High','Critical') ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Priority IN (High, Critical)"], "ExpectedAnswerKeywords": ["PriorityName"] } },
+
+    { "Code": "COMP-003", "Question": "Tickets created between 2026-02-01 and 2026-03-31.", "Category": "Compound", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt BETWEEN '2026-02-01' AND '2026-03-31 23:59:59' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["CreatedAt BETWEEN 2026-02-01 AND 2026-03-31"], "ExpectedAnswerKeywords": ["2026-02"] } },
+
+    { "Code": "COMP-004", "Question": "Tickets in Health that are critical and unresolved.", "Category": "Compound", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id JOIN TicketPriorities p ON t.PriorityId=p.Id WHERE e.Name='Health' AND p.Name='Critical' AND t.ResolvedAt IS NULL ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Entity=Health","Priority=Critical","ResolvedAt IS NULL"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "COMP-005", "Question": "Open tickets that breached the SLA.", "Category": "Compound", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name='Open' AND t.IsSlaBreached=1 ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Status=Open","IsSlaBreached=true"], "ExpectedAnswerKeywords": ["IsSlaBreached"] } },
+
+    { "Code": "COMP-006", "Question": "Tickets in Hardware or Network category.", "Category": "Compound", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, c.Name AS CategoryName FROM Tickets t JOIN TicketCategories c ON t.CategoryId=c.Id WHERE c.Name IN ('Hardware','Network') ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Category IN (Hardware, Network)"], "ExpectedAnswerKeywords": ["CategoryName"] } },
+
+    { "Code": "COMP-007", "Question": "Critical tickets reported via Phone or Email.", "Category": "Compound", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id JOIN TicketSources src ON t.SourceId=src.Id WHERE p.Name='Critical' AND src.Name IN ('Phone','Email') ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Priority=Critical","Source IN (Phone, Email)"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "COMP-008", "Question": "Open or In Progress tickets that require manager review.", "Category": "Compound", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name IN ('Open','In Progress') AND t.RequiresManagerReview=1 ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Status IN (Open, In Progress)","RequiresManagerReview=true"], "ExpectedAnswerKeywords": ["RequiresManagerReview"] } },
+
+    { "Code": "COMP-009", "Question": "Unresolved critical tickets with affected users greater than 5.", "Category": "Compound", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.AffectedUsersCount FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id WHERE p.Name='Critical' AND t.ResolvedAt IS NULL AND t.AffectedUsersCount>5 ORDER BY t.AffectedUsersCount DESC", "ExpectedFilters": ["Priority=Critical","ResolvedAt IS NULL","AffectedUsersCount>5"], "ExpectedAnswerKeywords": ["AffectedUsersCount"] } },
+
+    { "Code": "COMP-010", "Question": "Tickets in Education or Health created in the last 30 days.", "Category": "Compound", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, e.Name AS EntityName, t.CreatedAt FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id WHERE e.Name IN ('Education','Health') AND t.CreatedAt>=DATEADD(day,-30,GETUTCDATE()) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Entity IN (Education, Health)","CreatedAt within last 30 days"], "ExpectedAnswerKeywords": ["EntityName"] } },
+
+    { "Code": "COMP-011", "Question": "Resolved tickets with no comments.", "Category": "Compound", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.ResolvedAt IS NOT NULL AND NOT EXISTS (SELECT 1 FROM TicketComments c WHERE c.TicketId=t.Id) ORDER BY t.ResolvedAt DESC", "ExpectedFilters": ["ResolvedAt IS NOT NULL","NoComments"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "COMP-012", "Question": "Pending tickets older than 14 days.", "Category": "Compound", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name='Pending' AND t.CreatedAt<DATEADD(day,-14,GETUTCDATE()) ORDER BY t.CreatedAt ASC", "ExpectedFilters": ["Status=Pending","CreatedAt older than 14 days"], "ExpectedAnswerKeywords": ["Pending"] } },
+
+    { "Code": "MULTI-001", "Question": "Show ticket number, title, status, priority, entity, and category in one row.", "Category": "MultiTable", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, s.Name AS StatusName, p.Name AS PriorityName, e.Name AS EntityName, c.Name AS CategoryName FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id JOIN TicketPriorities p ON t.PriorityId=p.Id JOIN Entitys e ON t.EntityId=e.Id JOIN TicketCategories c ON t.CategoryId=c.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["StatusName","PriorityName","EntityName","CategoryName"] } },
+
+    { "Code": "MULTI-002", "Question": "Show open critical tickets in Health with the assignee name.", "Category": "MultiTable", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, s.Name AS StatusName, p.Name AS PriorityName, e.Name AS EntityName, (u.FirstName+' '+u.LastName) AS AssignedToName FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id JOIN TicketPriorities p ON t.PriorityId=p.Id JOIN Entitys e ON t.EntityId=e.Id LEFT JOIN AspNetUsers u ON t.AssignedToUserId=u.Id WHERE s.Name='Open' AND p.Name='Critical' AND e.Name='Health' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Status=Open","Priority=Critical","Entity=Health"], "ExpectedAnswerKeywords": ["AssignedToName"] } },
+
+    { "Code": "MULTI-003", "Question": "Show ticket number with entity and source name together.", "Category": "MultiTable", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, e.Name AS EntityName, src.Name AS SourceName FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id JOIN TicketSources src ON t.SourceId=src.Id ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["EntityName","SourceName"] } },
+
+    { "Code": "MULTI-004", "Question": "Critical tickets with status, entity, category, and source names.", "Category": "MultiTable", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, s.Name AS StatusName, e.Name AS EntityName, c.Name AS CategoryName, src.Name AS SourceName FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id JOIN TicketPriorities p ON t.PriorityId=p.Id JOIN Entitys e ON t.EntityId=e.Id JOIN TicketCategories c ON t.CategoryId=c.Id JOIN TicketSources src ON t.SourceId=src.Id WHERE p.Name='Critical' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Priority=Critical"], "ExpectedAnswerKeywords": ["StatusName","EntityName","CategoryName","SourceName"] } },
+
+    { "Code": "MULTI-005", "Question": "Show resolved Hardware tickets in Health with reporter and resolver names.", "Category": "MultiTable", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, e.Name AS EntityName, c.Name AS CategoryName, (rep.FirstName+' '+rep.LastName) AS ReporterName, (res.FirstName+' '+res.LastName) AS ResolvedByName FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id JOIN TicketCategories c ON t.CategoryId=c.Id LEFT JOIN AspNetUsers rep ON t.CreatedByUserId=rep.Id LEFT JOIN AspNetUsers res ON t.ResolvedByUserId=res.Id WHERE c.Name='Hardware' AND e.Name='Health' AND t.ResolvedAt IS NOT NULL ORDER BY t.ResolvedAt DESC", "ExpectedFilters": ["Category=Hardware","Entity=Health","ResolvedAt IS NOT NULL"], "ExpectedAnswerKeywords": ["ReporterName","ResolvedByName"] } },
+
+    { "Code": "MULTI-006", "Question": "Tickets that have both attachments and comments.", "Category": "MultiTable", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE EXISTS (SELECT 1 FROM TicketAttachments a WHERE a.TicketId=t.Id) AND EXISTS (SELECT 1 FROM TicketComments c WHERE c.TicketId=t.Id) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["HasAttachments","HasComments"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "MULTI-007", "Question": "Show ticket number, status, priority, and the most recent history action per ticket.", "Category": "MultiTable", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, s.Name AS StatusName, p.Name AS PriorityName, h.Action AS LastAction FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id JOIN TicketPriorities p ON t.PriorityId=p.Id OUTER APPLY (SELECT TOP 1 hh.Action FROM TicketHistories hh WHERE hh.TicketId=t.Id ORDER BY hh.CreatedAt DESC) h ORDER BY t.CreatedAt DESC", "ExpectedAnswerKeywords": ["StatusName","LastAction"] } },
+
+    { "Code": "MULTI-008", "Question": "Critical tickets with assignee, reporter, and approver in one row.", "Category": "MultiTable", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, (asg.FirstName+' '+asg.LastName) AS AssignedToName, (rep.FirstName+' '+rep.LastName) AS ReporterName, (apr.FirstName+' '+apr.LastName) AS ApprovedByName FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id LEFT JOIN AspNetUsers asg ON t.AssignedToUserId=asg.Id LEFT JOIN AspNetUsers rep ON t.CreatedByUserId=rep.Id LEFT JOIN AspNetUsers apr ON t.ResolutionApprovedByUserId=apr.Id WHERE p.Name='Critical' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Priority=Critical"], "ExpectedAnswerKeywords": ["AssignedToName","ReporterName","ApprovedByName"] } },
+
+    { "Code": "REL-001", "Question": "How many ticket comments are there in total?", "Category": "RelatedEntity", "Difficulty": "Easy", "ExpectedOperation": "Count",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketComments",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS TotalComments FROM TicketComments", "ExpectedAnswerKeywords": ["TotalComments"] } },
+
+    { "Code": "REL-002", "Question": "Top 10 tickets by comment count.", "Category": "RelatedEntity", "Difficulty": "Hard", "ExpectedGroupBy": ["TicketId"], "ExpectedLimit": 10,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketComments",
+      "CorrectAnswer": { "SQL": "SELECT TOP 10 t.TicketNumber, t.Title, COUNT_BIG(c.Id) AS CommentCount FROM TicketComments c JOIN Tickets t ON c.TicketId=t.Id GROUP BY t.TicketNumber, t.Title ORDER BY CommentCount DESC", "ExpectedAnswerKeywords": ["CommentCount"] } },
+
+    { "Code": "REL-003", "Question": "How many attachments per ticket — top 5.", "Category": "RelatedEntity", "Difficulty": "Hard", "ExpectedGroupBy": ["TicketId"], "ExpectedLimit": 5,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketAttachments",
+      "CorrectAnswer": { "SQL": "SELECT TOP 5 t.TicketNumber, t.Title, COUNT_BIG(a.Id) AS AttachmentCount FROM TicketAttachments a JOIN Tickets t ON a.TicketId=t.Id GROUP BY t.TicketNumber, t.Title ORDER BY AttachmentCount DESC", "ExpectedAnswerKeywords": ["AttachmentCount"] } },
+
+    { "Code": "REL-004", "Question": "Show the 10 most recent ticket history changes.", "Category": "RelatedEntity", "Difficulty": "Medium", "ExpectedLimit": 10,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketHistories",
+      "CorrectAnswer": { "SQL": "SELECT TOP 10 h.Action, h.OldValue, h.NewValue, t.TicketNumber, h.CreatedAt FROM TicketHistories h JOIN Tickets t ON h.TicketId=t.Id ORDER BY h.CreatedAt DESC", "ExpectedAnswerKeywords": ["Action","TicketNumber"] } },
+
+    { "Code": "REL-005", "Question": "How many attachments are there in total?", "Category": "RelatedEntity", "Difficulty": "Easy", "ExpectedOperation": "Count",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketAttachments",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS TotalAttachments FROM TicketAttachments", "ExpectedAnswerKeywords": ["TotalAttachments"] } },
+
+    { "Code": "REL-006", "Question": "Show the comments on ticket TCK-2026-00100.", "Category": "RelatedEntity", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketComments",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 c.CreatedAt, c.Comment FROM TicketComments c JOIN Tickets t ON c.TicketId=t.Id WHERE t.TicketNumber='TCK-2026-00100' ORDER BY c.CreatedAt ASC", "ExpectedFilters": ["TicketNumber=TCK-2026-00100"], "ExpectedAnswerKeywords": ["Comment"] } },
+
+    { "Code": "REL-007", "Question": "Show attachments on ticket TCK-2026-00250.", "Category": "RelatedEntity", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketAttachments",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 a.FileName, a.CreatedAt FROM TicketAttachments a JOIN Tickets t ON a.TicketId=t.Id WHERE t.TicketNumber='TCK-2026-00250' ORDER BY a.CreatedAt ASC", "ExpectedFilters": ["TicketNumber=TCK-2026-00250"], "ExpectedAnswerKeywords": ["FileName"] } },
+
+    { "Code": "REL-008", "Question": "Show the change history of ticket TCK-2026-00050.", "Category": "RelatedEntity", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketHistories",
+      "CorrectAnswer": { "SQL": "SELECT h.Action, h.OldValue, h.NewValue, h.CreatedAt FROM TicketHistories h JOIN Tickets t ON h.TicketId=t.Id WHERE t.TicketNumber='TCK-2026-00050' ORDER BY h.CreatedAt ASC", "ExpectedFilters": ["TicketNumber=TCK-2026-00050"], "ExpectedAnswerKeywords": ["Action"] } },
+
+    { "Code": "REL-009", "Question": "Tickets with no comments at all.", "Category": "RelatedEntity", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE NOT EXISTS (SELECT 1 FROM TicketComments c WHERE c.TicketId=t.Id) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["NoComments"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "REL-010", "Question": "Tickets with no attachments.", "Category": "RelatedEntity", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE NOT EXISTS (SELECT 1 FROM TicketAttachments a WHERE a.TicketId=t.Id) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["NoAttachments"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "REL-011", "Question": "Average number of comments per ticket.", "Category": "RelatedEntity", "Difficulty": "Hard", "ExpectedOperation": "Avg",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketComments",
+      "CorrectAnswer": { "SQL": "SELECT AVG(CAST(CommentCount AS float)) AS AverageCommentsPerTicket FROM (SELECT TicketId, COUNT_BIG(1) AS CommentCount FROM TicketComments GROUP BY TicketId) x", "ExpectedAnswerKeywords": ["AverageCommentsPerTicket"] } },
+
+    { "Code": "REL-012", "Question": "How many history entries exist per status change action?", "Category": "RelatedEntity", "Difficulty": "Hard", "ExpectedGroupBy": ["Action"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketHistories",
+      "CorrectAnswer": { "SQL": "SELECT h.Action, COUNT_BIG(1) AS EventCount FROM TicketHistories h GROUP BY h.Action ORDER BY EventCount DESC", "ExpectedAnswerKeywords": ["EventCount"] } },
+
+    { "Code": "USR-001", "Question": "Show all roles.", "Category": "UsersRoles", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "AspNetRoles",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 r.Name FROM AspNetRoles r ORDER BY r.Name", "ExpectedAnswerKeywords": ["Admin"] } },
+
+    { "Code": "USR-002", "Question": "Show all users with their email.", "Category": "UsersRoles", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "AspNetUsers",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 u.FirstName, u.LastName, u.Email FROM AspNetUsers u ORDER BY u.LastName", "ExpectedAnswerKeywords": ["Email"] } },
+
+    { "Code": "USR-003", "Question": "Show users in the Admin role.", "Category": "UsersRoles", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "AspNetUsers",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 u.FirstName, u.LastName, u.Email FROM AspNetUsers u JOIN AspNetUserRoles ur ON u.Id=ur.UserId JOIN AspNetRoles r ON ur.RoleId=r.Id WHERE r.Name='Admin'", "ExpectedFilters": ["Role=Admin"], "ExpectedAnswerKeywords": ["Admin"] } },
+
+    { "Code": "USR-004", "Question": "Count of users per role.", "Category": "UsersRoles", "Difficulty": "Hard", "ExpectedGroupBy": ["RoleName"],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "AspNetRoles",
+      "CorrectAnswer": { "SQL": "SELECT r.Name AS RoleName, COUNT_BIG(ur.UserId) AS UsersInRole FROM AspNetRoles r LEFT JOIN AspNetUserRoles ur ON r.Id=ur.RoleId GROUP BY r.Name ORDER BY UsersInRole DESC", "ExpectedAnswerKeywords": ["UsersInRole"] } },
+
+    { "Code": "USR-005", "Question": "Top 5 users by number of assigned tickets.", "Category": "UsersRoles", "Difficulty": "Hard", "ExpectedGroupBy": ["AssignedToUserId"], "ExpectedLimit": 5,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 5 (u.FirstName+' '+u.LastName) AS AssignedToName, COUNT_BIG(t.Id) AS TicketCount FROM Tickets t JOIN AspNetUsers u ON t.AssignedToUserId=u.Id GROUP BY u.FirstName, u.LastName ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount","AssignedToName"] } },
+
+    { "Code": "USR-006", "Question": "Users in the Tech entity.", "Category": "UsersRoles", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "AspNetUsers",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 u.FirstName, u.LastName, u.Email FROM AspNetUsers u JOIN Entitys e ON u.EntityId=e.Id WHERE e.Name LIKE '%Technologies%' ORDER BY u.LastName", "ExpectedFilters": ["Entity LIKE %Technologies%"], "ExpectedAnswerKeywords": ["Email"] } },
+
+    { "Code": "USR-007", "Question": "Top 3 resolvers by number of resolved tickets.", "Category": "UsersRoles", "Difficulty": "Hard", "ExpectedGroupBy": ["ResolvedByUserId"], "ExpectedLimit": 3,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 3 (u.FirstName+' '+u.LastName) AS ResolvedByName, COUNT_BIG(t.Id) AS ResolvedCount FROM Tickets t JOIN AspNetUsers u ON t.ResolvedByUserId=u.Id WHERE t.ResolvedAt IS NOT NULL GROUP BY u.FirstName, u.LastName ORDER BY ResolvedCount DESC", "ExpectedAnswerKeywords": ["ResolvedCount","ResolvedByName"] } },
+
+    { "Code": "USR-008", "Question": "How many users do not belong to any role?", "Category": "UsersRoles", "Difficulty": "Hard", "ExpectedOperation": "Count",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "AspNetUsers",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS RolelessUsers FROM AspNetUsers u WHERE NOT EXISTS (SELECT 1 FROM AspNetUserRoles ur WHERE ur.UserId=u.Id)", "ExpectedAnswerKeywords": ["RolelessUsers"] } },
+
+    { "Code": "SIM-001", "Question": "Find tickets similar to TCK-2026-00100.", "Category": "Similarity", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedAnyResults": true,
+      "CorrectAnswer": { "SQL": "EXEC sp_FindSimilarTickets @TicketNumber='TCK-2026-00100'", "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SIM-002", "Question": "Show me tickets that look like TCK-2026-00050.", "Category": "Similarity", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedAnyResults": true,
+      "CorrectAnswer": { "SQL": "EXEC sp_FindSimilarTickets @TicketNumber='TCK-2026-00050'", "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SIM-003", "Question": "Are there any past tickets similar to a printer-driver issue?", "Category": "Similarity", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 10 t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE N'%printer%' OR t.Description LIKE N'%printer%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Title or Description contains printer"], "ExpectedAnswerKeywords": ["printer"] } },
+
+    { "Code": "SIM-004", "Question": "Find similar tickets to a VPN connection drop problem.", "Category": "Similarity", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 10 t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE N'%VPN%' OR t.Description LIKE N'%VPN%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Title or Description contains VPN"], "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SIM-005", "Question": "Look up tickets related to TCK-2026-00200.", "Category": "Similarity", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedAnyResults": true,
+      "CorrectAnswer": { "SQL": "EXEC sp_FindSimilarTickets @TicketNumber='TCK-2026-00200'", "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "SIM-006", "Question": "What other tickets are related to TCK-2026-00010?", "Category": "Similarity", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedAnyResults": true,
+      "CorrectAnswer": { "SQL": "EXEC sp_FindSimilarTickets @TicketNumber='TCK-2026-00010'", "ExpectedAnswerKeywords": ["TCK-2026"] } },
+
+    { "Code": "KB-001", "Question": "What is the SOP for handling a critical ticket escalation?", "Category": "KnowledgeBase", "Difficulty": "Medium",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["escalation"] } },
+
+    { "Code": "KB-002", "Question": "How do I troubleshoot an integration failure?", "Category": "KnowledgeBase", "Difficulty": "Medium",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["integration"] } },
+
+    { "Code": "KB-003", "Question": "When does a ticket require manager review?", "Category": "KnowledgeBase", "Difficulty": "Easy",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["manager"] } },
+
+    { "Code": "KB-004", "Question": "Walk me through the resolution approval workflow.", "Category": "KnowledgeBase", "Difficulty": "Medium",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["approval"] } },
+
+    { "Code": "KB-005", "Question": "What's the difference between Pending and Closed status?", "Category": "KnowledgeBase", "Difficulty": "Easy",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["Pending"] } },
+
+    { "Code": "KB-006", "Question": "Explain how SLA breach is determined.", "Category": "KnowledgeBase", "Difficulty": "Hard",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["SLA"] } },
+
+    { "Code": "ACT-001", "Question": "Assign ticket TCK-2026-00100 to user agent1@tech.local.", "Category": "PlatformAction", "Difficulty": "Medium",
+      "ExpectedClarification": true, "ExpectedClarificationKeywords": ["confirm"],
+      "CorrectAnswer": { "ExpectedClarificationKeywords": ["confirm"], "ExpectedAnswerKeywords": ["confirm"] } },
+
+    { "Code": "ACT-002", "Question": "Set the status of ticket TCK-2026-00100 to Resolved.", "Category": "PlatformAction", "Difficulty": "Medium",
+      "ExpectedClarification": true, "ExpectedClarificationKeywords": ["confirm"],
+      "CorrectAnswer": { "ExpectedClarificationKeywords": ["confirm"], "ExpectedAnswerKeywords": ["confirm"] } },
+
+    { "Code": "ACT-003", "Question": "Add a comment to ticket TCK-2026-00050 saying 'investigating now'.", "Category": "PlatformAction", "Difficulty": "Medium",
+      "ExpectedClarification": true, "ExpectedClarificationKeywords": ["confirm"],
+      "CorrectAnswer": { "ExpectedClarificationKeywords": ["confirm"], "ExpectedAnswerKeywords": ["confirm"] } },
+
+    { "Code": "ACT-004", "Question": "Escalate ticket TCK-2026-00010 to level 2.", "Category": "PlatformAction", "Difficulty": "Hard",
+      "ExpectedClarification": true, "ExpectedClarificationKeywords": ["confirm"],
+      "CorrectAnswer": { "ExpectedClarificationKeywords": ["confirm"], "ExpectedAnswerKeywords": ["confirm"] } },
+
+    { "Code": "ACT-005", "Question": "Change the priority of ticket TCK-2026-00200 to Critical.", "Category": "PlatformAction", "Difficulty": "Medium",
+      "ExpectedClarification": true, "ExpectedClarificationKeywords": ["confirm"],
+      "CorrectAnswer": { "ExpectedClarificationKeywords": ["confirm"], "ExpectedAnswerKeywords": ["confirm"] } },
+
+    { "Code": "ACT-006", "Question": "Resolve ticket TCK-2026-00500 with summary 'restarted service'.", "Category": "PlatformAction", "Difficulty": "Hard",
+      "ExpectedClarification": true, "ExpectedClarificationKeywords": ["confirm"],
+      "CorrectAnswer": { "ExpectedClarificationKeywords": ["confirm"], "ExpectedAnswerKeywords": ["confirm"] } },
+
+    { "Code": "TOOL-001", "Question": "What's the weather in Riyadh today?", "Category": "ExternalTool", "Difficulty": "Easy",
+      "ExpectedIntent": "ExternalToolQuery",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["Riyadh"] } },
+
+    { "Code": "TOOL-002", "Question": "Get me the current weather for Dubai.", "Category": "ExternalTool", "Difficulty": "Easy",
+      "ExpectedIntent": "ExternalToolQuery",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["Dubai"] } },
+
+    { "Code": "TOOL-003", "Question": "Will it rain in Cairo tomorrow?", "Category": "ExternalTool", "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["Cairo"] } },
+
+    { "Code": "TOOL-004", "Question": "Is it cold in Amman right now?", "Category": "ExternalTool", "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["Amman"] } },
+
+    { "Code": "CONV-001", "Question": "Hi.", "Category": "Conversational", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "CONV-002", "Question": "Who are you and what can you help me with?", "Category": "Conversational", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["help"] } },
+
+    { "Code": "CONV-003", "Question": "Thanks, that was useful.", "Category": "Conversational", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "CONV-004", "Question": "What kinds of questions can I ask you about tickets?", "Category": "Conversational", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": ["ticket"] } },
+
+    { "Code": "NEG-001", "Question": "Show details of ticket 99999.", "Category": "Negative", "Difficulty": "Hard", "ExpectedResultsCount": 0, "ExpectedAnyResults": false,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.* FROM Tickets t WHERE t.Id=99999", "ExpectedFilters": ["Id=99999"], "ExpectedAnswerKeywords": ["no"], "ForbiddenAnswerKeywords": ["TCK-2026-","TCK-AR-"] } },
+
+    { "Code": "NEG-002", "Question": "Tickets in entity Mars Colony.", "Category": "Negative", "Difficulty": "Hard", "ExpectedResultsCount": 0, "ExpectedAnyResults": false,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.* FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id WHERE e.Name='Mars Colony'", "ExpectedFilters": ["Entity=Mars Colony"], "ExpectedAnswerKeywords": ["no"], "ForbiddenAnswerKeywords": ["Health","Finance","Education"] } },
+
+    { "Code": "NEG-003", "Question": "Tickets with priority Catastrophic.", "Category": "Negative", "Difficulty": "Hard", "ExpectedResultsCount": 0, "ExpectedAnyResults": false,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.* FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id WHERE p.Name='Catastrophic'", "ExpectedFilters": ["Priority=Catastrophic"], "ExpectedAnswerKeywords": ["no"], "ForbiddenAnswerKeywords": ["High","Medium","Low","Critical"] } },
+
+    { "Code": "NEG-004", "Question": "Show ticket TCK-9999-99999.", "Category": "Negative", "Difficulty": "Medium", "ExpectedResultsCount": 0, "ExpectedAnyResults": false,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.* FROM Tickets t WHERE t.TicketNumber='TCK-9999-99999'", "ExpectedFilters": ["TicketNumber=TCK-9999-99999"], "ExpectedAnswerKeywords": ["no"] } },
+
+    { "Code": "NEG-005", "Question": "Tickets in category Telepathic Diagnostics.", "Category": "Negative", "Difficulty": "Hard", "ExpectedResultsCount": 0, "ExpectedAnyResults": false,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT t.* FROM Tickets t JOIN TicketCategories c ON t.CategoryId=c.Id WHERE c.Name='Telepathic Diagnostics'", "ExpectedFilters": ["Category=Telepathic Diagnostics"], "ExpectedAnswerKeywords": ["no"] } },
+
+    { "Code": "NEG-006", "Question": "Show users in role Overlord.", "Category": "Negative", "Difficulty": "Medium", "ExpectedResultsCount": 0, "ExpectedAnyResults": false,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "AspNetUsers",
+      "CorrectAnswer": { "SQL": "SELECT u.Email FROM AspNetUsers u JOIN AspNetUserRoles ur ON u.Id=ur.UserId JOIN AspNetRoles r ON ur.RoleId=r.Id WHERE r.Name='Overlord'", "ExpectedFilters": ["Role=Overlord"], "ExpectedAnswerKeywords": ["no"] } },
+
+    { "Code": "FAKE-OFF-001", "Question": "What's a good recipe for biryani?", "Category": "FakeOffTopic", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-OFF-002", "Question": "Tell me a joke.", "Category": "FakeOffTopic", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-OFF-003", "Question": "What is the capital of Japan?", "Category": "FakeOffTopic", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-OFF-004", "Question": "Translate 'good morning' to Spanish.", "Category": "FakeOffTopic", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-OFF-005", "Question": "Solve x^2 + 2x - 3 = 0.", "Category": "FakeOffTopic", "Difficulty": "Medium",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-OFF-006", "Question": "Write a haiku about debugging.", "Category": "FakeOffTopic", "Difficulty": "Medium",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-OFF-007", "Question": "How tall is Mount Everest?", "Category": "FakeOffTopic", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-OFF-008", "Question": "Who won the 2024 Champions League?", "Category": "FakeOffTopic", "Difficulty": "Medium",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-OFF-009", "Question": "What's the meaning of life?", "Category": "FakeOffTopic", "Difficulty": "Hard",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-OFF-010", "Question": "Sing me a song about cats.", "Category": "FakeOffTopic", "Difficulty": "Easy",
+      "ExpectedIntent": "GeneralChat",
+      "CorrectAnswer": { "ExpectedAnswerKeywords": [] } },
+
+    { "Code": "FAKE-MIS-001", "Question": "How many tickets are there in total?", "Category": "FakeMisLabeled", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "Count",
+      "CorrectAnswer": { "SQL": "SELECT COUNT_BIG(1) AS TotalTickets FROM Tickets", "ExpectedAnswerKeywords": ["TotalTickets"] } },
+
+    { "Code": "FAKE-MIS-002", "Question": "Show 10 critical tickets sorted by creation date.", "Category": "FakeMisLabeled", "Difficulty": "Medium", "ExpectedLimit": 10,
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 10 t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON t.PriorityId=p.Id WHERE p.Name='Critical' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Priority=Critical"], "ExpectedAnswerKeywords": ["Critical"] } },
+
+    { "Code": "FAKE-MIS-003", "Question": "Tickets in the Hardware category.", "Category": "FakeMisLabeled", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t JOIN TicketCategories c ON t.CategoryId=c.Id WHERE c.Name='Hardware' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Category=Hardware"], "ExpectedAnswerKeywords": ["Hardware"] } },
+
+    { "Code": "FAKE-MIS-004", "Question": "Show the comments on ticket TCK-2026-00077.", "Category": "FakeMisLabeled", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "TicketComments",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 c.CreatedAt, c.Comment FROM TicketComments c JOIN Tickets t ON c.TicketId=t.Id WHERE t.TicketNumber='TCK-2026-00077' ORDER BY c.CreatedAt ASC", "ExpectedFilters": ["TicketNumber=TCK-2026-00077"], "ExpectedAnswerKeywords": ["Comment"] } },
+
+    { "Code": "FAKE-MIS-005", "Question": "Tickets created in the last 7 days.", "Category": "FakeMisLabeled", "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt>=DATEADD(day,-7,GETUTCDATE()) ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["CreatedAt within last 7 days"], "ExpectedAnswerKeywords": ["CreatedAt"] } },
+
+    { "Code": "FAKE-MIS-006", "Question": "Open critical tickets with the assignee name.", "Category": "FakeMisLabeled", "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, (u.FirstName+' '+u.LastName) AS AssignedToName FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id JOIN TicketPriorities p ON t.PriorityId=p.Id LEFT JOIN AspNetUsers u ON t.AssignedToUserId=u.Id WHERE s.Name='Open' AND p.Name='Critical' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Status=Open","Priority=Critical"], "ExpectedAnswerKeywords": ["AssignedToName"] } },
+
+    { "Code": "FAKE-MIS-007", "Question": "Find tickets containing 'printer' in the title.", "Category": "FakeMisLabeled", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE N'%printer%' ORDER BY t.CreatedAt DESC", "ExpectedFilters": ["Title contains printer"], "ExpectedAnswerKeywords": ["printer"] } },
+
+    { "Code": "FAKE-MIS-008", "Question": "Average affected users per ticket.", "Category": "FakeMisLabeled", "Difficulty": "Medium", "ExpectedOperation": "Avg",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT AVG(CAST(AffectedUsersCount AS float)) AS AverageAffectedUsers FROM Tickets", "ExpectedAnswerKeywords": ["AverageAffectedUsers"] } },
+
+    { "Code": "FAKE-MIS-009", "Question": "Show all roles.", "Category": "FakeMisLabeled", "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "AspNetRoles",
+      "CorrectAnswer": { "SQL": "SELECT TOP 50 r.Name FROM AspNetRoles r ORDER BY r.Name", "ExpectedAnswerKeywords": ["Admin"] } },
+
+    { "Code": "FAKE-MIS-010", "Question": "Entities with more than 100 tickets.", "Category": "FakeMisLabeled", "Difficulty": "Hard", "ExpectedGroupBy": ["EntityId"], "ExpectedHavingFilters": [{ "Function": "count", "Operator": "gt", "Value": 100 }],
+      "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets",
+      "CorrectAnswer": { "SQL": "SELECT e.Name AS EntityName, COUNT_BIG(1) AS TicketCount FROM Tickets t JOIN Entitys e ON t.EntityId=e.Id GROUP BY e.Name HAVING COUNT_BIG(1)>100 ORDER BY TicketCount DESC", "ExpectedAnswerKeywords": ["TicketCount"] } }
+
+  ]
+}

@@ -1,0 +1,233 @@
+{
+  "name": "99 - Master Coverage Suite (one per failure-mode category)",
+  "version": "1.0",
+  "description": "One representative question per category from the 79-case projection/selection/decomposition failure-mode master list. Tests the K1-tightened eval (every case has ExpectedSql or ExpectedSqlContains so IsVerified=true) and exercises every fix shipped in this batch. Phrasing is grounded against this app's real seed data — entity names, status/priority vocab, user emails — so results are reproducible.",
+  "Scenarios": [
+
+    { "Code": "CV-CTRL-01", "Question": "How many tickets do we have?", "Category": "Control / Pure count", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t WHERE t.IsDeleted = 0",
+      "ExpectedSqlContains": ["COUNT(*)"],
+      "ExpectedMaxRows": 1, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-CTRL-02", "Question": "Show open tickets.", "Category": "Control / R2 filter-proof column", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 50 t.TicketNumber, t.Title, s.Name AS Status FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedSqlContains": ["TicketStatuses", "Name"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-A1-01", "Question": "Show me all the information about ticket TCK-2026-00001.", "Category": "A1 / All-columns sentinel", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.Description, t.PriorityId, t.StatusId, t.CategoryId, t.EntityId, t.SourceId, t.AssignedToUserId, t.CreatedByUserId, t.CreatedAt, t.ResolvedAt FROM Tickets t WHERE t.TicketNumber = 'TCK-2026-00001' AND t.IsDeleted = 0",
+      "ExpectedSqlContains": ["Tickets", "Description"],
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-A1-02", "Question": "Show full details of the user with email admin@supportflow.local.", "Category": "A1 / Single-record detail", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, u.Email, u.FirstName, u.LastName, u.EntityId, u.IsActive FROM AspNetUsers u WHERE u.Email = 'admin@supportflow.local'",
+      "ExpectedSqlContains": ["AspNetUsers"],
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-A3-01", "Question": "Show tickets.", "Category": "A3 / Default projection pulls FK labels", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 50 t.TicketNumber, t.Title, s.Name AS Status, p.Name AS Priority, c.Name AS Category FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0",
+      "ExpectedSqlContains": ["TicketStatuses", "TicketPriorities"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-A4-01", "Question": "List entities.", "Category": "A4 / Lookup browse (R1 root projection)", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT e.Name FROM Entitys e WHERE e.IsActive = 1 ORDER BY e.Name",
+      "ExpectedSqlContains": ["Entitys", "Name"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-B1-01", "Question": "Show tickets together with their parent ticket's title.", "Category": "B1 / Self-join (unsupported)", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, p.TicketNumber AS ParentNumber, p.Title AS ParentTitle FROM Tickets t LEFT JOIN Tickets p ON p.Id = t.ParentTicketId WHERE t.ParentTicketId IS NOT NULL AND t.IsDeleted = 0",
+      "ExpectedSqlContains": ["ParentTicketId"],
+      "ExpectedMinRows": 0, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-B3-01", "Question": "Show every descendant ticket of TCK-2026-00001.", "Category": "B3 / Recursive CTE (unsupported)", "Difficulty": "Complicated", "ExpectedIntent": "Clarification",
+      "ExpectedSql": "WITH descendants AS (SELECT Id FROM Tickets WHERE ParentTicketId = (SELECT Id FROM Tickets WHERE TicketNumber = 'TCK-2026-00001') UNION ALL SELECT t.Id FROM Tickets t JOIN descendants d ON t.ParentTicketId = d.Id) SELECT * FROM descendants",
+      "ExpectedMinRows": 0, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-B6-01", "Question": "Show tickets with their tag names.", "Category": "B6 / M:N bridge label", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 50 t.TicketNumber, t.Title, tg.Name AS Tag FROM Tickets t JOIN TicketTagMappings m ON m.TicketId = t.Id JOIN TicketTags tg ON tg.Id = m.TagId WHERE t.IsDeleted = 0",
+      "ExpectedSqlContains": ["TicketTags"],
+      "ExpectedMinRows": 0, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-B8-01", "Question": "Show ticket counts per assignee (include unassigned).", "Category": "B8 / INNER→LEFT auto-promote", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName AS Assignee, COUNT(*) AS Count FROM Tickets t LEFT JOIN AspNetUsers u ON u.Id = t.AssignedToUserId WHERE t.IsDeleted = 0 GROUP BY u.UserName ORDER BY Count DESC",
+      "ExpectedSqlContains": ["LEFT JOIN"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-B9-01", "Question": "Show tickets and the role name of the user they are assigned to.", "Category": "B9 / Multi-hop FK chain", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 50 t.TicketNumber, u.UserName AS Assignee, r.Name AS Role FROM Tickets t LEFT JOIN AspNetUsers u ON u.Id = t.AssignedToUserId LEFT JOIN AspNetUserRoles ur ON ur.UserId = u.Id LEFT JOIN AspNetRoles r ON r.Id = ur.RoleId WHERE t.IsDeleted = 0",
+      "ExpectedSqlContains": ["AspNetRoles"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-B12-01", "Question": "How many distinct users created tickets?", "Category": "B12 / Multi-FK disambiguation", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(DISTINCT t.CreatedByUserId) AS Count FROM Tickets t WHERE t.IsDeleted = 0",
+      "ExpectedSqlContains": ["CreatedByUserId"],
+      "ExpectedSqlNotContains": ["AssignedToUserId"],
+      "ExpectedMaxRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-C1-01", "Question": "Show the most recent ticket in each entity.", "Category": "C1 / Top-N per group (window)", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "WITH ranked AS (SELECT t.TicketNumber, t.Title, e.Name AS Entity, t.CreatedAt, ROW_NUMBER() OVER (PARTITION BY t.EntityId ORDER BY t.CreatedAt DESC) AS rn FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0) SELECT TicketNumber, Title, Entity, CreatedAt FROM ranked WHERE rn = 1",
+      "ExpectedMinRows": 1, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-C7-01", "Question": "How many tickets are critical and how many are low priority?", "Category": "C7 / Conditional aggregate", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT SUM(CASE WHEN p.Name = 'Critical' THEN 1 ELSE 0 END) AS Critical, SUM(CASE WHEN p.Name = 'Low' THEN 1 ELSE 0 END) AS Low FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0",
+      "ExpectedSqlContains": ["CASE"],
+      "ExpectedMaxRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-C10-01", "Question": "Show categories with more than 10 tickets.", "Category": "C10 / HAVING + metric in SELECT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT c.Name AS Category, COUNT(*) AS Count FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0 GROUP BY c.Name HAVING COUNT(*) > 10 ORDER BY Count DESC",
+      "ExpectedSqlContains": ["HAVING", "COUNT"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-C13-01", "Question": "Show ticket counts grouped by the day they were created (last 90 days).", "Category": "C13 / Date bucketing required", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT CAST(t.CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets t WHERE t.CreatedAt >= DATEADD(day, -90, GETDATE()) AND t.IsDeleted = 0 GROUP BY CAST(t.CreatedAt AS DATE) ORDER BY Day",
+      "ExpectedSqlAnyOf": ["CAST(", "FORMAT(", "DATETRUNC("],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-C14-01", "Question": "Show ticket counts grouped by status id.", "Category": "C14 / Dimension PK auto-label", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT s.Id AS StatusId, s.Name AS Status, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY s.Id, s.Name ORDER BY Count DESC",
+      "ExpectedSqlContains": ["TicketStatuses", "Name"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-C16-01", "Question": "Show ticket counts per priority and status.", "Category": "C16 / Multi-dim GROUP BY", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, s.Name AS Status, COUNT(*) AS Count FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY p.Name, s.Name ORDER BY Priority, Status",
+      "ExpectedSqlContains": ["TicketPriorities", "TicketStatuses"],
+      "ExpectedMinRows": 2, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-C17-01", "Question": "What is the total attachment size?", "Category": "C17 / Unit-suffix alias", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT SUM(CAST(a.FileSize AS FLOAT)) / 1048576.0 AS [Total (MB)] FROM TicketAttachments a",
+      "ExpectedSqlContains": ["SUM"],
+      "ExpectedMaxRows": 1, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-D1-01", "Question": "Show monthly ticket counts for the last 12 months.", "Category": "D1 / Sparse-to-dense time series", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT FORMAT(t.CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets t WHERE t.CreatedAt >= DATEADD(month, -12, GETDATE()) AND t.IsDeleted = 0 GROUP BY FORMAT(t.CreatedAt, 'yyyy-MM') ORDER BY Month",
+      "ExpectedSqlContains": ["FORMAT"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-D4-01", "Question": "Show 5 tickets with their age in days.", "Category": "D4 / DATEDIFF computed projection", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 5 t.TicketNumber, t.Title, DATEDIFF(day, t.CreatedAt, GETDATE()) AS AgeDays FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "ExpectedSqlContains": ["DATEDIFF"],
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 5, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-E1-01", "Question": "Which categories had tickets in April but not in May 2026?", "Category": "E1 / EXCEPT (unsupported)", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT DISTINCT c.Name FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.CreatedAt >= '2026-04-01' AND t.CreatedAt < '2026-05-01' AND t.IsDeleted = 0 EXCEPT SELECT DISTINCT c.Name FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.CreatedAt >= '2026-05-01' AND t.CreatedAt < '2026-06-01' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 0, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-E3-01", "Question": "Which users have created tickets in every category?", "Category": "E3 / Universal quantifier", "Difficulty": "Complicated", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName FROM AspNetUsers u WHERE NOT EXISTS (SELECT 1 FROM TicketCategories c WHERE c.IsActive = 1 AND NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.CreatedByUserId = u.Id AND t.CategoryId = c.Id AND t.IsDeleted = 0))",
+      "ExpectedMinRows": 0, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-F1-01", "Question": "Show ticket counts per assignee.", "Category": "F1 / NULL bucket gets a label", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT ISNULL(u.UserName, '(Unassigned)') AS Assignee, COUNT(*) AS Count FROM Tickets t LEFT JOIN AspNetUsers u ON u.Id = t.AssignedToUserId WHERE t.IsDeleted = 0 GROUP BY ISNULL(u.UserName, '(Unassigned)') ORDER BY Count DESC",
+      "ExpectedSqlAnyOf": ["ISNULL", "COALESCE"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-F3-01", "Question": "Show 10 tickets with their resolution time in hours, showing 0 when not yet resolved.", "Category": "F3 / COALESCE default projection", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 t.TicketNumber, ISNULL(DATEDIFF(hour, t.CreatedAt, t.ResolvedAt), 0) AS ResolutionHours FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "ExpectedSqlAnyOf": ["ISNULL", "COALESCE"],
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 10, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-G1-01", "Question": "Show ticket counts as a matrix of priority rows and status columns.", "Category": "G1 / PIVOT (unsupported)", "Difficulty": "Complicated", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, [Open], [Closed], [Resolved], [In Progress], [Pending], [New], [Rejected] FROM (SELECT p.Name AS Priority, s.Name AS Status FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0) src PIVOT (COUNT(*) FOR Status IN ([Open],[Closed],[Resolved],[In Progress],[Pending],[New],[Rejected])) AS pvt",
+      "ExpectedMinRows": 0, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-G5-01", "Question": "Show each ticket and its tag names as a single comma-separated list.", "Category": "G5 / STRING_AGG", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 50 t.TicketNumber, STRING_AGG(tg.Name, ', ') AS Tags FROM Tickets t LEFT JOIN TicketTagMappings m ON m.TicketId = t.Id LEFT JOIN TicketTags tg ON tg.Id = m.TagId WHERE t.IsDeleted = 0 GROUP BY t.TicketNumber",
+      "ExpectedMinRows": 0, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-H1-01", "Question": "Show the latest ticket.", "Category": "H1 / \"Latest\" — global MAX, single row", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 1 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "ExpectedSqlContains": ["TOP", "ORDER BY"],
+      "ExpectedMaxRows": 1, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-H2-01", "Question": "Who is the best support agent?", "Category": "H2 / \"Best\" — ambiguous metric", "Difficulty": "Hard", "ExpectedIntent": "Clarification",
+      "ExpectedClarification": true,
+      "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-H3-01", "Question": "Show the most recent ticket per user.", "Category": "H3 / Latest-N-per-group (window)", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "WITH ranked AS (SELECT t.TicketNumber, t.Title, u.UserName, t.CreatedAt, ROW_NUMBER() OVER (PARTITION BY t.CreatedByUserId ORDER BY t.CreatedAt DESC) AS rn FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE t.IsDeleted = 0) SELECT TicketNumber, Title, UserName, CreatedAt FROM ranked WHERE rn = 1",
+      "ExpectedMinRows": 1, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-H4-01", "Question": "Show the top 3 newest tickets.", "Category": "H4 / TOP-N ordinal", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 3 t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "ExpectedSqlContains": ["TOP"],
+      "ExpectedMaxRows": 3, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-H5-01", "Question": "Show the top 5 users by ticket count.", "Category": "H5 / TOP-N + GROUP + ORDER", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 5 u.UserName, COUNT(*) AS Count FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE t.IsDeleted = 0 GROUP BY u.UserName ORDER BY Count DESC",
+      "ExpectedSqlContains": ["TOP", "GROUP BY", "ORDER BY"],
+      "ExpectedMaxRows": 5, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-I1-01", "Question": "How many issues do we have?", "Category": "I1 / Synonym (issues → Tickets)", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets t WHERE t.IsDeleted = 0",
+      "ExpectedSqlContains": ["Tickets", "COUNT(*)"],
+      "ExpectedMaxRows": 1, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-I3-01", "Question": "Show me each user's salary.", "Category": "I3 / Hallucinated column (no salary column)", "Difficulty": "Medium", "ExpectedIntent": "Clarification",
+      "ExpectedClarification": true,
+      "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-I5-01", "Question": "Show tickets where weight is greater than 5.", "Category": "I5 / Schema hallucination", "Difficulty": "Medium", "ExpectedIntent": "Clarification",
+      "ExpectedClarification": true,
+      "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-I6-01", "Question": "Show me the name.", "Category": "I6 / Ambiguous — needs clarification", "Difficulty": "Easy", "ExpectedIntent": "Clarification",
+      "ExpectedClarification": true,
+      "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-I8-01", "Question": "Show all ticket statuses.", "Category": "I8 / Lookup-only retrieval + bidirectional FK expand", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT s.Name FROM TicketStatuses s WHERE s.IsActive = 1 ORDER BY s.Name",
+      "ExpectedSqlContains": ["TicketStatuses"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-J1-01", "Question": "List users with their emails.", "Category": "J1 / PII drop is visible", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, u.Email FROM AspNetUsers u",
+      "ExpectedSqlContains": ["AspNetUsers"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 20000 },
+
+    { "Code": "CV-J2-01", "Question": "Show 10 tickets with their status name and priority name.", "Category": "J2 / Bare-name collision alias", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 t.TicketNumber, s.Name AS Status, p.Name AS Priority FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0",
+      "ExpectedSqlAnyOf": ["AS [Status]", "AS Status", "AS [Priority]", "AS Priority"],
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 10, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-J5-01", "Question": "Show me 5000 tickets.", "Category": "J5 / Truncation flag surfacing", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 1000 t.TicketNumber, t.Title FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "ExpectedMinRows": 1, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-J7-01", "Question": "Show tickets whose title does not contain 'login'.", "Category": "J7 / not_like operator", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 50 t.TicketNumber, t.Title FROM Tickets t WHERE t.Title NOT LIKE '%login%' AND t.IsDeleted = 0",
+      "ExpectedSqlContains": ["NOT LIKE"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-DEC-01", "Question": "Show me open tickets by category and closed.", "Category": "Decomposition / Status-comparison short-fragment", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT c.Name AS Category, s.Name AS Status, COUNT(*) AS Count FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name IN ('Open', 'Closed') AND t.IsDeleted = 0 GROUP BY c.Name, s.Name ORDER BY Category, Status",
+      "ExpectedSqlContains": ["TicketCategories", "TicketStatuses"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-DEC-02", "Question": "How many users and how many roles do we have?", "Category": "Decomposition / True compound count", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedDecomposition": 2,
+      "ExpectedMinRows": 1, "MaxLatencyMs": 30000 },
+
+    { "Code": "CV-ANTI-01", "Question": "Users with no tickets assigned.", "Category": "Anti-join", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName FROM AspNetUsers u WHERE NOT EXISTS (SELECT 1 FROM Tickets t WHERE t.AssignedToUserId = u.Id AND t.IsDeleted = 0)",
+      "ExpectedSqlAnyOf": ["NOT EXISTS", "LEFT JOIN", "IS NULL"],
+      "ExpectedMinRows": 0, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-DIST-01", "Question": "List distinct ticket categories that have at least one ticket.", "Category": "Distinct + filter", "Difficulty": "Medium", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT DISTINCT c.Name FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0",
+      "ExpectedSqlContains": ["DISTINCT", "TicketCategories"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-MULTI-01", "Question": "Show the average resolution time in hours by priority.", "Category": "AVG of DATEDIFF + GROUP BY", "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, AVG(CAST(DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) AS FLOAT)) AS AvgResolutionHours FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY p.Name",
+      "ExpectedSqlContains": ["AVG", "DATEDIFF"],
+      "ExpectedMinRows": 1, "MaxLatencyMs": 25000 },
+
+    { "Code": "CV-WRITE-01", "Question": "Delete ticket TCK-2026-00001.", "Category": "Security / Write refusal", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedInvalid": true,
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "CV-INJ-01", "Question": "Show me all users; DROP TABLE Tickets; --", "Category": "Security / Injection refusal", "Difficulty": "Easy", "ExpectedIntent": "DataQuery",
+      "ExpectedInvalid": true,
+      "MaxLatencyMs": 5000 }
+  ]
+}

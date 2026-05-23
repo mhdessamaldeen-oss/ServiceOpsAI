@@ -1,0 +1,196 @@
+@using AISupportAnalysisPlatform.Services.AI.Copilot.Analysis
+@model CorrectnessReport
+
+@{
+    ViewData["Title"] = "Copilot Answer Correctness Report";
+    var correctPercent = Model.TotalTraces > 0 ? (double)Model.CorrectCount / Model.TotalTraces * 100 : 0;
+    var needsReviewPercent = Model.TotalTraces > 0 ? (double)Model.NeedsReviewCount / Model.TotalTraces * 100 : 0;
+
+    var correctnessHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Copilot Answer Correctness",
+        Subtitle = $"Analysis of {Model.TotalTraces} answers for factual accuracy and quality",
+        IconClass = "bi bi-check2-square",
+        Actions = new()
+        {
+            new() {
+                Text = "Trace Investigation",
+                Href = "/AiAnalysis/CopilotAnalysis/TraceInvestigation",
+                IconClass = "bi bi-arrow-left",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            },
+            new() {
+                Text = "Refresh",
+                Href = "javascript:location.reload()",
+                IconClass = "bi bi-arrow-clockwise",
+                CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="correctnessHeader" />
+
+<div class="container-fluid">
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--success-color-rgb),0.12); color: var(--success-color); border-color: rgba(var(--success-color-rgb),0.22);"><i class="bi bi-check-circle-fill"></i></div><div class="kpi-label">Correct</div></div>
+                <div class="kpi-value">@Model.CorrectCount</div>
+                <div class="kpi-foot">@correctPercent.ToString("F1")% of total</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--warning-color-rgb),0.12); color: var(--warning-color); border-color: rgba(var(--warning-color-rgb),0.22);"><i class="bi bi-question-circle-fill"></i></div><div class="kpi-label">Probably Correct</div></div>
+                <div class="kpi-value">@Model.ProbablyCorrectCount</div>
+                <div class="kpi-foot">Likely valid, needs spot check</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--danger-color-rgb),0.12); color: var(--danger-color); border-color: rgba(var(--danger-color-rgb),0.22);"><i class="bi bi-x-circle-fill"></i></div><div class="kpi-label">Incorrect</div></div>
+                <div class="kpi-value">@Model.IncorrectCount</div>
+                <div class="kpi-foot">Needs intervention</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--info-color-rgb),0.12); color: var(--info-color); border-color: rgba(var(--info-color-rgb),0.22);"><i class="bi bi-clipboard-check-fill"></i></div><div class="kpi-label">Manual Review</div></div>
+                <div class="kpi-value">@Model.NeedsReviewCount</div>
+                <div class="kpi-foot">@needsReviewPercent.ToString("F1")% queued</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="app-card h-100">
+                <div class="app-card-header">
+                    <div>
+                        <h5 class="app-card-title"><i class="bi bi-graph-up @(Loc.IsRtl ? "ms-2" : "me-2")" style="color: var(--primary-color);"></i>Score Distribution</h5>
+                    </div>
+                </div>
+                <div class="app-card-body">
+                    @if (Model.AverageScore.HasValue)
+                    {
+                        <div class="row text-center g-3">
+                            <div class="col-4">
+                                <div class="kpi-value">@Model.AverageScore.Value.ToString("F0")</div>
+                                <div class="kpi-foot text-uppercase">Average</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="kpi-value">@Model.MinScore</div>
+                                <div class="kpi-foot text-uppercase">Lowest</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="kpi-value">@Model.MaxScore</div>
+                                <div class="kpi-foot text-uppercase">Highest</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="app-card h-100">
+                <div class="app-card-header">
+                    <div>
+                        <h5 class="app-card-title"><i class="bi bi-exclamation-triangle @(Loc.IsRtl ? "ms-2" : "me-2")" style="color: var(--warning-color);"></i>Common Issues</h5>
+                    </div>
+                </div>
+                <div class="app-card-body">
+                    @if (Model.IssueBreakdown?.Any() == true)
+                    {
+                        <div class="d-flex flex-column gap-2">
+                            @foreach (var issue in Model.IssueBreakdown.Take(5))
+                            {
+                                <div class="d-flex justify-content-between align-items-center p-2 rounded-3" style="background: var(--bg-surface-alt); border: 1px solid var(--border-color);">
+                                    <span style="color: var(--text-main);">@issue.Category</span>
+                                    <span class="pill-badge" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">@issue.Count (@issue.Percentage.ToString("F1")%)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-success mb-0">No major issues detected.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-card mt-4">
+        <div class="app-card-header">
+            <div>
+                <h5 class="app-card-title"><i class="bi bi-clipboard-check @(Loc.IsRtl ? "ms-2" : "me-2")" style="color: var(--primary-color);"></i>Answers Needing Review (@Model.SamplesNeedingReview.Count)</h5>
+            </div>
+        </div>
+        <div class="app-card-body p-0">
+            @if (Model.SamplesNeedingReview?.Any() == true)
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 datatable-premium">
+                        <thead>
+                            <tr>
+                                <th class="ps-4 py-3">ID</th>
+                                <th class="py-3">Question</th>
+                                <th class="py-3">Answer (truncated)</th>
+                                <th class="py-3 text-center">Score</th>
+                                <th class="py-3">Issues</th>
+                                <th class="py-3 text-center">Status</th>
+                                <th class="text-end pe-4 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var sample in Model.SamplesNeedingReview)
+                            {
+                                <tr>
+                                    <td class="ps-4 fw-bold" style="color: var(--text-main);">#@sample.TraceId</td>
+                                    <td>@sample.Question</td>
+                                    <td><small style="color: var(--text-muted);">@sample.Answer</small></td>
+                                    <td class="text-center">
+                                        @if (sample.Score < 60)
+                                        {
+                                            <span class="pill-badge" style="background: rgba(var(--danger-color-rgb),0.1); color: var(--danger-color); border: 1px solid rgba(var(--danger-color-rgb),0.22);">@sample.Score/100</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="pill-badge" style="background: rgba(var(--warning-color-rgb),0.1); color: var(--warning-color); border: 1px solid rgba(var(--warning-color-rgb),0.22);">@sample.Score/100</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @foreach (var issue in sample.Issues.Take(2))
+                                        {
+                                            <span class="pill-badge me-1" style="background: var(--bg-surface-alt); color: var(--text-muted); border: 1px solid var(--border-color);">@issue</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (sample.IsReviewed)
+                                        {
+                                            <span class="pill-badge" style="background: rgba(var(--success-color-rgb),0.1); color: var(--success-color); border: 1px solid rgba(var(--success-color-rgb),0.22);"><i class="bi bi-check"></i>Reviewed</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="pill-badge" style="background: rgba(var(--warning-color-rgb),0.1); color: var(--warning-color); border: 1px solid rgba(var(--warning-color-rgb),0.22);">Pending</span>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <a href="/AiAnalysis/Investigation/@sample.TraceId" class="btn btn-sm btn-soft-primary rounded-pill px-3 fw-bold">
+                                            <i class="bi bi-search @(Loc.IsRtl ? "ms-1" : "me-1")"></i>Investigate
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-success m-3 mb-0">All answers have good correctness scores.</div>
+            }
+        </div>
+    </div>
+</div>

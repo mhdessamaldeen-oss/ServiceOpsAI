@@ -1,0 +1,73 @@
+{
+  "name": "Suite 10 — Multi-turn refinement",
+  "version": "1.0",
+  "description": "Uses CopilotTestCase.SeedHistory to pre-populate prior chat turns, then asks a follow-up question. The orchestrator's _refinementDetector + _specMemory should detect the refinement and modify the prior spec instead of starting fresh.",
+  "Scenarios": [
+    { "Code": "S10-REFINE-add-filter-001", "Question": "only the critical ones",
+      "Category": "FLT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "SeedHistory": [
+        { "Role": "User", "Content": "show me open tickets" },
+        { "Role": "Assistant", "Content": "Returned 85 rows of open tickets." }
+      ],
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE s.Name = 'Open' AND p.Name = 'Critical' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+    { "Code": "S10-REFINE-add-filter-002", "Question": "only from this month",
+      "Category": "FLT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "SeedHistory": [
+        { "Role": "User", "Content": "list tickets created by user admin" },
+        { "Role": "Assistant", "Content": "Returned the tickets created by admin." }
+      ],
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE u.UserName = 'admin' AND t.CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) AND t.IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-REFINE-drop-filter-001", "Question": "also include closed ones",
+      "Category": "FLT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "SeedHistory": [
+        { "Role": "User", "Content": "show me open tickets" },
+        { "Role": "Assistant", "Content": "Returned 85 open tickets." }
+      ],
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-REFINE-group-by-001", "Question": "now break that down by priority",
+      "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "SeedHistory": [
+        { "Role": "User", "Content": "show me open tickets" },
+        { "Role": "Assistant", "Content": "Returned 85 open tickets." }
+      ],
+      "ExpectedSql": "SELECT p.Name, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE s.Name = 'Open' AND t.IsDeleted = 0 GROUP BY p.Name ORDER BY Count DESC",
+      "MaxLatencyMs": 180000 },
+    { "Code": "S10-REFINE-group-by-002", "Question": "now by entity",
+      "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "SeedHistory": [
+        { "Role": "User", "Content": "how many tickets are there" },
+        { "Role": "Assistant", "Content": "Count: 245" }
+      ],
+      "ExpectedSql": "SELECT e.Name, COUNT(*) AS Count FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0 GROUP BY e.Name ORDER BY Count DESC",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-REFINE-ordering-001", "Question": "sort them by oldest first",
+      "Category": "ORD", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "SeedHistory": [
+        { "Role": "User", "Content": "show me open tickets" },
+        { "Role": "Assistant", "Content": "Returned 85 open tickets." }
+      ],
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0 ORDER BY t.CreatedAt ASC",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-REFINE-switch-entity-001", "Question": "actually show me the users instead",
+      "Category": "SEL", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "SeedHistory": [
+        { "Role": "User", "Content": "show me open tickets" },
+        { "Role": "Assistant", "Content": "Returned 85 open tickets." }
+      ],
+      "ExpectedSql": "SELECT UserName, Email FROM AspNetUsers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S10-DISAMB-001", "Question": "show me tickets",
+      "Category": "Clarification", "Difficulty": "Medium", "ExpectedIntent": "Clarification",
+      "Branch": "Clarification", "Language": "en",
+      "MaxLatencyMs": 30000,
+      "_note": "Too vague — copilot may ask 'which tickets? open, all, by entity?' OR may default to all tickets. Either is acceptable as long as it answers." }
+  ]
+}

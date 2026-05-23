@@ -1,0 +1,3 @@
+[2026-04-03 14:00:12] INFO  System.Identity - Starting token validation for user 12 
+[2026-04-03 14:00:12] WARN  System.Security - Potential replay attack detected for JTI 'abc-12' 
+[2026-04-03 14:00:12] ERROR System.Auth - Token expired for session ID 'sess-12'

@@ -1,0 +1,1483 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Investigation — "Workflow" view.
+   Architecture diagram: pre-router rail (question / intake / router) →
+   5-branch fan-out (the active one bright, others dim with tooltip) →
+   post-route rail (formatter). Vertical, top-to-bottom; no horizontal scroll.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.investigation-workflow {
+    color: var(--text-main);
+    padding: 0.25rem 0 1rem;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Compact the shared _PageHeader partial just for the Investigation page.
+   The full-size page header (large icon + title + subtitle + chips +
+   actions) eats ~90px of vertical real-estate before the workflow / run-trace
+   tabs even appear. Investigation's subtitle ("#46 • model • elapsed_ms") is
+   duplicated by the topstrip metadata chips below, so we hide it; the title
+   shrinks; the icon shrinks; padding tightens. Chips + action buttons remain
+   so the user can still jump back to chat / archive / hub.
+   The `.investigation-page-body` class is set on <html> by Investigation.cshtml
+   so this only affects this page — other pages keep the full-size header. */
+.investigation-page-body .page-header {
+    padding: 0.55rem 0.85rem;
+    margin-bottom: 0.55rem;
+}
+.investigation-page-body .page-header-icon {
+    width: 2.1rem;
+    height: 2.1rem;
+    font-size: 1.05rem;
+}
+.investigation-page-body .page-header-title {
+    font-size: 1.05rem;
+    line-height: 1.25;
+    margin: 0;
+}
+.investigation-page-body .page-header-subtitle {
+    display: none;
+}
+.investigation-page-body .page-header-chip {
+    font-size: 0.7rem;
+    padding: 0.18rem 0.5rem;
+}
+/* The action pills inside the page-header keep their normal size for tap
+   targets — only the surrounding chrome shrinks. */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Compact top strip — replaces the old two-column Question + TraceMeta block.
+   Single horizontal band: question text on the left, pill chips on the right.
+   No "QUESTION" / "TRACE METADATA" section labels — the leading icon and
+   chip styles carry the meaning. Saves ~70px of vertical real estate so
+   the workflow diagram starts much closer to the top of the viewport. */
+.investigation-topstrip {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.55rem 0.85rem;
+    margin-bottom: 0.6rem;
+    background: rgba(var(--text-main-rgb), 0.025);
+    border: 1px solid var(--border-color);
+    border-radius: 0.55rem;
+}
+.investigation-topstrip-q {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex: 1 1 320px;
+    min-width: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.4;
+}
+.investigation-topstrip-q > i {
+    color: var(--success-color);
+    font-size: 1.05rem;
+    flex-shrink: 0;
+}
+.investigation-topstrip-q > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.investigation-topstrip-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Step-number badge.
+   Tiny circular pill prepended to every step's summary row. Reads as
+   "this is step N of the execution". Green when the step fired; dashed-
+   grey when it's an architectural placeholder that didn't fire (those
+   actually have no number — see Razor — but the styling is in place if
+   we ever choose to number them).
+   ────────────────────────────────────────────────────────────────────────── */
+.workflow-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: var(--success-color);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    line-height: 1;
+}
+.workflow-step.is-not-fired .workflow-step-num,
+.workflow-step.err .workflow-step-num {
+    background: transparent;
+    border: 1px dashed var(--border-color);
+    color: var(--text-muted);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   How-to-read banner — the user-visible legend pinned to the top of the
+   diagram so the visual grammar (numbers, green-solid, grey-dashed) is
+   always explained without making the user hunt for it.
+   ────────────────────────────────────────────────────────────────────────── */
+.workflow-howto {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.65rem;
+    margin: 0 auto 0.45rem;
+    width: fit-content;
+    max-width: 96%;
+    background: rgba(var(--text-main-rgb), 0.025);
+    border: 1px solid var(--border-color);
+    border-radius: 0.4rem;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.2;
+}
+.workflow-howto-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.workflow-howto-num {
+    min-width: 1.05rem;
+    height: 1.05rem;
+    font-size: 0.62rem;
+    padding: 0 0.25rem;
+}
+.workflow-howto-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 0.2rem;
+    flex-shrink: 0;
+}
+.workflow-howto-swatch.active {
+    background: rgba(var(--success-color-rgb), 0.18);
+    border: 2px solid rgba(var(--success-color-rgb), 0.55);
+}
+.workflow-howto-swatch.inactive {
+    background: transparent;
+    border: 1px dashed var(--border-color);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Router header has its own step-number slot (the helper isn't used for the
+   router box). Position the number badge in line with the Router's icon. */
+.workflow-router-header > .workflow-step-num {
+    align-self: flex-start;
+    margin-top: 0.1rem;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   CLEAN MAP RULE (UX): the Workflow tab is a MAP — one signal only, "did
+   this step run or not". Every other piece of metadata (LLM kind, tokens,
+   cost, elapsed time, MANDATORY / OPTIONAL pill) is hidden in the summary
+   rows and re-surfaced in the wide detail panel below when the user clicks
+   a step. This is the rule that removes the "I see colored borders and
+   don't know where they come from" noise — only two states remain:
+     · GREEN = on the fired pipeline path (ran)
+     · DASHED MUTED = available but didn't fire
+   ────────────────────────────────────────────────────────────────────────── */
+.investigation-workflow .workflow-step-chip,
+.investigation-workflow .workflow-step-pill,
+.investigation-workflow .workflow-step-time,
+.investigation-workflow .workflow-router-box .workflow-step-pill {
+    display: none;
+}
+/* Hover-revealed timing: show the elapsed time as a quiet badge only on hover
+   of a fired stage, so power users can still glance at it without it
+   permanently cluttering the map. */
+.investigation-workflow .workflow-node-wrap.is-on-active-path > .workflow-rail-steps > .workflow-step:hover .workflow-step-time,
+.investigation-workflow .workflow-route.is-active .workflow-step:hover .workflow-step-time {
+    display: inline;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+
+/* ── Horizontal rail ─────────────────────────────────────────────
+   Left-to-right flow: Question → guards → Router → Fork → post-rail → Answer.
+   When the natural width exceeds the viewport (fork block alone is ~1000px),
+   the rail scrolls horizontally. The container is the scroll viewport. */
+.workflow-rail {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0;
+    margin-bottom: 0.5rem;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 0.5rem 0.25rem 1rem;
+    overscroll-behavior-x: contain;
+}
+
+.workflow-node {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.85rem 1.1rem;
+    background: rgba(var(--text-main-rgb), 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: 0.85rem;
+    /* Flex so the rail's cards grow to fill the viewport when there's
+       extra room (zoomed-out / wide monitor) instead of leaving empty
+       space on the right. min-width keeps them readable when the
+       viewport is narrow — the rail's `overflow-x: auto` still allows
+       horizontal scrolling below that. */
+    flex: 1 1 240px;
+    min-width: 240px;
+    transition: border-color 0.15s ease;
+}
+
+.workflow-node > i {
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    margin-top: 0.1rem;
+}
+
+.workflow-node-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 0.15rem;
+}
+
+.workflow-node-detail {
+    font-size: 0.9rem;
+    color: var(--text-main);
+    line-height: 1.45;
+}
+
+/* Question / Answer pills: the rail's two endpoints. Both sit on the active
+   path (by definition — the trace started with a question and produced an
+   answer), so both use --success-color for visual consistency with the
+   one-colour map rule. */
+.workflow-node-question {
+    border-left: 3px solid var(--success-color);
+    background: rgba(var(--success-color-rgb), 0.04);
+}
+.workflow-node-question > i { color: var(--success-color); }
+
+/* Terminal Answer node — symmetric counterpart of the Question node at the top.
+   Slightly thicker border so the user's eye lands on it as the "you got this back". */
+.workflow-node-answer {
+    border-left: 3px solid var(--success-color);
+    background: rgba(var(--success-color-rgb), 0.04);
+}
+.workflow-node-answer > i { color: var(--success-color); }
+
+/* Horizontal connector between rail nodes — directed flow edge (left → right),
+   not a divider. Default = neutral grey, THIN (1px), small arrow head — quiet
+   by design so the eye isn't pulled to every connector. The active-path
+   variant below is bold (3px) and bright green — only those connectors pull
+   attention, drawing a single continuous line through the pipeline's fired
+   path from Question on the left to Answer on the right. */
+.workflow-connector {
+    width: 2rem;
+    height: 1px;
+    background: var(--border-color);
+    position: relative;
+    flex-shrink: 0;
+    align-self: center;
+    transition: background 0.15s ease, height 0.15s ease;
+}
+.workflow-connector::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -5px;
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 5px solid var(--border-color);
+    transform: translateY(-50%);
+    transition: border-left-color 0.15s ease, border-width 0.15s ease;
+}
+/* Active-path connector: bolder + bright green so the fired path is the ONE
+   thing the eye traces from Question (left) to Answer (right). */
+.workflow-connector.is-on-active-path {
+    background: var(--success-color);
+    height: 3px;
+}
+.workflow-connector.is-on-active-path::after {
+    border-top-width: 6px;
+    border-bottom-width: 6px;
+    border-left-width: 8px;
+    border-left-color: var(--success-color);
+    right: -7px;
+}
+
+/* Router outcome subtitle ("matched rule: X" / "default branch (no specialised rule)").
+   Sits inline next to "Decision: <branch>" so the user reads the verdict in one line. */
+.workflow-router-fallthrough {
+    margin-left: 0.5rem;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-style: italic;
+    font-weight: 400;
+}
+
+/* Router box — same neutral chrome as every other rail step. Identity comes
+   from its content (the "Router · intent classifier" header + the probe list
+   it contains), not from a special colour or shape. When the router is on
+   the active path (always — the fork always decides), it picks up the same
+   green treatment as the other fired rail nodes. Reads as ONE consistent
+   visual language across the whole map. */
+.workflow-router-box.workflow-step {
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+}
+.workflow-router-box.workflow-step:hover {
+    border-color: var(--success-color);
+    box-shadow: 0 4px 14px rgba(var(--success-color-rgb), 0.18);
+}
+.workflow-router-box.workflow-step.is-open {
+    border-color: var(--success-color);
+    box-shadow: 0 4px 18px rgba(var(--success-color-rgb), 0.25);
+}
+.workflow-router-chevron {
+    position: absolute;
+    right: 0.85rem;
+    top: 0.85rem;
+    color: var(--text-muted);
+    font-size: 0.75em;
+    transition: transform 0.15s ease;
+}
+.workflow-router-box.workflow-step.is-open .workflow-router-chevron {
+    transform: rotate(90deg);
+    color: var(--success-color);
+}
+
+/* Steps inside the main vertical rail — clickable rows with expandable detail
+   panels. The header (summary) is always visible; the expand panel slides down
+   on click. (The prior 5-column fan-out used .workflow-branch-steps; that
+   layout was removed because its mismatched-height columns broke the fork/join
+   alignment — see the active-route card below for the replacement.) */
+.workflow-rail-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0.4rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.workflow-rail-steps {
+    width: 100%;
+    margin: 0;
+}
+
+.workflow-step {
+    border-radius: 0.55rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.workflow-step:hover {
+    background: rgba(var(--success-color-rgb), 0.06);
+    border-color: rgba(var(--success-color-rgb), 0.35);
+    box-shadow: 0 2px 8px rgba(var(--success-color-rgb), 0.08);
+}
+
+.workflow-step-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.82rem;
+}
+
+.workflow-step.ok > .workflow-step-summary > .bi-check-circle-fill { color: var(--success-color); }
+.workflow-step.err > .workflow-step-summary > .bi-x-circle-fill { color: var(--danger-color); }
+
+.workflow-step-name { color: var(--text-main); font-weight: 600; flex-shrink: 0; }
+
+.workflow-step-detail {
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+    font-size: 0.78rem;
+}
+
+.workflow-step-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-size: 0.66rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.4rem;
+    background: rgba(var(--text-main-rgb), 0.06);
+    border: 1px solid var(--border-color);
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.workflow-step-chip.llm { background: rgba(var(--info-color-rgb), 0.12); color: var(--info-color); border-color: rgba(var(--info-color-rgb), 0.3); }
+.workflow-step-chip.tokens { background: rgba(var(--primary-color-rgb), 0.10); color: var(--primary-color); border-color: rgba(var(--primary-color-rgb), 0.3); }
+.workflow-step-chip.cost.free { color: var(--success-color); border-color: rgba(var(--success-color-rgb), 0.4); }
+
+.workflow-step-time {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.workflow-step-chevron {
+    color: var(--text-muted);
+    font-size: 0.75em;
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+}
+
+/* Clicked step row stays visually pinned so the user knows which step's details
+   are shown in the panel below. Chevron rotates to point at the panel. One
+   colour, success-color, used for active state across the whole map. */
+.workflow-step.is-open {
+    border-color: var(--success-color);
+    background: rgba(var(--success-color-rgb), 0.08);
+}
+.workflow-step.is-open > .workflow-step-summary > .workflow-step-chevron {
+    transform: rotate(90deg);
+    color: var(--success-color);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Wide detail panel (.wfdetail-*) — lives BELOW the workflow diagram and
+   shows the full breakdown of whichever step the user clicked. Replaces the
+   cramped inline expansion that used to live inside the narrow branch column.
+   ────────────────────────────────────────────────────────────────────────── */
+.wfdetail {
+    margin-top: 1.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.85rem;
+    background: var(--bg-primary);
+    overflow: hidden;
+    scroll-margin-top: 1rem;
+}
+
+/* Empty placeholder — shown until the user clicks a step. */
+.wfdetail[data-empty="true"] .wfdetail-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.25rem 1.25rem;
+    text-align: center;
+    color: var(--text-muted);
+    gap: 0.5rem;
+}
+.wfdetail[data-empty="true"] .wfdetail-empty > i {
+    font-size: 1.75rem;
+    color: var(--primary-color);
+    opacity: 0.55;
+}
+.wfdetail:not([data-empty="true"]) .wfdetail-empty { display: none; }
+.wfdetail-empty-title { font-size: 0.95rem; font-weight: 600; color: var(--text-main); }
+.wfdetail-empty-sub { font-size: 0.82rem; line-height: 1.45; max-width: 540px; }
+
+/* Body container — only visible after first click. */
+.wfdetail-body {
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+/* Header strip: stage name + status + chips */
+.wfdetail-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.85rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.wfdetail-title {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.wfdetail-title > i { font-size: 1.25rem; flex-shrink: 0; }
+.wfdetail-stage {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.2;
+    word-break: break-word;
+}
+.wfdetail-status {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-radius: 0.4rem;
+    padding: 0.15rem 0.45rem;
+}
+
+.wfdetail-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+.wfdetail-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(var(--text-main-rgb), 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+}
+.wfdetail-chip.small { font-size: 0.7rem; padding: 0.1rem 0.45rem; }
+.wfdetail-chip.llm {
+    background: rgba(var(--info-color-rgb), 0.1);
+    border-color: rgba(var(--info-color-rgb), 0.3);
+    color: var(--info-color);
+}
+.wfdetail-chip.tokens {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border-color: rgba(var(--primary-color-rgb), 0.3);
+    color: var(--primary-color);
+}
+.wfdetail-chip.cost {
+    background: rgba(var(--warning-color-rgb), 0.08);
+    border-color: rgba(var(--warning-color-rgb), 0.3);
+    color: var(--warning-color);
+}
+.wfdetail-chip.cost.free {
+    background: rgba(var(--success-color-rgb), 0.08);
+    border-color: rgba(var(--success-color-rgb), 0.3);
+    color: var(--success-color);
+}
+.wfdetail-chip > i { font-size: 0.85em; }
+
+/* Sections */
+.wfdetail-section { margin-top: 1rem; }
+.wfdetail-section:first-of-type { margin-top: 0; }
+
+.wfdetail-section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+}
+.wfdetail-section-label > i { font-size: 0.95em; color: var(--primary-color); }
+
+.wfdetail-desc {
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--text-main);
+    background: rgba(var(--text-main-rgb), 0.03);
+    border-left: 3px solid var(--primary-color);
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.4rem;
+}
+
+.wfdetail-summary {
+    font-size: 0.88rem;
+    color: var(--text-main);
+    line-height: 1.5;
+}
+
+/* LLM metric grid — readable two-column key/value cards */
+.wfdetail-llm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.5rem;
+}
+.wfdetail-llm-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.55rem 0.7rem;
+    background: rgba(var(--info-color-rgb), 0.06);
+    border: 1px solid rgba(var(--info-color-rgb), 0.2);
+    border-radius: 0.45rem;
+}
+.wfdetail-k {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+.wfdetail-v {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+}
+
+/* Technical payload — wider and taller than the old inline view. */
+.wfdetail-tech {
+    background: var(--bg-secondary, rgba(0, 0, 0, 0.03));
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.85rem 1rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow: auto;
+    max-height: 480px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-main);
+    margin: 0;
+    font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+}
+.wfdetail-tech-sub {
+    max-height: 200px;
+    margin-top: 0.4rem;
+    font-size: 0.75rem;
+}
+
+/* Truncated text blob (Input / Output / Details). Capped at 2KB rendered with a
+   fade-mask + "Show full" toggle. Click flips data-truncated so the pre's
+   max-height drops, revealing the rest. Pure CSS — no JS state needed. */
+.wfdetail-blob {
+    position: relative;
+}
+.wfdetail-blob-pre {
+    background: var(--bg-secondary, rgba(0, 0, 0, 0.03));
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.75rem 0.9rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-main);
+    margin: 0;
+    font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+}
+.wfdetail-blob[data-truncated="true"] .wfdetail-blob-pre {
+    max-height: 240px;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, black 65%, transparent);
+            mask-image: linear-gradient(to bottom, black 65%, transparent);
+}
+.wfdetail-blob[data-truncated="false"] .wfdetail-blob-pre {
+    max-height: 600px;
+    overflow: auto;
+}
+.wfdetail-blob-toggle {
+    margin-top: 0.4rem;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--primary-color);
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.wfdetail-blob-toggle:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+}
+
+/* Synthetic Answer node — same look as before but now routed through renderStep,
+   so it carries the standard workflow-step row + detail-panel flow. We restyle the
+   row when it's the Answer step so the user's eye lands on it as the terminal. */
+.workflow-node-wrap-answer .workflow-step {
+    border-left: 3px solid var(--success-color);
+    background: rgba(var(--success-color-rgb), 0.05);
+}
+.workflow-node-wrap-answer .workflow-step.is-open {
+    background: rgba(var(--success-color-rgb), 0.1);
+    border-color: var(--success-color);
+}
+.workflow-node-wrap-answer .workflow-step-name::before {
+    content: "✓ ";
+    color: var(--success-color);
+    font-weight: 700;
+}
+
+/* Sub-steps — vertical list, each card-like with optional inline tech payload. */
+.wfdetail-substeps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.wfdetail-substep {
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(var(--text-main-rgb), 0.03);
+    border-left: 3px solid var(--border-color);
+}
+.wfdetail-substep.ok { border-left-color: var(--success-color); }
+.wfdetail-substep.err {
+    border-left-color: var(--danger-color);
+    background: rgba(var(--danger-color-rgb), 0.04);
+}
+.wfdetail-substep-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+.wfdetail-substep-name {
+    font-weight: 600;
+    color: var(--text-main);
+}
+.wfdetail-substep-detail {
+    color: var(--text-muted);
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.wfdetail-substep-time {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* Verdict card at the bottom — one-line takeaway. */
+.wfdetail-verdict {
+    margin-top: 1rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.55rem;
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+.wfdetail-verdict.tone-ok { background: rgba(var(--success-color-rgb), 0.08); color: var(--text-main); }
+.wfdetail-verdict.tone-warn { background: rgba(var(--warning-color-rgb), 0.1); color: var(--text-main); }
+.wfdetail-verdict.tone-error { background: rgba(var(--danger-color-rgb), 0.1); color: var(--text-main); }
+.wfdetail-verdict.tone-muted { background: rgba(var(--text-main-rgb), 0.04); color: var(--text-muted); }
+.wfdetail-verdict.tone-ok > i { color: var(--success-color); }
+.wfdetail-verdict.tone-warn > i { color: var(--warning-color); }
+.wfdetail-verdict.tone-error > i { color: var(--danger-color); }
+.wfdetail-verdict strong { font-weight: 700; }
+
+/* The pre-router rail wraps each clickable step in a .workflow-node-wrap so it
+   centres like the other rail nodes do. Flex-grow with a min-width so each
+   wrap card expands to share available rail width on wide / zoomed-out
+   viewports instead of stopping at a fixed 240px and leaving empty space. */
+.workflow-node-wrap {
+    flex: 1 1 240px;
+    min-width: 240px;
+}
+
+/* ── Legend ──────────────────────────────────────────────────── */
+.workflow-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 0.85rem;
+    margin-top: 1rem;
+    background: rgba(var(--text-main-rgb), 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 0.65rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.workflow-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.workflow-legend-swatch {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 0.25rem;
+    border: 1px solid var(--border-color);
+}
+
+/* Legend swatches mirror the EXACT background + border treatment of the
+   real cards in the diagram. Previously the active swatch was a brighter
+   green than the actual active card — making the legend look like a lie.
+   Now the swatch IS the card, miniaturised. */
+.workflow-legend-swatch.active {
+    background: rgba(var(--success-color-rgb), 0.18);
+    border: 2px solid rgba(var(--success-color-rgb), 0.55);
+}
+.workflow-legend-swatch.inactive {
+    background: var(--bg-card);
+    border: 1px dashed var(--border-color);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Architectural-template extras — the Workflow tab now renders every stage
+   the pipeline could possibly run. Stages that didn't fire this trace appear
+   dimmed but stay clickable; each carries a MANDATORY / OPTIONAL pill so the
+   user can see at a glance which branches always run vs which are conditional.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Mandatory / Optional pill badge inside every workflow-step row.
+   Compact by design — full labels would crowd out the chevron in narrow branch columns. */
+.workflow-step-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.08rem 0.35rem;
+    border-radius: 0.3rem;
+    margin-left: 0.4rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.workflow-step-pill.mandatory {
+    background: rgba(var(--primary-color-rgb), 0.12);
+    color: var(--primary-color);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.3);
+}
+.workflow-step-pill.optional {
+    background: rgba(var(--text-main-rgb), 0.1);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+}
+.wfdetail-chip.mandatory {
+    background: rgba(var(--primary-color-rgb), 0.1);
+    border-color: rgba(var(--primary-color-rgb), 0.3);
+    color: var(--primary-color);
+}
+.wfdetail-chip.optional {
+    background: rgba(var(--text-main-rgb), 0.08);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+/* "Not fired" architectural node — present in the architecture but didn't run in
+   this trace. Single consistent treatment everywhere (rail nodes, lane stages,
+   anywhere): DASHED muted border, transparent background, muted text. The
+   dashed border reads as "alternative path, available but not used" — visually
+   distinct from the solid green of fired stages, distinct from the solid grey
+   of a clicked-state highlight. */
+.workflow-step.is-not-fired {
+    background: transparent;
+    border: 1px dashed var(--border-color);
+    box-shadow: none;
+}
+.workflow-step.is-not-fired .workflow-step-name { color: var(--text-muted); font-weight: 500; }
+.workflow-step.is-not-fired:hover {
+    background: rgba(var(--text-main-rgb), 0.03);
+    border-color: var(--text-muted);
+    border-style: dashed;
+}
+.workflow-step.is-not-fired:hover .workflow-step-name { color: var(--text-main); }
+.workflow-step.is-not-fired .workflow-step-skipped-icon {
+    color: var(--text-muted);
+    font-size: 0.55em;
+    opacity: 0.7;
+}
+.workflow-step.is-not-fired .workflow-step-time {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+}
+
+/* Router box — same neutral chrome as other rail nodes. No gradient, no
+   tinted background. Picks up green only when on the active path (which
+   it always is — see .is-on-active-path block below). */
+/* Router box is wider than other rail nodes because it contains the
+   probe-cascade sub-list (5 probe rows). 320px is the minimum that lets each
+   probe row breathe; it flex-grows from there so the box widens with the
+   viewport instead of leaving empty space on wide screens. */
+.workflow-router-box {
+    flex: 1.5 1 320px;
+    min-width: 320px;
+    margin: 0;
+    border-radius: 0.85rem;
+    padding: 0.75rem 0.85rem;
+}
+.workflow-router-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding-bottom: 0.55rem;
+    margin-bottom: 0.55rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.workflow-router-header > i {
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+.workflow-router-outcome {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.15rem;
+}
+.workflow-router-outcome strong {
+    color: var(--success-color);
+    font-weight: 700;
+}
+.workflow-router-box.is-on-active-path .workflow-router-header > i {
+    color: var(--success-color);
+}
+/* Probes inside the Router are sub-items, not standalone steps. Strip their
+   card chrome (border, hover bg, shadow) so they read as a clean list under
+   the Router header rather than as five mini-cards inside a card. */
+.workflow-router-probes {
+    gap: 0.1rem;
+}
+.workflow-router-probes .workflow-step {
+    font-size: 0.82rem;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    border-left: 2px solid transparent;
+    padding-left: 0.35rem;
+}
+.workflow-router-probes .workflow-step:hover {
+    background: rgba(var(--text-main-rgb), 0.03);
+    border: none;
+    border-left: 2px solid var(--border-color);
+    box-shadow: none;
+}
+/* Selected sub-step (Router probe) — quiet indicator. No background fill so
+   the row doesn't visually "expand" / compete with the main rail cards. Just
+   a thicker left accent + chevron rotation tells the user "this is the one
+   whose details are shown in the panel below". */
+.workflow-router-probes .workflow-step.is-open {
+    background: transparent;
+    border: none;
+    border-left: 3px solid var(--success-color);
+}
+/* The probe that matched is the one that fired — give it just a small green
+   tick (already drawn by the status icon) and a faint green left bar.
+   No background fill — we don't want it competing with the lane card below
+   which is the "real" representation of the fired branch. */
+.workflow-router-probes .workflow-step.ok:not(.is-not-fired) {
+    border-left: 2px solid var(--success-color);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Routes overview — BPMN-style horizontal fan-out.
+
+   The 5 router outcomes lay out side-by-side under the fork header so the
+   diagram reads as "the gateway fans into 5 parallel lanes that all merge
+   below". The fired lane is highlighted + pre-expanded; the others stay
+   collapsed but are inspectable on click. Lanes size to their own content
+   (align-items: start) so a tall Data-query lane doesn't pad out the others.
+
+   Each route is a native <details> element so expand/collapse is free.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Fork-step wrap. Two width modes:
+     · Default (no lane open): 820px — matches the rest of the rail so the
+       vertical flow stays uninterrupted.
+     · When an active lane is open (auto-open by default, since the fired
+       branch starts expanded): expand to 1200px so the active lane has
+       horizontal room for multi-column stage layout. Without this, 8
+       sequential stages stack into a ~400px-tall narrow column with empty
+       space to the right; with it, they flow as a 3-col grid ~150px tall. */
+/* Horizontal main rail: fork-step is a single (taller) block. 480px is the
+   minimum width that lets the active lane's stages flow in a 2-column grid;
+   it flex-grows above that so the fork claims a larger share of viewport
+   width (it has more content than the other rail nodes) and the whole rail
+   stretches edge-to-edge on wide screens instead of leaving empty space. */
+.workflow-node-wrap-active {
+    flex: 2 1 480px;
+    min-width: 480px;
+    transition: flex-basis 0.18s ease;
+}
+
+/* Fork-step container — visually one workflow step that contains the router's
+   5 outcomes. Reads as a single node in the rail (matched to the same card
+   shape as Router and Decomposer above it), so the eye keeps flowing top-to-
+   bottom: Question → guards → Router → THIS fork-step → Explainer → Answer. */
+.workflow-fork-step {
+    border: 1px solid var(--border-color);
+    border-radius: 0.85rem;
+    background: var(--bg-card);
+    overflow: hidden;
+}
+
+/* Fork-step header text/icon/count removed — the fork itself (a row of 5
+   lane cards, one green, four dashed) is self-explanatory. Removing the
+   chrome reduces vertical bulk and matches the clean-map rule. */
+
+/* Merge indicator at the bottom — just a thin green line + dot anchoring the
+   convergence point. The visual signal is the green continuing down the
+   rail; the dot is a small landmark. */
+.workflow-fork-step-merge {
+    height: 0.6rem;
+    border-top: 1px solid var(--border-color);
+    background: transparent;
+}
+
+/* Tree-fork: a horizontal trunk runs across the top of the routes area
+   and each route hangs off that trunk via a short vertical drop. This is
+   what makes the section visually read as "Router fans out into 5 parallel
+   lanes" — same metaphor as a BPMN exclusive gateway. */
+.workflow-routes-list {
+    /* Horizontal main rail → stack the 5 lanes vertically inside the fork
+       card. The fork becomes one "tall" block in the horizontal flow,
+       perpendicular to the main left-to-right axis (BPMN gateway pattern). */
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 1rem 0.85rem;
+    position: relative;
+    align-items: stretch;
+}
+
+/* Vertical trunk — neutral grey hairline running down the left edge of the
+   lanes column, the spine each lane connects to via a short horizontal drop. */
+.workflow-routes-list::before {
+    content: "";
+    position: absolute;
+    left: 0.35rem;
+    top: 1.4rem;
+    bottom: 1.4rem;
+    width: 1px;
+    background: var(--border-color);
+    border-radius: 1px;
+}
+
+/* Trunk stays a single neutral line — the per-lane gradient was adding
+   noise on top of the already-clear "active lane has a green card" signal.
+   The drop into the active lane is green (see .workflow-route.is-active::before
+   below), which is enough to show which branch fired. */
+
+.workflow-route {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 0.55rem;
+    transition: background 0.12s ease, border-color 0.12s ease;
+    min-width: 0;
+}
+
+/* Horizontal drop — short connector from each lane back LEFT to the vertical
+   trunk on the left edge. Centered vertically on each card. */
+.workflow-route::before {
+    content: "";
+    position: absolute;
+    left: -0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0.6rem;
+    height: 1px;
+    background: var(--border-color);
+    border-radius: 1px;
+}
+
+/* Responsive: 1100px → 3 columns, 720px → fall back to the vertical
+   stack metaphor (trunk on the left) so single-column reads naturally. */
+/* Lanes are now always a vertical stack inside the fork card regardless of
+   viewport — the horizontal main rail makes the old grid-of-5 layout
+   obsolete. The old responsive overrides have been removed. */
+
+/* The native <summary> ships with a triangle marker — hide it and use our
+   own chevron so the row reads as a custom card row instead of a
+   browser-native disclosure widget. Grid layout so the narrow lane cards
+   stack title-row / badge / meta cleanly without overflowing. */
+.workflow-route > summary {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+        "icon name chevron"
+        "badge badge badge"
+        "meta  meta  meta";
+    column-gap: 0.55rem;
+    row-gap: 0.35rem;
+    align-items: center;
+    padding: 0.7rem 0.8rem;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+.workflow-route > summary::-webkit-details-marker { display: none; }
+.workflow-route > summary::marker { content: ""; }
+.workflow-route > summary:hover {
+    background: rgba(var(--success-color-rgb), 0.05);
+}
+
+.workflow-route-icon {
+    grid-area: icon;
+    font-size: 1.1rem;
+    color: var(--text-muted);
+}
+.workflow-route-name {
+    grid-area: name;
+    font-weight: 600;
+    color: var(--text-main);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workflow-route-badge {
+    grid-area: badge;
+    justify-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.workflow-route-badge > i { font-size: 0.85em; }
+.workflow-route-badge-fired {
+    background: rgba(var(--success-color-rgb), 0.14);
+    color: var(--success-color);
+    border: 1px solid rgba(var(--success-color-rgb), 0.35);
+}
+.workflow-route-badge-idle {
+    background: rgba(var(--text-main-rgb), 0.04);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+}
+
+.workflow-route-meta {
+    grid-area: meta;
+    justify-self: start;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    background: rgba(var(--text-main-rgb), 0.04);
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+}
+
+.workflow-route-chevron {
+    grid-area: chevron;
+    color: var(--text-muted);
+    font-size: 0.85em;
+    transition: transform 0.2s ease;
+}
+.workflow-route[open] > summary .workflow-route-chevron {
+    transform: rotate(180deg);
+    color: var(--text-muted);
+}
+.workflow-route.is-active[open] > summary .workflow-route-chevron {
+    color: var(--success-color);
+}
+
+.workflow-route-body {
+    padding: 0.5rem 0.95rem 0.9rem;
+    border-top: 1px solid var(--border-color);
+    background: rgba(var(--text-main-rgb), 0.015);
+}
+
+.workflow-route-stages {
+    width: 100%;
+    margin: 0;
+}
+
+/* Inside the now-narrower lane cards, let step summary rows wrap their
+   chips onto a second line instead of overflowing the card width. */
+.workflow-route-stages .workflow-step-summary {
+    flex-wrap: wrap;
+    row-gap: 0.3rem;
+}
+
+/* Stages inside the active lane are SUB-ITEMS of the lane card, not
+   independent cards. Strip card chrome (border, background, shadow,
+   radius) so they read as a flat indented list with a green left
+   accent for fired and a dashed grey left accent for not-fired —
+   visually consistent with how Router probes render inside the
+   Router card. */
+.workflow-route-stages .workflow-step {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    border-left: 2px solid transparent;
+    padding-left: 0.45rem;
+    overflow: visible;
+}
+.workflow-route-stages .workflow-step:not(.is-not-fired) {
+    border-left: 2px solid var(--success-color);
+    background: rgba(var(--success-color-rgb), 0.05);
+}
+.workflow-route-stages .workflow-step:not(.is-not-fired):hover {
+    background: rgba(var(--success-color-rgb), 0.09);
+    box-shadow: none;
+    border-left: 2px solid var(--success-color);
+}
+.workflow-route-stages .workflow-step.is-not-fired {
+    border-left: 2px dashed var(--text-muted);
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    background: transparent;
+    opacity: 0.7;
+}
+.workflow-route-stages .workflow-step.is-not-fired:hover {
+    background: rgba(var(--text-main-rgb), 0.03);
+    border-left: 2px dashed var(--text-muted);
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    opacity: 0.9;
+}
+/* Selected lane-stage sub-item — same quiet treatment as Router probes.
+   Thicker left accent only, no bg flood, no border on the other 3 sides.
+   The chevron rotation (defined globally) still indicates "this is selected". */
+.workflow-route-stages .workflow-step.is-open {
+    background: transparent;
+    border: none;
+    border-left: 3px solid var(--success-color);
+    box-shadow: none;
+}
+.workflow-route-stages .workflow-step.is-open.is-not-fired {
+    border-left: 3px solid var(--text-muted);
+    opacity: 0.9;
+}
+
+.workflow-route-hint {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.55;
+    padding: 0.4rem 0;
+}
+
+/* Active route — green-tinted card + green branch connector so the eye can
+   trace the fired path through the tree at a glance. The trunk segment
+   above/below the active route is left neutral; lighting up only the
+   branch into the active route keeps the diagram readable when scanning.
+   Contrast bumped (background 0.18, border 0.55, shadow 0.18) so the active
+   lane visibly dominates side-by-side with the dashed inactive lanes. */
+.workflow-route.is-active {
+    background: linear-gradient(180deg,
+        rgba(var(--success-color-rgb), 0.18) 0%,
+        rgba(var(--success-color-rgb), 0.04) 100%);
+    border: 2px solid rgba(var(--success-color-rgb), 0.55);
+    box-shadow: 0 2px 14px rgba(var(--success-color-rgb), 0.18);
+}
+.workflow-route.is-active::before {
+    background: var(--success-color);
+    height: 2.5px;
+    width: 0.6rem;
+    box-shadow: 0 0 0 1px rgba(var(--success-color-rgb), 0.18);
+}
+.workflow-route.is-active > summary:hover {
+    background: rgba(var(--success-color-rgb), 0.08);
+}
+.workflow-route.is-active > summary {
+    padding: 0.85rem 0.9rem;
+}
+.workflow-route.is-active .workflow-route-icon {
+    color: var(--success-color);
+    font-size: 1.25rem;
+}
+.workflow-route.is-active .workflow-route-name {
+    font-weight: 700;
+    color: var(--text-main);
+    font-size: 1rem;
+}
+.workflow-route.is-active .workflow-route-badge-fired {
+    font-size: 0.72rem;
+    padding: 0.22rem 0.6rem;
+    background: var(--success-color);
+    color: #fff;
+    border-color: var(--success-color);
+}
+.workflow-route.is-active .workflow-route-body {
+    border-top-color: rgba(var(--success-color-rgb), 0.22);
+    background: rgba(var(--success-color-rgb), 0.03);
+}
+
+/* Inactive routes — clearly subordinate to the active one but still
+   readable. Closed by default; expand on click to inspect their stages. */
+.workflow-route.is-inactive > summary .workflow-route-name { color: var(--text-muted); }
+.workflow-route.is-inactive[open] > summary {
+    background: rgba(var(--text-main-rgb), 0.04);
+}
+/* Inactive lane meta ("X stages" / "terminal") is redundant with the
+   "NOT TAKEN" badge — strip it to keep the lane summary compact and
+   the eye on the one fired lane. */
+.workflow-route.is-inactive .workflow-route-meta { display: none; }
+
+/* Fork-point dot — neutral junction marker at the TOP of the vertical trunk
+   (where the Router's path enters the fork section). */
+.workflow-fork-step .workflow-routes-list::after {
+    content: "";
+    position: absolute;
+    left: 0.35rem;
+    top: 1.4rem;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 3px rgba(var(--text-main-rgb), 0.08);
+}
+/* Merge-dot: tiny green dot on the right edge of the fork-step at the
+   vertical position of the active lane — that's where the active path
+   exits the fork section into the post-rail (Explainer). */
+.workflow-fork-step-merge {
+    display: none; /* the bottom-row merge bar isn't needed in horizontal mode */
+}
+
+/* Inactive routes — clearly subordinate alternatives. Smaller padding, lower
+   opacity, dashed muted border, grayscale icon, no shadow, muted text. The
+   user can still click to inspect each one but they read as "didn't fire,
+   here for reference" at a glance. */
+.workflow-route.is-inactive {
+    background: var(--bg-card);
+    border: 1px dashed var(--border-color);
+    box-shadow: none;
+    opacity: 0.6;
+    transition: opacity 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.workflow-route.is-inactive::before {
+    background: var(--border-color);
+    width: 1px;
+    opacity: 0.6;
+}
+.workflow-route.is-inactive:hover {
+    opacity: 0.92;
+    border-color: var(--text-muted);
+    background: rgba(var(--text-main-rgb), 0.025);
+}
+/* Collapsed inactive routes flatten to a single horizontal row — the grid
+   layout inherited from .workflow-route > summary stacks the badge under
+   the name, which leaves these mostly-empty cards looking unnecessarily
+   tall. Override to a flex row so icon + name + badge + chevron sit inline. */
+.workflow-route.is-inactive > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.7rem;
+    grid-template-columns: none;
+    grid-template-areas: none;
+    column-gap: 0.5rem;
+    row-gap: 0;
+}
+.workflow-route.is-inactive > summary .workflow-route-icon {
+    color: var(--text-muted);
+    filter: grayscale(1);
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+.workflow-route.is-inactive > summary .workflow-route-name {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.85rem;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.workflow-route.is-inactive > summary .workflow-route-badge {
+    font-size: 0.6rem;
+    padding: 0.12rem 0.45rem;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.workflow-route.is-inactive > summary .workflow-route-chevron {
+    flex-shrink: 0;
+}
+/* Stages inside an inactive branch are extra-dim — they're rendered as "skipped"
+   regardless of whether the underlying step actually fired (shared post-router stages
+   fire even on verified-query path; only the active branch should display them). */
+.workflow-route.is-inactive .workflow-step.is-not-fired {
+    opacity: 0.7;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Rail-node active-path treatment.
+   Every rail node (railPre guards, fork wrap, railPost stages, Answer) carries
+   `.is-on-active-path` in the Razor when it actually fired. Below: the node
+   picks up a soft success-coloured tint + a thicker green left accent so the
+   eye traces the same green line that the connectors trace between them.
+   Rail nodes WITHOUT the class are skipped stages — they get a dashed muted
+   treatment so they read as "this guard was bypassed, not run". The Answer
+   wrap keeps its existing green Answer-card look (defined above); the
+   `.is-on-active-path` class is harmless redundancy there.
+   ────────────────────────────────────────────────────────────────────────── */
+.workflow-node-wrap.is-on-active-path > .workflow-rail-steps > .workflow-step:not(.is-not-fired) {
+    border-left: 3px solid var(--success-color);
+    background: rgba(var(--success-color-rgb), 0.05);
+}
+.workflow-node-wrap.is-on-active-path > .workflow-rail-steps > .workflow-step:not(.is-not-fired):hover {
+    background: rgba(var(--success-color-rgb), 0.10);
+    border-color: rgba(var(--success-color-rgb), 0.55);
+    border-left: 3px solid var(--success-color);
+    box-shadow: 0 2px 8px rgba(var(--success-color-rgb), 0.15);
+}
+.workflow-node-wrap.is-on-active-path > .workflow-rail-steps > .workflow-step.is-open:not(.is-not-fired) {
+    background: rgba(var(--success-color-rgb), 0.10);
+    border-color: var(--success-color);
+}
+
+/* Rail-level not-fired guards inherit the global dashed treatment defined in
+   `.workflow-step.is-not-fired` above. No separate rule needed. */
+
+/* Router box on the active path — same green treatment as every other fired
+   rail node. Single accent colour across the whole map. */
+.workflow-router-box.workflow-step.is-on-active-path {
+    border: 2px solid var(--success-color);
+    background: rgba(var(--success-color-rgb), 0.05);
+    box-shadow: 0 2px 10px rgba(var(--success-color-rgb), 0.12);
+}
+
+/* Active wrap around the fork-step — the wrap itself doesn't need a fill
+   (the fork has its own card chrome), but its width-clamp lives on this
+   class so we keep it as a hook. No additional rules required. */
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Compact mode for the active lane.
+   When the active lane is open it auto-expands, and if the fired branch has
+   many sequential stages (Data Query has 9, Verified Query has fewer) they
+   In the new horizontal-main-rail layout the fork-step's 5 lanes are
+   stacked vertically (perpendicular to the main flow) and the fork wrap is
+   480px wide. The active lane fills the fork-step width and its stages
+   render in a 2-column grid. */
+.workflow-route.is-active[open] .workflow-route-stages {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.4rem;
+    align-items: start;
+}

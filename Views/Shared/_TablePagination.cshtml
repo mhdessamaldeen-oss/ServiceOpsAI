@@ -1,0 +1,111 @@
+@model AISupportAnalysisPlatform.Models.Common.IPagedResult
+@{
+    var request = Model.Request;
+    var totalCount = Model.TotalCount;
+    var pageNumber = Model.PageNumber;
+    var pageSize = Model.PageSize;
+    var totalPages = Model.TotalPages;
+    var displayStart = totalCount == 0 ? 0 : (((pageNumber - 1) * pageSize) + 1);
+    var displayEnd = totalCount == 0 ? 0 : Math.Min(pageNumber * pageSize, totalCount);
+
+    // Build the base route data dictionary
+    var routeData = new Dictionary<string, string>
+    {
+        { "request.PageSize", request.PageSize.ToString() },
+        { "request.SortOrder", request.SortOrder ?? "" },
+        { "request.SearchString", request.SearchString ?? "" },
+        { "request.Filter", request.Filter ?? "" },
+        { "request.StatusId", request.StatusId?.ToString() ?? "" },
+        { "request.PriorityId", request.PriorityId?.ToString() ?? "" },
+        { "request.CategoryId", request.CategoryId?.ToString() ?? "" },
+        { "request.EntityId", request.EntityId?.ToString() ?? "" }
+    };
+
+    Func<int, Dictionary<string, string>> GetRouteWithPage = (int p) => {
+        var dict = new Dictionary<string, string>(routeData);
+        dict["request.PageNumber"] = p.ToString();
+        return dict;
+    };
+
+    Func<int, Dictionary<string, string>> GetRouteWithPageSize = (int ps) => {
+        var dict = new Dictionary<string, string>(routeData);
+        dict["request.PageNumber"] = "1";
+        dict["request.PageSize"] = ps.ToString();
+        return dict;
+    };
+}
+
+@if (totalPages > 1 || totalCount > 10)
+{
+    <div class="d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 py-4 px-4 border-top" style="border-color: var(--border-color) !important;">
+        <div class="text-muted small fw-semibold">
+            @Loc.Get("Showing") <span class="text-primary fw-bold">@displayStart</span>
+            – <span class="text-primary fw-bold">@displayEnd</span>
+            @Loc.Get("Of") <span class="text-main fw-bold">@totalCount</span> @Loc.Get("Records")
+        </div>
+        
+        @if (totalPages > 1)
+        {
+            <nav aria-label="Page navigation">
+                <ul class="pagination mb-0 gap-1">
+                    <li class="page-item @(!Model.HasPreviousPage ? "disabled" : "")">
+                        <a class="page-link ajax-pagination-link rounded-3 border-0 fw-bold shadow-none" style="background: var(--bg-card); color: var(--text-muted);"
+                           href="@Url.Action(null, GetRouteWithPage(pageNumber - 1))">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+
+                    @{
+                        int startPage = Math.Max(1, pageNumber - 2);
+                        int endPage = Math.Min(totalPages, pageNumber + 2);
+                    }
+
+                    @if (startPage > 1)
+                    {
+                        <li class="page-item">
+                            <a class="page-link ajax-pagination-link rounded-3 border-0 shadow-none" style="background: var(--bg-card); color: var(--text-muted);"
+                               href="@Url.Action(null, GetRouteWithPage(1))">1</a>
+                        </li>
+                        @if (startPage > 2) { <li class="page-item disabled"><span class="page-link border-0 bg-transparent text-muted">…</span></li> }
+                    }
+
+                    @for (int p = startPage; p <= endPage; p++)
+                    {
+                        <li class="page-item @(p == pageNumber ? "active" : "")">
+                            <a class="page-link ajax-pagination-link rounded-3 border-0 fw-bold shadow-none"
+                               style="@(p == pageNumber ? "background: var(--primary-color) !important; color: #000 !important;" : "background: var(--bg-card); color: var(--text-muted);")"
+                               href="@Url.Action(null, GetRouteWithPage(p))">@p</a>
+                        </li>
+                    }
+
+                    @if (endPage < totalPages)
+                    {
+                        @if (endPage < totalPages - 1) { <li class="page-item disabled"><span class="page-link border-0 bg-transparent text-muted">…</span></li> }
+                        <li class="page-item">
+                            <a class="page-link ajax-pagination-link rounded-3 border-0 shadow-none" style="background: var(--bg-card); color: var(--text-muted);"
+                               href="@Url.Action(null, GetRouteWithPage(totalPages))">@totalPages</a>
+                        </li>
+                    }
+
+                    <li class="page-item @(!Model.HasNextPage ? "disabled" : "")">
+                        <a class="page-link ajax-pagination-link rounded-3 border-0 fw-bold shadow-none" style="background: var(--bg-card); color: var(--text-muted);"
+                           href="@Url.Action(null, GetRouteWithPage(pageNumber + 1))">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        }
+
+        <div class="d-flex align-items-center gap-2 small text-muted">
+            <span>@(Loc.Get("ItemsPerPage")):</span>
+            @foreach (var size in new[] { 10, 25, 50, 100, -1 })
+            {
+                <a href="@Url.Action(null, GetRouteWithPageSize(size))"
+                   data-page-size="@size"
+                   class="btn btn-sm ajax-pagination-link rounded-pill fw-bold px-3 shadow-none @(pageSize == size ? "btn-primary text-black" : "btn-outline-secondary")" 
+                   style="@(pageSize == size ? "background: var(--primary-color) !important; color: #000 !important; border: none !important;" : "border-color: var(--border-color) !important; color: var(--text-muted) !important;")">@(size == -1 ? (Loc.IsRtl ? "الكل" : "All") : size.ToString())</a>
+            }
+        </div>
+    </div>
+}

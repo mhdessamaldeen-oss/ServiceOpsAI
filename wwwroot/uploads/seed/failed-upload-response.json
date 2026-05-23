@@ -1,0 +1,5 @@
+{
+  "errorCode": "ERR_PAYLOAD_TOO_LARGE",
+  "message": "Maximum allowed size is 5MB.",
+  "requestId": "req-98x3k-22az"
+}

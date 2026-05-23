@@ -1,0 +1,851 @@
+@using System.Linq
+@using System.Text.Json
+@using AISupportAnalysisPlatform.Models.AI
+@model CopilotAssessmentLabViewModel
+@{
+    ViewData["Title"] = "Copilot Assessment Lab";
+    var runningLabel = "Running assessment...";
+    var runLabel = Loc.Get("RunAssessment");
+    if (string.Equals(runLabel, "RunAssessment", StringComparison.Ordinal))
+    {
+        runLabel = "Run Assessment";
+    }
+
+    var latestRunJson = Model.LatestRun == null
+        ? string.Empty
+        : JsonSerializer.Serialize(Model.LatestRun, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+
+    var allCases = Model.CaseGroups.SelectMany(g => g.Cases).ToList();
+    var hasAnswerCount = allCases.Count(c => c.Code != null && Model.TraceCaseCodes.Contains(c.Code));
+    var needsAnswerCount = allCases.Count - hasAnswerCount;
+    var request = Model.CatalogPage.Request;
+
+    var assessmentHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Copilot Assessment Lab",
+        Subtitle = Loc.Get("AssessmentHubSubtitle"),
+        IconClass = "bi bi-robot"
+    };
+}
+
+<style>
+    :root {
+        --glass-bg: rgba(255, 255, 255, 0.03);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --premium-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    #copilot-assessment-app .table-responsive {
+        border-radius: 1.2rem;
+        box-shadow: var(--premium-shadow);
+        background: var(--bg-card);
+    }
+
+    #copilot-assessment-app .table thead th {
+        background: var(--bg-main) !important;
+        border-bottom: 2px solid var(--border-color);
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        letter-spacing: 0.05em;
+        color: var(--primary-color);
+        padding: 1.2rem 0.75rem;
+    }
+
+    #copilot-assessment-app .assessment-row {
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        border-bottom: 1px solid var(--glass-border);
+    }
+
+    #copilot-assessment-app .assessment-row:hover {
+        background: rgba(var(--primary-color-rgb), 0.04) !important;
+        transform: scale(1.002) translateX(4px);
+        box-shadow: -4px 0 0 var(--primary-color);
+    }
+
+    #copilot-assessment-app .scenario-col {
+        max-width: 300px;
+        white-space: normal;
+        line-height: 1.4;
+    }
+
+    #copilot-assessment-app .expected-behavior, 
+    #copilot-assessment-app .actual-route {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-size: 0.8rem;
+    }
+
+    #copilot-assessment-app .badge {
+        padding: 0.4em 0.8em;
+        font-weight: 600;
+    }
+
+    #copilot-assessment-app .btn-soft-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.2);
+    }
+
+    .form-check-input:checked {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        box-shadow: 0 0 8px rgba(var(--primary-color-rgb), 0.4);
+    }
+
+    .table-group-header td {
+        border-top: 1px solid var(--border-color);
+        background: rgba(var(--primary-color-rgb), 0.02) !important;
+    }
+</style>
+
+<div id="copilot-assessment-app"
+     data-run-url="@Url.Action("RunCopilotAssessment", "AiAnalysis")"
+     data-run-label="Run All Cases"
+     data-running-label="@runningLabel"
+     data-pass-label="@Loc.Get("Success")"
+     data-fail-label="@Loc.Get("Failed")"
+     data-pending-label="@Loc.Get("Pending")"
+     data-assessment-complete-title="@Loc.Get("AssessmentFinished")"
+     data-assessment-error-title="@Loc.Get("CopilotRecommendationFailed")"
+     data-total-cases="@Model.TotalCases"
+     data-copilot-base-url="@Url.Action("Copilot", "AiAnalysis")"
+     data-status-running="@Loc.Get("RunningScenarios")"
+     data-status-orchestrating="@Loc.Get("OrchestratingSuite")"
+     data-status-analyzing="@Loc.Get("AnalyzingReasonings")"
+     data-status-executing="@Loc.Get("ExecutingPlans")"
+     data-status-vetting="@Loc.Get("VettingGrounding")"
+     data-logic-title="@Loc.Get("ExecutionLogic")"
+     data-logic-path="@Loc.Get("ReasoningPath")"
+     data-logic-preview="@Loc.Get("ResponsePreview")"
+     data-understood-label="@Loc.Get("Understood")"
+     data-no-answer-label="@Loc.Get("NoAnswerYet")">
+
+    <form id="csrf-form">@Html.AntiForgeryToken()</form>
+
+    <partial name="_PageHeader" model="assessmentHeader" />
+
+    <div class="control-bar d-flex flex-wrap align-items-end gap-2 mb-4">
+        <div>
+            <label class="form-label small fw-bold text-muted text-uppercase ls-1 mb-1" style="font-size: 0.65rem;">@Loc.Get("Filter")</label>
+            <select id="statusFilterSelector" class="form-select form-select-sm" style="width: 160px;" title="Filter by Status">
+                <option value="">@Loc.Get("All")</option>
+                <option value="has-answer" selected="@(Context.Request.Query["request.Filter"] == "has-answer")">@Loc.Get("HasAnswer")</option>
+                <option value="needs-answer" selected="@(Context.Request.Query["request.Filter"] == "needs-answer")">@Loc.Get("NeedsAnswer")</option>
+                <option value="pass" selected="@(Context.Request.Query["request.Filter"] == "pass")">@Loc.Get("Passed")</option>
+                <option value="fail" selected="@(Context.Request.Query["request.Filter"] == "fail")">@Loc.Get("Failed")</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label small fw-bold text-muted text-uppercase ls-1 mb-1" style="font-size: 0.65rem;">Target Session</label>
+            <select id="sessionSelector" class="form-select form-select-sm" style="width: 220px;" title="Select Target Session">
+                <option value="">-- @Loc.Get("NewSession") --</option>
+                @foreach (var session in Model.AvailableSessions)
+                {
+                    <option value="@session.Id" selected="@(Model.SelectedSessionId == session.Id)">
+                        @(string.IsNullOrWhiteSpace(session.Title) ? $"Session {session.Id}" : session.Title)
+                    </option>
+                }
+            </select>
+        </div>
+        <div class="ms-auto d-flex flex-wrap gap-2 align-items-center">
+            @if (Model.AvailableSuites != null && Model.AvailableSuites.Count > 0)
+            {
+                var activeNames = (Model.ActiveSuiteFileName ?? string.Empty)
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var selectedCount = activeNames.Count;
+                var totalSelectedQuestions = Model.AvailableSuites
+                    .Where(s => activeNames.Contains(s.FileName))
+                    .Sum(s => s.ScenarioCount);
+                <div class="dropdown" style="min-width: 320px;">
+                    <button id="suiteDropdownToggle" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold w-100 text-start dropdown-toggle d-flex align-items-center"
+                            type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                            title="Pick one or more assessment suites. Each checkbox selects a category file; questions from all selected files are merged into one run.">
+                        <i class="bi bi-collection text-primary me-2"></i>
+                        <span id="suiteToggleLabel" class="flex-grow-1 text-truncate" style="font-size: 0.8rem;">
+                            @if (selectedCount == 0)
+                            {
+                                <text>No suites selected</text>
+                            }
+                            else if (selectedCount == 1)
+                            {
+                                @($"{Model.AvailableSuites.FirstOrDefault(s => activeNames.Contains(s.FileName))?.DisplayName ?? "(unknown)"} ({totalSelectedQuestions} q)")
+                            }
+                            else
+                            {
+                                @($"{selectedCount} suites selected — {totalSelectedQuestions} q")
+                            }
+                        </span>
+                    </button>
+                    <div class="dropdown-menu shadow-sm p-3" style="min-width: 420px; max-height: 480px; overflow-y: auto;">
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom small text-muted">
+                            <span><i class="bi bi-check2-square me-1"></i>Pick one or more category files</span>
+                            <span>
+                                <a href="#" id="suiteSelectAll" class="text-decoration-none me-2">All</a>
+                                <a href="#" id="suiteSelectNone" class="text-decoration-none">None</a>
+                            </span>
+                        </div>
+                        <div id="suiteCheckboxList">
+                            @foreach (var suite in Model.AvailableSuites)
+                            {
+                                var isSel = activeNames.Count > 0
+                                    ? activeNames.Contains(suite.FileName)
+                                    : suite.IsDefault;
+                                <div class="form-check d-flex align-items-center gap-2 py-1 px-1 rounded suite-row" style="cursor: pointer;">
+                                    <input class="form-check-input suite-checkbox flex-shrink-0" type="checkbox"
+                                           value="@suite.FileName" id="suite_@suite.FileName.Replace(".", "_")"
+                                           checked="@isSel">
+                                    <label class="form-check-label small flex-grow-1 mb-0" for="suite_@suite.FileName.Replace(".", "_")" style="cursor: pointer;">
+                                        <strong>@suite.DisplayName</strong>
+                                        <span class="text-muted ms-1">(@suite.ScenarioCount q)</span>
+                                        @if (suite.IsDefault)
+                                        {
+                                            <span class="text-warning ms-1" title="Most recently modified — default">★</span>
+                                        }
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                        <div class="border-top pt-2 mt-2 d-flex justify-content-between align-items-center">
+                            <span class="small text-muted">
+                                <span id="suiteSelectedSummary">@selectedCount selected — @totalSelectedQuestions questions</span>
+                            </span>
+                            <button id="suiteApplyBtn" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold" type="button">
+                                <i class="bi bi-check-lg me-1"></i>Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            <span id="selectionInfo" class="pill-badge d-none" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">
+                <i class="bi bi-check2-square"></i>Selected: <strong id="countSelected">0</strong>
+            </span>
+            <button id="btnRunSelected" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm d-none" type="button" title="Run only the selected scenarios currently loaded on this page.">
+                <i class="bi bi-play-fill @(Loc.IsRtl ? "ms-1" : "me-1")"></i>Run Selected
+            </button>
+            <button id="btnRunAll" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" type="button" title="Run every scenario in the assessment suite, not only the visible page.">
+                <i class="bi bi-play-fill @(Loc.IsRtl ? "ms-1" : "me-1")"></i>Run All Cases
+            </button>
+            <button id="btnStopAssessment" class="btn btn-sm btn-soft-danger rounded-pill px-3 fw-bold d-none" type="button" title="Stop Assessment">
+                <i class="bi bi-stop-circle @(Loc.IsRtl ? "ms-1" : "me-1")"></i>Stop
+            </button>
+            <a class="btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold" asp-controller="AiAnalysis" asp-action="InvestigationHistory" title="@Loc.Get("Archive")">
+                <i class="bi bi-archive @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("Archive")
+            </a>
+            <a class="btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold" asp-controller="AiAnalysis" asp-action="Hub" title="@Loc.Get("Hub")">
+                <i class="bi bi-grid @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("Hub")
+            </a>
+            <a class="btn btn-sm btn-soft-primary rounded-pill px-3 fw-bold" asp-controller="AiAnalysis" asp-action="Copilot" title="Back to Copilot Chat">
+                <i class="bi bi-chat-square-text @(Loc.IsRtl ? "ms-1" : "me-1")"></i>Copilot
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head">
+                    <div class="kpi-icon"><i class="bi bi-shield-check"></i></div>
+                    <div class="kpi-label">Forensic Coverage</div>
+                </div>
+                <div class="kpi-value">
+                    <span id="statCompleted">0</span><span class="kpi-value-aux">&nbsp;/ <span id="statTotal">@Model.TotalCases</span></span>
+                </div>
+                <div class="progress mt-2" style="height: 6px; background: rgba(var(--primary-color-rgb),0.1);">
+                    <div id="statProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background: var(--primary-color); transition: width 0.3s ease;"></div>
+                </div>
+                <div id="assessmentLiveStatus" class="mt-2 small fw-bold d-none" style="color: var(--primary-color);">
+                    Initializing Agentic Orchestrator...
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head">
+                    <div class="kpi-icon"><i class="bi bi-activity"></i></div>
+                    <div class="kpi-label">System Health</div>
+                </div>
+                <div class="kpi-value"><span id="statSuccessRate">—</span></div>
+                <div class="kpi-split mt-2">
+                    <div>
+                        <div class="kpi-split-label">Passed</div>
+                        <div id="statPassed" class="kpi-split-value text-success">0</div>
+                    </div>
+                    <div>
+                        <div class="kpi-split-label">Failed</div>
+                        <div id="statFailed" class="kpi-split-value text-danger">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head">
+                    <div class="kpi-icon"><i class="bi bi-lightning-charge"></i></div>
+                    <div class="kpi-label">Reasoning Efficiency</div>
+                </div>
+                <div class="kpi-value"><span id="statAvgLatency">—</span></div>
+                <div class="kpi-foot">Average time to decompose and execute agentic steps.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="assessmentProgressContainer" class="card border-0 shadow-sm rounded-4 mb-4 d-none" style="background: var(--bg-card); overflow: hidden;">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <span class="fw-bold text-main" id="progressStatus">@Loc.Get("RunningScenarios")</span>
+                </div>
+                <div class="text-muted small" id="progressCount">0 / @Model.TotalCases</div>
+            </div>
+            <div class="progress rounded-pill" style="height: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-color);">
+                <div id="assessmentProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Tabs Navigation — unified .app-tabs -->
+    <ul class="app-tabs mb-4" id="assessmentTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="cases-tab" data-bs-toggle="tab" data-bs-target="#cases" type="button" role="tab">
+                <i class="bi bi-grid"></i>Assessment Cases
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="forensic-tab" data-bs-toggle="tab" data-bs-target="#forensic" type="button" role="tab">
+                <i class="bi bi-shield-check"></i>Forensic Insights
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="assessmentTabContent">
+        <!-- Assessment Cases Tab -->
+        <div class="tab-pane fade show active" id="cases" role="tabpanel">
+            <div id="CopilotAssessmentGridContainer" class="animate__animated animate__fadeInUp">
+                @await Html.PartialAsync("_CopilotAssessmentGrid", Model.CatalogPage)
+            </div>
+        </div>
+
+        <!-- Unified Forensic Tab -->
+        <div class="tab-pane fade" id="forensic" role="tabpanel">
+            <div id="forensicDashboardContainer" class="py-4">
+                <div class="text-center py-5 loading-state">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">Generating unified forensic report...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/copilot-assessment.js" asp-append-version="true"></script>
+
+    <script>
+        // Suite picker — checkbox dropdown. The user checks any number of category files;
+        // clicking Apply submits the comma-joined list. Server treats single-file selection as
+        // single-suite mode (same as before), 2+ as multi-suite mode (merges scenarios from all
+        // selected files, stamps each with its SourceSuite for traceability).
+        (function () {
+            const list = document.getElementById('suiteCheckboxList');
+            const applyBtn = document.getElementById('suiteApplyBtn');
+            const summary = document.getElementById('suiteSelectedSummary');
+            const selectAll = document.getElementById('suiteSelectAll');
+            const selectNone = document.getElementById('suiteSelectNone');
+            if (!list || !applyBtn) return;
+
+            function getCheckboxes() {
+                return Array.from(list.querySelectorAll('.suite-checkbox'));
+            }
+
+            function recomputeSummary() {
+                const checked = getCheckboxes().filter(cb => cb.checked);
+                const totalQ = checked.reduce((acc, cb) => {
+                    // Each row's label has "(N q)" — extract the number.
+                    const label = cb.parentElement?.querySelector('label')?.textContent || '';
+                    const m = label.match(/\((\d+)\s*q\)/);
+                    return acc + (m ? parseInt(m[1], 10) : 0);
+                }, 0);
+                if (summary) summary.textContent = checked.length + ' selected — ' + totalQ + ' questions';
+                applyBtn.disabled = checked.length === 0;
+            }
+
+            // Make the whole row clickable (not just the tiny checkbox).
+            list.querySelectorAll('.suite-row').forEach(row => {
+                row.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'INPUT') return; // checkbox handled itself
+                    const cb = row.querySelector('.suite-checkbox');
+                    if (cb) { cb.checked = !cb.checked; recomputeSummary(); }
+                });
+            });
+
+            getCheckboxes().forEach(cb => cb.addEventListener('change', recomputeSummary));
+
+            if (selectAll) selectAll.addEventListener('click', (e) => {
+                e.preventDefault();
+                getCheckboxes().forEach(cb => cb.checked = true);
+                recomputeSummary();
+            });
+            if (selectNone) selectNone.addEventListener('click', (e) => {
+                e.preventDefault();
+                getCheckboxes().forEach(cb => cb.checked = false);
+                recomputeSummary();
+            });
+
+            applyBtn.addEventListener('click', async () => {
+                const fileNames = getCheckboxes().filter(cb => cb.checked).map(cb => cb.value);
+                if (fileNames.length === 0) return;
+                const joined = fileNames.join(',');
+                try {
+                    await fetch('/AiAnalysis/SelectAssessmentSuite', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileName: joined })
+                    });
+                } catch (e) { /* fall through — page reload below picks up via ?suite= */ }
+                const url = new URL(window.location.href);
+                url.searchParams.set('suite', joined);
+                window.location.href = url.toString();
+            });
+
+            recomputeSummary();
+        })();
+    </script>
+
+    <script>
+        // Load Unified Forensic Report
+        document.getElementById('forensic-tab').addEventListener('shown.bs.tab', function () {
+            const container = document.getElementById('forensicDashboardContainer');
+            if (container.querySelector('.loading-state')) {
+                const sessId = new URLSearchParams(window.location.search).get('sessionId') || document.getElementById('sessionSelector')?.value;
+                const url = sessId ? `/AiAnalysis/CopilotAnalysis/ApiUnifiedForensicReport?sessionId=${sessId}` : '/AiAnalysis/CopilotAnalysis/ApiUnifiedForensicReport';
+                
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        renderUnifiedForensicReport(data);
+                    })
+                    .catch(error => {
+                        container.innerHTML = 
+                            '<div class="alert alert-danger">Failed to load forensic report: ' + error.message + '</div>';
+                    });
+            }
+        });
+
+        function renderUnifiedForensicReport(data) {
+            const container = document.getElementById('forensicDashboardContainer');
+            
+            let html = `
+                <!-- Confidence Metrics Row -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm text-white" style="background: linear-gradient(135deg, #28a745, #20c997); border-radius: 1rem;">
+                            <div class="card-body p-4">
+                                <div class="opacity-75 small fw-bold text-uppercase mb-1">High Confidence</div>
+                                <h2 class="mb-0 fw-bold">${data.correctness.highConfidence || 0}</h2>
+                                <div class="mt-2 x-small opacity-75">Matches golden truth exactly</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm text-white" style="background: linear-gradient(135deg, #ffc107, #fd7e14); border-radius: 1rem;">
+                            <div class="card-body p-4">
+                                <div class="opacity-75 small fw-bold text-uppercase mb-1">Medium Confidence</div>
+                                <h2 class="mb-0 fw-bold">${data.correctness.mediumConfidence || 0}</h2>
+                                <div class="mt-2 x-small opacity-75">Minor semantic variations</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm text-white" style="background: linear-gradient(135deg, #dc3545, #f86c6b); border-radius: 1rem;">
+                            <div class="card-body p-4">
+                                <div class="opacity-75 small fw-bold text-uppercase mb-1">Low Confidence / Errors</div>
+                                <h2 class="mb-0 fw-bold">${data.correctness.lowConfidence || 0}</h2>
+                                <div class="mt-2 x-small opacity-75">Requires forensic review</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <!-- Patterns & Insights -->
+                    <div class="col-lg-8">
+                        <div class="card border-0 shadow-sm h-100" style="border-radius: 1rem;">
+                            <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                                <h5 class="fw-bold mb-0">Observed Patterns & Anomalies</h5>
+                                <span class="badge bg-soft-primary text-primary">Live Analysis</span>
+                            </div>
+                            <div class="card-body p-4">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="p-4 rounded-4 bg-light bg-opacity-10 border border-white border-opacity-10 h-100">
+                                            <div class="text-muted fw-bold small text-uppercase mb-3"><i class="bi bi-diagram-3 me-2"></i>Behavioral Patterns</div>
+                                            ${data.investigation.patterns && data.investigation.patterns.length ? 
+                                                data.investigation.patterns.map(p => `<div class="mb-3 small d-flex gap-2"><i class="bi bi-check-circle-fill text-primary"></i> <span>${p}</span></div>`).join('') :
+                                                '<div class="text-muted small">No specific patterns identified in this session.</div>'}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="p-4 rounded-4 bg-light bg-opacity-10 border border-white border-opacity-10 h-100">
+                                            <div class="text-muted fw-bold small text-uppercase mb-3"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Security & Logic Anomalies</div>
+                                            ${data.investigation.anomalies && data.investigation.anomalies.length ? 
+                                                data.investigation.anomalies.map(a => `<div class="mb-3 small d-flex gap-2 text-warning"><i class="bi bi-lightning-fill"></i> <span>${a}</span></div>`).join('') :
+                                                '<div class="text-muted small">No critical anomalies detected.</div>'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Quality -->
+                    <div class="col-lg-4">
+                        <div class="card border-0 shadow-sm h-100" style="border-radius: 1rem;">
+                            <div class="card-header bg-transparent border-0 pt-4 px-4">
+                                <h5 class="fw-bold mb-0">Data Quality Snapshot</h5>
+                            </div>
+                            <div class="card-body p-4">
+                                ${data.dataInspection && data.dataInspection.length ? 
+                                    data.dataInspection.map(p => `
+                                        <div class="mb-4">
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span class="small fw-bold text-main">${p.fieldName || 'Entity Mapping'}</span>
+                                                <span class="small text-muted fw-bold">${p.confidence.toFixed(0)}%</span>
+                                            </div>
+                                            <div class="progress" style="height: 6px; border-radius: 3px;">
+                                                <div class="progress-bar ${p.confidence > 80 ? 'bg-success' : 'bg-warning'}" style="width: ${p.confidence}%"></div>
+                                            </div>
+                                            <div class="mt-2 x-small text-muted" style="line-height: 1.4;">${p.reason || ''}</div>
+                                        </div>
+                                    `).join('') :
+                                    '<div class="text-muted small">Insufficient trace data for quality scoring.</div>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trace Investigation Grid (Unified Section) -->
+                <div class="card border-0 shadow-sm" style="border-radius: 1rem;">
+                    <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="fw-bold mb-0">Trace Investigation History</h5>
+                            <div class="text-muted small mt-1">Detailed breakdown of agentic steps and logic for each case.</div>
+                        </div>
+                        <button class="btn btn-sm btn-soft-secondary rounded-pill px-3" onclick="location.reload()"><i class="bi bi-arrow-clockwise me-1"></i>Refresh</button>
+                    </div>
+                    <div class="card-body p-0 mt-3">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" style="font-size: 0.85rem;">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th class="px-4">Question / Investigation Story</th>
+                                        <th>Intent</th>
+                                        <th>Duration</th>
+                                        <th>Result</th>
+                                        <th class="text-end px-4">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.investigation.traces && data.investigation.traces.length ? 
+                                        data.investigation.traces.map(t => `
+                                            <tr>
+                                                <td class="px-4 py-3">
+                                                    <div class="fw-bold text-main">${t.question}</div>
+                                                    <div class="text-muted x-small mt-1 text-truncate" style="max-width: 400px;">${t.investigationStory || 'No story details'}</div>
+                                                </td>
+                                                <td><span class="badge bg-soft-primary text-primary rounded-pill px-2">${t.detectedIntent || 'Unknown'}</span></td>
+                                                <td><span class="text-muted"><i class="bi bi-clock me-1"></i>${(t.elapsedMs / 1000).toFixed(2)}s</span></td>
+                                                <td>
+                                                    <span class="badge ${t.isSuccess ? 'bg-success' : 'bg-danger'} rounded-pill">
+                                                        ${t.isSuccess ? 'Success' : 'Error'}
+                                                    </span>
+                                                </td>
+                                                <td class="text-end px-4">
+                                                    <button class="btn btn-sm btn-icon btn-soft-primary rounded-circle" onclick="window.location.href='/AiAnalysis/CopilotAnalysis/TraceInvestigation?sessionId=${t.sessionId}'" title="Deep Inspection">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        `).join('') :
+                                        '<tr><td colspan="5" class="text-center py-5 text-muted">No traces found for this session.</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        function renderInspectData(data) {
+            const container = document.getElementById('inspectDataContainer');
+            if (!data || !data.traces || data.traces.length === 0) {
+                container.innerHTML = '<div class="alert alert-warning">No trace data available</div>';
+                return;
+            }
+            
+            let html = '<div class="accordion" id="traceAccordion">';
+            data.traces.forEach((trace, index) => {
+                const score = trace.analysis?.correctnessScore || 0;
+                const statusClass = score >= 90 ? 'bg-success' : score >= 70 ? 'bg-warning' : 'bg-danger';
+                const status = score >= 90 ? '✓ CORRECT' : score >= 70 ? '? PROBABLY' : '✗ INCORRECT';
+                
+                html += `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed ${statusClass} text-white" type="button" data-bs-toggle="collapse" data-bs-target="#trace-${index}">
+                                <span class="badge bg-white text-dark me-2">${status}</span>
+                                <strong>Q:</strong> ${trace.question?.substring(0, 80) || 'No question'}...
+                                <span class="ms-auto">Score: ${score}/100</span>
+                            </button>
+                        </h2>
+                        <div id="trace-${index}" class="accordion-collapse collapse" data-bs-parent="#traceAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6>Question:</h6>
+                                        <p>${trace.question || 'N/A'}</p>
+                                        <h6>Answer:</h6>
+                                        <div class="p-2 bg-light rounded">${trace.answer || 'No answer'}</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6>Analysis:</h6>
+                                        <ul class="list-unstyled">
+                                            <li><strong>Intent:</strong> ${trace.intent || 'Unknown'}</li>
+                                            <li><strong>Confidence:</strong> ${trace.confidence || 'N/A'}</li>
+                                            <li><strong>Result Count:</strong> ${trace.resultCount || 0}</li>
+                                            <li><strong>Score:</strong> <span class="badge ${score >= 70 ? 'bg-success' : 'bg-danger'}">${score}/100</span></li>
+                                        </ul>
+                                        ${trace.analysis?.correctnessIssues?.length ? `
+                                            <div class="mt-3">
+                                                <h6 class="text-danger">Issues:</h6>
+                                                <ul class="list-group">
+                                                    ${trace.analysis.correctnessIssues.map(issue => `<li class="list-group-item list-group-item-danger">${issue}</li>`).join('')}
+                                                </ul>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
+    </script>
+    }
+
+    @*
+    <div class="card border-0 shadow-lg rounded-4 overflow-hidden" style="background: var(--bg-card); border: 1px solid var(--border-color);">
+        <div class="card-header bg-transparent border-bottom border-light border-opacity-10 py-4 px-4">
+            <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center">
+                <div>
+                    <h5 class="mb-1 fw-bold text-main"><i class="bi bi-table me-2 text-primary"></i>@Loc.Get("ScenarioCatalog")</h5>
+                    <div class="small text-muted">@Loc.Get("ScenarioCatalogSubtitle")</div>
+                </div>
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <div id="assessmentSummary" class="small text-muted bg-dark bg-opacity-25 px-3 py-2 rounded-pill border border-white border-opacity-10">
+                        <i class="bi bi-info-circle me-1"></i>@Loc.Get("ReadyToRun") @Model.TotalCases @Loc.Get("Scenarios").
+                    </div>
+                    <!-- Filter Buttons -->
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-soft-secondary active" id="filterAll" data-filter="all">
+                            <i class="bi bi-grid-3x3-gap me-1"></i>@Loc.Get("All")
+                        </button>
+                        <button type="button" class="btn btn-soft-secondary" id="filterNeedsAnswer" data-filter="needs-answer">
+                            <i class="bi bi-circle me-1"></i>@Loc.Get("NeedsAnswer")
+                        </button>
+                        <button type="button" class="btn btn-soft-secondary" id="filterHasAnswer" data-filter="has-answer">
+                            <i class="bi bi-check-circle-fill me-1"></i>@Loc.Get("HasAnswer")
+                        </button>
+                    </div>
+                    <div class="input-group input-group-sm" style="width: 220px;">
+                        <span class="input-group-text bg-dark border-0 text-muted px-2"><i class="bi bi-search"></i></span>
+                        <input type="text" id="catalogSearch" class="form-control bg-dark border-0 text-white shadow-none" placeholder="@Loc.Get("SearchScenariosPlaceholder")" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="color: var(--text-main);">
+                <thead style="background: var(--bg-main);">
+                    <tr>
+                        <th class="ps-3" style="width: 40px;">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" id="selectAllCases" />
+                            </div>
+                        </th>
+                        <th style="width: 18%; cursor: pointer;" class="sortable" data-sort="scenario">@Loc.Get("Scenario") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th style="width: 8%; cursor: pointer;" class="sortable text-center" data-sort="category">@Loc.Get("Category") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th style="width: 8%; cursor: pointer;" class="sortable text-center" data-sort="difficulty">@Loc.Get("Difficulty") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th class="text-center sortable" style="width: 6%; cursor: pointer;" data-sort="hasAnswer">@Loc.Get("HasAnswer") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th class="text-center" style="width: 6%;">@Loc.Get("Clear")</th>
+                        <th style="width: 12%; cursor: pointer;" class="sortable" data-sort="expected">@Loc.Get("Expectedbehavior") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th style="width: 12%; cursor: pointer;" class="sortable" data-sort="route">@Loc.Get("ActualRoute") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th class="text-center sortable" style="width: 8%; cursor: pointer;" data-sort="status">@Loc.Get("Status") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th class="text-center sortable" style="width: 8%; cursor: pointer;" data-sort="latency">@Loc.Get("Latency") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th class="text-center sortable" style="width: 8%; cursor: pointer;" data-sort="previous">@Loc.Get("Previous") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th class="text-center sortable" style="width: 8%; cursor: pointer;" data-sort="trend">@Loc.Get("Trend") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th class="text-center sortable" style="width: 6%; cursor: pointer;" data-sort="runs">@Loc.Get("Runs") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i></th>
+                        <th class="text-end pe-3" style="width: 8%;">@Loc.Get("Actions")</th>
+                    </tr>
+                </thead>
+                <tbody id="testResultsBody">
+                    @foreach (var group in Model.CaseGroups)
+                    {
+                        <tr class="table-group-header">
+                            <td class="bg-transparent border-0"></td>
+                            <td colspan="13" class="px-3 py-3" style="background: rgba(255,255,255,0.02);">
+                                <div class="d-flex flex-column flex-lg-row justify-content-between gap-2">
+                                    <div>
+                                        <div class="fw-bold text-main d-flex align-items-center gap-2">
+                                            <i class="bi bi-folder2-open text-primary"></i>
+                                            @group.Category
+                                        </div>
+                                        <div class="small text-muted">@group.Description</div>
+                                    </div>
+                                    <div class="small text-muted align-self-lg-center">@group.Cases.Count scenarios</div>
+                                </div>
+                            </td>
+                            <td class="bg-transparent border-0"></td>
+                        </tr>
+
+                        @foreach (var testCase in group.Cases)
+                        {
+                            var hasAnswer = testCase.Code != null && Model.TraceCaseCodes.Contains(testCase.Code);
+                            <tr id="row-@testCase.Id" data-case-id="@testCase.Id" data-category="@testCase.Category" data-has-answer="@(hasAnswer ? "true" : "false")" class="assessment-row @(hasAnswer ? "has-previous-answer" : "needs-answer")">
+                                <td class="ps-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input case-selector" type="checkbox" value="@testCase.Id" />
+                                    </div>
+                                </td>
+                                <td class="scenario-col">
+                                    <div class="fw-semibold text-main">@testCase.Question</div>
+                                    <div class="assessment-answer-preview d-none mt-2 small rounded-3 border border-white border-opacity-10 bg-dark bg-opacity-25 p-2"></div>
+                                </td>
+                                <td class="text-center category-col">
+                                    <span class="badge bg-soft-secondary text-secondary rounded-pill border border-secondary border-opacity-10">@testCase.Category</span>
+                                </td>
+                                <td class="text-center difficulty-col">
+                                    @{
+                                        var diffColor = testCase.Difficulty switch
+                                        {
+                                            "Easy" => "success",
+                                            "Medium" => "info",
+                                            "Hard" => "warning",
+                                            "Complicated" => "danger",
+                                            _ => "secondary"
+                                        };
+                                    }
+                                    <span class="badge bg-soft-@diffColor text-@diffColor rounded-pill border border-@diffColor border-opacity-10">@testCase.Difficulty</span>
+                                </td>
+                                <td class="text-center has-answer-col">
+                                    @if (hasAnswer)
+                                    {
+                                        <span class="badge bg-soft-success text-success rounded-pill border border-success border-opacity-10" title="@Loc.Get("HasAnswerFromPreviousRun")">
+                                            <i class="bi bi-check-circle-fill"></i>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-soft-secondary text-secondary rounded-pill border border-secondary border-opacity-10" title="@Loc.Get("NoAnswerYet")">
+                                            <i class="bi bi-circle"></i>
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-center clear-answer-col">
+                                    @if (hasAnswer)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-link text-danger p-0 clear-answer-btn" data-case-id="@testCase.Id" title="@Loc.Get("ClearAnswerTooltip")">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="opacity-25">—</span>
+                                    }
+                                </td>
+                                <td class="small text-muted expected-behavior">
+                                    <div class="bg-dark bg-opacity-25 p-2 rounded-2 border border-white border-opacity-5">
+                                        @testCase.ExpectedBehaviorSummary
+                                    </div>
+                                </td>
+                                <td class="small text-muted actual-route">
+                                    <span class="opacity-50">---</span>
+                                </td>
+                                <td class="text-center status-col">
+                                    <span class="badge bg-soft-secondary text-secondary rounded-pill">@Loc.Get("Pending")</span>
+                                </td>
+                                <td class="latency-col text-muted small">---</td>
+                                <td class="text-center previous-result">
+                                    <span class="opacity-50 small">---</span>
+                                </td>
+                                <td class="text-center status-trend">
+                                    <span class="opacity-50 small">---</span>
+                                </td>
+                                <td class="text-center total-runs">
+                                    <span class="opacity-50 small">0</span>
+                                </td>
+                                <td class="text-end pe-3">
+                                    <div class="btn-group">
+                                        <button class="btn btn-soft-secondary btn-sm rounded-start-pill px-2 border-end border-white border-opacity-10 btn-view-logic" title="@Loc.Get("ExecutionLogic")" disabled>
+                                            <i class="bi bi-code-square"></i>
+                                        </button>
+                                        <a class="btn btn-soft-primary btn-sm rounded-end-pill px-3 fw-bold"
+                                           asp-controller="AiAnalysis"
+                                           asp-action="Copilot"
+                                           asp-route-prompt="@testCase.Question"
+                                           asp-route-caseCode="@testCase.Code"
+                                           asp-route-sourceSuite="@testCase.SourceSuite">
+                                            @Loc.Get("Open")
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-transparent border-top border-light border-opacity-10 py-3 px-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <span class="badge rounded-pill px-3 py-2" style="background: rgba(var(--primary-color-rgb), 0.12); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb), 0.18);">
+                        <i class="bi bi-list-ul me-1"></i>@Loc.Get("Total"): <strong id="countTotal">@Model.TotalCases</strong>
+                    </span>
+                    <span class="badge rounded-pill px-3 py-2 bg-soft-success text-success border border-success border-opacity-10">
+                        <i class="bi bi-check-circle-fill me-1"></i>@Loc.Get("HasAnswer"): <strong id="countHasAnswer">@hasAnswerCount</strong>
+                    </span>
+                    <span class="badge rounded-pill px-3 py-2 bg-soft-secondary text-secondary border border-secondary border-opacity-10">
+                        <i class="bi bi-circle me-1"></i>@Loc.Get("NeedsAnswer"): <strong id="countNeedsAnswer">@needsAnswerCount</strong>
+                    </span>
+                    <span class="badge rounded-pill px-3 py-2" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border-color);">
+                        <i class="bi bi-eye me-1"></i>@Loc.Get("Showing"): <strong id="visibleCount">@Model.TotalCases</strong>
+                    </span>
+                    <span class="badge rounded-pill px-3 py-2" style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border-color);">
+                        <i class="bi bi-check2-square me-1"></i>@Loc.Get("Selected"): <strong id="countSelected">0</strong>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    *@
+</div>
+
+@if (!string.IsNullOrWhiteSpace(latestRunJson))
+{
+    <script id="latestAssessmentRun" type="application/json">@Html.Raw(latestRunJson)</script>
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/ai-evaluation.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/copilot-assessment.css" asp-append-version="true" />
+}

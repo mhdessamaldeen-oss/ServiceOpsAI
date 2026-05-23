@@ -1,0 +1,75 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.AI.ReviewAttentionItem>
+
+<div class="table-responsive">
+    <table id="reviewAttentionTable"
+           class="table table-hover align-middle mb-0 datatable-premium"
+           data-column-search="true"
+           data-paging="false"
+           data-info="false"
+           data-page-length-control="false">
+        <thead>
+            <tr>
+                <th class="py-3 px-4">@Loc.Get("Ticket")</th>
+                <th class="py-3">@Loc.Get("ReasonFlag")</th>
+                <th class="py-3 text-center">@Loc.Get("ClassMismatchHeader")</th>
+                <th class="py-3 text-center">@Loc.Get("AiConfidence")</th>
+                <th class="py-3 px-4 text-end no-sort">@Loc.Get("Actions")</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Items.Any())
+            {
+                @foreach (var item in Model.Items)
+                {
+                    var classMismatch = item.CurrentClassification != item.AiClassification && item.AiClassification != "Unknown";
+                    <tr>
+                        <td class="py-3 px-4">
+                            <a href="/Tickets/Details/@item.TicketId" class="text-decoration-none">
+                                <div class="fw-bold" style="color: var(--primary-color) !important;">#@item.TicketNumber</div>
+                            </a>
+                            <span class="small text-muted-alt">@(item.Title.Length > 50 ? item.Title.Substring(0, 50) + "..." : item.Title)</span>
+                        </td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var reason in item.ReviewReasons)
+                                {
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle fw-bold rounded-pill" style="font-size:0.65rem;">@reason</span>
+                                }
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            @if (classMismatch)
+                            {
+                                <div class="small"><s class="text-danger">@item.CurrentClassification</s> <i class="bi bi-arrow-right mx-1"></i> <strong class="text-info">@item.AiClassification</strong></div>
+                            }
+                            else
+                            {
+                                <span class="text-muted-alt small">—</span>
+                            }
+                        </td>
+                        <td class="text-center">
+                            <span class="badge rounded-pill @(item.Confidence == "High" ? "bg-success" : (item.Confidence == "Low" ? "bg-danger" : "bg-warning text-dark"))">@Loc.Get(item.Confidence ?? "TBD")</span>
+                        </td>
+                        <td class="text-end px-4">
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="/Tickets/Details/@item.TicketId" class="btn btn-sm btn-outline-info rounded-pill" style="font-size: 0.75rem;">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-soft-primary rounded-pill fw-bold"
+                                        onclick="openReviewModal(@item.AnalysisId, '@item.TicketNumber')">
+                                    @Loc.Get("Review")
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="5" class="text-center py-5 text-muted-alt">@Loc.Get("NoReviewNeeded")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

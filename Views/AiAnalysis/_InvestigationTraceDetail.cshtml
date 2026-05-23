@@ -1,0 +1,1506 @@
+@model AISupportAnalysisPlatform.Models.AI.AdminCopilotExecutionDetails
+@using AISupportAnalysisPlatform.Models.AI
+@using System.Text.Json
+@{
+    string traceId = Convert.ToString(ViewBag.Trace?.Id) ?? "current";
+    var storyToggleId = $"trace-story-{traceId}";
+    var treeToggleId = $"trace-tree-{traceId}";
+    var traceRootId = $"trace-detail-{traceId}";
+    var traceGraphKey = "trace_" + new string(traceId.ToCharArray().Select(ch => char.IsLetterOrDigit(ch) ? ch : '_').ToArray());
+    var defaultTraceView = string.Equals(Convert.ToString(ViewData["DefaultTraceView"] ?? ViewBag.DefaultTraceView), "tree", StringComparison.OrdinalIgnoreCase) ? "tree" : "story";
+
+
+    List<CopilotExecutionStep> GetAllSteps(IEnumerable<CopilotExecutionStep> roots)
+    {
+        var all = new List<CopilotExecutionStep>();
+        foreach (var root in roots)
+        {
+            all.Add(root);
+            all.AddRange(GetAllSteps(root.SubSteps));
+        }
+        return all;
+    }
+
+    List<CopilotExecutionStep> GetLogicalRoots(IEnumerable<CopilotExecutionStep> roots, params CopilotExecutionLayer[] layers)
+    {
+        return roots.Where(r => layers.Contains(r.Layer) || GetAllSteps(r.SubSteps).Any(s => layers.Contains(s.Layer))).ToList();
+    }
+
+    var allTraceSteps = GetAllSteps(Model.Steps);
+    var contextSteps = Model.Steps.Where(step => step.Layer == CopilotExecutionLayer.Context).ToList();
+    var routerSteps = GetLogicalRoots(Model.Steps, CopilotExecutionLayer.Router);
+    var executorSteps = GetLogicalRoots(Model.Steps, CopilotExecutionLayer.Executor);
+    var completeSteps = Model.Steps.Where(step => step.Layer == CopilotExecutionLayer.Complete).ToList();
+
+    var queryPlans = Model.QueryPlans.Any()
+        ? Model.QueryPlans
+        : Model.QueryPlan != null
+            ? new List<AdminCopilotDynamicTicketQueryPlan> { Model.QueryPlan }
+            : new List<AdminCopilotDynamicTicketQueryPlan>();
+    var catalogExecutions = Model.SubExecutions
+        .Where(sub => sub.IntentPlan != null || sub.QueryModel != null || !string.IsNullOrWhiteSpace(sub.GeneratedSql))
+        .ToList();
+
+    var prettyJsonOptions = new JsonSerializerOptions { WriteIndented = true };
+
+    string CleanActionLabel(string? action, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return fallback;
+        }
+
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(action, @"\s*\[[^\]]+\]", string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? fallback : cleaned;
+    }
+
+    string ResolveStructuredPlanName(AdminCopilotDynamicTicketQueryPlan plan)
+        => !string.IsNullOrWhiteSpace(plan.TargetView)
+            ? plan.TargetView
+            : !string.IsNullOrWhiteSpace(plan.EntityName)
+                ? $"{plan.EntityName} data"
+                : "Structured data";
+
+    string ResolveCatalogExecutionName(AdminCopilotDynamicTicketQueryExecution execution)
+        => !string.IsNullOrWhiteSpace(execution.QueryModel?.PrimaryEntity)
+            ? execution.QueryModel.PrimaryEntity
+            : !string.IsNullOrWhiteSpace(execution.IntentPlan?.PrimaryEntity)
+                ? execution.IntentPlan.PrimaryEntity
+                : ResolveStructuredPlanName(execution.Plan);
+
+    string ResolveCatalogExecutionOperation(AdminCopilotDynamicTicketQueryExecution execution)
+        => !string.IsNullOrWhiteSpace(execution.QueryModel?.Operation)
+            ? execution.QueryModel.Operation
+            : !string.IsNullOrWhiteSpace(execution.IntentPlan?.Operation)
+                ? execution.IntentPlan.Operation
+                : execution.Plan.Intent.ToString();
+
+    string ShortText(string? value, int maxLength = 160)
+    {
+        var text = (value ?? string.Empty).Trim();
+        return text.Length > maxLength ? text[..maxLength] + "..." : text;
+    }
+
+    string JoinOrNone(IEnumerable<string?> values, string emptyText = "None")
+    {
+        var list = values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+
+        return list.Any() ? string.Join(", ", list) : emptyText;
+    }
+
+    string DescribeCatalogColumns(AdminCopilotDynamicTicketQueryExecution execution)
+    {
+        if (execution.QueryModel?.Projections.Any() == true)
+        {
+            return JoinOrNone(execution.QueryModel.Projections.Select(projection =>
+            {
+                var source = JoinOrNone(new[] { projection.SourceEntity, projection.SourceField }, string.Empty).Replace(", ", ".");
+                var expression = !string.IsNullOrWhiteSpace(source) ? source : projection.SqlExpression;
+                return string.IsNullOrWhiteSpace(projection.OutputName) ? expression : $"{projection.OutputName} <= {expression}";
+            }));
+        }
+
+        if (execution.IntentPlan?.Fields.Any() == true)
+        {
+            return JoinOrNone(execution.IntentPlan.Fields);
+        }
+
+        if (execution.Plan.SelectedColumns.Any())
+        {
+            return JoinOrNone(execution.Plan.SelectedColumns);
+        }
+
+        return "Default catalog projection";
+    }
+
+    string DescribeCatalogFilters(AdminCopilotDynamicTicketQueryExecution execution)
+    {
+        if (execution.QueryModel != null)
+        {
+            var predicates = execution.QueryModel.Predicates
+                .Concat(execution.QueryModel.HavingPredicates)
+                .Select(predicate =>
+                {
+                    var parameters = predicate.Parameters.Any()
+                        ? $" ({string.Join(", ", predicate.Parameters.Select(parameter => $"{parameter.Name}={parameter.Value}"))})"
+                        : string.Empty;
+                    return $"{predicate.SqlFragment}{parameters}";
+                });
+
+            return JoinOrNone(predicates);
+        }
+
+        if (execution.IntentPlan != null)
+        {
+            var filters = execution.IntentPlan.Filters
+                .Concat(execution.IntentPlan.HavingFilters)
+                .Select(filter => $"{filter.Entity}.{filter.Field} {filter.Operator} {filter.Value}");
+
+            return JoinOrNone(filters);
+        }
+
+        return JoinOrNone(execution.Plan.GlobalFilters.Select(filter => $"{filter.Key} = {filter.Value}"));
+    }
+
+    string DescribeCatalogJoins(AdminCopilotDynamicTicketQueryExecution execution)
+    {
+        if (execution.QueryModel?.JoinFragments.Any() == true)
+        {
+            return JoinOrNone(execution.QueryModel.JoinFragments);
+        }
+
+        if (execution.IntentPlan?.Joins.Any() == true)
+        {
+            return JoinOrNone(execution.IntentPlan.Joins.Select(join => $"{join.FromEntity} -> {join.ToEntity} ({join.Relationship})"));
+        }
+
+        return "No joins";
+    }
+
+    string DescribeCatalogGrouping(AdminCopilotDynamicTicketQueryExecution execution)
+    {
+        if (execution.QueryModel?.GroupBy.Any() == true)
+        {
+            return JoinOrNone(execution.QueryModel.GroupBy);
+        }
+
+        if (execution.IntentPlan?.GroupBy.Any() == true)
+        {
+            return JoinOrNone(execution.IntentPlan.GroupBy);
+        }
+
+        return !string.IsNullOrWhiteSpace(execution.Plan.GroupByField) ? execution.Plan.GroupByField : "No grouping";
+    }
+
+    string DescribeCatalogSort(AdminCopilotDynamicTicketQueryExecution execution)
+    {
+        if (execution.QueryModel?.OrderBy.Any() == true)
+        {
+            return JoinOrNone(execution.QueryModel.OrderBy.Select(order => $"{order.SqlExpression} {order.Direction}"));
+        }
+
+        if (execution.IntentPlan?.Sorts.Any() == true)
+        {
+            return JoinOrNone(execution.IntentPlan.Sorts.Select(sort => $"{sort.Entity}.{sort.Field} {sort.Direction}"));
+        }
+
+        return $"{execution.Plan.SortBy} {execution.Plan.SortDirection}";
+    }
+
+    string DescribeSqlParameters(AdminCopilotDynamicTicketQueryExecution execution)
+        => execution.SqlParameters.Any()
+            ? string.Join(", ", execution.SqlParameters.Select(parameter => $"{parameter.Name}={parameter.Value}"))
+            : "No parameters";
+
+    string DescribeCatalogDecision(AdminCopilotDynamicTicketQueryExecution execution)
+        => $"Entity: {ResolveCatalogExecutionName(execution)}\nOperation: {ResolveCatalogExecutionOperation(execution)}\nOutput: {execution.QueryModel?.OutputShape ?? execution.IntentPlan?.OutputShape ?? execution.Plan.TargetView ?? "default"}\nLimit: {execution.QueryModel?.Limit ?? execution.IntentPlan?.Limit ?? execution.Plan.MaxResults}";
+
+    string SerializeStepPayload(object payload)
+        => JsonSerializer.Serialize(payload, prettyJsonOptions);
+
+    object CreateInspectorStep(string layer, string action, string input, string output, string detail = "", string status = "Ok", string technicalData = "")
+        => new
+        {
+            layer,
+            action,
+            detail = $"Input: {input}\nOutput: {output}{(string.IsNullOrWhiteSpace(detail) ? string.Empty : $"\nDetails: {detail}")}",
+            status,
+            elapsedMs = 0,
+            technicalData,
+            subSteps = new List<object>()
+        };
+
+    List<object> BuildCatalogExecutionSteps(AdminCopilotDynamicTicketQueryExecution execution)
+    {
+        var requestSummary = execution.IntentPlan?.Explanation ?? execution.Plan.Summary;
+        var sqlText = string.IsNullOrWhiteSpace(execution.GeneratedSql) ? "No SQL captured" : execution.GeneratedSql;
+        var decisionPayload = new
+        {
+            primaryEntity = ResolveCatalogExecutionName(execution),
+            operation = ResolveCatalogExecutionOperation(execution),
+            outputShape = execution.QueryModel?.OutputShape ?? execution.IntentPlan?.OutputShape ?? execution.Plan.TargetView,
+            limit = execution.QueryModel?.Limit ?? execution.IntentPlan?.Limit ?? execution.Plan.MaxResults,
+            plannerSource = execution.PlannerSource.ToString(),
+            explanation = execution.IntentPlan?.Explanation
+        };
+        var shapePayload = new
+        {
+            columns = DescribeCatalogColumns(execution),
+            intentFields = execution.IntentPlan?.Fields,
+            queryProjections = execution.QueryModel?.Projections,
+            structuredColumns = execution.StructuredColumns
+        };
+        var constraintPayload = new
+        {
+            filters = DescribeCatalogFilters(execution),
+            joins = DescribeCatalogJoins(execution),
+            groupBy = DescribeCatalogGrouping(execution),
+            sort = DescribeCatalogSort(execution),
+            intentFilters = execution.IntentPlan?.Filters,
+            intentHavingFilters = execution.IntentPlan?.HavingFilters,
+            queryPredicates = execution.QueryModel?.Predicates,
+            queryHavingPredicates = execution.QueryModel?.HavingPredicates,
+            queryJoinFragments = execution.QueryModel?.JoinFragments,
+            queryOrderBy = execution.QueryModel?.OrderBy
+        };
+
+        return new List<object>
+        {
+            CreateInspectorStep(
+                "Input",
+                "Read sub-question intent",
+                ViewBag.Trace.Question?.ToString() ?? string.Empty,
+                string.IsNullOrWhiteSpace(requestSummary) ? "No explicit sub-question text was recorded." : requestSummary,
+                technicalData: SerializeStepPayload(new
+                {
+                    question = ViewBag.Trace.Question?.ToString() ?? string.Empty,
+                    subRequest = requestSummary,
+                    traceId
+                })),
+            CreateInspectorStep(
+                "Planner",
+                "Select entity and operation",
+                requestSummary,
+                DescribeCatalogDecision(execution),
+                $"Planner: {execution.PlannerSource}",
+                technicalData: SerializeStepPayload(decisionPayload)),
+            CreateInspectorStep(
+                "Planner",
+                "Select columns",
+                DescribeCatalogDecision(execution),
+                DescribeCatalogColumns(execution),
+                technicalData: SerializeStepPayload(shapePayload)),
+            CreateInspectorStep(
+                "Planner",
+                "Apply filters, joins, grouping, and sort",
+                $"Entity: {ResolveCatalogExecutionName(execution)}",
+                $"Filters: {DescribeCatalogFilters(execution)}\nJoins: {DescribeCatalogJoins(execution)}\nGroup by: {DescribeCatalogGrouping(execution)}\nSort: {DescribeCatalogSort(execution)}",
+                technicalData: SerializeStepPayload(constraintPayload)),
+            CreateInspectorStep(
+                "SQL",
+                "Build SQL command",
+                "Validated catalog query model",
+                ShortText(sqlText, 700),
+                $"Parameters: {DescribeSqlParameters(execution)}",
+                technicalData: SerializeStepPayload(new
+                {
+                    sql = execution.GeneratedSql,
+                    parameters = execution.SqlParameters,
+                    queryModel = execution.QueryModel
+                })),
+            CreateInspectorStep(
+                "Executor",
+                "Execute SQL and shape rows",
+                "SQL command plus parameters",
+                $"{execution.TotalCount} row(s) returned. Evidence: {execution.EvidenceStrength}. Route: {execution.ExecutionRoute}",
+                execution.Summary,
+                technicalData: SerializeStepPayload(new
+                {
+                    rowCount = execution.TotalCount,
+                    requestedLimit = execution.RequestedLimit,
+                    evidence = execution.EvidenceStrength.ToString(),
+                    route = execution.ExecutionRoute.ToString(),
+                    structuredColumns = execution.StructuredColumns,
+                    structuredRows = execution.StructuredRows.Take(10),
+                    summary = execution.Summary,
+                    answerShapeGateMessage = execution.AnswerShapeGateMessage
+                }))
+        };
+    }
+
+    string SerializeCatalogExecution(AdminCopilotDynamicTicketQueryExecution execution)
+        => JsonSerializer.Serialize(new
+        {
+            intentPlan = execution.IntentPlan,
+            queryModel = execution.QueryModel,
+            sql = execution.GeneratedSql,
+            parameters = execution.SqlParameters,
+            decision = new
+            {
+                primaryEntity = ResolveCatalogExecutionName(execution),
+                operation = ResolveCatalogExecutionOperation(execution),
+                outputShape = execution.QueryModel?.OutputShape ?? execution.IntentPlan?.OutputShape ?? execution.Plan.TargetView,
+                limit = execution.QueryModel?.Limit ?? execution.IntentPlan?.Limit ?? execution.Plan.MaxResults,
+                columns = DescribeCatalogColumns(execution),
+                filters = DescribeCatalogFilters(execution),
+                joins = DescribeCatalogJoins(execution),
+                groupBy = DescribeCatalogGrouping(execution),
+                sort = DescribeCatalogSort(execution)
+            },
+            plannerSource = execution.PlannerSource.ToString(),
+            route = execution.ExecutionRoute.ToString(),
+            evidence = execution.EvidenceStrength.ToString(),
+            rowCount = execution.TotalCount
+        }, prettyJsonOptions);
+
+    string StepEvidence(CopilotExecutionStep step)
+        => $"{step.Action} {step.Detail} {step.TechnicalData}".ToLowerInvariant();
+
+    bool IsDecompositionStep(CopilotExecutionStep step)
+    {
+        var evidence = StepEvidence(step);
+        return evidence.Contains("request decomposition")
+            || evidence.Contains("subrequest")
+            || evidence.Contains("subrequests");
+    }
+
+    bool IsCatalogDataPlanningStep(CopilotExecutionStep step)
+    {
+        var evidence = StepEvidence(step);
+        return evidence.Contains("catalog data intent")
+            || evidence.Contains("data intent")
+            || evidence.Contains("primaryentity")
+            || evidence.Contains("outputshape")
+            || evidence.Contains("validationmessages");
+    }
+
+    bool IsCatalogDataExecutionStep(CopilotExecutionStep step)
+    {
+        var evidence = StepEvidence(step);
+        return evidence.Contains("catalog query execution")
+            || evidence.Contains("catalogsql")
+            || evidence.Contains("querymodel")
+            || evidence.Contains("select ")
+            || evidence.Contains(" from ");
+    }
+
+    var decompositionSteps = Model.Steps.Where(IsDecompositionStep).ToList();
+    var dataPlanningSteps = allTraceSteps.Where(IsCatalogDataPlanningStep).ToList();
+    var dataExecutionSteps = allTraceSteps.Where(IsCatalogDataExecutionStep).ToList();
+
+    bool IsKnowledgeStep(CopilotExecutionStep step)
+    {
+        var evidence = StepEvidence(step);
+        return evidence.Contains("knowledge") || evidence.Contains("similar") || evidence.Contains("evidence") || evidence.Contains("grounded");
+    }
+
+    bool IsExternalStep(CopilotExecutionStep step)
+    {
+        var evidence = StepEvidence(step);
+        return evidence.Contains("tool") || evidence.Contains("api") || evidence.Contains("http");
+    }
+
+    bool IsActionStep(CopilotExecutionStep step)
+    {
+        var evidence = StepEvidence(step);
+        return evidence.Contains("action") || evidence.Contains("assign") || evidence.Contains("update status") || evidence.Contains("comment");
+    }
+
+    var knowledgeSteps = allTraceSteps.Where(IsKnowledgeStep).ToList();
+    var externalSteps = allTraceSteps.Where(IsExternalStep).ToList();
+    var actionSteps = allTraceSteps.Where(IsActionStep).ToList();
+
+    var knowledgeRootSteps = Model.Steps.Where(r => IsKnowledgeStep(r) || GetAllSteps(r.SubSteps).Any(IsKnowledgeStep)).ToList();
+    var externalRootSteps = Model.Steps.Where(r => IsExternalStep(r) || GetAllSteps(r.SubSteps).Any(IsExternalStep)).ToList();
+    var actionRootSteps = Model.Steps.Where(r => IsActionStep(r) || GetAllSteps(r.SubSteps).Any(IsActionStep)).ToList();
+
+    var dataPlannerRootSteps = GetLogicalRoots(Model.Steps, CopilotExecutionLayer.DataPlanning);
+    if (!dataPlannerRootSteps.Any())
+    {
+        dataPlannerRootSteps = Model.Steps.Where(r => GetAllSteps(r.SubSteps).Any(IsCatalogDataPlanningStep)).ToList();
+    }
+
+    var routeEvidence = string.Join(" ", new[]
+    {
+        Model.DetectedIntent,
+        Model.RouteReason,
+        Model.Summary,
+        Model.SearchQuery,
+        string.Join(" ", allTraceSteps.Select(step => $"{step.Action} {step.Detail} {step.TechnicalData}"))
+    }).ToLowerInvariant();
+
+    bool dataRoute = catalogExecutions.Any()
+        || queryPlans.Any()
+        || dataPlanningSteps.Any()
+        || dataExecutionSteps.Any()
+        || routeEvidence.Contains("dataquery")
+        || routeEvidence.Contains("catalogsql")
+        || routeEvidence.Contains("querymodel")
+        || routeEvidence.Contains("catalog data intent")
+        || routeEvidence.Contains("primaryentity")
+        || routeEvidence.Contains("structured")
+        || routeEvidence.Contains("outputshape")
+        || routeEvidence.Contains("structuredrows")
+        || routeEvidence.Contains("structuredcolumns");
+
+    bool externalRoute = routeEvidence.Contains("tool")
+        || routeEvidence.Contains("external")
+        || routeEvidence.Contains("api")
+        || routeEvidence.Contains("http");
+
+    bool knowledgeRoute = routeEvidence.Contains("knowledge")
+        || routeEvidence.Contains("similar")
+        || routeEvidence.Contains("evidence")
+        || routeEvidence.Contains("grounded")
+        || routeEvidence.Contains("retrieval");
+
+    bool actionRoute = Model.ActionPlan != null
+        || routeEvidence.Contains("action")
+        || routeEvidence.Contains("assign")
+        || routeEvidence.Contains("update status")
+        || routeEvidence.Contains("comment");
+
+    bool generalRoute = !dataRoute && !externalRoute && !knowledgeRoute && !actionRoute;
+
+    var actualPath = new List<string> { "Question" };
+    if (contextSteps.Any()) { actualPath.Add(CleanActionLabel(contextSteps.First().Action, "Input normalization")); }
+    if (decompositionSteps.Any()) { actualPath.Add(CleanActionLabel(decompositionSteps.First().Action, "Request decomposition")); }
+    if (routerSteps.Any()) { actualPath.Add(CleanActionLabel(routerSteps.First().Action, "Intent routing")); }
+    if (dataRoute) { actualPath.Add("Structured data planning"); }
+    if (knowledgeRoute) { actualPath.Add("Knowledge retrieval"); }
+    if (externalRoute) { actualPath.Add("Tool invocation"); }
+    if (actionRoute) { actualPath.Add("Action planning"); }
+    if (generalRoute) { actualPath.Add("Direct answer"); }
+    if (executorSteps.Any()) { actualPath.Add(CleanActionLabel(executorSteps.First().Action, "Execution")); }
+    if (catalogExecutions.Any() || queryPlans.Any() || dataPlanningSteps.Any() || dataExecutionSteps.Any()) { actualPath.Add("SQL result"); }
+    if (Model.ActionPlan != null) { actualPath.Add("Action result"); }
+    if (completeSteps.Any()) { actualPath.Add(CleanActionLabel(completeSteps.First().Action, "Verification")); }
+    actualPath.Add("Response");
+
+    string SummarizeSteps(IEnumerable<CopilotExecutionStep> steps)
+    {
+        var parts = steps
+            .Select(step => CleanActionLabel(step.Action, string.Empty))
+            .Where(action => !string.IsNullOrWhiteSpace(action))
+            .Distinct()
+            .Take(3)
+            .ToList();
+
+        return parts.Any() ? string.Join(" • ", parts) : "No recorded step details.";
+    }
+
+    string SummarizeQueryPlans()
+    {
+        if (catalogExecutions.Any())
+        {
+            return string.Join(" • ", catalogExecutions
+                .Select(execution => $"{ResolveCatalogExecutionName(execution)} / {ResolveCatalogExecutionOperation(execution)}")
+                .Distinct()
+                .Take(3));
+        }
+
+        if (dataPlanningSteps.Any())
+        {
+            return SummarizeSteps(dataPlanningSteps);
+        }
+
+        if (!queryPlans.Any())
+        {
+            return "No structured query plan was needed for this route.";
+        }
+
+        var planParts = queryPlans
+            .Select(plan => $"{ResolveStructuredPlanName(plan)} / {plan.Intent}")
+            .Distinct()
+            .Take(3);
+
+        return string.Join(" • ", planParts);
+    }
+
+    string AnswerPreview(string? answer)
+    {
+        var text = answer ?? string.Empty;
+        return text.Length > 180 ? text[..180] + "..." : text;
+    }
+
+    string MermaidText(string? value)
+    {
+        return (value ?? string.Empty)
+            .Replace("\\", "\\\\")
+            .Replace("\"", "'")
+            .Replace("\r", " ")
+            .Replace("\n", " ")
+            .Trim();
+    }
+
+    List<object> ToStepItems(IEnumerable<CopilotExecutionStep> steps)
+    {
+        return steps.Select(step => (object)new
+        {
+            layer = step.Layer.ToString(),
+            action = step.Action,
+            detail = step.Detail,
+            status = step.Status.ToString(),
+            elapsedMs = step.ElapsedMs,
+            technicalData = step.TechnicalData ?? string.Empty,
+            subSteps = ToStepItems(step.SubSteps)
+        }).ToList();
+    }
+
+    List<string> ToTechnicalPayloads(IEnumerable<CopilotExecutionStep> steps)
+    {
+        var payloads = steps
+            .Select(step => step.TechnicalData)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .ToList();
+
+        foreach(var step in steps)
+        {
+            payloads.AddRange(ToTechnicalPayloads(step.SubSteps));
+        }
+
+        return payloads.Distinct().ToList();
+    }
+
+    string GenerateSubPlanMermaid(AdminCopilotDynamicTicketQueryExecution sub, string key)
+    {
+        var intentSummary = sub.IntentPlan?.Explanation ?? sub.Plan.Summary;
+        var entitySummary = $"{ResolveCatalogExecutionName(sub)} • {ResolveCatalogExecutionOperation(sub)}";
+        var columnSummary = DescribeCatalogColumns(sub);
+        var filterSummary = DescribeCatalogFilters(sub);
+        var sqlSummary = string.IsNullOrWhiteSpace(sub.GeneratedSql) ? "No SQL captured" : ShortText(sub.GeneratedSql, 120);
+        return $@"flowchart TD
+    INPUT__{key}[""Input<br/>{MermaidText(ShortText(intentSummary, 90))}""]
+    DECIDE__{key}[""Decision<br/>{MermaidText(entitySummary)}""]
+    SHAPE__{key}[""Query shape<br/>{MermaidText(ShortText(columnSummary, 90))}""]
+    FILTER__{key}[""Filters / joins<br/>{MermaidText(ShortText(filterSummary, 90))}""]
+    SQL__{key}[""SQL<br/>{MermaidText(sqlSummary)}""]
+    EXEC__{key}[""Output<br/>{sub.TotalCount} rows""]
+    
+    INPUT__{key} --> DECIDE__{key}
+    DECIDE__{key} --> SHAPE__{key}
+    SHAPE__{key} --> FILTER__{key}
+    FILTER__{key} --> SQL__{key}
+    SQL__{key} --> EXEC__{key}
+    
+    style INPUT__{key} fill:__INACTIVE_FILL__,stroke:__INACTIVE_STROKE__,color:__INACTIVE_TEXT__
+    style DECIDE__{key} fill:__ACTIVE_FILL__,stroke:__ACTIVE_STROKE__,color:__ACTIVE_TEXT__
+    style SHAPE__{key} fill:__ACTIVE_FILL__,stroke:__ACTIVE_STROKE__,color:__ACTIVE_TEXT__
+    style FILTER__{key} fill:__ACTIVE_FILL__,stroke:__ACTIVE_STROKE__,color:__ACTIVE_TEXT__
+    style SQL__{key} fill:__ACTIVE_FILL__,stroke:__ACTIVE_STROKE__,color:__ACTIVE_TEXT__
+    style EXEC__{key} fill:__FINAL_FILL__,stroke:__FINAL_STROKE__,color:__FINAL_TEXT__
+    
+    click INPUT__{key} copilotTraceNodeClick
+    click DECIDE__{key} copilotTraceNodeClick
+    click SHAPE__{key} copilotTraceNodeClick
+    click FILTER__{key} copilotTraceNodeClick
+    click SQL__{key} copilotTraceNodeClick
+    click EXEC__{key} copilotTraceNodeClick";
+    }
+
+    Dictionary<string, object> GenerateSubPlanNodeDetails(AdminCopilotDynamicTicketQueryExecution sub)
+    {
+        var dataSteps = BuildCatalogExecutionSteps(sub);
+        var requestSummary = sub.IntentPlan?.Explanation ?? sub.Plan.Summary;
+        var serializedExecution = SerializeCatalogExecution(sub);
+
+        return new Dictionary<string, object>
+        {
+            ["INPUT"] = new { title = "Input", summary = "The specific data request that this query plan answered.", status = "Actual path", used = true, beforeLabel = "Question", beforeValue = ViewBag.Trace.Question?.ToString() ?? string.Empty, afterLabel = "Sub-request", afterValue = requestSummary, steps = dataSteps.Take(1).ToList(), payloads = new List<string> { serializedExecution } },
+            ["DECIDE"] = new { title = "Decision", summary = "Planner decision: which entity, operation, output shape, and limit were selected.", status = "Actual path", used = true, beforeLabel = "Input", beforeValue = requestSummary, afterLabel = "Decision", afterValue = DescribeCatalogDecision(sub), steps = dataSteps.Take(2).ToList(), payloads = new List<string> { serializedExecution } },
+            ["SHAPE"] = new { title = "Query shape", summary = "Columns and output fields selected for the SQL projection.", status = "Actual path", used = true, beforeLabel = "Entity", beforeValue = ResolveCatalogExecutionName(sub), afterLabel = "Columns", afterValue = DescribeCatalogColumns(sub), steps = dataSteps.Take(3).ToList(), payloads = new List<string> { serializedExecution } },
+            ["FILTER"] = new { title = "Filters, joins, grouping, sort", summary = "Catalog constraints used to build WHERE, JOIN, GROUP BY, HAVING, and ORDER BY.", status = "Actual path", used = true, beforeLabel = "Query shape", beforeValue = DescribeCatalogColumns(sub), afterLabel = "Constraints", afterValue = $"Filters: {DescribeCatalogFilters(sub)}\nJoins: {DescribeCatalogJoins(sub)}\nGroup by: {DescribeCatalogGrouping(sub)}\nSort: {DescribeCatalogSort(sub)}", steps = dataSteps.Take(4).ToList(), payloads = new List<string> { serializedExecution } },
+            ["SQL"] = new { title = "SQL", summary = $"Generated SQL with {sub.SqlParameters.Count} parameter(s).", status = "Actual path", used = true, beforeLabel = "Catalog model", beforeValue = DescribeCatalogDecision(sub), afterLabel = "SQL parameters", afterValue = DescribeSqlParameters(sub), steps = dataSteps.Take(5).ToList(), payloads = new List<string> { serializedExecution } },
+            ["EXEC"] = new { title = "Output", summary = $"Query executed and shaped into the structured answer. Returned {sub.TotalCount} record(s).", status = "Actual path", used = true, beforeLabel = "SQL", beforeValue = ShortText(sub.GeneratedSql ?? "No SQL captured", 500), afterLabel = "Rows", afterValue = $"{sub.TotalCount} row(s). {sub.Summary}", steps = dataSteps, payloads = new List<string> { serializedExecution } }
+        };
+    }
+
+    List<object> ToLegacyQueryPlanItems(IEnumerable<AdminCopilotDynamicTicketQueryPlan> plans, bool selected)
+    {
+        return plans.Select(plan => (object)new
+        {
+            layer = "Plan",
+            action = ResolveStructuredPlanName(plan),
+            detail = $"{plan.Intent} • max {plan.MaxResults} • sort {plan.SortBy} {plan.SortDirection}",
+            status = selected ? "Ok" : "Skip",
+            elapsedMs = 0,
+            technicalData = string.Empty,
+            subSteps = new List<object>()
+        }).ToList();
+    }
+
+    var dataPlannerStepItems = ToStepItems(dataPlannerRootSteps);
+    dataPlannerStepItems.AddRange(ToLegacyQueryPlanItems(queryPlans, dataRoute));
+    dataPlannerStepItems.AddRange(catalogExecutions.SelectMany(BuildCatalogExecutionSteps));
+
+    var queryStrategyRoots = GetLogicalRoots(Model.Steps, CopilotExecutionLayer.DataPlanning, CopilotExecutionLayer.DataExecution);
+    if (!queryStrategyRoots.Any())
+    {
+        queryStrategyRoots = Model.Steps.Where(r => GetAllSteps(r.SubSteps).Any(s => IsCatalogDataPlanningStep(s) || IsCatalogDataExecutionStep(s))).ToList();
+    }
+    var queryStrategyStepItems = ToStepItems(queryStrategyRoots);
+    queryStrategyStepItems.AddRange(ToLegacyQueryPlanItems(queryPlans, catalogExecutions.Any() || queryPlans.Any()));
+    queryStrategyStepItems.AddRange(catalogExecutions.SelectMany(BuildCatalogExecutionSteps));
+
+    var dataPlannerPayloads = ToTechnicalPayloads(dataPlanningSteps);
+    var queryStrategyPayloads = ToTechnicalPayloads(allTraceSteps.Where(s => IsCatalogDataPlanningStep(s) || IsCatalogDataExecutionStep(s)));
+    dataPlannerPayloads.AddRange(catalogExecutions.Select(SerializeCatalogExecution));
+    queryStrategyPayloads.AddRange(catalogExecutions.Select(SerializeCatalogExecution));
+
+    var pathNodes = new List<(string Id, string Title, string Detail, string Style)>();
+    void AddPathNode(string id, string title, string detail, string style = "active")
+    {
+        pathNodes.Add((id, title, detail, style));
+    }
+
+    AddPathNode("Q", "Question", ViewBag.Trace.Question?.ToString() ?? string.Empty);
+    if (contextSteps.Any())
+    {
+        AddPathNode("PRE", "Normalize", SummarizeSteps(contextSteps));
+    }
+
+    AddPathNode("ROUTE", "Route decision", $"{(string.IsNullOrWhiteSpace(Model.DetectedIntent) ? "Intent not recorded" : Model.DetectedIntent)} • {Model.RouteReason}");
+
+    if (dataRoute)
+    {
+        AddPathNode("DATA", "Data plan", SummarizeQueryPlans());
+    }
+
+    if (knowledgeRoute)
+    {
+        AddPathNode("KNOW", "Knowledge", knowledgeSteps.Any() ? SummarizeSteps(knowledgeSteps) : "Knowledge path selected");
+    }
+
+    if (externalRoute)
+    {
+        AddPathNode("EXT", "Tool", externalSteps.Any() ? SummarizeSteps(externalSteps) : "External tool path selected");
+    }
+
+    if (actionRoute)
+    {
+        AddPathNode("ACT", "Action plan", Model.ActionPlan?.Summary ?? SummarizeSteps(actionSteps));
+    }
+
+    if (generalRoute)
+    {
+        AddPathNode("GEN", "Direct answer", "No structured data, tool, or action route needed");
+    }
+
+    if (executorSteps.Any())
+    {
+        AddPathNode("EXEC", "Execute", SummarizeSteps(executorSteps));
+    }
+
+    if (catalogExecutions.Any() || queryPlans.Any() || dataPlanningSteps.Any() || dataExecutionSteps.Any())
+    {
+        AddPathNode("PLAN", "SQL result", SummarizeQueryPlans());
+    }
+
+    if (Model.ActionPlan != null)
+    {
+        AddPathNode("ACTION", "Action result", Model.ActionPlan.Summary);
+    }
+
+    if (completeSteps.Any())
+    {
+        AddPathNode("VERIFY", "Validate", SummarizeSteps(completeSteps));
+    }
+
+    AddPathNode("RESP", "Answer", AnswerPreview(ViewBag.Trace.Answer as string), "final");
+
+    var nodeLines = string.Join("\n", pathNodes.Select(node =>
+        $"    {node.Id}__{traceGraphKey}[\"{MermaidText(node.Title)}<br/>{MermaidText(ShortText(node.Detail, 95))}\"]"));
+    var edgeLines = string.Join("\n", pathNodes.Zip(pathNodes.Skip(1), (left, right) =>
+        $"    {left.Id}__{traceGraphKey} --> {right.Id}__{traceGraphKey}"));
+    var classLines = string.Join("\n", pathNodes.Select(node =>
+        $"    class {node.Id}__{traceGraphKey} {node.Style};"));
+    var clickLines = string.Join("\n", pathNodes.Select(node =>
+        $"    click {node.Id}__{traceGraphKey} copilotTraceNodeClick"));
+    
+    var traceFlowDirection = Loc.IsRtl ? "RL" : "LR";
+    var mermaidDefinition = $@"
+flowchart {traceFlowDirection}
+    classDef inactive fill:__INACTIVE_FILL__,stroke:__INACTIVE_STROKE__,color:__INACTIVE_TEXT__,stroke-width:1px;
+    classDef active fill:__ACTIVE_FILL__,stroke:__ACTIVE_STROKE__,color:__ACTIVE_TEXT__,stroke-width:2px;
+    classDef final fill:__FINAL_FILL__,stroke:__FINAL_STROKE__,color:__FINAL_TEXT__,stroke-width:2px;
+    classDef error fill:#fee2e2,stroke:#ef4444,color:#b91c1c,stroke-width:2px;
+
+{nodeLines}
+
+{edgeLines}
+
+{classLines}
+
+    {(executorSteps.Any(s => s.Status == CopilotStepStatus.Error) ? $"class EXEC__{traceGraphKey} error;" : string.Empty)}
+    {(completeSteps.Any(s => s.Status == CopilotStepStatus.Error) ? $"class VERIFY__{traceGraphKey} error;" : string.Empty)}
+    {(contextSteps.Any(s => s.Status == CopilotStepStatus.Error) ? $"class PRE__{traceGraphKey} error;" : string.Empty)}
+    {(routerSteps.Any(s => s.Status == CopilotStepStatus.Error) ? $"class ROUTE__{traceGraphKey} error;" : string.Empty)}
+
+{clickLines}
+
+    linkStyle default stroke:__LINK_ACTIVE__,stroke-width:2.5px,color:__LINK_ACTIVE__,opacity:0.95;
+";
+}
+
+@{
+    var nodeDetails = new Dictionary<string, object>
+    {
+        ["Q"] = new
+        {
+            title = "User question",
+            used = true,
+            status = "Actual path",
+            summary = "The original request that entered the copilot pipeline.",
+            beforeLabel = "Raw input",
+            beforeValue = ViewBag.Trace.Question?.ToString() ?? string.Empty,
+            afterLabel = "Handed to pipeline",
+            afterValue = ViewBag.Trace.Question?.ToString() ?? string.Empty,
+            steps = new List<object>(),
+            payloads = new List<string>()
+        },
+        ["PRE"] = new
+        {
+            title = "Input normalization",
+            used = contextSteps.Any(),
+            status = contextSteps.Any() ? "Actual path" : "No recorded preprocessing step",
+            summary = "Normalizes wording, applies lexical cleanup, and extracts cheap routing signals before planning.",
+            beforeLabel = "Before",
+            beforeValue = ViewBag.Trace.Question?.ToString() ?? string.Empty,
+            afterLabel = "After",
+            afterValue = !string.IsNullOrWhiteSpace(Model.SearchQuery) ? Model.SearchQuery : SummarizeSteps(contextSteps),
+            steps = ToStepItems(contextSteps),
+            payloads = ToTechnicalPayloads(contextSteps)
+        },
+        ["ROUTE"] = new
+        {
+            title = "Intelligence engine",
+            used = routerSteps.Any(),
+            status = routerSteps.Any() ? "Actual path" : "No recorded routing step",
+            summary = "Splits multi-part requests, chooses the required copilot branches, and explains why each route was selected.",
+            beforeLabel = "Before",
+            beforeValue = !string.IsNullOrWhiteSpace(Model.SearchQuery) ? Model.SearchQuery : (ViewBag.Trace.Question?.ToString() ?? string.Empty),
+            afterLabel = "After",
+            afterValue = $"{(string.IsNullOrWhiteSpace(Model.DetectedIntent) ? "Intent not recorded" : Model.DetectedIntent)} • {Model.PlannerConfidence} confidence • {Model.RouteReason}",
+            steps = ToStepItems(routerSteps.Concat(decompositionSteps).Distinct()),
+            payloads = ToTechnicalPayloads(routerSteps.Concat(decompositionSteps).Distinct())
+        },
+        ["FORK"] = new
+        {
+            title = "Branch activation",
+            used = dataRoute || knowledgeRoute || externalRoute || actionRoute || generalRoute,
+            status = dataRoute || knowledgeRoute || externalRoute || actionRoute || generalRoute ? "Actual path" : "Available gate only",
+            summary = "Splits one user question into every required route. A single question can run data, knowledge, external tool, action, and normal chat paths together.",
+            beforeLabel = "Before",
+            beforeValue = $"{(string.IsNullOrWhiteSpace(Model.DetectedIntent) ? "Intent not recorded" : Model.DetectedIntent)} • {Model.RouteReason}",
+            afterLabel = "Selected branches",
+            afterValue = string.Join(" • ", new[]
+            {
+                dataRoute ? "Catalog data" : null,
+                knowledgeRoute ? "Knowledge" : null,
+                externalRoute ? "External tool" : null,
+                actionRoute ? "Action" : null,
+                generalRoute ? "General chat" : null
+            }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            steps = ToStepItems(routerSteps.Concat(decompositionSteps).Distinct()),
+            payloads = ToTechnicalPayloads(routerSteps.Concat(decompositionSteps).Distinct())
+        },
+        ["DATA"] = new
+        {
+            title = "Structured data planning",
+            used = dataRoute,
+            status = dataRoute ? "Actual path" : "Available path only",
+            summary = "AI-assisted data branch that maps the question to approved catalog entities, fields, filters, joins, grouping, ordering, and output shape.",
+            beforeLabel = "Before",
+            beforeValue = Model.RouteReason,
+            afterLabel = "After",
+            afterValue = SummarizeQueryPlans(),
+            steps = dataPlannerStepItems,
+            payloads = dataPlannerPayloads
+        },
+        ["KNOW"] = new
+        {
+            title = "Knowledge retrieval",
+            used = knowledgeRoute || knowledgeSteps.Any(),
+            status = knowledgeRoute || knowledgeSteps.Any() ? "Actual path" : "Available path only",
+            summary = "Retrieval branch for approved knowledge evidence and contextual grounding.",
+            beforeLabel = "Before",
+            beforeValue = Model.RouteReason,
+            afterLabel = "After",
+            afterValue = knowledgeSteps.Any() ? SummarizeSteps(knowledgeSteps) : (knowledgeRoute ? "Knowledge evidence path selected for this trace." : "This path was available but not selected."),
+            steps = ToStepItems(knowledgeRootSteps),
+            payloads = ToTechnicalPayloads(knowledgeSteps)
+        },
+        ["EXT"] = new
+        {
+            title = "Tool invocation",
+            used = externalRoute || externalSteps.Any(),
+            status = externalRoute || externalSteps.Any() ? "Actual path" : "Available path only",
+            summary = "Utility branch for enabled third-party or public API tools.",
+            beforeLabel = "Before",
+            beforeValue = Model.RouteReason,
+            afterLabel = "After",
+            afterValue = externalSteps.Any() ? SummarizeSteps(externalSteps) : (externalRoute ? "External tool execution selected for this trace." : "This path was available but not selected."),
+            steps = ToStepItems(externalRootSteps),
+            payloads = ToTechnicalPayloads(externalSteps)
+        },
+        ["ACT"] = new
+        {
+            title = "Action planning",
+            used = actionRoute || actionSteps.Any(),
+            status = actionRoute || actionSteps.Any() ? "Actual path" : "Available path only",
+            summary = "Branch for platform action planning such as assign, update status, escalate, or add comment.",
+            beforeLabel = "Before",
+            beforeValue = Model.RouteReason,
+            afterLabel = "After",
+            afterValue = actionSteps.Any() ? SummarizeSteps(actionSteps) : (Model.ActionPlan?.Intent.ToString() ?? "No action intent selected."),
+            steps = ToStepItems(actionRootSteps),
+            payloads = ToTechnicalPayloads(actionSteps)
+        },
+        ["GEN"] = new
+        {
+            title = "General response path",
+            used = generalRoute,
+            status = generalRoute ? "Actual path" : "Available path only",
+            summary = "Fallback conversational branch when stronger deterministic or retrieval paths are not needed.",
+            beforeLabel = "Before",
+            beforeValue = Model.RouteReason,
+            afterLabel = "After",
+            afterValue = generalRoute ? "General response branch selected." : "This path was available but not selected.",
+            steps = new List<object>(),
+            payloads = new List<string>()
+        },
+        ["BRANCHJOIN"] = new
+        {
+            title = "Branch merge",
+            used = dataRoute || knowledgeRoute || externalRoute || actionRoute || generalRoute,
+            status = dataRoute || knowledgeRoute || externalRoute || actionRoute || generalRoute ? "Actual path" : "Available gate only",
+            summary = "Merges all selected branch outputs into one execution context before the executor runs.",
+            beforeLabel = "Incoming branches",
+            beforeValue = string.Join(" • ", new[]
+            {
+                dataRoute ? "Catalog data" : null,
+                knowledgeRoute ? "Knowledge" : null,
+                externalRoute ? "External tool" : null,
+                actionRoute ? "Action" : null,
+                generalRoute ? "General chat" : null
+            }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            afterLabel = "After",
+            afterValue = executorSteps.Any() ? "Merged execution context created." : "No recorded executor step.",
+            steps = ToStepItems(executorSteps),
+            payloads = ToTechnicalPayloads(executorSteps)
+        },
+        ["EXEC"] = new
+        {
+            title = "Execution engine",
+            used = executorSteps.Any(),
+            status = executorSteps.Any() ? "Actual path" : "No recorded execution step",
+            summary = "Runs the selected branch and produces raw results before verification.",
+            beforeLabel = "Before",
+            beforeValue = string.Join(" → ", actualPath.Take(actualPath.IndexOf("Execution") >= 0 ? actualPath.IndexOf("Execution") : actualPath.Count)),
+            afterLabel = "After",
+            afterValue = SummarizeSteps(executorSteps),
+            steps = ToStepItems(executorSteps),
+            payloads = ToTechnicalPayloads(executorSteps)
+        },
+        ["RESULTGATE"] = new
+        {
+            title = "Result gate",
+            used = executorSteps.Any(),
+            status = executorSteps.Any() ? "Actual path" : "Available gate only",
+            summary = "Decides how execution output should be assembled: structured result, action result, or direct verification.",
+            beforeLabel = "Before",
+            beforeValue = executorSteps.Any() ? SummarizeSteps(executorSteps) : "No execution output recorded.",
+            afterLabel = "Selected outputs",
+            afterValue = string.Join(" • ", new[]
+            {
+                catalogExecutions.Any() || queryPlans.Any() || dataPlanningSteps.Any() || dataExecutionSteps.Any() ? "SQL/query strategy" : null,
+                Model.ActionPlan != null ? "Action result" : null,
+                completeSteps.Any() ? "Verification" : null
+            }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            steps = queryStrategyStepItems,
+            payloads = queryStrategyPayloads
+        },
+        ["PLAN"] = new
+        {
+            title = "Structured result",
+            used = catalogExecutions.Any() || queryPlans.Any() || dataPlanningSteps.Any() || dataExecutionSteps.Any(),
+            status = catalogExecutions.Any() || queryPlans.Any() || dataPlanningSteps.Any() || dataExecutionSteps.Any() ? "Actual path" : "Not used in this trace",
+            summary = "Catalog-native intent plan, query model, SQL, parameters, and row evidence for admin data queries.",
+            beforeLabel = "Before",
+            beforeValue = dataRoute ? "Selected data planner branch." : "Data planner branch not selected.",
+            afterLabel = "After",
+            afterValue = SummarizeQueryPlans(),
+            steps = queryStrategyStepItems,
+            payloads = catalogExecutions.Any()
+                ? catalogExecutions.Select(SerializeCatalogExecution).ToList()
+                : queryStrategyPayloads
+        },
+        ["ACTION"] = new
+        {
+            title = "Action result",
+            used = Model.ActionPlan != null,
+            status = Model.ActionPlan != null ? "Actual path" : "Not used in this trace",
+            summary = "Concrete action result that was produced after route execution.",
+            beforeLabel = "Before",
+            beforeValue = actionRoute ? "Action path selected." : "Action path not selected.",
+            afterLabel = "After",
+            afterValue = Model.ActionPlan?.Summary ?? "No action result created.",
+            steps = Model.ActionPlan == null
+                ? new List<object>()
+                : new List<object>
+                {
+                    new
+                    {
+                        layer = "Action",
+                        action = Model.ActionPlan.Intent.ToString(),
+                        detail = Model.ActionPlan.Summary,
+                        status = "Ok",
+                        elapsedMs = 0,
+                        technicalData = string.Empty,
+                        subSteps = new List<object>()
+                    }
+                }.Cast<object>().ToList(),
+            payloads = new List<string>()
+        },
+        ["RESULTJOIN"] = new
+        {
+            title = "Artifact merge",
+            used = catalogExecutions.Any() || queryPlans.Any() || dataPlanningSteps.Any() || dataExecutionSteps.Any() || Model.ActionPlan != null,
+            status = catalogExecutions.Any() || queryPlans.Any() || dataPlanningSteps.Any() || dataExecutionSteps.Any() || Model.ActionPlan != null ? "Actual path" : "Available gate only",
+            summary = "Combines query results and action artifacts before the verification step finalizes the answer.",
+            beforeLabel = "Incoming artifacts",
+            beforeValue = string.Join(" • ", new[]
+            {
+                catalogExecutions.Any() || queryPlans.Any() || dataPlanningSteps.Any() || dataExecutionSteps.Any() ? "Data result" : null,
+                Model.ActionPlan != null ? "Action plan" : null
+            }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            afterLabel = "After",
+            afterValue = completeSteps.Any() ? "Artifacts sent to verification." : "No recorded verification step.",
+            steps = ToStepItems(completeSteps),
+            payloads = ToTechnicalPayloads(completeSteps)
+        },
+        ["VERIFY"] = new
+        {
+            title = "Verification engine",
+            used = completeSteps.Any(),
+            status = completeSteps.Any() ? "Actual path" : "No recorded verification step",
+            summary = "Final checks and answer packaging before the response is returned.",
+            beforeLabel = "Before",
+            beforeValue = executorSteps.Any() ? SummarizeSteps(executorSteps) : "No recorded execution summary.",
+            afterLabel = "After",
+            afterValue = SummarizeSteps(completeSteps),
+            steps = ToStepItems(completeSteps),
+            payloads = ToTechnicalPayloads(completeSteps)
+        },
+        ["RESP"] = new
+        {
+            title = "Final response",
+            used = true,
+            status = "Actual path",
+            summary = "The answer that was finally returned to the user.",
+            beforeLabel = "Before",
+            beforeValue = completeSteps.Any() ? SummarizeSteps(completeSteps) : "Verification completed.",
+            afterLabel = "After",
+            afterValue = ViewBag.Trace.Answer?.ToString() ?? string.Empty,
+            steps = new List<object>(),
+            payloads = new List<string>()
+        }
+    };
+}
+
+<div id="@traceRootId" data-trace-graph-key="@traceGraphKey" data-default-trace-view="@defaultTraceView" class="glass-card mb-4 border-1 copilot-trace-detail-root" style="background: var(--bg-card); position: relative; overflow: visible;">
+    <!-- Tech Background Pattern -->
+    <div style="position: absolute; inset: 0; background-image: radial-gradient(rgba(var(--primary-color-rgb), 0.1) 1px, transparent 1px); background-size: 24px 24px; opacity: 0.4; pointer-events: none;"></div>
+    
+    <div class="glass-header d-flex justify-content-between align-items-center py-2 border-bottom position-relative z-1" style="background: rgba(var(--primary-color-rgb), 0.02); border-color: var(--border-color) !important;">
+        <div class="d-flex align-items-center gap-3">
+            <div class="rounded-pill bg-primary bg-opacity-10 border border-primary border-opacity-25 shadow-sm d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                <i class="bi bi-shield-check text-primary fs-5"></i>
+            </div>
+            <div>
+                <h5 class="mb-0 fw-black text-main" style="letter-spacing: -0.02em; font-size: 1.1rem;">@Loc.Get("ExecutionStoryTrack")</h5>
+                <div class="text-muted small fw-bold text-uppercase" style="letter-spacing: 0.1em; font-size: 0.6rem;">@Loc.Get("ForensicAnalysisTrace")</div>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+            <div class="badge bg-primary bg-opacity-10 border border-primary border-opacity-25 text-primary rounded-pill px-4 py-2 fs-6 fw-bold shadow-sm d-flex align-items-center gap-2">
+                <i class="bi bi-stopwatch"></i>
+                <span>@ViewBag.Trace.TotalElapsedMs <span class="opacity-75 fs-7">ms</span></span>
+            </div>
+        </div>
+    </div>
+    <div class="glass-body p-0 position-relative z-1">
+        <div class="p-3 p-lg-4">
+            <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-4">
+                <div class="copilot-tree-legend">
+                    <span class="copilot-tree-legend-item copilot-tree-legend-item-active"><span class="copilot-tree-legend-dot"></span>@Loc.Get("ActualExecutedPath")</span>
+                </div>
+                <div class="copilot-trace-view-toggle" role="tablist" aria-label="@Loc.Get("TraceViewMode")">
+                    <button type="button" id="@storyToggleId" class="copilot-trace-view-btn is-active" data-trace-view-target="story" aria-pressed="true">
+                        <i class="bi bi-list-ul"></i> @Loc.Get("Story")
+                    </button>
+                    <button type="button" id="@treeToggleId" class="copilot-trace-view-btn" data-trace-view-target="tree" aria-pressed="false">
+                        <i class="bi bi-diagram-3"></i> @Loc.Get("Tree")
+                    </button>
+                </div>
+            </div>
+            <div class="copilot-trace-view-shell">
+                <div class="copilot-story-view">
+                    <div class="copilot-story-timeline">
+                
+                        <!-- START NODE: THE QUESTION -->
+                        <div class="copilot-story-step">
+                            <div class="copilot-story-dot bg-primary bg-opacity-10 border border-primary border-opacity-25 shadow-sm" style="border-radius: 10px;">
+                                <i class="bi bi-person-fill text-primary" style="font-size: 1rem;"></i>
+                            </div>
+                            <div class="copilot-story-content shadow-sm border border-secondary border-opacity-10" style="background: var(--bg-card); border-radius: var(--radius-btn, 14px);">
+                                <div class="small fw-bold text-uppercase text-muted mb-1" style="font-size: 0.65rem;">@Loc.Get("SystemInput")</div>
+                                <div class="fw-bold mb-0" style="color: var(--text-main); font-size: 0.95rem;">@ViewBag.Trace.Question</div>
+                            </div>
+                        </div>
+
+                        <!-- NEW: REASONING INTENT & PLAN -->
+                        <div class="copilot-story-step">
+                            <div class="copilot-story-dot bg-warning bg-opacity-10 border border-warning border-opacity-25 shadow-sm" style="border-radius: 10px;">
+                                <i class="bi bi-compass-fill text-warning" style="font-size: 1rem;"></i>
+                            </div>
+                            <div class="copilot-story-content shadow-sm border border-warning border-opacity-10" style="background: rgba(var(--secondary-color-rgb, 245, 158, 11), 0.02); border-radius: var(--radius-btn, 14px);">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small fw-bold text-uppercase text-warning" style="font-size: 0.65rem;">@Loc.Get("ReasoningIntentPlan")</span>
+                                    <span class="badge rounded-pill @(Model.PlannerConfidence == RoutingConfidence.High ? "bg-success" : Model.PlannerConfidence == RoutingConfidence.Medium ? "bg-warning" : "bg-danger") px-2" style="font-size: 0.6rem;">@Model.PlannerConfidence Confidence</span>
+                                </div>
+                                <div class="fw-bold mb-1" style="color: var(--text-main); font-size: 0.85rem;">@Model.RouteReason</div>
+                                @if (!string.IsNullOrEmpty(Model.SearchQuery))
+                                {
+                                    <div class="mt-2 text-muted xsmall" style="font-size: 0.75rem;">
+                                        <i class="bi bi-search me-1"></i> <span class="opacity-75">@Loc.Get("InvestigationQuery"):</span> <span class="text-info">"@Model.SearchQuery"</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- MIDDLE NODES: THE REASONING STEPS -->
+                        @{
+                            void RenderStoryStep(CopilotExecutionStep step, int level = 0)
+                            {
+                                var stepId = $"step-{Guid.NewGuid():N}";
+                                <div class="copilot-story-step @(level > 0 ? "is-sub-step" : "")" style="margin-left: @(level * 2)rem;">
+                                    @if (level > 0)
+                                    {
+                                        <div class="copilot-story-connector" style="left: -1rem; width: 1rem;"></div>
+                                    }
+                                    <div class="copilot-story-dot" style="background: var(--bg-card); border-radius: 10px; width: @(level > 0 ? "26px" : "32px"); height: @(level > 0 ? "26px" : "32px"); z-index: 5;">
+                                        @switch (step.Status)
+                                        {
+                                            case CopilotStepStatus.Ok:
+                                                <i class="bi bi-check-circle-fill text-success" style="font-size: @(level > 0 ? "1rem" : "1.2rem");"></i>
+                                                break;
+                                            case CopilotStepStatus.Warn:
+                                                <i class="bi bi-exclamation-circle-fill text-warning" style="font-size: @(level > 0 ? "1rem" : "1.2rem");"></i>
+                                                break;
+                                            case CopilotStepStatus.Error:
+                                                <i class="bi bi-x-circle-fill text-danger" style="font-size: @(level > 0 ? "1rem" : "1.2rem");"></i>
+                                                break;
+                                            default:
+                                                <i class="bi bi-circle text-muted"></i>
+                                                break;
+                                        }
+                                    </div>
+                                    <div class="copilot-story-content shadow-sm border border-secondary border-opacity-10" style="background: var(--bg-card); border-radius: 16px; transition: transform 0.2s ease;">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge bg-soft-primary text-primary fw-bold px-2 py-1" style="font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em;">@step.Layer</span>
+                                                @if (level > 0)
+                                                {
+                                                    <span class="badge bg-soft-secondary text-muted px-2 py-1" style="font-size: 0.6rem; text-transform: uppercase;">@Loc.Get("SubProcess")</span>
+                                                }
+                                            </div>
+                                            <span class="copilot-story-time text-muted fw-bold" style="font-size: 0.7rem;">@step.ElapsedMs ms</span>
+                                        </div>
+                                        <div class="copilot-story-action fw-bold mb-1" style="color: var(--text-main); font-size: 0.9rem;">@step.Action</div>
+                                        <div class="copilot-story-detail text-muted mb-2" style="line-height: 1.5; font-size: 0.85rem;">@step.Detail</div>
+                                
+                                        @if (!string.IsNullOrEmpty(step.TechnicalData))
+                                        {
+                                            <div class="mt-3">
+                                                <button class="btn btn-soft-primary btn-xs rounded-pill px-3 fw-bold d-flex align-items-center gap-2" 
+                                                        type="button" 
+                                                        data-bs-toggle="collapse" 
+                                                        data-bs-target="#@stepId" 
+                                                        aria-expanded="false" 
+                                                        style="font-size: 0.65rem;">
+                                                    <i class="bi bi-code-slash"></i> @Loc.Get("InspectPayload")
+                                                </button>
+                                                <div class="collapse mt-2" id="@stepId">
+                                                    <div class="copilot-story-payload-shell p-0 overflow-hidden" style="border-radius: 10px; border: 1px solid var(--border-color);">
+                                                        <div class="bg-dark bg-opacity-5 px-3 py-2 border-bottom d-flex justify-content-between align-items-center" style="border-color: var(--border-color) !important;">
+                                                            <span class="xsmall fw-bold text-muted text-uppercase" style="font-size: 0.6rem; letter-spacing: 0.1em;">@Loc.Get("TechnicalPayloads")</span>
+                                                            <button class="btn btn-link btn-xs p-0 text-muted" onclick="copyToClipboard(this, '@Html.Raw(System.Web.HttpUtility.JavaScriptStringEncode(step.TechnicalData))')">
+                                                                <i class="bi bi-clipboard"></i>
+                                                            </button>
+                                                        </div>
+                                                        <textarea class="copilot-story-payload-source d-none">@step.TechnicalData</textarea>
+                                                        <div class="copilot-story-payload-host">
+                                                            <div class="copilot-code-block p-0 m-0">
+                                                                <pre class="m-0 p-3" style="font-size: 0.75rem; line-height: 1.5; background: var(--bg-elevated); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px;"><code class="language-json">@step.TechnicalData</code></pre>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                                
+                                if (step.SubSteps.Any())
+                                {
+                                    <div class="copilot-substeps-container position-relative">
+                                        <div class="copilot-substeps-vertical-line" style="position: absolute; left: calc(@(level * 2)rem + 1rem); top: 0; bottom: 1.5rem; width: 2px; background: var(--border-color); opacity: 0.5;"></div>
+                                        @foreach (var sub in step.SubSteps)
+                                        {
+                                            RenderStoryStep(sub, level + 1);
+                                        }
+                                    </div>
+                                }
+                            }
+                        }
+
+                        @foreach (var step in Model.Steps)
+                        {
+                            RenderStoryStep(step);
+                        }
+                
+                        @if (Model.QueryPlan != null && !dataPlanningSteps.Any())
+                        {
+                            <div class="copilot-story-step">
+                                <div class="copilot-story-dot bg-info bg-opacity-10 border border-info border-opacity-25 shadow-sm" style="border-radius: 10px;">
+                                    <i class="bi bi-database-fill-gear text-info" style="font-size: 1rem;"></i>
+                                </div>
+                                <div class="copilot-story-content shadow-sm border border-info border-opacity-10" style="background: rgba(var(--primary-color-rgb), 0.02); border-radius: var(--radius-btn, 14px);">
+                                    <div class="small fw-bold text-uppercase text-info mb-1" style="font-size: 0.65rem;">@Loc.Get("AnalyticalQueryStrategy")</div>
+                                    <div class="fw-bold mb-2" style="font-size: 0.85rem; color: var(--text-main);">@Model.QueryPlan.Summary</div>
+                            
+                                    <div class="row g-2">
+                                        <div class="col-6 col-md-4">
+                                            <div class="xsmall text-muted text-uppercase mb-1" style="font-size: 0.6rem;">@Loc.Get("Target")</div>
+                                            <div class="small fw-bold">@ResolveStructuredPlanName(Model.QueryPlan)</div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="xsmall text-muted text-uppercase mb-1" style="font-size: 0.6rem;">@Loc.Get("Intent")</div>
+                                            <div class="small fw-bold">@Model.QueryPlan.Intent</div>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(Model.QueryPlan.EntityName)) {
+                                        <div class="col-6 col-md-4">
+                                            <div class="xsmall text-muted text-uppercase mb-1" style="font-size: 0.6rem;">@Loc.Get("Entity")</div>
+                                            <div class="small fw-bold">@Model.QueryPlan.EntityName</div>
+                                        </div>
+                                        }
+                                        <div class="col-6 col-md-4">
+                                            <div class="xsmall text-muted text-uppercase mb-1" style="font-size: 0.6rem;">@Loc.Get("TimeRange")</div>
+                                            <div class="small fw-bold">@Model.QueryPlan.RelativeDateRange</div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="xsmall text-muted text-uppercase mb-1" style="font-size: 0.6rem;">@Loc.Get("MaxResults")</div>
+                                            <div class="small fw-bold">@Model.QueryPlan.MaxResults</div>
+                                        </div>
+                                        <div class="col-6 col-md-4">
+                                            <div class="xsmall text-muted text-uppercase mb-1" style="font-size: 0.6rem;">@Loc.Get("SortLogic")</div>
+                                            <div class="small fw-bold">@Model.QueryPlan.SortBy (@Model.QueryPlan.SortDirection)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (Model.ActionPlan != null)
+                        {
+                            <div class="copilot-story-step">
+                                <div class="copilot-story-dot bg-success bg-opacity-10 border border-success border-opacity-25 shadow-sm" style="border-radius: 10px;">
+                                    <i class="bi bi-lightning-charge-fill text-success" style="font-size: 1rem;"></i>
+                                </div>
+                            <div class="copilot-story-content shadow-sm border border-primary border-opacity-25" style="background: rgba(var(--primary-color-rgb), 0.02); border-radius: var(--radius-btn, 14px);">
+                                    <div class="small fw-bold text-uppercase text-success mb-1" style="font-size: 0.65rem;">@Loc.Get("PlatformActionSuggestion")</div>
+                                    <div class="fw-bold mb-1" style="font-size: 0.85rem; color: var(--text-main);">@Model.ActionPlan.Summary</div>
+                                    <div class="small text-muted">@Loc.Get("ActionIntent"): @Model.ActionPlan.Intent</div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- END NODE: THE ANSWER -->
+                        <div class="copilot-story-step copilot-story-step-last">
+                            <div class="copilot-story-dot bg-premium-gradient border-0 shadow-sm" style="border-radius: 10px; background: linear-gradient(135deg, var(--primary-color) 0%, var(--info-color) 100%);">
+                                <i class="bi bi-stars" style="font-size: 1rem; color: var(--primary-contrast-text);"></i>
+                            </div>
+                            <div class="copilot-story-content shadow-sm border border-primary border-opacity-25" style="background: rgba(var(--primary-color-rgb), 0.05); border-radius: var(--radius-btn, 14px);">
+                                <div class="small fw-bold text-uppercase text-primary mb-1" style="font-size: 0.65rem;">@Loc.Get("GeneratedResolution")</div>
+                                <div class="mb-0" style="color: var(--text-main); font-size: 1rem; line-height: 1.6;">@ViewBag.Trace.Answer</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="copilot-tree-view">
+                    <div class="copilot-tree-intro">
+                        <div class="copilot-tree-intro-title">@Loc.Get("ExecutedRoute")</div>
+                        <div class="copilot-tree-intro-text">@Loc.Get("ExecutedRouteHint")</div>
+                    </div>
+
+                    @if (catalogExecutions.Count > 1)
+                    {
+                        <div class="copilot-workflow-tabs mt-3 mb-4 d-flex gap-2">
+                            <button type="button" class="copilot-workflow-tab is-active" data-workflow-tab="overview">@Loc.Get("GlobalOverview")</button>
+                            @for (int i = 0; i < catalogExecutions.Count; i++)
+                            {
+                                var sub = catalogExecutions[i];
+                                <button type="button" class="copilot-workflow-tab" data-workflow-tab="subplan-@i">
+                                    @Loc.Get("SubPlanLabel") @(i + 1): @ResolveCatalogExecutionName(sub)
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    <div class="copilot-tree-path-bar">
+                        <div class="copilot-tree-path-bar-label">@Loc.Get("ActualPathTaken")</div>
+                        <div class="copilot-tree-path-bar-value">@string.Join(" → ", actualPath)</div>
+                    </div>
+
+                    @* Global Overview Shell *@
+                    <div class="copilot-mermaid-shell" data-workflow-id="overview">
+                        <div class="copilot-mermaid-toolbar">
+                            <div class="copilot-mermaid-toolbar-title">
+                                <i class="bi bi-diagram-3"></i>
+                                <span>@Loc.Get("WorkflowDiagram") @Loc.Get("WorkflowDiagramGlobalSuffix")</span>
+                            </div>
+                            <div class="copilot-mermaid-toolbar-actions">
+                                <button type="button" class="copilot-mermaid-control" data-copilot-diagram-action="zoom-out"><i class="bi bi-dash-lg"></i></button>
+                                <button type="button" class="copilot-mermaid-control" data-copilot-diagram-action="zoom-in"><i class="bi bi-plus-lg"></i></button>
+                                <button type="button" class="copilot-mermaid-control" data-copilot-diagram-action="reset"><i class="bi bi-arrows-fullscreen"></i></button>
+                                <button type="button" class="copilot-mermaid-control" data-copilot-diagram-action="download"><i class="bi bi-download"></i></button>
+                            </div>
+                        </div>
+                        <div class="copilot-mermaid-viewport">
+                            <div class="copilot-mermaid-graph" data-trace-mermaid-id="trace-mermaid-@traceId-global"></div>
+                        </div>
+                        <pre class="copilot-mermaid-definition d-none">@mermaidDefinition</pre>
+                        <script type="application/json" class="copilot-trace-node-data" data-workflow-id="overview">@Html.Raw(JsonSerializer.Serialize(nodeDetails))</script>
+                    </div>
+
+                    @* Sub-Plan Shells *@
+                    @if (catalogExecutions.Any())
+                    {
+                        @for (int i = 0; i < catalogExecutions.Count; i++)
+                        {
+                            var sub = catalogExecutions[i];
+                            var subKey = $"{traceGraphKey}_sub_{i}";
+                            var subDef = GenerateSubPlanMermaid(sub, subKey);
+                            var subDetails = GenerateSubPlanNodeDetails(sub);
+
+                            <div class="copilot-mermaid-shell d-none" data-workflow-id="subplan-@i">
+                                <div class="copilot-mermaid-toolbar">
+                                    <div class="copilot-mermaid-toolbar-title">
+                                        <i class="bi bi-diagram-3"></i>
+                                        <span>@Loc.Get("WorkflowDiagram") (@Loc.Get("SubPlanLabel") @(i+1))</span>
+                                    </div>
+                                    <div class="copilot-mermaid-toolbar-actions">
+                                        <button type="button" class="copilot-mermaid-control" data-copilot-diagram-action="zoom-out"><i class="bi bi-dash-lg"></i></button>
+                                        <button type="button" class="copilot-mermaid-control" data-copilot-diagram-action="zoom-in"><i class="bi bi-plus-lg"></i></button>
+                                        <button type="button" class="copilot-mermaid-control" data-copilot-diagram-action="reset"><i class="bi bi-arrows-fullscreen"></i></button>
+                                        <button type="button" class="copilot-mermaid-control" data-copilot-diagram-action="download"><i class="bi bi-download"></i></button>
+                                    </div>
+                                </div>
+                                <div class="copilot-mermaid-viewport">
+                                    <div class="copilot-mermaid-graph" data-trace-mermaid-id="trace-mermaid-@traceId-sub-@i"></div>
+                                </div>
+                                <pre class="copilot-mermaid-definition d-none">@subDef</pre>
+                                <script type="application/json" class="copilot-trace-node-data" data-workflow-id="subplan-@i">@Html.Raw(JsonSerializer.Serialize(subDetails))</script>
+                            </div>
+                        }
+                    }
+                    <div class="copilot-trace-node-panel d-none mt-4">
+                        <div class="copilot-trace-node-panel-header">
+                            <div>
+                                <div class="copilot-trace-node-panel-label">@Loc.Get("StepInspector")</div>
+                                <div class="copilot-trace-node-panel-title"></div>
+                            </div>
+                            <span class="copilot-trace-node-panel-status badge rounded-pill"></span>
+                        </div>
+                        <div class="copilot-trace-node-panel-summary"></div>
+                        <div class="row g-3 mt-1">
+                            <div class="col-12 col-lg-6">
+                                <div class="copilot-trace-node-box">
+                                    <div class="copilot-trace-node-box-label copilot-trace-node-before-label"></div>
+                                    <div class="copilot-trace-node-box-value copilot-trace-node-before-value"></div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <div class="copilot-trace-node-box">
+                                    <div class="copilot-trace-node-box-label copilot-trace-node-after-label"></div>
+                                    <div class="copilot-trace-node-box-value copilot-trace-node-after-value"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="copilot-trace-node-payloads mt-4 d-none">
+                            <div class="copilot-trace-node-section-title d-flex align-items-center gap-2">
+                                <i class="bi bi-box-seam"></i>
+                                <span>@Loc.Get("SectionTechnicalData")</span>
+                            </div>
+                            <div class="copilot-trace-node-payloads-list mt-3"></div>
+                        </div>
+                        <div class="copilot-trace-node-substeps mt-4 d-none">
+                            <div class="copilot-trace-node-section-title">@Loc.Get("RecordedSubsteps")</div>
+                            <div class="copilot-trace-node-substeps-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        
+        <!-- SEPARATE WORKFLOW BREAKDOWN SECTION -->
+        @if (catalogExecutions.Any())
+        {
+            <div class="px-4 py-3 border-top border-secondary border-opacity-10 mt-4 position-relative z-1" style="background: rgba(var(--primary-color-rgb), 0.03);">
+                <h6 class="fw-bold text-main mb-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-diagram-3-fill text-primary"></i>
+                    @Loc.Get("SeparateWorkflows")
+                    <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill border border-primary border-opacity-25">@catalogExecutions.Count</span>
+                </h6>
+                <div class="row g-3">
+                    @for (int i = 0; i < catalogExecutions.Count; i++)
+                    {
+                        var sub = catalogExecutions[i];
+                        var queryModel = sub.QueryModel;
+                        var intentPlan = sub.IntentPlan;
+                        var projectionCount = queryModel?.Projections.Count ?? sub.Plan.SelectedColumns.Count;
+                        var filterCount = (queryModel?.Predicates.Count ?? 0) + (queryModel?.HavingPredicates.Count ?? 0);
+                        var sqlPreview = string.IsNullOrWhiteSpace(sub.GeneratedSql)
+                            ? "No SQL captured."
+                            : sub.GeneratedSql.Length > 160 ? sub.GeneratedSql[..160] + "..." : sub.GeneratedSql;
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm" style="background: var(--bg-card); border-left: 3px solid var(--primary-color) !important;">
+                                <div class="card-header bg-transparent border-bottom border-secondary border-opacity-10 py-3 d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                            <span class="fw-bold text-primary" style="font-size: 0.9rem;">@(i + 1)</span>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-main" style="font-size: 0.95rem;">@ResolveCatalogExecutionOperation(sub)</div>
+                                            <div class="small text-muted">@ResolveCatalogExecutionName(sub) • @sub.TotalCount @Loc.Get("RowsReturned")</div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-soft-primary rounded-pill" type="button" data-bs-toggle="collapse" data-bs-target="#workflow-@i" aria-expanded="false">
+                                        <i class="bi bi-eye me-1"></i>@Loc.Get("ViewSteps")
+                                    </button>
+                                </div>
+                                <div class="collapse" id="workflow-@i">
+                                    <div class="card-body p-0">
+                                        <!-- Workflow Overview -->
+                                        <div class="p-3 border-bottom border-secondary border-opacity-10" style="background: rgba(var(--bg-main-rgb), 0.3);">
+                                            <div class="row g-2 small">
+                                                <div class="col-md-3"><span class="text-muted">@Loc.Get("Target"):</span> <span class="fw-semibold text-main">@ResolveCatalogExecutionName(sub)</span></div>
+                                                <div class="col-md-3"><span class="text-muted">@Loc.Get("Intent"):</span> <span class="fw-semibold text-main">@ResolveCatalogExecutionOperation(sub)</span></div>
+                                                <div class="col-md-3"><span class="text-muted">@Loc.Get("MaxResults"):</span> <span class="fw-semibold text-main">@(queryModel?.Limit ?? intentPlan?.Limit ?? sub.Plan.MaxResults)</span></div>
+                                                <div class="col-md-3"><span class="text-muted">@Loc.Get("Columns"):</span> <span class="fw-semibold text-main">@projectionCount</span></div>
+                                            </div>
+                                        </div>
+                                        <!-- Steps Tree -->
+                                        <div class="p-3">
+                                            <div class="workflow-steps-tree">
+                                                <!-- Step 1: Input -->
+                                                <div class="workflow-step">
+                                                    <div class="d-flex align-items-start gap-2">
+                                                        <div class="workflow-step-icon bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                                                            <i class="bi bi-1-circle-fill"></i>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <div class="fw-semibold text-main" style="font-size: 0.85rem;">@Loc.Get("SubRequestIntent")</div>
+                                                            <div class="small text-muted">@(intentPlan?.Explanation ?? sub.Plan.Summary)</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- Step 2: Data Planning -->
+                                                <div class="workflow-step mt-2">
+                                                    <div class="d-flex align-items-start gap-2">
+                                                        <div class="workflow-step-icon bg-info bg-opacity-10 text-info rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                                                            <i class="bi bi-2-circle-fill"></i>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <div class="fw-semibold text-main" style="font-size: 0.85rem;">@Loc.Get("ReasoningIntentPlan")</div>
+                                                            <div class="small text-muted">@ResolveCatalogExecutionName(sub) • @ResolveCatalogExecutionOperation(sub) • @sub.PlannerSource</div>
+                                                            <div class="mt-1">
+                                                                <span class="badge bg-soft-secondary text-secondary rounded-pill" style="font-size: 0.65rem;">
+                                                                    <i class="bi bi-list-check me-1"></i>@projectionCount @Loc.Get("Columns")
+                                                                </span>
+                                                                <span class="badge bg-soft-secondary text-secondary rounded-pill" style="font-size: 0.65rem;">
+                                                                    <i class="bi bi-funnel me-1"></i>@filterCount @Loc.Get("Filters")
+                                                                </span>
+                                                                @if (queryModel?.JoinFragments.Any() == true)
+                                                                {
+                                                                    <span class="badge bg-soft-secondary text-secondary rounded-pill" style="font-size: 0.65rem;">
+                                                                        <i class="bi bi-diagram-2 me-1"></i>@queryModel.JoinFragments.Count @Loc.Get("JoinsLabel")
+                                                                    </span>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- Step 3: SQL Generation -->
+                                                <div class="workflow-step mt-2">
+                                                    <div class="d-flex align-items-start gap-2">
+                                                        <div class="workflow-step-icon bg-warning bg-opacity-10 text-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                                                            <i class="bi bi-3-circle-fill"></i>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <div class="fw-semibold text-main" style="font-size: 0.85rem;">@Loc.Get("SQLGeneration")</div>
+                                                            <div class="small text-muted mb-1">@Loc.Get("TranslatedToQuery") • @sub.SqlParameters.Count @Loc.Get("ParametersSuffix")</div>
+                                                            <div class="bg-dark bg-opacity-25 p-2 rounded" style="font-family: monospace; font-size: 0.75rem; overflow-x: auto;">
+                                                                <code class="text-info">@sqlPreview</code>
+                                                            </div>
+                                                            @if (sub.SqlParameters.Any())
+                                                            {
+                                                                <div class="small text-muted mt-1">
+                                                                    @string.Join(", ", sub.SqlParameters.Select(parameter => $"{parameter.Name}={parameter.Value}"))
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- Step 4: Execution -->
+                                                <div class="workflow-step mt-2">
+                                                    <div class="d-flex align-items-start gap-2">
+                                                        <div class="workflow-step-icon bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                                                            <i class="bi bi-4-circle-fill"></i>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <div class="fw-semibold text-main" style="font-size: 0.85rem;">@Loc.Get("Execution")</div>
+                                                            <div class="small text-muted">@sub.TotalCount @Loc.Get("RowsReturned")</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <!-- Step 5: Result Assembly -->
+                                                <div class="workflow-step mt-2">
+                                                    <div class="d-flex align-items-start gap-2">
+                                                        <div class="workflow-step-icon bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                                                            <i class="bi bi-5-circle-fill"></i>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <div class="fw-semibold text-main" style="font-size: 0.85rem;">@Loc.Get("ResultAssembly")</div>
+                                                            <div class="small text-muted">@sub.Summary</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Metadata Footer -->
+        <div class="p-4 border-top border-secondary border-opacity-10 mt-4 position-relative z-1" style="background: rgba(var(--primary-color-rgb), 0.02);">
+            <div class="row align-items-center text-center text-muted small fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.05em;">
+                <div class="col-4 border-end border-secondary border-opacity-10">
+                    <div class="mb-1" style="color: var(--primary-color);"><i class="bi bi-cpu-fill me-1"></i> @Loc.Get("Model")</div>
+                    <span class="text-main">@ViewBag.Trace.ModelName</span>
+                </div>
+                <div class="col-4 border-end border-secondary border-opacity-10">
+                    <div class="mb-1" style="color: var(--primary-color);"><i class="bi bi-calendar-event me-1"></i> @Loc.Get("Timestamp")</div>
+                    <span class="text-main">@ViewBag.Trace.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                </div>
+                <div class="col-4">
+                    <div class="mb-1" style="color: var(--primary-color);"><i class="bi bi-hash me-1"></i> @Loc.Get("StoryId")</div>
+                    <span class="text-main badge bg-dark text-white rounded-pill border border-secondary border-opacity-25 px-3 py-1 shadow-sm">@ViewBag.Trace.Id</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

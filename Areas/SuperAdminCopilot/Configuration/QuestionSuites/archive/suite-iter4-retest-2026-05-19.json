@@ -1,0 +1,40 @@
+{
+  "name": "Suite Iter 4 — 4 still-failing cases after iter 3",
+  "version": "1.0",
+  "description": "Re-test of iter 3 still-failing cases (3 tool + 1 OOS) after DbSeeder.cs fix to PERSIST expanded tool KeywordHints across app restarts (was wiping them on every startup).",
+  "Scenarios": [
+    {
+      "Code": "C57-TOOL-fx",
+      "Question": "convert 100 USD to JPY",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C58-TOOL-univ",
+      "Question": "find universities in Mumbai",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C60-TOOL-currency-country",
+      "Question": "what country uses the rupee",
+      "Category": "Tool",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "ExternalToolQuery",
+      "MaxLatencyMs": 300000
+    },
+    {
+      "Code": "C70-OOS",
+      "Question": "what is the meaning of life",
+      "Category": "Refusal",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true,
+      "MaxLatencyMs": 300000
+    }
+  ]
+}

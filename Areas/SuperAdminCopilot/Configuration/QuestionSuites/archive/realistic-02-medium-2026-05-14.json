@@ -1,0 +1,252 @@
+{
+  "name": "02 - Realistic Medium Suite",
+  "version": "1.0",
+  "description": "Real-data business questions at the medium level — joins to lookups, group-by, named users/entities. Every scenario has ExpectedSql.",
+  "Scenarios": [
+    {
+      "Code": "MD-001",
+      "Question": "How many tickets does each entity have?",
+      "Category": "Medium / Group by entity",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT e.Name AS Entity, COUNT(*) AS Total FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0 GROUP BY e.Name ORDER BY Total DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-002",
+      "Question": "Break down ticket counts by status.",
+      "Category": "Medium / Group by status",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT s.Name AS Status, COUNT(*) AS Total FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY s.Name ORDER BY Total DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-003",
+      "Question": "How many tickets came from each source?",
+      "Category": "Medium / Group by source",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT s.Name AS Source, COUNT(*) AS Total FROM Tickets t JOIN TicketSources s ON s.Id = t.SourceId WHERE t.IsDeleted = 0 GROUP BY s.Name ORDER BY Total DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-004",
+      "Question": "What are the top 5 ticket categories by volume?",
+      "Category": "Medium / Top-N group-by",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 5 c.Name AS Category, COUNT(*) AS Total FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0 GROUP BY c.Name ORDER BY Total DESC",
+      "ExpectedMaxRows": 5,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-005",
+      "Question": "How many tickets did Sara Hassan create?",
+      "Category": "Medium / Filter by named user",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS SaraTickets FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE u.FirstName = 'Sara' AND u.LastName = 'Hassan' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-006",
+      "Question": "How many tickets has Lina Mansour resolved?",
+      "Category": "Medium / Filter by resolver",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS LinaResolved FROM Tickets t JOIN AspNetUsers u ON u.Id = t.ResolvedByUserId WHERE u.FirstName = 'Lina' AND u.LastName = 'Mansour' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-007",
+      "Question": "Show me tickets created by users from the Finance entity.",
+      "Category": "Medium / Three-table join",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title, u.FirstName + ' ' + u.LastName AS CreatedBy FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId JOIN Entitys e ON e.Id = u.EntityId WHERE e.Name = 'Finance' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "MD-008",
+      "Question": "List all the support agents we have.",
+      "Category": "Medium / Role lookup",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.FirstName + ' ' + u.LastName AS Name, u.Email FROM AspNetUsers u JOIN AspNetUserRoles ur ON ur.UserId = u.Id JOIN AspNetRoles r ON r.Id = ur.RoleId WHERE r.Name IN ('SupportAgent', 'Support Agent') AND u.IsActive = 1 ORDER BY u.FirstName, u.LastName",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-009",
+      "Question": "How many tickets do we have per priority?",
+      "Category": "Medium / Group by priority",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, COUNT(*) AS Total FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0 GROUP BY p.Name ORDER BY Total DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-010",
+      "Question": "How many tickets were created in April 2026?",
+      "Category": "Medium / Specific month",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS AprilTickets FROM Tickets WHERE YEAR(CreatedAt) = 2026 AND MONTH(CreatedAt) = 4 AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-011",
+      "Question": "Show me all tickets that have been escalated.",
+      "Category": "Medium / Escalation filter",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title, t.EscalationLevel, t.EscalatedAt FROM Tickets t WHERE t.EscalatedAt IS NOT NULL AND t.IsDeleted = 0 ORDER BY t.EscalatedAt DESC",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-012",
+      "Question": "Show me tickets assigned to Tariq Hamdan.",
+      "Category": "Medium / Filter by assignee",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title FROM Tickets t JOIN AspNetUsers u ON u.Id = t.AssignedToUserId WHERE u.FirstName = 'Tariq' AND u.LastName = 'Hamdan' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-013",
+      "Question": "How many tickets were created this week?",
+      "Category": "Medium / This week",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS ThisWeek FROM Tickets WHERE CreatedAt >= DATEADD(day, -DATEPART(weekday, GETDATE()) + 1, CAST(GETDATE() AS DATE)) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-014",
+      "Question": "How many tickets came from the Mobile App?",
+      "Category": "Medium / Filter by source",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS MobileTickets FROM Tickets t JOIN TicketSources s ON s.Id = t.SourceId WHERE s.Name = 'Mobile App' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-015",
+      "Question": "Tickets per entity — show entity name and ticket count.",
+      "Category": "Medium / Group by entity",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT e.Name AS Entity, COUNT(*) AS Total FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0 GROUP BY e.Name ORDER BY Total DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-016",
+      "Question": "How many high and critical priority tickets are there?",
+      "Category": "Medium / IN filter",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS HighOrCritical FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name IN ('High', 'Critical') AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-017",
+      "Question": "How many tickets is each agent currently handling?",
+      "Category": "Medium / Tickets per assignee",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.Email AS Agent, COUNT(*) AS Tickets FROM Tickets t JOIN AspNetUsers u ON u.Id = t.AssignedToUserId WHERE t.IsDeleted = 0 GROUP BY u.Email ORDER BY Tickets DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "MD-018",
+      "Question": "How many tickets are not yet resolved?",
+      "Category": "Medium / NULL filter",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Unresolved FROM Tickets WHERE ResolvedAt IS NULL AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "MD-019",
+      "Question": "How many tickets were created by Health entity users?",
+      "Category": "Medium / Three-table count",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS HealthCreated FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId JOIN Entitys e ON e.Id = u.EntityId WHERE e.Name = 'Health' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-020",
+      "Question": "How many attachments are stored in total?",
+      "Category": "Medium / Count related",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS TotalAttachments FROM TicketAttachments",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "MD-021",
+      "Question": "List the top 10 most active end-users by tickets created.",
+      "Category": "Medium / Top-N by creator",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 u.FirstName + ' ' + u.LastName AS UserName, COUNT(*) AS Tickets FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE t.IsDeleted = 0 GROUP BY u.FirstName, u.LastName ORDER BY Tickets DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "MD-022",
+      "Question": "Show me hardware-related tickets.",
+      "Category": "Medium / Filter by category",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE c.Name = 'Hardware' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-023",
+      "Question": "How many tickets does the Operations entity have?",
+      "Category": "Medium / Named entity count",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS OperationsTickets FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE e.Name = 'Operations' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "MD-024",
+      "Question": "Show me all pending tickets and the reason they're pending.",
+      "Category": "Medium / Specific status + field",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title, t.PendingReason FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Pending' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "MD-025",
+      "Question": "How many tickets were resolved by support agents?",
+      "Category": "Medium / Resolved+role join",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(DISTINCT t.Id) AS ResolvedByAgents FROM Tickets t JOIN AspNetUsers u ON u.Id = t.ResolvedByUserId JOIN AspNetUserRoles ur ON ur.UserId = u.Id JOIN AspNetRoles r ON r.Id = ur.RoleId WHERE r.Name IN ('SupportAgent', 'Support Agent') AND t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    }
+  ]
+}

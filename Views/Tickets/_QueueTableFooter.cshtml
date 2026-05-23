@@ -1,0 +1,13 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
+
+@if (Model.Items.Count < Model.TotalCount)
+{
+    <div class="feature-table-footer d-flex align-items-center justify-content-between">
+        <div class="text-muted small fw-bold">
+            @Loc.Get("ShowingResults") (@Model.Items.Count @Loc.Get("Of") @Model.TotalCount @Loc.Get("Records")).
+        </div>
+        <a asp-action="Index" asp-route-request.PageSize="-1" class="btn btn-xs btn-primary text-black fw-bold px-3 py-1 rounded-pill" style="font-size: 0.7rem;">
+            @Loc.Get("FullAnalytics")
+        </a>
+    </div>
+}

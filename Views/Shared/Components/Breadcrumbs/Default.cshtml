@@ -1,0 +1,24 @@
+@model IEnumerable<AISupportAnalysisPlatform.ViewComponents.BreadcrumbItem>
+@inject AISupportAnalysisPlatform.Services.Infrastructure.ILocalizationService Loc
+
+<nav aria-label="breadcrumb" class="app-breadcrumb d-none d-lg-block">
+    <ol class="breadcrumb mb-0">
+        @foreach (var item in Model)
+        {
+            if (item.Url != null)
+            {
+                <li class="breadcrumb-item d-flex align-items-center">
+                    @if (item.Icon != null)
+                    {
+                        <i class="bi @item.Icon @(Loc.IsRtl ? "ms-2" : "me-2")"></i>
+                    }
+                    <a href="@item.Url">@Loc.Get(item.Title)</a>
+                </li>
+            }
+            else
+            {
+                <li class="breadcrumb-item active d-flex align-items-center" aria-current="page">@Loc.Get(item.Title)</li>
+            }
+        }
+    </ol>
+</nav>

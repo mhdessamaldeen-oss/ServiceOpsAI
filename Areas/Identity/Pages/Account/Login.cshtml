@@ -1,0 +1,195 @@
+@page
+@model LoginModel
+
+@{
+    ViewData["Title"] = "Log in";
+}
+
+<div class="auth-wrapper d-flex align-items-center justify-content-center py-5" style="min-height: 100vh;">
+    <div class="row w-100 g-0 justify-content-center">
+        <!-- Login Card -->
+        <div class="col-xl-5 col-lg-6">
+            <div class="card border-0 animate__animated animate__fadeInLeft">
+                <div class="card-body p-5">
+                        <div class="icon-shape bg-primary text-white rounded-circle mx-auto mb-4 scale-up shadow-lg" style="width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; background: var(--primary-gradient) !important;">
+                            <i class="bi bi-shield-lock-fill fs-1"></i>
+                        </div>
+                        <h2 class="fw-bold login-brand">Support<span class="text-gradient-primary">Flow</span></h2>
+                        <p class="text-muted small ls-1">Intellectual Enterprise Support Platform</p>
+
+                    <form id="account" method="post">
+                        <div asp-validation-summary="ModelOnly" class="alert alert-danger border-0 small py-2 px-3 mb-4 rounded-3" role="alert"></div>
+                        
+                        <div class="mb-4">
+                            <label asp-for="Input.Email" class="form-label small fw-bold text-uppercase text-muted ls-1">Email Terminal</label>
+                            <div class="input-group input-group-auth p-1 rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-envelope text-primary"></i></span>
+                                <input asp-for="Input.Email" class="form-control border-0 bg-transparent shadow-none p-2" autocomplete="username" placeholder="name@domain.local" />
+                            </div>
+                            <span asp-validation-for="Input.Email" class="text-danger small mt-1 d-block ms-2"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between">
+                                <label asp-for="Input.Password" class="form-label small fw-bold text-uppercase text-muted ls-1">Security Key</label>
+                                <a id="forgot-password" asp-page="./ForgotPassword" class="text-primary small text-decoration-none hover-underline">Forgot Key?</a>
+                            </div>
+                            <div class="input-group input-group-auth p-1 rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-key text-primary"></i></span>
+                                <input asp-for="Input.Password" class="form-control border-0 bg-transparent shadow-none p-2" autocomplete="current-password" placeholder="••••••••" />
+                            </div>
+                            <span asp-validation-for="Input.Password" class="text-danger small mt-1 d-block ms-2"></span>
+                        </div>
+
+                        <div class="form-check mb-4 custom-checkbox">
+                            <input class="form-check-input" asp-for="Input.RememberMe" />
+                            <label asp-for="Input.RememberMe" class="form-check-label small text-muted">Maintain security session on this terminal</label>
+                        </div>
+
+                        <button id="login-submit" type="submit" class="btn btn-primary w-100 py-3 rounded-3 shadow-sm fw-bold login-button">
+                            Establish Authentication <i class="bi bi-arrow-right-short fs-5 ms-1"></i>
+                        </button>
+                    </form>
+
+                    <div class="text-center mt-5 pt-3 border-top border-light">
+                        <p class="text-muted small">New operative? <a asp-page="./Register" asp-route-returnUrl="@Model.ReturnUrl" class="text-primary fw-bold text-decoration-none">Request Credential Access</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.IsTestingMode)
+        {
+            <div class="col-xl-4 col-lg-5 ms-xl-4 mt-4 mt-lg-0">
+                <div class="card border-0 animate__animated animate__fadeInRight">
+                    <div class="card-body p-5">
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="p-2 bg-info bg-opacity-25 text-info rounded-3 me-3">
+                                <i class="bi bi-terminal-fill fs-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="fw-bold text-white mb-0">Diagnostic Bridge</h4>
+                                <p class="text-info opacity-75 small mb-0">Surfaced multi-tenant test profiles</p>
+                            </div>
+                        </div>
+
+                        <div class="list-group list-group-flush rounded-4 overflow-hidden border border-white border-opacity-10 shadow-sm">
+                            @foreach (var user in Model.DemoUsers)
+                            {
+                                var email = user.Email ?? string.Empty;
+                                var isAdminDemo = email.Contains("admin", StringComparison.OrdinalIgnoreCase);
+                                var isAgentDemo = email.Contains("agent", StringComparison.OrdinalIgnoreCase);
+                                var emailDomain = email.Contains('@') && email.Contains('.')
+                                    ? email.Split('@')[1].Split('.')[0].ToUpperInvariant()
+                                    : "LOCAL";
+
+                                <button type="button" class="list-group-item list-group-item-action bg-white bg-opacity-5 hover-bg-opacity-10 border-white border-opacity-10 py-3 px-4 transition-all" onclick="fillLogin('@email')">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm @(isAdminDemo ? "bg-primary" : (isAgentDemo ? "bg-info" : "bg-white bg-opacity-20")) text-white rounded-pill d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 40px; height: 40px; min-width: 40px;">
+                                            <i class="bi @(isAdminDemo ? "bi-person-badge-fill" : (isAgentDemo ? "bi-headset" : "bi-person-fill"))"></i>
+                                        </div>
+                                        <div class="overflow-hidden">
+                                            <div class="fw-bold text-white small text-truncate">@user.FullName</div>
+                                            <div class="text-xs text-white opacity-50" style="font-size: 0.7rem;">@email</div>
+                                        </div>
+                                        <div class="ms-auto ps-2">
+                                            <span class="badge rounded-pill bg-white bg-opacity-10 text-white-50 small fw-normal" style="font-size: 0.6rem;">
+                                                @(email.Contains("tech", StringComparison.OrdinalIgnoreCase) ? "LOCAL" : emailDomain)
+                                            </span>
+                                        </div>
+                                    </div>
+                                </button>
+                            }
+                        </div>
+
+                        <div class="mt-4 p-4 rounded-4 bg-white bg-opacity-5 border border-white border-opacity-10 text-center">
+                            <div class="small text-white-50 mb-2">Master Diagnostic Key</div>
+                            <code class="text-info fs-5 fw-bold ls-2">Admin@@123</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+            <script>
+                function fillLogin(email) {
+                    document.querySelector('input[id$="Email"]').value = email;
+                    document.querySelector('input[id$="Password"]').value = 'Admin@123';
+                    
+                    const btn = document.getElementById('login-submit');
+                    btn.classList.replace('btn-primary', 'btn-info');
+                    btn.innerHTML = '<i class="bi bi-lightning-charge-fill me-2"></i>Link Established - Establishing Session...';
+                    
+                    setTimeout(() => btn.click(), 400);
+                }
+            </script>
+    </div>
+</div>
+
+<style>
+    body {
+        background: var(--bg-main) !important;
+        min-height: 100vh;
+    }
+    .auth-wrapper {
+        perspective: none;
+    }
+    .ls-1 { letter-spacing: 0.1em; }
+    .ls-2 { letter-spacing: 2px; }
+    .transition-all { transition: all 0.2s ease; }
+    .hover-bg-opacity-10:hover { background-color: var(--primary-color) !important; color: white !important; }
+    
+    .input-group-auth {
+        border: 1px solid var(--border-color);
+        transition: all 0.2s;
+        background: var(--bg-card) !important;
+    }
+    .input-group-auth .input-group-text {
+        background: transparent !important;
+        border: none !important;
+        color: var(--primary-color) !important;
+    }
+    .input-group-auth .form-control {
+        background: transparent !important;
+        color: var(--text-main) !important;
+    }
+    .input-group-auth:focus-within {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+    }
+    
+    .login-brand { font-family: 'Inter', sans-serif; letter-spacing: -1px; color: var(--text-main); }
+    
+    .scale-up { transition: all 0.3s ease; }
+    
+    .login-button {
+        background: var(--primary-color);
+        border: none;
+        color: #000 !important;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .login-button:hover {
+        filter: brightness(1.1);
+        transform: translateY(-1px);
+    }
+    
+    /* Emerald Theme Adaptation */
+    .card {
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border-color) !important;
+    }
+    .text-white { color: var(--text-main) !important; }
+    .text-muted { color: var(--text-muted) !important; }
+    .text-info { color: var(--primary-color) !important; }
+    .bg-info { background-color: var(--primary-color) !important; }
+    .border-white.border-opacity-10 { border-color: var(--border-color) !important; }
+    .bg-white.bg-opacity-5 { background-color: rgba(16, 185, 129, 0.05) !important; }
+    .text-white-50 { color: var(--text-muted) !important; opacity: 0.8; }
+    code.text-info { background: rgba(16, 185, 129, 0.1); padding: 5px 10px; border-radius: 6px; }
+</style>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

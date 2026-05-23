@@ -1,0 +1,157 @@
+{
+  "name": "04 - Realistic Complex Suite",
+  "version": "1.0",
+  "description": "Analytical questions — period comparisons, cohort breakdowns, ratios, cross-tabs, time series. Every scenario has ExpectedSql.",
+  "Scenarios": [
+    {
+      "Code": "CX-001",
+      "Question": "Show monthly ticket volume for the last 3 months.",
+      "Category": "Complex / Time series",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT YEAR(CreatedAt) AS Yr, MONTH(CreatedAt) AS Mo, COUNT(*) AS Total FROM Tickets WHERE CreatedAt >= DATEADD(month, -3, GETDATE()) AND IsDeleted = 0 GROUP BY YEAR(CreatedAt), MONTH(CreatedAt) ORDER BY Yr, Mo",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-002",
+      "Question": "What percentage of all tickets are resolved or closed?",
+      "Category": "Complex / Ratio",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 100.0 * SUM(CASE WHEN s.IsClosedState = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS ClosedPct FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-003",
+      "Question": "Compare tickets resolved this week versus last week.",
+      "Category": "Complex / Week-over-week",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 'ThisWeek' AS Period, COUNT(*) AS Resolved FROM Tickets WHERE ResolvedAt IS NOT NULL AND ResolvedAt >= DATEADD(day, -DATEPART(weekday, GETDATE()) + 1, CAST(GETDATE() AS DATE)) AND IsDeleted = 0 UNION ALL SELECT 'LastWeek', COUNT(*) FROM Tickets WHERE ResolvedAt IS NOT NULL AND ResolvedAt >= DATEADD(day, -DATEPART(weekday, GETDATE()) - 6, CAST(GETDATE() AS DATE)) AND ResolvedAt < DATEADD(day, -DATEPART(weekday, GETDATE()) + 1, CAST(GETDATE() AS DATE)) AND IsDeleted = 0",
+      "ExpectedMaxRows": 2,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-004",
+      "Question": "For each priority, show ticket count and average age in days.",
+      "Category": "Complex / Per-priority metrics",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, COUNT(*) AS Total, AVG(CAST(DATEDIFF(day, t.CreatedAt, GETDATE()) AS FLOAT)) AS AvgAgeDays FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0 GROUP BY p.Name ORDER BY Total DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-005",
+      "Question": "For each agent, show their assigned, resolved, and resolution rate.",
+      "Category": "Complex / Per-agent resolution rate",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.FirstName + ' ' + u.LastName AS Agent, COUNT(*) AS Assigned, SUM(CASE WHEN t.ResolvedAt IS NOT NULL THEN 1 ELSE 0 END) AS Resolved, 100.0 * SUM(CASE WHEN t.ResolvedAt IS NOT NULL THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS ResolutionRatePct FROM Tickets t JOIN AspNetUsers u ON u.Id = t.AssignedToUserId WHERE t.IsDeleted = 0 GROUP BY u.FirstName, u.LastName ORDER BY ResolutionRatePct DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 30000
+    },
+    {
+      "Code": "CX-006",
+      "Question": "Show daily ticket creation count for the last 14 days.",
+      "Category": "Complex / Daily series",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Total FROM Tickets WHERE CreatedAt >= DATEADD(day, -14, GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE) ORDER BY Day",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-007",
+      "Question": "Top 3 entities by ticket volume in the last 30 days.",
+      "Category": "Complex / Top-N with window",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 3 e.Name AS Entity, COUNT(*) AS Total FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.CreatedAt >= DATEADD(day, -30, GETDATE()) AND t.IsDeleted = 0 GROUP BY e.Name ORDER BY Total DESC",
+      "ExpectedMaxRows": 3,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-008",
+      "Question": "What is the average time to first response in hours, by priority?",
+      "Category": "Complex / SLA metric",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, AVG(CAST(DATEDIFF(hour, t.CreatedAt, t.FirstRespondedAt) AS FLOAT)) AS AvgFirstResponseHours FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.FirstRespondedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY p.Name ORDER BY p.Name",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-009",
+      "Question": "Show ticket counts broken down by status and source.",
+      "Category": "Complex / Cross-tab",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT s.Name AS Status, src.Name AS Source, COUNT(*) AS Total FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketSources src ON src.Id = t.SourceId WHERE t.IsDeleted = 0 GROUP BY s.Name, src.Name ORDER BY s.Name, src.Name",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-010",
+      "Question": "Which entity has the most unresolved tickets right now?",
+      "Category": "Complex / Top-1 with filter",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 1 e.Name AS Entity, COUNT(*) AS Unresolved FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0 GROUP BY e.Name ORDER BY Unresolved DESC",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-011",
+      "Question": "Show me the 5 oldest still-open tickets with their age in days.",
+      "Category": "Complex / Oldest + computed age",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 5 t.Id, t.TicketNumber, t.Title, DATEDIFF(day, t.CreatedAt, GETDATE()) AS AgeDays FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0 ORDER BY t.CreatedAt ASC",
+      "ExpectedMaxRows": 5,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-012",
+      "Question": "Show resolved-ticket count per week for the last 4 weeks.",
+      "Category": "Complex / Weekly series",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT DATEPART(week, ResolvedAt) AS Wk, COUNT(*) AS Resolved FROM Tickets WHERE ResolvedAt IS NOT NULL AND ResolvedAt >= DATEADD(week, -4, GETDATE()) AND IsDeleted = 0 GROUP BY DATEPART(week, ResolvedAt) ORDER BY Wk",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-013",
+      "Question": "For each category, show the number of open versus closed tickets.",
+      "Category": "Complex / Pivot per category",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT c.Name AS Category, SUM(CASE WHEN s.IsClosedState = 0 THEN 1 ELSE 0 END) AS OpenCount, SUM(CASE WHEN s.IsClosedState = 1 THEN 1 ELSE 0 END) AS ClosedCount FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY c.Name ORDER BY c.Name",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-014",
+      "Question": "Show ticket counts for today, yesterday, and two days ago.",
+      "Category": "Complex / Recent daily compare",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 'Today' AS Day, COUNT(*) AS Total FROM Tickets WHERE CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE) AND IsDeleted = 0 UNION ALL SELECT 'Yesterday', COUNT(*) FROM Tickets WHERE CAST(CreatedAt AS DATE) = CAST(DATEADD(day, -1, GETDATE()) AS DATE) AND IsDeleted = 0 UNION ALL SELECT '2 days ago', COUNT(*) FROM Tickets WHERE CAST(CreatedAt AS DATE) = CAST(DATEADD(day, -2, GETDATE()) AS DATE) AND IsDeleted = 0",
+      "ExpectedMaxRows": 3,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "CX-015",
+      "Question": "Top 10 agents by number of unresolved tickets currently assigned.",
+      "Category": "Complex / Workload ranking",
+      "Difficulty": "Complex",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 u.FirstName + ' ' + u.LastName AS Agent, COUNT(*) AS Unresolved FROM Tickets t JOIN AspNetUsers u ON u.Id = t.AssignedToUserId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0 GROUP BY u.FirstName, u.LastName ORDER BY Unresolved DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 30000
+    }
+  ]
+}

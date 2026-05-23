@@ -1,0 +1,56 @@
+@model (string ProviderType, string Accent)
+@{
+    var lc = Model.ProviderType.ToLowerInvariant();
+    var btnVariant = string.IsNullOrEmpty(Model.Accent) ? "primary" : Model.Accent;
+}
+
+<div class="provider-quick-test" data-provider="@Model.ProviderType">
+    <h6 class="fw-bold text-muted text-uppercase small ls-1 mb-3">
+        <i class="bi bi-chat-dots me-1"></i>Quick Test — Send a Question
+    </h6>
+    <div class="form-text small mb-3">
+        Pick a model and send one prompt directly to <strong>@Model.ProviderType</strong>.
+        The selected model is also saved as this provider's default chat model. Useful for
+        confirming the model is reachable and responding before wiring it into the copilot pipeline.
+    </div>
+
+    <div class="row g-2 mb-2 align-items-end">
+        <div class="col-md-6">
+            <label class="form-label small fw-bold text-muted text-uppercase ls-1">Model</label>
+            <select id="@(lc)-test-model" class="form-select form-select-sm quick-test-model-select"
+                    data-provider="@Model.ProviderType">
+                <option value="">— Pick a model —</option>
+            </select>
+            <small class="text-muted small d-block mt-1" id="@(lc)-test-model-hint">
+                @if (Model.ProviderType == "Ollama" || Model.ProviderType == "DockerLocal")
+                {
+                    @:Source: live engine discovery. Embedding-only models are excluded.
+                }
+                else
+                {
+                    @:Source: this provider's Allowed Models list (add tags above).
+                }
+            </small>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label small fw-bold text-muted text-uppercase ls-1">Question</label>
+            <textarea id="@(lc)-test-question" class="form-control form-control-sm" rows="3"
+                      placeholder='e.g. Reply with the JSON {"ping": "pong"}'></textarea>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center">
+        <small class="text-muted" id="@(lc)-test-meta"></small>
+        <button type="button" class="btn btn-@btnVariant btn-sm rounded-pill px-3"
+                onclick="askProvider('@Model.ProviderType', this)">
+            <i class="bi bi-send me-1"></i>Send to @Model.ProviderType
+        </button>
+    </div>
+    <div id="@(lc)-test-response" class="mt-3 d-none">
+        <div class="card border-0 bg-soft-secondary">
+            <div class="card-body p-3">
+                <pre class="mb-0 small" style="white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow-y: auto;"></pre>
+            </div>
+        </div>
+    </div>
+</div>

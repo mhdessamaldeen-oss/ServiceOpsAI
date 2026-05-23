@@ -1,0 +1,94 @@
+@model IEnumerable<AISupportAnalysisPlatform.Models.Notification>
+
+@{
+    ViewData["Title"] = "System Intelligence Alerts";
+    var unreadCount = Model.Count(n => !n.IsRead);
+    var notificationsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Alert Hub",
+        Subtitle = "Track real-time system events and case assignments",
+        IconClass = "bi bi-bell-fill",
+        Chips = new()
+        {
+            new() { Text = $"{unreadCount} Unread", IconClass = "bi bi-circle-fill" }
+        }
+    };
+}
+
+<div class="row">
+    <div class="col-xl-8 col-lg-10 mx-auto">
+        <partial name="_PageHeader" model="notificationsHeader" />
+
+        <div class="card border-0 shadow-sm overflow-hidden">
+            <div class="list-group list-group-flush">
+                @if (Model.Any())
+                {
+                    @foreach (var notif in Model)
+                    {
+                        <div class="list-group-item p-3 @(!notif.IsRead ? "notif-row notif-row-unread" : "notif-row")" id="notif-@notif.Id" style="cursor: pointer;" onclick="handleAlertClick(event, @notif.Id, '@notif.Link', @notif.IsRead.ToString().ToLower())">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="d-flex align-items-center @(Loc.IsRtl ? "gap-3" : "gap-3")">
+                                    <div class="kpi-icon">
+                                        <i class="bi @(notif.Title.Contains("Assignment") ? "bi-person-plus-fill" : "bi-journal-check")"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="fw-bold mb-0" style="color: var(--text-main);">@notif.Title</h6>
+                                        <span class="text-muted" style="font-size: 0.7rem;">@notif.CreatedAt.ToString("MMM dd, HH:mm")</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    @if (!string.IsNullOrEmpty(notif.Link))
+                                    {
+                                        <span class="pill-badge" style="background: rgba(var(--primary-color-rgb),0.08); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">
+                                            <i class="bi bi-box-arrow-up-right"></i>View
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                            <p class="text-muted mb-0 small">@notif.Message</p>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center py-5">
+                        <i class="bi bi-bell-slash fs-1 opacity-25 d-block mb-3"></i>
+                        <p class="text-muted">No system alerts present at this time.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function handleAlertClick(e, id, link, isRead) {
+            e.preventDefault();
+
+            if (isRead && link) {
+                window.location.href = link;
+                return;
+            }
+
+            if (!isRead) {
+                $.post('/Notifications/MarkAsRead/' + id, function () {
+                    if (link) {
+                        window.location.href = link;
+                    } else {
+                        $('#notif-' + id).removeClass('notif-row-unread');
+
+                        let badge = $('.badge.rounded-pill.bg-danger');
+                        if (badge.length) {
+                            let count = parseInt(badge.text()) - 1;
+                            if (count <= 0) badge.remove();
+                            else badge.text(count);
+                        }
+                    }
+                }).fail(function() {
+                    if (link) window.location.href = link;
+                });
+            }
+        }
+    </script>
+}

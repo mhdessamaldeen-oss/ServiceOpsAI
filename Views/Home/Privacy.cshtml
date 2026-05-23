@@ -1,0 +1,17 @@
+@{
+    ViewData["Title"] = "Privacy Policy";
+    var privacyHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Privacy Policy",
+        Subtitle = "How SupportFlow AI handles your data",
+        IconClass = "bi bi-shield-lock-fill"
+    };
+}
+
+<partial name="_PageHeader" model="privacyHeader" />
+
+<div class="app-card">
+    <div class="app-card-body p-4 p-lg-5">
+        <p>Use this page to detail your site's privacy policy.</p>
+    </div>
+</div>

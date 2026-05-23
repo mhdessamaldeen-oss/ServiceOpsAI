@@ -1,0 +1,155 @@
+@model List<AISupportAnalysisPlatform.Models.AI.ModelPricing>
+@{
+    ViewData["Title"] = "Model Pricing";
+    Layout = "_AdminLayout";
+}
+
+@*
+    Per-(provider, model) USD pricing. Read by ICostCalculator at trace-save time so
+    every question's roll-up cost reflects the current rates. Default rows are seeded
+    by migration; admins edit in-place when vendors change rates. Model="*" is a
+    provider-wide fallback used when a specific model row doesn't exist.
+*@
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="h4 mb-1"><i class="bi bi-currency-dollar me-2"></i>Model Pricing</h2>
+            <p class="text-muted small mb-0">USD per 1,000 tokens. Local models priced at 0. Use <code>Model = *</code> as a provider-wide default.</p>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-tab="ai"><i class="bi bi-arrow-left me-1"></i>Back to settings</a>
+    </div>
+
+    @if (TempData["Success"] is string ok) {
+        <div class="alert alert-success py-2 small">@ok</div>
+    }
+    @if (TempData["Error"] is string err) {
+        <div class="alert alert-danger py-2 small">@err</div>
+    }
+
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-transparent border-0">
+            <strong>Existing rates</strong>
+            <span class="small text-muted ms-2">@Model.Count row(s)</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead class="small text-uppercase text-muted">
+                    <tr>
+                        <th>Provider</th><th>Model</th><th>Display name</th>
+                        <th class="text-end">In / 1K</th><th class="text-end">Out / 1K</th>
+                        <th class="text-end">Context</th>
+                        <th class="text-center">Local</th><th class="text-center">Active</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var p in Model)
+                {
+                    <tr>
+                        <td><strong>@p.Provider</strong></td>
+                        <td><code>@p.Model</code></td>
+                        <td>@(p.DisplayName ?? "—")</td>
+                        <td class="text-end font-monospace">$@p.InputPer1K.ToString("0.########")</td>
+                        <td class="text-end font-monospace">$@p.OutputPer1K.ToString("0.########")</td>
+                        <td class="text-end font-monospace">@(p.ContextTokens.HasValue ? p.ContextTokens.Value.ToString("N0") : "—")</td>
+                        <td class="text-center">@(p.IsLocal ? "✓" : "")</td>
+                        <td class="text-center">@(p.IsActive ? "✓" : "—")</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="editPricing(@p.Id, '@p.Provider', '@p.Model', '@(p.DisplayName ?? "")', '@p.InputPer1K.ToString(System.Globalization.CultureInfo.InvariantCulture)', '@p.OutputPer1K.ToString(System.Globalization.CultureInfo.InvariantCulture)', '@(p.ContextTokens?.ToString() ?? "")', @(p.IsLocal.ToString().ToLower()), @(p.IsActive.ToString().ToLower()), '@((p.Notes ?? "").Replace("'","\\'"))')">
+                                Edit
+                            </button>
+                            <form method="post" asp-action="DeletePricing" asp-route-id="@p.Id" class="d-inline" onsubmit="return confirm('Delete @p.Provider / @p.Model?');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-outline-danger btn-sm">×</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-header bg-transparent border-0">
+            <strong id="pricing-form-title">Add new pricing row</strong>
+        </div>
+        <div class="card-body">
+            <form method="post" asp-action="SavePricing" class="row g-3">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Id" id="Id" value="0" />
+                <div class="col-md-3">
+                    <label class="form-label small">Provider</label>
+                    <input class="form-control form-control-sm" name="Provider" id="Provider" placeholder="Gemini / Ollama / OpenAI / Groq / Cloud" required />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Model</label>
+                    <input class="form-control form-control-sm font-monospace" name="Model" id="Model" placeholder="e.g. gemini-2.0-flash or * (default)" required />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Display name</label>
+                    <input class="form-control form-control-sm" name="DisplayName" id="DisplayName" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Context tokens</label>
+                    <input class="form-control form-control-sm" type="number" name="ContextTokens" id="ContextTokens" min="0" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Input USD / 1K</label>
+                    <input class="form-control form-control-sm font-monospace" type="number" step="0.00000001" min="0" name="InputPer1K" id="InputPer1K" value="0" required />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Output USD / 1K</label>
+                    <input class="form-control form-control-sm font-monospace" type="number" step="0.00000001" min="0" name="OutputPer1K" id="OutputPer1K" value="0" required />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Currency</label>
+                    <input class="form-control form-control-sm" name="Currency" id="Currency" value="USD" maxlength="3" />
+                </div>
+                <div class="col-md-3 d-flex align-items-end gap-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="IsLocal" id="IsLocal" value="true" />
+                        <label class="form-check-label small" for="IsLocal">Local model</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="IsActive" id="IsActive" value="true" checked />
+                        <label class="form-check-label small" for="IsActive">Active</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small">Notes</label>
+                    <textarea class="form-control form-control-sm" name="Notes" id="Notes" rows="2"></textarea>
+                </div>
+                <div class="col-12 d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetPricingForm()">Reset</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function editPricing(id, provider, model, displayName, inputRate, outputRate, contextToks, isLocal, isActive, notes) {
+        document.getElementById('pricing-form-title').textContent = `Edit ${provider} / ${model}`;
+        document.getElementById('Id').value = id;
+        document.getElementById('Provider').value = provider;
+        document.getElementById('Model').value = model;
+        document.getElementById('DisplayName').value = displayName;
+        document.getElementById('InputPer1K').value = inputRate;
+        document.getElementById('OutputPer1K').value = outputRate;
+        document.getElementById('ContextTokens').value = contextToks;
+        document.getElementById('IsLocal').checked = isLocal;
+        document.getElementById('IsActive').checked = isActive;
+        document.getElementById('Notes').value = notes;
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+    function resetPricingForm() {
+        document.getElementById('pricing-form-title').textContent = 'Add new pricing row';
+        const f = document.querySelector('form[action$="SavePricing"]');
+        if (f) f.reset();
+        document.getElementById('Id').value = 0;
+        document.getElementById('IsActive').checked = true;
+    }
+</script>

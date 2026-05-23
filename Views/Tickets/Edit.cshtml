@@ -1,0 +1,268 @@
+@model AISupportAnalysisPlatform.Models.Ticket
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> _userManager
+
+@{
+    ViewData["Title"] = "Edit Ticket";
+    bool isAdmin = ViewBag.IsAdmin ?? false;
+    bool isAgent = ViewBag.IsAgent ?? false;
+    bool isTechnicalRole = isAdmin || isAgent;
+    var ticketEditHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Case Modification",
+        Subtitle = $"Updating parameters for incident #{Model.TicketNumber}",
+        IconClass = "bi bi-pencil-square",
+        Actions = new()
+        {
+            new() {
+                Text = "Back to Details",
+                Href = Url.Action("Details", "Tickets", new { id = Model.Id }) ?? "#",
+                IconClass = "bi bi-arrow-left",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="ticketEditHeader" />
+
+<div class="row">
+    <div class="col-xl-10 mx-auto">
+        <div class="app-card">
+            <div class="app-card-body p-4 p-lg-5">
+                <form asp-action="Edit" enctype="multipart/form-data">
+                    <div asp-validation-summary="ModelOnly" class="app-form-error mb-4 p-3 rounded-3" style="background: rgba(var(--danger-color-rgb),0.08);"></div>
+                    <input type="hidden" asp-for="Id" />
+                    
+                    <div class="row g-4 mb-4">
+                        <div class="col-12">
+                            <label asp-for="Title" class="form-label fw-bold small text-uppercase text-muted">Inquiry Title</label>
+                            <input asp-for="Title" class="form-control border-0 bg-light p-3 shadow-none" placeholder="Enter a concise summary of the inquiry..." readonly="@(!isTechnicalRole && Model.Status?.Name != "New" ? "readonly" : null)" />
+                            <span asp-validation-for="Title" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Description" class="form-label fw-bold small text-uppercase text-muted">Inquiry Details</label>
+                            <textarea asp-for="Description" class="form-control border-0 bg-light p-3 shadow-none" rows="6" placeholder="Provide comprehensive technical context and background data for analysis..." readonly="@(!isTechnicalRole && Model.Status?.Name != "New" ? "readonly" : null)"></textarea>
+                            <span asp-validation-for="Description" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="CategoryId" class="form-label fw-bold small text-uppercase text-muted">Strategic Classification</label>
+                            <div class="input-group bg-light rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-tag text-primary"></i></span>
+                                <select asp-for="CategoryId" class="form-select border-0 bg-transparent shadow-none" asp-items="ViewBag.CategoryId"></select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="PriorityId" class="form-label fw-bold small text-uppercase text-muted">Priority Level</label>
+                            <div class="input-group bg-light rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-lightning text-warning"></i></span>
+                                <select asp-for="PriorityId" class="form-select border-0 bg-transparent shadow-none" asp-items="ViewBag.PriorityId"></select>
+                            </div>
+                        </div>
+
+
+                        <div class="col-md-6">
+                            <label asp-for="StatusId" class="form-label fw-bold small text-uppercase text-muted">Workflow Status</label>
+                            <div class="input-group bg-light rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-toggle-on text-info"></i></span>
+                                <select asp-for="StatusId" class="form-select border-0 bg-transparent shadow-none" asp-items="ViewBag.StatusId" disabled="@(!isTechnicalRole ? "disabled" : null)"></select>
+                            </div>
+                            @if (!isTechnicalRole)
+                            {
+                                <input type="hidden" asp-for="StatusId" />
+                                <div class="text-xs text-muted mt-1" style="font-size: 0.65rem;">Note: Authority required for phase modification.</div>
+                            }
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="AssignedToUserId" class="form-label fw-bold small text-uppercase text-muted">Expert Assignee</label>
+                            <div class="input-group bg-light rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-person-check text-primary"></i></span>
+                                <select asp-for="AssignedToUserId" class="form-select border-0 bg-transparent shadow-none" asp-items="ViewBag.AssignedToUserId" disabled="@(!isAdmin ? "disabled" : null)">
+                                    <option value="">-- No Specialist Assigned --</option>
+                                </select>
+                                @if(!isAdmin) { <input type="hidden" asp-for="AssignedToUserId" /> }
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="EntityId" class="form-label fw-bold small text-uppercase text-muted">Organizational Entity</label>
+                            <div class="input-group bg-light rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-building text-secondary"></i></span>
+                                <select asp-for="EntityId" class="form-select border-0 bg-transparent shadow-none" asp-items="ViewBag.EntityId" disabled="@(!isAdmin ? "disabled" : null)"></select>
+                                @if(!isAdmin) { <input type="hidden" asp-for="EntityId" /> }
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="SourceId" class="form-label fw-bold small text-uppercase text-muted">Ingestion Channel</label>
+                            <div class="input-group bg-light rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-broadcast text-success"></i></span>
+                                <select asp-for="SourceId" class="form-select border-0 bg-transparent shadow-none" asp-items="ViewBag.SourceId" disabled="@(!isAdmin ? "disabled" : null)"></select>
+                                @if(!isAdmin) { <input type="hidden" asp-for="SourceId" /> }
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ProductArea" class="form-label fw-bold small text-uppercase text-muted">Product Area</label>
+                            <input asp-for="ProductArea" class="form-control border-0 bg-light p-3 shadow-none" readonly="@(!isTechnicalRole ? "readonly" : null)" />
+                            <span asp-validation-for="ProductArea" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EnvironmentName" class="form-label fw-bold small text-uppercase text-muted">Environment</label>
+                            <input asp-for="EnvironmentName" class="form-control border-0 bg-light p-3 shadow-none" readonly="@(!isTechnicalRole ? "readonly" : null)" />
+                            <span asp-validation-for="EnvironmentName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="BrowserName" class="form-label fw-bold small text-uppercase text-muted">Browser</label>
+                            <input asp-for="BrowserName" class="form-control border-0 bg-light p-3 shadow-none" readonly="@(!isTechnicalRole ? "readonly" : null)" />
+                            <span asp-validation-for="BrowserName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="OperatingSystem" class="form-label fw-bold small text-uppercase text-muted">Operating System</label>
+                            <input asp-for="OperatingSystem" class="form-control border-0 bg-light p-3 shadow-none" readonly="@(!isTechnicalRole ? "readonly" : null)" />
+                            <span asp-validation-for="OperatingSystem" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ExternalReferenceId" class="form-label fw-bold small text-uppercase text-muted">External Reference</label>
+                            <input asp-for="ExternalReferenceId" class="form-control border-0 bg-light p-3 shadow-none" readonly="@(!isTechnicalRole ? "readonly" : null)" />
+                            <span asp-validation-for="ExternalReferenceId" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ExternalSystemName" class="form-label fw-bold small text-uppercase text-muted">External System</label>
+                            <input asp-for="ExternalSystemName" class="form-control border-0 bg-light p-3 shadow-none" readonly="@(!isTechnicalRole ? "readonly" : null)" />
+                            <span asp-validation-for="ExternalSystemName" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ImpactScope" class="form-label fw-bold small text-uppercase text-muted">Impact Scope</label>
+                            <input asp-for="ImpactScope" class="form-control border-0 bg-light p-3 shadow-none" readonly="@(!isTechnicalRole ? "readonly" : null)" />
+                            <span asp-validation-for="ImpactScope" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="AffectedUsersCount" class="form-label fw-bold small text-uppercase text-muted">Affected Users</label>
+                            <input asp-for="AffectedUsersCount" type="number" min="1" class="form-control border-0 bg-light p-3 shadow-none" readonly="@(!isTechnicalRole ? "readonly" : null)" />
+                            <span asp-validation-for="AffectedUsersCount" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="DueDate" class="form-label fw-bold small text-uppercase text-muted">Deadline Commitment</label>
+                            <div class="input-group bg-light rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-calendar-event text-danger"></i></span>
+                                <input asp-for="DueDate" type="date" class="form-control border-0 bg-transparent shadow-none p-3" readonly="@(!isTechnicalRole ? "readonly" : null)" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Supplemental Artifacts</label>
+                            <div class="input-group bg-light rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-paperclip text-muted"></i></span>
+                                <input type="file" name="files" class="form-control border-0 bg-transparent shadow-none p-3" multiple />
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ParentTicketId" class="form-label fw-bold small text-uppercase text-muted">Parent Ticket</label>
+                            <div class="input-group bg-light rounded-3">
+                                <span class="input-group-text bg-transparent border-0"><i class="bi bi-link-45deg text-primary"></i></span>
+                                <select asp-for="ParentTicketId" class="form-select border-0 bg-transparent shadow-none p-3" asp-items="ViewBag.ParentTicketId" disabled="@(!isTechnicalRole ? "disabled" : null)">
+                                    <option value="">-- None --</option>
+                                </select>
+                            </div>
+                            @if (!isTechnicalRole) { <input type="hidden" asp-for="ParentTicketId" /> }
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="TechnicalAssessment" class="form-label fw-bold small text-uppercase text-muted">Technical Assessment</label>
+                            <textarea asp-for="TechnicalAssessment" class="form-control border-0 bg-light p-3" rows="4" placeholder="Document the assessment, affected flow, evidence, and working theory..." readonly="@(!isTechnicalRole ? "readonly" : null)"></textarea>
+                            <span asp-validation-for="TechnicalAssessment" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="EscalationLevel" class="form-label fw-bold small text-uppercase text-muted">Escalation Level</label>
+                            <select asp-for="EscalationLevel" class="form-select border-0 bg-light p-3 shadow-none" disabled="@(!isTechnicalRole ? "disabled" : null)">
+                                <option value="">No Escalation</option>
+                                <option value="L1">L1 Support</option>
+                                <option value="L2">L2 Engineering</option>
+                                <option value="L3">L3 Specialist</option>
+                                <option value="Manager Review">Manager Review</option>
+                            </select>
+                            @if (!isTechnicalRole) { <input type="hidden" asp-for="EscalationLevel" /> }
+                            <span asp-validation-for="EscalationLevel" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="EscalatedToUserId" class="form-label fw-bold small text-uppercase text-muted">Escalated To</label>
+                            <select asp-for="EscalatedToUserId" class="form-select border-0 bg-light p-3 shadow-none" asp-items="ViewBag.EscalatedToUserId" disabled="@(!isTechnicalRole ? "disabled" : null)">
+                                <option value="">-- No Escalation Owner --</option>
+                            </select>
+                            @if (!isTechnicalRole) { <input type="hidden" asp-for="EscalatedToUserId" /> }
+                            <span asp-validation-for="EscalatedToUserId" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="ResolutionSummary" class="form-label fw-bold small text-uppercase text-muted">Resolution Summary</label>
+                            <textarea asp-for="ResolutionSummary" class="form-control border-0 bg-light p-3" rows="3" placeholder="Provide the fix, mitigation, or final outcome..." readonly="@(!isTechnicalRole ? "readonly" : null)"></textarea>
+                            <span asp-validation-for="ResolutionSummary" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="PendingReason" class="form-label fw-bold small text-uppercase text-muted">Pending Reason</label>
+                            <textarea asp-for="PendingReason" class="form-control border-0 bg-light p-3" rows="2" placeholder="Explain why this ticket is pending and what is blocked..." readonly="@(!isTechnicalRole ? "readonly" : null)"></textarea>
+                            <span asp-validation-for="PendingReason" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="RootCause" class="form-label fw-bold small text-uppercase text-muted">Root Cause</label>
+                            <textarea asp-for="RootCause" class="form-control border-0 bg-light p-3" rows="4" placeholder="Capture the confirmed root cause once known..." readonly="@(!isTechnicalRole ? "readonly" : null)"></textarea>
+                            <span asp-validation-for="RootCause" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="VerificationNotes" class="form-label fw-bold small text-uppercase text-muted">Verification Notes</label>
+                            <textarea asp-for="VerificationNotes" class="form-control border-0 bg-light p-3" rows="4" placeholder="Document how the team validated the resolution..." readonly="@(!isTechnicalRole ? "readonly" : null)"></textarea>
+                            <span asp-validation-for="VerificationNotes" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ResolutionApprovedByUserId" class="form-label fw-bold small text-uppercase text-muted">Resolution Approver</label>
+                            <select asp-for="ResolutionApprovedByUserId" class="form-select border-0 bg-light p-3 shadow-none" asp-items="ViewBag.ResolutionApprovedByUserId" disabled="@(!isAdmin ? "disabled" : null)">
+                                <option value="">-- No Approver Assigned --</option>
+                            </select>
+                            @if (!isAdmin) { <input type="hidden" asp-for="ResolutionApprovedByUserId" /> }
+                            <span asp-validation-for="ResolutionApprovedByUserId" class="text-danger small"></span>
+                        </div>
+
+                        @if (Model.IsSlaBreached)
+                        {
+                            <div class="col-12">
+                                <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center mb-0">
+                                    <i class="bi bi-exclamation-octagon-fill fs-4 me-3"></i>
+                                    <div>
+                                        <div class="fw-bold">SLA Breach Detected</div>
+                                        <div class="small">The response or resolution deadline for this case has passed. Priority action required.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="app-form-actions mt-4">
+                        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-sm btn-soft-secondary rounded-pill px-4 fw-bold app-form-actions-secondary">
+                            <i class="bi bi-arrow-left @(Loc.IsRtl ? "ms-1" : "me-1")"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm">
+                            <i class="bi bi-save-fill @(Loc.IsRtl ? "ms-2" : "me-2")"></i>Commit Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -1,0 +1,19 @@
+@model AISupportAnalysisPlatform.Models.AI.AiInsightsDashboardViewModel
+
+@{
+    var reviewAttentionTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    {
+        Title = Loc.Get("ReviewAttentionQueue"),
+        Subtitle = Loc.Get("ReviewQueueSubtitle"),
+        ShowColumnSearchToggle = true,
+        ColumnSearchLabel = Loc.Get("ReviewQueueFilters"),
+        TableSelector = "#reviewAttentionTable",
+        TablePartialName = "~/Views/AiInsights/_ReviewAttentionTable.cshtml",
+        TableModel = Model.ReviewItems,
+        FooterPartialName = "~/Views/AiInsights/_ReviewAttentionPagination.cshtml",
+        FooterModel = Model,
+        ContainerCssClass = "feature-table-shell mb-5"
+    };
+}
+
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="reviewAttentionTable" />

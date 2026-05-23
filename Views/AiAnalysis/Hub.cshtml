@@ -1,0 +1,454 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
+@using AISupportAnalysisPlatform.Models
+
+@{
+    ViewData["Title"] = Loc.Get("AnalysisHub");
+    var visibleTicketCount = Model.Items?.Count ?? 0;
+    var hubHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("AnalysisHub"),
+        IconClass = "bi bi-graph-up-arrow",
+        Chips = new()
+        {
+            new() { Text = $"{Model.TotalCount} {Loc.Get("Tickets")}", IconClass = "bi bi-ticket-detailed" },
+            new() { Text = $"{visibleTicketCount} {Loc.Get("Visible")}", IconClass = "bi bi-funnel" },
+            new() { Text = Loc.Get("CopilotActive"), IconClass = "bi bi-stars" }
+        },
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("Dashboard"),
+                Href = Url.Action("Index", "Dashboard") ?? "#",
+                IconClass = "bi bi-grid",
+                CssClass = "btn-action-soft btn-action-sm"
+            }
+        }
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/ai-hub.css" asp-append-version="true" />
+}
+
+<partial name="_PageHeader" model="hubHeader" />
+
+<div class="row g-3">
+    <div class="col-12">
+        <section class="hub-command-panel">
+        <div class="hub-command-heading">
+            <h5 class="fw-bold mb-1">@Loc.Get("CopilotEngine")</h5>
+            <div class="small text-muted">@Loc.Get("CopilotEngineSubtitle")</div>
+        </div>
+        <div class="hub-actions">
+            <div class="dropdown">
+                <button class="btn-action-soft dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-diagram-3-fill"></i><span>@Loc.Get("GenerateEmbeddings")</span>
+                </button>
+                <ul class="dropdown-menu border-0 shadow-lg animate__animated animate__fadeIn">
+                    <li><a class="dropdown-item py-2 fw-bold" href="#" id="embed-all-btn"><i class="bi bi-globe me-2 text-primary"></i>@Loc.Get("EmbedSystemTickets")</a></li>
+                    <li><a class="dropdown-item py-2 fw-bold" href="#" id="embed-selected-btn"><i class="bi bi-check2-square me-2 text-primary"></i>@Loc.Get("EmbedSelectedOnly")</a></li>
+                </ul>
+            </div>
+            <div class="dropdown">
+                <button class="btn-action-soft dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-cpu-fill"></i><span>@Loc.Get("AnalyzeSelected")</span>
+                </button>
+                <ul class="dropdown-menu border-0 shadow-lg animate__animated animate__fadeIn">
+                    <li><a class="dropdown-item py-2 fw-bold" href="#" id="analyze-all-btn"><i class="bi bi-globe2 me-2 text-success"></i>@Loc.Get("AnalyzeAllTickets")</a></li>
+                    <li><a class="dropdown-item py-2 fw-bold" href="#" id="analyze-selected-btn"><i class="bi bi-check2-square me-2 text-success"></i>@Loc.Get("AnalyzeSelected")</a></li>
+                </ul>
+            </div>
+            <a class="btn-action-ghost" asp-controller="AiAnalysis" asp-action="Benchmark" title="@Loc.Get("Benchmark")">
+                <i class="bi bi-speedometer2"></i><span>@Loc.Get("Benchmark")</span>
+            </a>
+            <a class="btn-action-ghost" asp-controller="AiAnalysis" asp-action="KnowledgeBase" title="@Loc.Get("Base")">
+                <i class="bi bi-journal-richtext"></i><span>@Loc.Get("Base")</span>
+            </a>
+            <a class="btn-action-ghost" asp-controller="AiAnalysis" asp-action="Evaluation" title="@Loc.Get("Evaluation")">
+                <i class="bi bi-clipboard-data"></i><span>@Loc.Get("Evaluation")</span>
+            </a>
+            <a class="btn-action-ghost d-none d-xl-inline-flex" asp-controller="AiAnalysis" asp-action="CopilotAssessment" title="@Loc.Get("Assessment")">
+                <i class="bi bi-microscope"></i><span>@Loc.Get("Assessment")</span>
+            </a>
+            <a class="btn-action-ghost" asp-controller="AiAnalysis" asp-action="InvestigationHistory" title="@Loc.Get("Archive")">
+                <i class="bi bi-shield-lock-fill"></i><span>@Loc.Get("Archive")</span>
+            </a>
+            <a class="btn-action" asp-controller="AiAnalysis" asp-action="Copilot" title="@Loc.Get("Copilot")">
+                <i class="bi bi-chat-square-text"></i><span>@Loc.Get("Copilot")</span>
+            </a>
+        </div>
+
+        <div id="analysis-progress-panel" class="progress-panel mt-3 ms-lg-auto animate__animated animate__fadeIn" style="display: none; max-width: 580px;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex align-items-center gap-2 overflow-hidden">
+                    <div class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></div>
+                    <span class="fw-bold small text-truncate" id="analysis-progress-title">@Loc.Get("AnalyzingTickets")...</span>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                    <div class="d-flex flex-wrap gap-1" id="analysis-stats">
+                        <span class="progress-stat stat-total" id="analysis-stat-total"></span>
+                        <span class="progress-stat stat-done" id="analysis-stat-done"></span>
+                        <span class="progress-stat stat-fail" id="analysis-stat-fail" style="display:none;"></span>
+                        <span class="progress-stat stat-pct" id="analysis-stat-pct"></span>
+                    </div>
+                    <button class="btn btn-soft-danger px-3 shadow-none" id="stop-analysis-btn">
+                        <i class="bi bi-stop-circle me-1"></i> @Loc.Get("StopProcess")
+                    </button>
+                </div>
+            </div>
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" id="analysis-progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- Embedding Progress -->
+        <div id="embedding-progress-panel" class="progress-panel mt-2 ms-lg-auto animate__animated animate__fadeIn" style="display: none; max-width: 580px;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex align-items-center gap-2 overflow-hidden">
+                    <div class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></div>
+                    <span class="fw-bold small text-truncate" id="embedding-progress-title">@Loc.Get("GeneratingEmbeddings")...</span>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                    <div class="d-flex flex-wrap gap-1" id="embedding-stats">
+                        <span class="progress-stat stat-total" id="embedding-stat-total"></span>
+                        <span class="progress-stat stat-done" id="embedding-stat-done"></span>
+                        <span class="progress-stat stat-fail" id="embedding-stat-fail" style="display:none;"></span>
+                        <span class="progress-stat stat-pct" id="embedding-stat-pct"></span>
+                    </div>
+                    <button class="btn btn-soft-danger px-3 shadow-none" id="stop-embedding-btn">
+                        <i class="bi bi-stop-circle me-1"></i> @Loc.Get("StopProcess")
+                    </button>
+                </div>
+            </div>
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" id="embedding-progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+            <div id="embedding-error-container" class="mt-2 small text-danger fw-bold" style="display:none; font-size: 0.7rem;">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i><span id="embedding-error-msg"></span>
+            </div>
+        </div>
+    </section>
+</div>
+
+<div class="card border-0 shadow-sm hub-filter-card mt-3">
+    <div class="card-header bg-transparent border-0 pt-4 pb-0 px-4">
+        <h5 class="fw-bold mb-0 text-main">@Loc.Get("TicketAnalysisQueue")</h5>
+    </div>
+    <div class="card-body p-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-lg-2">
+                <label class="form-label small fw-bold text-muted text-uppercase">@Loc.Get("Search")</label>
+                <input type="text" name="request.SearchString" class="form-control" value="@Model.Request.SearchString" placeholder="@Loc.Get("TicketOrTitle")" />
+            </div>
+            <div class="col-lg-2">
+                <label class="form-label small fw-bold text-muted text-uppercase">@Loc.Get("Status")</label>
+                <select name="request.StatusId" asp-items="ViewBag.StatusId" class="form-select">
+                    <option value="">@Loc.Get("AllStatuses")</option>
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <label class="form-label small fw-bold text-muted text-uppercase">@Loc.Get("Priority")</label>
+                <select name="request.PriorityId" asp-items="ViewBag.PriorityId" class="form-select">
+                    <option value="">@Loc.Get("AllPriorities")</option>
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <label class="form-label small fw-bold text-muted text-uppercase">@Loc.Get("Entity")</label>
+                <select name="request.EntityId" asp-items="ViewBag.EntityFilterId" class="form-select">
+                    <option value="">@Loc.Get("AllEntities")</option>
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <label class="form-label small fw-bold text-muted text-uppercase">@Loc.Get("Category")</label>
+                <select name="request.CategoryId" asp-items="ViewBag.CategoryId" class="form-select">
+                    <option value="">@Loc.Get("AllCategories")</option>
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <button type="submit" class="btn btn-primary btn-pill w-100 shadow-sm">
+                    <i class="bi bi-filter me-1"></i>@Loc.Get("Apply")
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="aiHubGridContainer" data-ajax-grid="true" data-ajax-url="@Url.Action("Hub", "AiAnalysis")">
+    <partial name="~/Views/AiAnalysis/_HubGrid.cshtml" model="Model" />
+</div>
+
+@section Scripts {
+    <script>
+        const selectedIds = new Set();
+        let analysisPollingHandle = null;
+        let embeddingPollingHandle = null;
+        const csrfToken = () => document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const selectAll = document.getElementById('select-all');
+            const rowChecks = document.querySelectorAll('.row-check');
+            const singleRunButtons = document.querySelectorAll('.single-run-btn');
+            const analyzeAllBtn = document.getElementById('analyze-all-btn');
+            const analyzeSelectedBtn = document.getElementById('analyze-selected-btn');
+
+            // ─── SELECTION LOGIC ────────────────────────────────────
+            function syncSelectionVisuals() {
+                rowChecks.forEach(check => {
+                    const row = check.closest('.ticket-row');
+                    if (check.checked) {
+                        row?.classList.add('ticket-row-selected');
+                        selectedIds.add(check.value);
+                    } else {
+                        row?.classList.remove('ticket-row-selected');
+                        selectedIds.delete(check.value);
+                    }
+                });
+            }
+
+            selectAll?.addEventListener('change', function () {
+                rowChecks.forEach(check => check.checked = selectAll.checked);
+                syncSelectionVisuals();
+            });
+            rowChecks.forEach(check => check.addEventListener('change', syncSelectionVisuals));
+
+            async function runBulkAnalysis(ticketIds) {
+                const response = await fetch('@Url.Action("RunBulkAnalysis", "AiAnalysis")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken() },
+                    body: JSON.stringify(ticketIds)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    startAnalysisPolling();
+                } else if (result.message) {
+                    alert(result.message);
+                }
+            }
+
+            analyzeAllBtn?.addEventListener('click', async function (e) {
+                e.preventDefault();
+                await runBulkAnalysis([]);
+            });
+
+            analyzeSelectedBtn?.addEventListener('click', async function (e) {
+                e.preventDefault();
+                if (selectedIds.size === 0) { alert('@Loc.Get("SelectTicketsFirst")'); return; }
+                await runBulkAnalysis(Array.from(selectedIds).map(id => parseInt(id)));
+            });
+
+            // ─── SINGLE RUN ─────────────────────────────────────────
+            singleRunButtons.forEach(button => {
+                button.addEventListener('click', async function () {
+                    const ticketId = this.getAttribute('data-ticket-id');
+                    this.disabled = true;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+                    const response = await fetch(`@Url.Action("RunAnalysis", "AiAnalysis")/${ticketId}`, {
+                        method: 'POST',
+                        headers: { 'RequestVerificationToken': csrfToken() }
+                    });
+
+                    const result = await response.json();
+                    if (result.success) {
+                        startAnalysisPolling();
+                    }
+                });
+            });
+
+            // ─── EMBED ALL ──────────────────────────────────────────
+            document.getElementById('embed-all-btn')?.addEventListener('click', async function (e) {
+                e.preventDefault();
+                const response = await fetch('@Url.Action("RunBulkEmbedding", "AiAnalysis")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken() },
+                    body: JSON.stringify([])
+                });
+                const result = await response.json();
+                if (result.success) {
+                    startEmbeddingPolling();
+                } else {
+                    alert(result.message);
+                }
+            });
+
+            // ─── EMBED SELECTED ─────────────────────────────────────
+            document.getElementById('embed-selected-btn')?.addEventListener('click', async function (e) {
+                e.preventDefault();
+                if (selectedIds.size === 0) { alert('@Loc.Get("SelectTicketsFirst")'); return; }
+
+                const response = await fetch('@Url.Action("RunBulkEmbedding", "AiAnalysis")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': csrfToken() },
+                    body: JSON.stringify(Array.from(selectedIds).map(id => parseInt(id)))
+                });
+                const result = await response.json();
+                if (result.success) {
+                    startEmbeddingPolling();
+                } else {
+                    alert(result.message);
+                }
+            });
+
+            // ─── STOP ANALYSIS ──────────────────────────────────────
+            document.getElementById('stop-analysis-btn')?.addEventListener('click', async function () {
+                await fetch('@Url.Action("StopBatchAnalysis", "AiAnalysis")', {
+                    method: 'POST',
+                    headers: { 'RequestVerificationToken': csrfToken() }
+                });
+                stopAnalysisPolling();
+            });
+
+            // ─── STOP EMBEDDING ─────────────────────────────────────
+            document.getElementById('stop-embedding-btn')?.addEventListener('click', async function () {
+                await fetch('@Url.Action("StopEmbedding", "AiAnalysis")', {
+                    method: 'POST',
+                    headers: { 'RequestVerificationToken': csrfToken() }
+                });
+                stopEmbeddingPolling();
+            });
+
+            // ─── CHECK IF ALREADY RUNNING ON PAGE LOAD ──────────────
+            checkInitialState();
+        });
+
+        // ═══════════ ANALYSIS PROGRESS POLLING ═══════════
+        function startAnalysisPolling() {
+            const panel = document.getElementById('analysis-progress-panel');
+            panel.style.display = 'block';
+
+            if (analysisPollingHandle) clearInterval(analysisPollingHandle);
+
+            analysisPollingHandle = setInterval(async () => {
+                try {
+                    const res = await fetch('@Url.Action("GetBatchProgress", "AiAnalysis")');
+                    const data = await res.json();
+                    updateAnalysisUI(data);
+
+                    if (!data.isRunning && data.queueLength === 0) {
+                        clearInterval(analysisPollingHandle);
+                        analysisPollingHandle = null;
+                        setTimeout(() => {
+                            panel.style.display = 'none';
+                            window.location.reload();
+                        }, 1500);
+                    }
+                } catch { /* retry next tick */ }
+            }, 1500);
+        }
+
+        function stopAnalysisPolling() {
+            if (analysisPollingHandle) { clearInterval(analysisPollingHandle); analysisPollingHandle = null; }
+            const panel = document.getElementById('analysis-progress-panel');
+            panel.style.display = 'none';
+        }
+
+        function updateAnalysisUI(data) {
+            const pct = data.progressPercent || 0;
+            document.getElementById('analysis-progress-bar').style.width = pct + '%';
+            document.getElementById('analysis-stat-total').textContent = `@Loc.Get("Total"): ${data.totalCount}`;
+            document.getElementById('analysis-stat-done').textContent = `✓ ${data.completedCount}`;
+            document.getElementById('analysis-stat-pct').textContent = `${pct}%`;
+
+            if (data.failedCount > 0) {
+                const failEl = document.getElementById('analysis-stat-fail');
+                failEl.textContent = `✗ ${data.failedCount}`;
+                failEl.style.display = 'inline-flex';
+            }
+
+            if (data.currentTicketId) {
+                document.getElementById('analysis-progress-title').textContent = `@Loc.Get("AnalyzingTicket") #${data.currentTicketId}...`;
+            }
+        }
+
+        // ═══════════ EMBEDDING PROGRESS POLLING ═══════════
+        function startEmbeddingPolling() {
+            const panel = document.getElementById('embedding-progress-panel');
+            panel.style.display = 'block';
+
+            if (embeddingPollingHandle) clearInterval(embeddingPollingHandle);
+
+            embeddingPollingHandle = setInterval(async () => {
+                try {
+                    const res = await fetch('@Url.Action("GetEmbeddingProgress", "AiAnalysis")');
+                    const data = await res.json();
+                    updateEmbeddingUI(data);
+
+                    if (!data.isRunning) {
+                        clearInterval(embeddingPollingHandle);
+                        embeddingPollingHandle = null;
+                        
+                        // Stop spinner and change icon
+                        const spinner = document.querySelector('#embedding-progress-panel .spinner-border');
+                        if (spinner) {
+                            spinner.className = data.failedCount > 0 ? 'bi bi-exclamation-octagon text-danger' : 'bi bi-check-circle text-success';
+                        }
+
+                        if (data.failedCount === 0) {
+                            setTimeout(() => {
+                                document.getElementById('embedding-progress-panel').style.display = 'none';
+                                window.location.reload();
+                            }, 2000);
+                        } else {
+                            document.getElementById('embedding-progress-title').textContent = '@Loc.Get("ProcessFinishedWithErrors")';
+                        }
+                    }
+                } catch { /* retry next tick */ }
+            }, 1500);
+        }
+
+        function stopEmbeddingPolling() {
+            if (embeddingPollingHandle) { clearInterval(embeddingPollingHandle); embeddingPollingHandle = null; }
+            const panel = document.getElementById('embedding-progress-panel');
+            panel.style.display = 'none';
+        }
+
+        function updateEmbeddingUI(data) {
+            const pct = data.progressPercent || 0;
+            document.getElementById('embedding-progress-bar').style.width = pct + '%';
+            document.getElementById('embedding-stat-total').textContent = `@Loc.Get("Total"): ${data.totalCount}`;
+            document.getElementById('embedding-stat-done').textContent = `✓ ${data.completedCount}`;
+            document.getElementById('embedding-stat-pct').textContent = `${pct}%`;
+
+            if (data.failedCount > 0) {
+                const failEl = document.getElementById('embedding-stat-fail');
+                failEl.textContent = `✗ ${data.failedCount}`;
+                failEl.style.display = 'inline-flex';
+            }
+
+            if (data.currentTicketId) {
+                document.getElementById('embedding-progress-title').textContent = `@Loc.Get("EmbeddingTicket") #${data.currentTicketId}...`;
+            }
+
+            if (data.lastErrorMessage) {
+                const errorContainer = document.getElementById('embedding-error-container');
+                const errorMsg = document.getElementById('embedding-error-msg');
+                errorMsg.textContent = data.lastErrorMessage;
+                errorContainer.style.display = 'block';
+            } else {
+                document.getElementById('embedding-error-container').style.display = 'none';
+            }
+        }
+
+        // ═══════════ CHECK INITIAL STATE ON LOAD ═══════════
+        async function checkInitialState() {
+            try {
+                // Check analysis batch
+                const analysisRes = await fetch('@Url.Action("GetBatchProgress", "AiAnalysis")');
+                const analysisData = await analysisRes.json();
+                if (analysisData.isRunning || analysisData.queueLength > 0) {
+                    updateAnalysisUI(analysisData);
+                    startAnalysisPolling();
+                }
+
+                // Check embedding batch
+                const embedRes = await fetch('@Url.Action("GetEmbeddingProgress", "AiAnalysis")');
+                const embedData = await embedRes.json();
+                if (embedData.isRunning) {
+                    updateEmbeddingUI(embedData);
+                    startEmbeddingPolling();
+                }
+            } catch { /* ignore */ }
+        }
+    </script>
+}

@@ -1,0 +1,92 @@
+@model AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+
+@{
+    var toggleId = $"feature-table-toggle-{Guid.NewGuid():N}";
+}
+
+<div class="@Model.ContainerCssClass" data-feature-table-shell>
+    @if (!string.IsNullOrWhiteSpace(Model.Title) || Model.HasHeaderAction)
+    {
+        <div class="feature-table-header">
+            <div>
+                @if (!string.IsNullOrWhiteSpace(Model.Title))
+                {
+                    <h5 class="feature-table-title">@Model.Title</h5>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+                {
+                    <p class="feature-table-subtitle">@Model.Subtitle</p>
+                }
+            </div>
+
+            @if (Model.HasHeaderAction)
+            {
+                <a href="@Model.HeaderActionHref"
+                   class="@Model.HeaderActionCssClass"
+                   style="@Model.HeaderActionStyle">
+                    @if (!string.IsNullOrWhiteSpace(Model.HeaderActionIconClass))
+                    {
+                        <i class="@Model.HeaderActionIconClass me-2"></i>
+                    }
+                    @Model.HeaderActionText
+                </a>
+            }
+        </div>
+    }
+
+    @if (Model.HasToolbar)
+    {
+        <div class="feature-table-toolbar">
+            <div class="feature-table-toolbar-group">
+                @if (Model.ShowColumnSearchToggle)
+                {
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               role="switch"
+                               id="@toggleId"
+                               checked
+                               data-column-search-toggle="true"
+                               data-table-target="@Model.TableSelector">
+                        <label class="form-check-label small fw-bold text-muted text-uppercase" for="@toggleId">@Model.ColumnSearchLabel</label>
+                    </div>
+                }
+            </div>
+
+            <div class="feature-table-toolbar-group">
+                @if (Model.HasToolbarChip)
+                {
+                    <span id="@Model.ToolbarChipHtmlId" class="pill-badge" style="@Model.ToolbarChipStyle">
+                        @if (!string.IsNullOrWhiteSpace(Model.ToolbarChipIconClass))
+                        {
+                            <i class="@Model.ToolbarChipIconClass"></i>
+                        }
+                        @Model.ToolbarChipText
+                    </span>
+                }
+
+                @if (Model.HasToolbarAction)
+                {
+                    <a href="@Model.ToolbarActionHref"
+                       class="@Model.ToolbarActionCssClass"
+                       style="@Model.ToolbarActionStyle">
+                        @Model.ToolbarActionText
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
+    <div class="@Model.TableBodyCssClass">
+        <partial name="@Model.TablePartialName" model="@Model.TableModel" />
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.FooterPartialName))
+    {
+        <partial name="@Model.FooterPartialName" model="@Model.FooterModel" />
+    }
+    else if (Model.PaginationModel != null)
+    {
+        <partial name="_TablePagination" model="@Model.PaginationModel" />
+    }
+</div>

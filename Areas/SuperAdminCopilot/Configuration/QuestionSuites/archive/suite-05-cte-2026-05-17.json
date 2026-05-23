@@ -1,0 +1,42 @@
+{
+  "name": "Suite 5 — CTE (single / multi-step / recursive)",
+  "version": "1.0",
+  "description": "Common Table Expression patterns. Always exercise the LlmDirectSqlEmitter escape valve because QuerySpec doesn't model WITH clauses. Recursive CTEs test hierarchy traversal (manager -> reports tree).",
+  "Scenarios": [
+    { "Code": "S5-CTE-simple-001", "Question": "using a cte get the daily ticket counts for the last 14 days",
+      "Category": "CTE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH DailyCounts AS (SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-14,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE)) SELECT Day, Count FROM DailyCounts ORDER BY Day",
+      "MaxLatencyMs": 180000 },
+    { "Code": "S5-CTE-simple-002", "Question": "with a cte compute average resolution time per priority",
+      "Category": "CTE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH ResolutionByPriority AS (SELECT p.Name AS Priority, AVG(CAST(DATEDIFF(DAY, t.CreatedAt, t.ResolvedAt) AS FLOAT)) AS AvgDays FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY p.Name) SELECT Priority, AvgDays FROM ResolutionByPriority ORDER BY AvgDays DESC",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S5-CTE-multi-001", "Question": "with two ctes compute monthly counts then filter only months above 30 tickets",
+      "Category": "MCTE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH MonthlyCounts AS (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')), BusyMonths AS (SELECT Month, Count FROM MonthlyCounts WHERE Count > 30) SELECT Month, Count FROM BusyMonths ORDER BY Month",
+      "MaxLatencyMs": 180000 },
+    { "Code": "S5-CTE-multi-002", "Question": "use ctes to rank entities by ticket volume then keep only top 3",
+      "Category": "MCTE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Entitys",
+      "ExpectedSql": "WITH EntityCounts AS (SELECT e.Name, COUNT(t.Id) AS Count FROM Entitys e LEFT JOIN Tickets t ON t.EntityId = e.Id AND t.IsDeleted = 0 WHERE e.IsActive = 1 GROUP BY e.Name), Ranked AS (SELECT Name, Count, RANK() OVER (ORDER BY Count DESC) AS Rank FROM EntityCounts) SELECT Name, Count, Rank FROM Ranked WHERE Rank <= 3 ORDER BY Rank",
+      "MaxLatencyMs": 180000 },
+    { "Code": "S5-CTE-multi-003", "Question": "compute open ticket count per entity then average across entities using ctes",
+      "Category": "MCTE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH OpenPerEntity AS (SELECT e.Id AS EntityId, COUNT(*) AS OpenCount FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN Entitys e ON e.Id = t.EntityId WHERE s.Name = 'Open' AND t.IsDeleted = 0 AND e.IsActive = 1 GROUP BY e.Id) SELECT AVG(CAST(OpenCount AS FLOAT)) AS AvgOpenPerEntity FROM OpenPerEntity",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "S5-CTE-window-001", "Question": "using a cte rank tickets within each priority by created date and keep the first 2 per priority",
+      "Category": "MCTE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH RankedTickets AS (SELECT t.TicketNumber, p.Name AS Priority, t.CreatedAt, ROW_NUMBER() OVER (PARTITION BY t.PriorityId ORDER BY t.CreatedAt ASC) AS rn FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0) SELECT TicketNumber, Priority, CreatedAt FROM RankedTickets WHERE rn <= 2 ORDER BY Priority, CreatedAt",
+      "MaxLatencyMs": 180000 },
+    { "Code": "S5-CTE-window-002", "Question": "use a cte with a running total of resolved tickets per day",
+      "Category": "MCTE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH DailyResolved AS (SELECT CAST(ResolvedAt AS DATE) AS Day, COUNT(*) AS Count FROM Tickets WHERE ResolvedAt IS NOT NULL AND ResolvedAt >= DATEADD(DAY,-30,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(ResolvedAt AS DATE)) SELECT Day, Count, SUM(Count) OVER (ORDER BY Day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS RunningTotal FROM DailyResolved ORDER BY Day",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S5-CTE-multiref-001", "Question": "compare each months ticket count to the overall monthly average using a cte",
+      "Category": "MCTE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "WITH MonthlyCounts AS (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')) SELECT Month, Count, (SELECT AVG(CAST(Count AS FLOAT)) FROM MonthlyCounts) AS OverallAvg FROM MonthlyCounts ORDER BY Month",
+      "MaxLatencyMs": 180000 }
+  ]
+}

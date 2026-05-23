@@ -1,0 +1,294 @@
+@model AISupportAnalysisPlatform.Models.AI.CopilotExecutionStep
+@using AISupportAnalysisPlatform.Models.AI
+@{
+    static string ClassifyStep(string action)
+    {
+        var a = (action ?? string.Empty).ToLowerInvariant();
+        if (a.Contains("decomposer") || a.Contains("specextractor") || a.Contains("specrefine")
+            || a.Contains("intentclassifier") || a.Contains("explainer") || a.Contains("toolselector")
+            || a.Contains("llm")) return "llm";
+        if (a.Contains("compiler") || a.Contains("executor") || a.Contains("validator")
+            || a.Contains("sqlintentguard")) return "sql";
+        if (a.Contains("guard") || a.Contains("policy") || a.Contains("preflight")
+            || a.Contains("rowshapesanity")) return "gate";
+        return "info";
+    }
+    static string FormatMs(long ms) => ms >= 1000 ? $"{ms / 1000.0:0.00}s" : $"{ms}ms";
+    static string StatusIcon(CopilotStepStatus s) => s switch
+    {
+        CopilotStepStatus.Ok    => "bi-check-circle-fill text-success",
+        CopilotStepStatus.Warn  => "bi-exclamation-triangle-fill text-warning",
+        CopilotStepStatus.Error => "bi-x-circle-fill text-danger",
+        CopilotStepStatus.Skip  => "bi-skip-forward-fill text-muted",
+        _ => "bi-circle text-muted",
+    };
+
+    // ── "What this stage does" — kept in sync with _InvestigationWorkflow.cshtml's
+    // describeStage so the Run Trace and Workflow tabs explain stages identically.
+    static string DescribeStage(string action)
+    {
+        var a = (action ?? string.Empty).ToLowerInvariant();
+        if (a.Contains("intake") || a.Contains("preflight"))
+            return "First gate. Rejects empty / write-shaped / injection-shaped questions before any LLM call. Pass = the question is safe and complete enough to plan.";
+        if (a.Contains("operational"))
+            return "Per-session retry-budget + cost-gate check. Refuses when the current chat has been hammering the LLM (cost runaway) or when the question would breach a configured cap.";
+        if (a.Contains("decomposer"))
+            return "Decides whether the question is atomic or compound. If compound (e.g. \"open AND closed tickets by category\"), splits into sub-questions that run in parallel.";
+        if (a.Contains("conversational") || a.Contains("knowledge"))
+            return "Tries to handle the question without SQL — greeting, meta-question, or known FAQ. If matched, the route ends here.";
+        if (a.Contains("semantic search"))
+            return "Vector retrieval over indexed entities — picks the most relevant rows by meaning, not keyword. Used when the question names a record.";
+        if (a.Contains("metadata"))
+            return "Schema introspection — answers \"what columns / tables / entities exist\" without hitting the data.";
+        if (a.Contains("tool"))
+            return "Routes to a registered external tool (Jira, Slack, Confluence). The copilot delegates instead of writing SQL.";
+        if (a.Contains("retriever"))
+            return "Pulls a top-K slice of schema tables (vector or keyword) so the planner only sees relevant tables in its prompt.";
+        if (a.Contains("specextractor") || a.Contains("specrefine") || (a.Contains("spec") && a.Contains("extract")))
+            return "Form-filling LLM call. Reads the question + schema slice, emits a structured QuerySpec JSON (root, filters, aggregations, group-by). Replaces free-form SQL generation.";
+        if (a.Contains("retry"))
+            return "Retry of the spec extractor with the previous failure surfaced. The LLM gets a chance to fix what broke (compile error, validator complaint, executor error).";
+        if (a.Contains("intentrouter") || a.Contains("intent"))
+            return "Maps the question's shape to one of the pipeline's known intents (DataQuery / Clarification / Tool / GeneralChat / Aborted). Drives the routing fan-out.";
+        if (a.Contains("specenricher") || a.Contains("enrich"))
+            return "Deterministic post-LLM rules. Adds default projection, filter-proof columns, FK labels, group-by columns. Idempotent — runs every attempt.";
+        if (a.Contains("accesspolicy"))
+            return "Blocks tables/columns marked sensitive (PasswordHash, ApiKey, Secret, …) — even if the LLM tries to project them.";
+        if (a.Contains("compiler"))
+            return "QuerySpec → parameterised T-SQL. Applies join graph, soft-delete filter, MaxRows cap, computed-expression rendering. Fully deterministic.";
+        if (a.Contains("validator"))
+            return "AST-walks the generated SQL via ScriptDom. Rejects DML, multi-statement scripts, dangerous functions. Last gate before execution.";
+        if (a.Contains("sqlintentguard"))
+            return "Spec-shape sanity check (TOP-N without ORDER BY, anti-join with redundant filters, etc.). Independent of the validator's syntactic checks.";
+        if (a.Contains("executor"))
+            return "Runs the compiled SQL against the read-only DB connection. Stops reading at MaxRows; surfaces IsTruncated when capped.";
+        if (a.Contains("rowshape"))
+            return "Detects spurious empty / single-row results that may indicate a bad query (e.g. GROUP BY collapsed wrong). Doesn't reject, just flags.";
+        if (a.Contains("explainer"))
+            return "LLM call that summarises the result set as natural-language. Optional — skipped when the copilot prefers the templated reply.";
+        if (a.Contains("format"))
+            return "Renders the final answer (markdown table + citations + chart hint). Last stop before the user.";
+        if (a.Contains("verifiedquery"))
+            return "Hand-curated (question, SQL) catalog. When a new question embedding cosine-matches a verified entry, the SQL is used directly — no LLM call.";
+        if (a.Contains("sub-question"))
+            return "One branch of a parallel fan-out. Each sub-question runs its own SpecExtractor → Compiler → Executor → Explainer pipeline.";
+        return "Internal pipeline stage. Expand for the recorded technical payload.";
+    }
+
+    // ── Verdict — same heuristic as workflow tab so the takeaways line up.
+    static (string Icon, string Label, string Tone) VerdictFor(CopilotExecutionStep s)
+    {
+        if (s.Status == CopilotStepStatus.Error) return ("bi-x-circle-fill", "Failed", "error");
+        if (s.Status == CopilotStepStatus.Warn) return ("bi-exclamation-triangle-fill", "Warning", "warn");
+        if (s.Status == CopilotStepStatus.Skip) return ("bi-skip-forward-fill", "Skipped", "muted");
+        var elapsed = s.ElapsedMs;
+        var tokens = (s.PromptTokens ?? 0) + (s.CompletionTokens ?? 0);
+        var isLlm = tokens > 0 || s.PromptTokens.HasValue;
+        if (isLlm)
+        {
+            if (elapsed > 10000) return ("bi-hourglass-bottom", "Slow LLM (>10s)", "warn");
+            if (elapsed > 5000)  return ("bi-hourglass-split", "Noticeable LLM time (>5s)", "warn");
+            if (tokens > 5000)   return ("bi-cash-stack", "Expensive prompt (>5K tokens)", "warn");
+            return ("bi-check2-circle", "LLM call clean", "ok");
+        }
+        if (elapsed > 2000) return ("bi-hourglass", "Slow stage (>2s)", "warn");
+        return ("bi-check2-circle", "OK", "ok");
+    }
+
+    static string CostString(decimal? c) => c is null ? "—"
+        : c.Value == 0 ? "free"
+        : c.Value >= 0.01m ? $"${c.Value:F4}" : $"${c.Value:F6}";
+
+    var kind = ClassifyStep(Model.Action);
+    var hasTech = !string.IsNullOrWhiteSpace(Model.TechnicalData);
+    var hasSubsteps = Model.SubSteps?.Count > 0;
+    var tokensSum = (Model.PromptTokens ?? 0) + (Model.CompletionTokens ?? 0);
+    var isLlm = tokensSum > 0 || !string.IsNullOrEmpty(Model.LlmModelUsed) || kind == "llm";
+    var stageDesc = DescribeStage(Model.Action);
+    var verdict = VerdictFor(Model);
+    // Every step is expandable now — even the simple ones surface a description + verdict.
+    var rowId = $"runtrace-row-{Guid.NewGuid():N}";
+}
+
+<div class="runtrace-row runtrace-kind-@kind runtrace-status-@Model.Status.ToString().ToLowerInvariant()">
+    <div class="runtrace-row-bullet">
+        <i class="bi @StatusIcon(Model.Status).Split(' ')[0]"></i>
+    </div>
+    <div class="runtrace-row-body">
+        <div class="runtrace-row-head" onclick="document.getElementById('@rowId').classList.toggle('expanded'); this.classList.toggle('is-open');" style="cursor:pointer;">
+            <div class="runtrace-row-title">
+                @if (kind == "llm") { <span class="runtrace-kind-badge llm"><i class="bi bi-cpu"></i>LLM</span> }
+                else if (kind == "sql") { <span class="runtrace-kind-badge sql"><i class="bi bi-database"></i>SQL</span> }
+                else if (kind == "gate") { <span class="runtrace-kind-badge gate"><i class="bi bi-shield-check"></i>GATE</span> }
+                <span class="runtrace-row-name">@Model.Action</span>
+            </div>
+            <div class="runtrace-row-meta">
+                @if (tokensSum > 0)
+                {
+                    <span class="runtrace-meta-chip" title="prompt + completion tokens">
+                        <i class="bi bi-hash"></i>@($"{(Model.PromptTokens ?? 0):N0}+{(Model.CompletionTokens ?? 0):N0}")
+                    </span>
+                }
+                @if (Model.EstimatedCostUsd is { } cost)
+                {
+                    <span class="runtrace-meta-chip @(cost == 0 ? "free" : "")" title="estimated cost">
+                        <i class="bi bi-currency-dollar"></i>@CostString(cost)
+                    </span>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.LlmModelUsed))
+                {
+                    <span class="runtrace-meta-chip muted" title="model used">@Model.LlmModelUsed</span>
+                }
+                <span class="runtrace-meta-chip @(Model.ElapsedMs > 2000 ? "slow" : "muted")">
+                    <i class="bi bi-stopwatch"></i>@FormatMs(Model.ElapsedMs)
+                </span>
+                <i class="bi bi-chevron-down runtrace-row-chevron"></i>
+            </div>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.Detail))
+        {
+            <div class="runtrace-row-detail">@Model.Detail</div>
+        }
+        <div id="@rowId" class="runtrace-row-expand">
+            @* ── What this stage does ──────────────────────────────────────── *@
+            <div class="runtrace-section">
+                <div class="runtrace-section-label"><i class="bi bi-info-circle"></i> What this stage does</div>
+                <div class="runtrace-desc">@stageDesc</div>
+            </div>
+
+            @* ── LLM call breakdown (only for LLM stages) ──────────────────── *@
+            @if (isLlm && (tokensSum > 0 || !string.IsNullOrEmpty(Model.LlmModelUsed)))
+            {
+                <div class="runtrace-section">
+                    <div class="runtrace-section-label"><i class="bi bi-cpu"></i> LLM call</div>
+                    <div class="runtrace-llm-grid">
+                        <div><span class="runtrace-k">Model</span><span class="runtrace-v">@(Model.LlmModelUsed ?? "—")</span></div>
+                        <div><span class="runtrace-k">Prompt</span><span class="runtrace-v">@($"{(Model.PromptTokens ?? 0):N0}") tok</span></div>
+                        <div><span class="runtrace-k">Completion</span><span class="runtrace-v">@($"{(Model.CompletionTokens ?? 0):N0}") tok</span></div>
+                        <div><span class="runtrace-k">Total tokens</span><span class="runtrace-v">@($"{tokensSum:N0}")</span></div>
+                        <div><span class="runtrace-k">Cost</span><span class="runtrace-v">@CostString(Model.EstimatedCostUsd)</span></div>
+                        <div><span class="runtrace-k">Elapsed</span><span class="runtrace-v">@FormatMs(Model.ElapsedMs)</span></div>
+                    </div>
+                </div>
+            }
+
+            @* ── Structured payload (StepPayload v1) ──────────────────────────
+                 The orchestrator writes a JSON envelope (kind / input / output / reason / details)
+                 into TechnicalData. We render labeled sections from it. Legacy plain-text
+                 TechnicalData isn't shown (per the approved "hide legacy" plan). *@
+            @{
+                string? payloadKind = null, payloadInput = null, payloadOutput = null, payloadReason = null, payloadDetailsJson = null;
+                if (!string.IsNullOrWhiteSpace(Model.TechnicalData) && Model.TechnicalData.TrimStart().StartsWith("{"))
+                {
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(Model.TechnicalData);
+                        if (doc.RootElement.TryGetProperty("_payload", out var ver) && ver.GetString() == "v1")
+                        {
+                            payloadKind = doc.RootElement.TryGetProperty("kind", out var k) ? k.GetString() : null;
+                            payloadInput = doc.RootElement.TryGetProperty("input", out var i) ? i.GetString() : null;
+                            payloadOutput = doc.RootElement.TryGetProperty("output", out var o) ? o.GetString() : null;
+                            payloadReason = doc.RootElement.TryGetProperty("reason", out var r) ? r.GetString() : null;
+                            if (doc.RootElement.TryGetProperty("details", out var det) && det.ValueKind != System.Text.Json.JsonValueKind.Null)
+                            {
+                                payloadDetailsJson = System.Text.Json.JsonSerializer.Serialize(det,
+                                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                            }
+                        }
+                    }
+                    catch { /* legacy / invalid JSON — hidden per plan */ }
+                }
+                const int RowBlobCap = 2048;
+                Func<string, string> renderRowBlob = raw =>
+                {
+                    if (string.IsNullOrEmpty(raw)) return string.Empty;
+                    var encoded = System.Net.WebUtility.HtmlEncode(raw);
+                    var sb = new System.Text.StringBuilder();
+                    sb.Append($"<div class='runtrace-blob' data-truncated='{(raw.Length > RowBlobCap ? "true" : "false")}'>");
+                    sb.Append($"<pre class='runtrace-blob-pre'>{encoded}</pre>");
+                    if (raw.Length > RowBlobCap)
+                    {
+                        sb.Append($"<button type='button' class='runtrace-blob-toggle' onclick=\"(function(b){{var p=b.parentElement;var on=p.getAttribute('data-truncated')==='true';p.setAttribute('data-truncated',on?'false':'true');b.textContent=on?'Show less':'Show full ({raw.Length:N0} chars)';}})(this)\">Show full ({raw.Length:N0} chars)</button>");
+                    }
+                    sb.Append("</div>");
+                    return sb.ToString();
+                };
+            }
+            @if (payloadKind is not null)
+            {
+                @if (!string.IsNullOrEmpty(payloadReason))
+                {
+                    <div class="runtrace-section">
+                        <div class="runtrace-section-label"><i class="bi bi-signpost-split"></i> Decision rationale</div>
+                        <div class="runtrace-desc">@payloadReason</div>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(payloadInput))
+                {
+                    <div class="runtrace-section">
+                        <div class="runtrace-section-label"><i class="bi bi-box-arrow-in-right"></i> Input</div>
+                        @Html.Raw(renderRowBlob(payloadInput))
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(payloadOutput))
+                {
+                    <div class="runtrace-section">
+                        <div class="runtrace-section-label"><i class="bi bi-box-arrow-right"></i> Output</div>
+                        @Html.Raw(renderRowBlob(payloadOutput))
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(payloadDetailsJson))
+                {
+                    <div class="runtrace-section">
+                        <div class="runtrace-section-label"><i class="bi bi-braces"></i> Details</div>
+                        @Html.Raw(renderRowBlob(payloadDetailsJson))
+                    </div>
+                }
+            }
+
+            @* ── Sub-steps (recursive: each can have its own tech) ─────────── *@
+            @if (hasSubsteps)
+            {
+                <div class="runtrace-section">
+                    <div class="runtrace-section-label"><i class="bi bi-diagram-2"></i> Sub-steps (@Model.SubSteps!.Count)</div>
+                    <ol class="runtrace-row-substeps">
+                        @foreach (var sub in Model.SubSteps)
+                        {
+                            var subOk = sub.Status == CopilotStepStatus.Ok;
+                            var subTokens = (sub.PromptTokens ?? 0) + (sub.CompletionTokens ?? 0);
+                            <li class="runtrace-substep @(subOk ? "ok" : "err")">
+                                <div class="runtrace-substep-row">
+                                    <i class="bi @StatusIcon(sub.Status).Split(' ')[0]"></i>
+                                    <span class="runtrace-substep-name">@sub.Action</span>
+                                    @if (!string.IsNullOrWhiteSpace(sub.Detail))
+                                    {
+                                        <span class="runtrace-substep-detail">— @sub.Detail</span>
+                                    }
+                                    @if (subTokens > 0)
+                                    {
+                                        <span class="runtrace-meta-chip small"><i class="bi bi-hash"></i>@($"{subTokens:N0} tok")</span>
+                                    }
+                                    @if (sub.EstimatedCostUsd is { } subCost)
+                                    {
+                                        <span class="runtrace-meta-chip small @(subCost == 0 ? "free" : "")"><i class="bi bi-currency-dollar"></i>@CostString(subCost)</span>
+                                    }
+                                    <span class="runtrace-substep-time">@FormatMs(sub.ElapsedMs)</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(sub.TechnicalData))
+                                {
+                                    <pre class="runtrace-row-tech-pre runtrace-substep-tech">@sub.TechnicalData</pre>
+                                }
+                            </li>
+                        }
+                    </ol>
+                </div>
+            }
+
+            @* ── Verdict (always present) ─────────────────────────────────── *@
+            <div class="runtrace-verdict tone-@verdict.Tone">
+                <i class="bi @verdict.Icon"></i>
+                <span><strong>Verdict:</strong> @verdict.Label</span>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,56 @@
+{
+  "name": "Suite A — Foundations (10 easy data-query cases)",
+  "version": "1.0",
+  "description": "Plain SELECT / projection / filter / count / aggregation / single-join cases. Every case has a verbatim verified-query entry — should be 10/10 verified-query hits with sim=1.00.",
+  "Scenarios": [
+    { "Code": "A01", "Question": "list ticket numbers",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber FROM Tickets t WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 120000 },
+
+    { "Code": "A02", "Question": "show me all user emails",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT Email FROM AspNetUsers",
+      "MaxLatencyMs": 60000 },
+
+    { "Code": "A03", "Question": "list entity names",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT Name FROM Entitys WHERE IsActive = 1",
+      "MaxLatencyMs": 60000 },
+
+    { "Code": "A04", "Question": "tickets with critical priority",
+      "Category": "FLT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name = 'Critical' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 60000 },
+
+    { "Code": "A05", "Question": "tickets that are open and critical",
+      "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE s.Name = 'Open' AND p.Name = 'Critical' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 60000 },
+
+    { "Code": "A06", "Question": "count of active users",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM AspNetUsers WHERE IsActive = 1",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 60000 },
+
+    { "Code": "A07", "Question": "how many tickets do we have in total",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 60000 },
+
+    { "Code": "A08", "Question": "average resolution time in days",
+      "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT AVG(CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) AS AvgResolutionDays FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 60000 },
+
+    { "Code": "A09", "Question": "ticket count by status",
+      "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT s.Name, COUNT(*) AS Count FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0 GROUP BY s.Name ORDER BY Count DESC",
+      "MaxLatencyMs": 60000 },
+
+    { "Code": "A10", "Question": "tickets with priority name",
+      "Category": "JOI", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, p.Name AS Priority FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 60000 }
+  ]
+}

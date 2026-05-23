@@ -1,0 +1,808 @@
+@{
+    ViewData["Title"] = Loc.Get("RetrievalBenchmark");
+    var benchmarkHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("RetrievalBenchmark"),
+        IconClass = "bi bi-cpu-fill",
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("Hub"),
+                Href = Url.Action("Hub", "AiAnalysis") ?? "#",
+                IconClass = "bi bi-grid",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        },
+        ToolbarPartialName = "_BenchmarkToolbar"
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/ai-benchmark.css" asp-append-version="true" />
+}
+
+<partial name="_PageHeader" model="benchmarkHeader" />
+
+<div class="benchmark-container">
+
+    <!-- Optimization Panel -->
+    <div id="tuning-panel" class="glass-card mb-5" style="display: none;">
+        <div class="glass-header d-flex align-items-center" style="background: rgba(var(--primary-color-rgb), 0.02); border-bottom: 1px solid var(--border-color);">
+            <i class="bi bi-motherboard text-info fs-4 me-3"></i>
+            <h5 class="mb-0 fw-bold text-main">Tuning Lab Configuration</h5>
+        </div>
+        <div class="glass-body">
+            <form id="tuning-form">
+                @Html.AntiForgeryToken()
+                <div class="row g-5">
+                    <div class="col-xl-6">
+                        <div class="tuning-box h-100">
+                            <h6 class="fw-black text-uppercase mb-4 d-flex align-items-center" style="font-size: 0.8rem; letter-spacing: 0.15em; color: var(--primary-color);">
+                                <i class="bi bi-sliders2 me-2 fs-5"></i> Hybrid Search Tuning
+                            </h6>
+                            <div class="mb-5">
+                                <div class="d-flex justify-content-between mb-3 align-items-center">
+                                    <label class="form-label small fw-bold mb-0 text-muted">@Loc.Get("VectorWeight")</label>
+                                    <span class="badge bg-primary rounded-pill px-3 py-2 shadow-sm" id="val-VectorWeight" style="font-size: 0.85rem;">0.82</span>
+                                </div>
+                                <input type="range" class="form-range" id="VectorWeight" name="VectorWeight" min="0" max="1" step="0.01">
+                            </div>
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-3 align-items-center">
+                                    <label class="form-label small fw-bold mb-0 text-muted">@Loc.Get("LexicalWeight")</label>
+                                    <span class="badge bg-secondary rounded-pill px-3 py-2 shadow-sm" id="val-LexicalWeight" style="font-size: 0.85rem;">0.18</span>
+                                </div>
+                                <input type="range" class="form-range" id="LexicalWeight" name="LexicalWeight" min="0" max="1" step="0.01">
+                            </div>
+                            
+                            <hr class="my-5 border-light">
+                            
+                            <h6 class="fw-black text-uppercase mb-4 d-flex align-items-center" style="font-size: 0.8rem; letter-spacing: 0.15em; color: var(--warning-color);">
+                                <i class="bi bi-shield-check me-2 fs-5"></i> Precision Thresholds
+                            </h6>
+                            <div>
+                                <div class="d-flex justify-content-between mb-3 align-items-center">
+                                    <label class="form-label small fw-bold mb-0 text-muted">Confidence Gate</label>
+                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2 shadow-sm" id="val-BaseThreshold" style="font-size: 0.85rem;">0.18</span>
+                                </div>
+                                <input type="range" class="form-range" id="BaseThreshold" name="BaseThreshold" min="0" max="0.5" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-6">
+                        <div class="tuning-box h-100">
+                            <h6 class="fw-black text-uppercase mb-4 d-flex align-items-center" style="font-size: 0.8rem; letter-spacing: 0.15em; color: var(--info-color);">
+                                <i class="bi bi-boxes me-2 fs-5"></i> Retrieval Deep Scan Fields
+                            </h6>
+                            <p class="small text-muted mb-4">Toggle data points to include in semantic encoding.</p>
+                            
+                            <div class="row g-3">
+                                @foreach(var field in new[] { "IncludeComments", "IncludeAttachments", "IncludeTechnicalAssessment", "IncludeResolutionSummary", "IncludeMetadata" }) {
+                                    <div class="col-12 col-md-6 col-xl-12">
+                                        <div class="form-check form-switch p-3 border rounded-4 hover-shadow-sm transition-all bg-white" style="padding-inline-start: 4rem !important;">
+                                            <input class="form-check-input ms-0 me-3 mt-1" type="checkbox" id="@field" name="@field" style="width: 2.8rem; height: 1.4rem;">
+                                            <label class="form-check-label fw-bold mt-1 text-dark" for="@field">@Loc.Get(field)</label>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @* ── Knowledge-Base RAG sub-panel (Tier 0.2) ────────────────────
+                   The KB retriever used to ship a hardcoded 0.78/0.22 weighted-sum
+                   in C#. These sliders now drive KnowledgeBaseRagService directly
+                   via the same SystemSettings JSON blob.  *@
+                <hr class="my-5 border-light">
+                <div class="row g-5">
+                    <div class="col-xl-6">
+                        <div class="tuning-box h-100">
+                            <h6 class="fw-black text-uppercase mb-4 d-flex align-items-center" style="font-size: 0.8rem; letter-spacing: 0.15em; color: var(--info-color);">
+                                <i class="bi bi-book me-2 fs-5"></i> Knowledge-Base Retrieval
+                            </h6>
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-3 align-items-center">
+                                    <label class="form-label small fw-bold mb-0 text-muted">KB Vector Weight</label>
+                                    <span class="badge bg-info rounded-pill px-3 py-2 shadow-sm" id="val-KbVectorWeight" style="font-size: 0.85rem;">0.78</span>
+                                </div>
+                                <input type="range" class="form-range" id="KbVectorWeight" name="KbVectorWeight" min="0" max="1" step="0.01">
+                            </div>
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between mb-3 align-items-center">
+                                    <label class="form-label small fw-bold mb-0 text-muted">KB Lexical Weight</label>
+                                    <span class="badge bg-secondary rounded-pill px-3 py-2 shadow-sm" id="val-KbLexicalWeight" style="font-size: 0.85rem;">0.22</span>
+                                </div>
+                                <input type="range" class="form-range" id="KbLexicalWeight" name="KbLexicalWeight" min="0" max="1" step="0.01">
+                            </div>
+                            <div>
+                                <div class="d-flex justify-content-between mb-3 align-items-center">
+                                    <label class="form-label small fw-bold mb-0 text-muted">KB Score Threshold</label>
+                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2 shadow-sm" id="val-KbBaseThreshold" style="font-size: 0.85rem;">0.18</span>
+                                </div>
+                                <input type="range" class="form-range" id="KbBaseThreshold" name="KbBaseThreshold" min="0" max="0.5" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+
+                    @* ── Tier-2 RAG toggles ─────────────────────────────────────
+                       BM25 + RRF hybrid retrieval, reranker placeholder, and the
+                       grounding audit. All gated, all editable from this page. *@
+                    <div class="col-xl-6">
+                        <div class="tuning-box h-100">
+                            <h6 class="fw-black text-uppercase mb-4 d-flex align-items-center" style="font-size: 0.8rem; letter-spacing: 0.15em; color: var(--primary-color);">
+                                <i class="bi bi-cpu me-2 fs-5"></i> RAG Quality Pipeline
+                            </h6>
+
+                            <div class="form-check form-switch p-3 border rounded-4 mb-3 bg-white" style="padding-inline-start: 4rem !important;">
+                                <input class="form-check-input ms-0 me-3 mt-1" type="checkbox" id="EnableBm25" name="EnableBm25" style="width: 2.8rem; height: 1.4rem;">
+                                <label class="form-check-label fw-bold mt-1 text-dark" for="EnableBm25">Hybrid BM25 + Vector (RRF)</label>
+                                <div class="small text-muted mt-1">Off = legacy weighted-sum. On = BM25 lexical + dense, fused via Reciprocal Rank Fusion.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-2 align-items-center">
+                                    <label class="form-label small fw-bold mb-0 text-muted">RRF k-constant</label>
+                                    <span class="badge bg-secondary rounded-pill px-3 py-2 shadow-sm" id="val-RrfK" style="font-size: 0.85rem;">60</span>
+                                </div>
+                                <input type="range" class="form-range" id="RrfK" name="RrfK" min="10" max="120" step="1">
+                                <div class="small text-muted">Higher = flatter rank weighting. 60 is the Cormack/Buettcher default.</div>
+                            </div>
+
+                            <div class="form-check form-switch p-3 border rounded-4 mb-3 bg-white" style="padding-inline-start: 4rem !important;">
+                                <input class="form-check-input ms-0 me-3 mt-1" type="checkbox" id="EnableReranker" name="EnableReranker" style="width: 2.8rem; height: 1.4rem;">
+                                <label class="form-check-label fw-bold mt-1 text-dark" for="EnableReranker">Cross-encoder reranker</label>
+                                <div class="small text-muted mt-1">Reserved for a future reranker model wiring. Toggle is persisted; activation requires a registered reranker.</div>
+                            </div>
+
+                            <div class="form-check form-switch p-3 border rounded-4 mb-3 bg-white" style="padding-inline-start: 4rem !important;">
+                                <input class="form-check-input ms-0 me-3 mt-1" type="checkbox" id="EnableGroundingAudit" name="EnableGroundingAudit" style="width: 2.8rem; height: 1.4rem;">
+                                <label class="form-check-label fw-bold mt-1 text-dark" for="EnableGroundingAudit">Grounding audit</label>
+                                <div class="small text-muted mt-1">After generation, an LLM-as-judge verifies each claim cites evidence. Downgrades EvidenceStrength when unsupported.</div>
+                            </div>
+
+                            <div>
+                                <div class="d-flex justify-content-between mb-2 align-items-center">
+                                    <label class="form-label small fw-bold mb-0 text-muted">Grounding Strictness</label>
+                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2 shadow-sm" id="val-GroundingStrictness" style="font-size: 0.85rem;">0.60</span>
+                                </div>
+                                <input type="range" class="form-range" id="GroundingStrictness" name="GroundingStrictness" min="0" max="1" step="0.05">
+                                <div class="small text-muted">Confidence below this threshold downgrades the evidence label by one tier.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-5 pt-4 d-flex justify-content-end align-items-center gap-3">
+                    <button type="button" class="btn btn-soft-secondary btn-pill" onclick="resetTuning()">
+                        <i class="bi bi-arrow-counterclockwise me-2"></i>@Loc.Get("DiscardChanges")
+                    </button>
+                    <button type="button" class="btn btn-primary btn-pill shadow" onclick="saveTuning()">
+                        <i class="bi bi-check2-circle me-2"></i>@Loc.Get("ApplySettings")
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="validation-panel" class="validation-card mb-4" style="display:none;">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <div class="validation-pill mb-2">
+                    <i class="bi bi-shield-check text-success"></i>
+                    <span>@Loc.Get("BenchmarkValidation")</span>
+                </div>
+                <h5 class="mb-1 fw-bold text-dark">@Loc.Get("DatasetIntegrityCheck")</h5>
+                <p class="mb-0 text-muted small">@Loc.Get("DatasetIntegrityDesc")</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2" id="validation-summary-chips"></div>
+        </div>
+        <div class="mt-3" id="validation-warning-list"></div>
+    </div>
+
+    <!-- Live Performance Summary -->
+    <div id="results-summary" class="row g-4 mb-5" style="display: none;">
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card bg-white h-100 p-4 position-relative overflow-hidden shadow-sm hover-shadow-lg transition-all" style="border-radius: 16px; border-top: 5px solid #198754;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="d-flex align-items-center justify-content-center flex-shrink-0 bg-success bg-opacity-10 rounded-circle me-3" style="width: 44px; height: 44px;">
+                        <i class="bi bi-bullseye text-success fs-5"></i>
+                    </div>
+                    <div class="text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.1em;">@Loc.Get("SuccessRate")</div>
+                </div>
+                <div class="metric-value fw-black text-success px-1" id="summary-hit-rate" style="font-size: 2.2rem; letter-spacing: -2px; line-height: 1;">0%</div>
+                <div class="small text-muted mt-2" id="summary-hit-rate-sub">Hit-rate (any rank)</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card bg-white h-100 p-4 position-relative overflow-hidden shadow-sm hover-shadow-lg transition-all" style="border-radius: 16px; border-top: 5px solid #0dcaf0;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="d-flex align-items-center justify-content-center flex-shrink-0 bg-info bg-opacity-10 rounded-circle me-3" style="width: 44px; height: 44px;">
+                        <i class="bi bi-database-fill text-info fs-5"></i>
+                    </div>
+                    <div class="text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.1em;">@Loc.Get("BenchmarkSet")</div>
+                </div>
+                <div class="metric-value fw-black text-info px-1" id="summary-total" style="font-size: 2.2rem; letter-spacing: -2px; line-height: 1;">0</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card bg-white h-100 p-4 position-relative overflow-hidden shadow-sm hover-shadow-lg transition-all" style="border-radius: 16px; border-top: 5px solid var(--primary-color);">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="d-flex align-items-center justify-content-center flex-shrink-0 bg-primary bg-opacity-10 rounded-circle me-3" style="width: 44px; height: 44px;">
+                        <i class="bi bi-lightning-charge-fill text-primary fs-5"></i>
+                    </div>
+                    <div class="text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.1em;">@Loc.Get("PerfectMatches")</div>
+                </div>
+                <div class="metric-value fw-black text-primary px-1" id="summary-hits" style="font-size: 2.2rem; letter-spacing: -2px; line-height: 1;">0</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card bg-white h-100 p-4 position-relative overflow-hidden shadow-sm hover-shadow-lg transition-all" style="border-radius: 16px; border-top: 5px solid #6c757d;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="d-flex align-items-center justify-content-center flex-shrink-0 bg-secondary bg-opacity-10 rounded-circle me-3" style="width: 44px; height: 44px;">
+                        <i class="bi bi-cpu-fill text-secondary fs-5"></i>
+                    </div>
+                    <div class="text-muted fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.1em;">@Loc.Get("Version")</div>
+                </div>
+                <div class="metric-value fw-black text-secondary px-1" id="summary-version" style="font-size: 2.2rem; letter-spacing: -2px; line-height: 1;">1.0</div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Tier-1 rank-aware metrics row ────────────────────────────────────
+       Hit-rate alone treats rank-1 and rank-8 the same. The metrics below
+       describe ranking quality so changes to the RAG pipeline get a delta.
+       Surfaces Recall@k, MRR, NDCG@5 alongside the headline number. *@
+    <div id="rank-metrics-row" class="row g-4 mb-5" style="display: none;">
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card bg-white h-100 p-4 shadow-sm" style="border-radius: 16px; border-top: 5px solid #14b8a6;">
+                <div class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.7rem; letter-spacing: 0.08em;">Recall @@ 1</div>
+                <div class="fw-black text-dark" id="metric-recall1" style="font-size: 1.9rem; line-height: 1;">0%</div>
+                <div class="small text-muted mt-2">Top-of-list precision</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card bg-white h-100 p-4 shadow-sm" style="border-radius: 16px; border-top: 5px solid #14b8a6;">
+                <div class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.7rem; letter-spacing: 0.08em;">Recall @@ 5</div>
+                <div class="fw-black text-dark" id="metric-recall5" style="font-size: 1.9rem; line-height: 1;">0%</div>
+                <div class="small text-muted mt-2">Top-5 retrieval coverage</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card bg-white h-100 p-4 shadow-sm" style="border-radius: 16px; border-top: 5px solid #f59e0b;">
+                <div class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.7rem; letter-spacing: 0.08em;">MRR</div>
+                <div class="fw-black text-dark" id="metric-mrr" style="font-size: 1.9rem; line-height: 1;">0.00</div>
+                <div class="small text-muted mt-2">Mean reciprocal rank of first hit</div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card bg-white h-100 p-4 shadow-sm" style="border-radius: 16px; border-top: 5px solid #a855f7;">
+                <div class="text-muted fw-bold text-uppercase mb-2" style="font-size: 0.7rem; letter-spacing: 0.08em;">NDCG @@ 5</div>
+                <div class="fw-black text-dark" id="metric-ndcg5" style="font-size: 1.9rem; line-height: 1;">0.00</div>
+                <div class="small text-muted mt-2">Rank-discounted relevance</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Layout Cards -->
+    <div class="row g-5">
+        <!-- Live Cases Grid -->
+        <div class="col-12">
+            <div class="glass-card">
+                <div class="glass-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-black text-main"><i class="bi bi-activity text-primary me-2"></i>@Loc.Get("LiveBenchmarkExecution")</h5>
+                    <div id="status-spinner" class="align-items-center text-primary bg-primary bg-opacity-10 px-3 py-1 rounded-pill" style="display: none;">
+                        <div class="spinner-grow spinner-grow-sm me-2" role="status"></div>
+                        <span class="small fw-bold letter-spacing-1">@Loc.Get("Processing")</span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table premium-table align-middle mb-0" id="cases-table">
+                        <thead>
+                            <tr>
+                                <th class="ps-4" style="width: 90px;">@Loc.Get("CaseId")</th>
+                                <th style="width: 140px;">@Loc.Get("Bucket")</th>
+                                <th>@Loc.Get("QueryContext")</th>
+                                <th class="text-center" style="width: 200px;">@Loc.Get("RetrievalScore")</th>
+                                <th class="pe-4 text-end" style="width: 100px;">@Loc.Get("Test")</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cases-body" class="border-top-0" style="background: var(--bg-card);">
+                            <!-- Injected by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Matrix Heatmap -->
+        <div class="col-12">
+            <div class="glass-card">
+                <div class="glass-header d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+                    <div class="mb-3 mb-md-0">
+                        <h5 class="mb-0 fw-black" style="color: var(--text-main);"><i class="bi bi-grid-3x3-gap-fill me-2" style="color: var(--primary-color);"></i>@Loc.Get("ComparisonMatrix")</h5>
+                        <p class="small text-muted mb-0 mt-1">@Loc.Get("MatrixSubtitle")</p>
+                    </div>
+                    <div class="d-flex align-items-center border rounded-pill px-2 py-1 shadow-sm" style="background: var(--bg-main); border-color: var(--border-color) !important;">
+                        <div class="rounded-circle p-1 me-2" style="background: rgba(var(--primary-color-rgb), 0.1);"><i class="bi bi-bar-chart-steps text-primary"></i></div>
+                        <select id="matrix-run-count" class="form-select border-0 bg-transparent fw-bold text-main py-1 pe-4" style="width: 160px; cursor: pointer; box-shadow: none;" onchange="loadBenchmarkHistory()">
+                            <option value="2">@Loc.Get("Compare2Runs")</option>
+                            <option value="3">@Loc.Get("Compare3Runs")</option>
+                            <option value="5">@Loc.Get("Compare5Runs")</option>
+                            <option value="10">@Loc.Get("Max10Runs")</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive p-3" style="background: var(--bg-card);">
+                    <table class="table table-bordered align-middle mb-0 matrix-table rounded-3 overflow-hidden" style="border-color: var(--border-color);">
+                        <thead id="matrix-head" style="background: var(--bg-main);">
+                            <!-- Header rows with run details -->
+                        </thead>
+                        <tbody id="matrix-body">
+                            <!-- Comparison rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historical Archive -->
+        <div class="col-12">
+            <div class="glass-card">
+                <div class="glass-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-black text-main"><i class="bi bi-clock-history text-secondary me-2"></i>@Loc.Get("PerformanceArchive")</h5>
+                </div>
+                <div class="table-responsive" style="background: var(--bg-card);">
+                    <table class="table premium-table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">@Loc.Get("RunDate")</th>
+                                <th class="text-center">@Loc.Get("HitRate")</th>
+                                <th class="text-center">@Loc.Get("AvgScore")</th>
+                                <th class="text-center">@Loc.Get("WeightsVL")</th>
+                                <th class="text-center">@Loc.Get("Includes")</th>
+                                <th class="pe-4 text-end">@Loc.Get("Actions")</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-body"></tbody>
+                    </table>
+                </div>
+                <div id="history-empty" class="p-5 text-center d-none" style="background: var(--bg-card);">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 80px; height: 80px; background: var(--bg-main);">
+                        <i class="bi bi-inbox fs-1 text-muted opacity-50"></i>
+                    </div>
+                    <h5 class="fw-bold text-main">@Loc.Get("NoHistoryYet")</h5>
+                    <p class="text-muted small">@Loc.Get("NoHistoryHint")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let currentResults = null;
+        let recentRuns = [];
+        let currentValidation = null;
+
+        const tuningPanel = document.getElementById('tuning-panel');
+        const spinner = document.getElementById('status-spinner');
+        const runBtn = document.getElementById('run-benchmark-btn');
+        const validateBtn = document.getElementById('validate-benchmark-btn');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTuning();
+            loadBenchmarkData();
+            loadBenchmarkHistory();
+            initRangeListeners();
+            validateBenchmark();
+        });
+
+        function initRangeListeners() {
+            document.querySelectorAll('#tuning-form input[type="range"]').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const label = document.getElementById('val-' + e.target.id);
+                    if (label) label.textContent = e.target.value;
+
+                    // Auto-balance complementary pairs so the operator can't accidentally
+                    // set both to 0.9 — applies to ticket-similarity AND KB pairs.
+                    const pairs = {
+                        'VectorWeight': 'LexicalWeight',
+                        'LexicalWeight': 'VectorWeight',
+                        'KbVectorWeight': 'KbLexicalWeight',
+                        'KbLexicalWeight': 'KbVectorWeight'
+                    };
+                    if (pairs[e.target.id]) {
+                        const otherId = pairs[e.target.id];
+                        const other = document.getElementById(otherId);
+                        if (other) {
+                            other.value = (1 - parseFloat(e.target.value)).toFixed(2);
+                            document.getElementById('val-' + otherId).textContent = other.value;
+                        }
+                    }
+                });
+            });
+            document.getElementById('toggle-tuning-btn').onclick = () => $(tuningPanel).slideToggle(400);
+            validateBtn?.addEventListener('click', validateBenchmark);
+        }
+
+        async function loadTuning() {
+            const res = await fetch('@Url.Action("GetTuningSettings", "AiAnalysis")');
+            const data = await res.json();
+            const lowerData = {};
+            for (let k in data) lowerData[k.toLowerCase()] = data[k];
+
+            document.querySelectorAll('#tuning-form input').forEach(el => {
+                const val = lowerData[el.name.toLowerCase()];
+                if (val !== undefined) {
+                    if (el.type === 'checkbox') el.checked = val;
+                    else {
+                        el.value = val;
+                        const label = document.getElementById('val-' + el.id);
+                        if (label) label.textContent = val;
+                    }
+                }
+            });
+        }
+
+        async function saveTuning() {
+            const data = {};
+            document.querySelectorAll('#tuning-form input').forEach(i => {
+                if (i.type === 'checkbox') {
+                    data[i.name] = i.checked;
+                } else {
+                    // RrfK is an integer; everything else is a float weight/threshold.
+                    const parsed = i.id === 'RrfK' ? parseInt(i.value, 10) : parseFloat(i.value);
+                    data[i.name] = Number.isFinite(parsed) ? parsed : i.value;
+                }
+            });
+            const res = await fetch('@Url.Action("UpdateTuningSettings", "AiAnalysis")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || '' },
+                body: JSON.stringify(data)
+            });
+            if (res.ok) {
+                $(tuningPanel).slideUp(300);
+                if (window.app?.notify) app.notify('success', 'Hyperparameters Synced');
+            }
+        }
+
+        function populateForm(settings) {
+            if (!settings) return;
+            const lowerData = {};
+            for (let k in settings) lowerData[k.toLowerCase()] = settings[k];
+
+            document.querySelectorAll('#tuning-form input').forEach(el => {
+                const val = lowerData[el.name.toLowerCase()];
+                if (val !== undefined) {
+                    if (el.type === 'checkbox') {
+                        el.checked = val;
+                    } else {
+                        el.value = val;
+                        const valLabel = document.getElementById('val-' + el.id);
+                        if (valLabel) valLabel.textContent = val;
+                    }
+                }
+            });
+        }
+
+        function resetTuning() {
+            populateForm({
+                VectorWeight: 0.82,
+                LexicalWeight: 0.18,
+                BaseThreshold: 0.18,
+                IncludeComments: true,
+                IncludeAttachments: true,
+                IncludeTechnicalAssessment: true,
+                IncludeResolutionSummary: true,
+                IncludeMetadata: true,
+                // KB RAG + Tier-2 defaults match RetrievalTuningSettings.cs.
+                KbVectorWeight: 0.78,
+                KbLexicalWeight: 0.22,
+                KbBaseThreshold: 0.18,
+                EnableBm25: true,
+                RrfK: 60,
+                EnableReranker: false,
+                EnableGroundingAudit: true,
+                GroundingStrictness: 0.6
+            });
+        }
+
+        async function loadBenchmarkData() {
+            const body = document.getElementById('cases-body');
+            const res = await fetch('@Url.Action("GetRetrievalBenchmark", "AiAnalysis")');
+            const data = await res.json();
+            body.innerHTML = '';
+            data.cases.forEach(c => {
+                const lClass = c.queryLanguage === 'Arabic' ? 'lang-ar' : (c.queryLanguage === 'English' ? 'lang-en' : 'lang-mx');
+                const match = currentResults?.cases?.find(r => r.id === c.id);
+                const row = document.createElement('tr');
+                if (match) row.className = match.isHit ? 'row-hit' : 'row-miss';
+                row.innerHTML = `
+                    <td class="ps-4 fw-black text-muted" style="font-size: 0.8rem; font-family: 'JetBrains Mono', monospace;">${c.id}</td>
+                    <td><span class="type-badge ${lClass}">${c.bucket}</span></td>
+                    <td title="${c.queryText}" class="py-3">
+                        <div class="fw-bold text-dark fs-6" style="max-width: 400px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${c.queryText}</div>
+                        <div class="text-muted mt-1 fw-bold" style="font-size: 0.7rem; letter-spacing: 0.05em;"><i class="bi bi-tag-fill me-1 opacity-50"></i>${c.intent}</div>
+                    </td>
+                    <td class="text-center align-middle">
+                        ${match ? `<div class="score-badge bg-${match.isHit ? 'success' : 'danger'} text-white d-inline-flex align-items-center">
+                            <i class="bi bi-${match.isHit ? 'check-circle' : 'x-circle'} me-2"></i>${Math.round(match.matches[0]?.score || 0)}% Match
+                        </div>` : '<span class="text-muted fw-bold opacity-25">PENDING</span>'}
+                    </td>
+                    <td class="pe-4 text-end align-middle">
+                        <button class="btn btn-expand btn-primary shadow-sm" onclick="runSingle('${c.bucket}', '${c.id}')">
+                            <i class="bi bi-play-fill text-black"></i><span class="text-black">Run</span>
+                        </button>
+                    </td>
+                `;
+                body.appendChild(row);
+            });
+        }
+
+        async function validateBenchmark() {
+            if (!validateBtn) return;
+            validateBtn.disabled = true;
+            const originalHtml = validateBtn.innerHTML;
+            validateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Validating...';
+            try {
+                const res = await fetch('@Url.Action("ValidateRetrievalBenchmark", "AiAnalysis")');
+                currentValidation = await res.json();
+                renderValidation(currentValidation);
+            } finally {
+                validateBtn.disabled = false;
+                validateBtn.innerHTML = originalHtml;
+            }
+        }
+
+        function renderValidation(data) {
+            const panel = document.getElementById('validation-panel');
+            const chips = document.getElementById('validation-summary-chips');
+            const warnings = document.getElementById('validation-warning-list');
+            if (!panel || !chips || !warnings) return;
+
+            panel.style.display = 'block';
+            chips.innerHTML = '';
+            warnings.innerHTML = '';
+
+            chips.insertAdjacentHTML('beforeend', `<span class="validation-pill text-success"><i class="bi bi-check2-circle"></i>${data.totalCases} cases checked</span>`);
+            chips.insertAdjacentHTML('beforeend', `<span class="validation-pill text-primary"><i class="bi bi-exclamation-triangle-fill"></i>${data.casesWithWarnings} cases with warnings</span>`);
+            chips.insertAdjacentHTML('beforeend', `<span class="validation-pill text-muted"><i class="bi bi-tag-fill"></i>Version ${data.version}</span>`);
+
+            const allWarnings = (data.cases || []).flatMap(c => (c.warnings || []).map(w => ({ id: c.id, bucket: c.bucket, message: w })));
+            if (!allWarnings.length) {
+                warnings.innerHTML = '<div class="alert alert-success mb-0 fw-semibold"><i class="bi bi-check2-circle me-2"></i>All benchmark references are present in the current dataset.</div>';
+                return;
+            }
+
+            warnings.innerHTML = allWarnings.map(item => `
+                <div class="alert alert-warning d-flex gap-2 mb-2">
+                    <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+                    <div>
+                        <div class="fw-bold">${item.id} <span class="text-muted">(${item.bucket})</span></div>
+                        <div class="small">${item.message}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        runBtn.onclick = async () => {
+            runBtn.disabled = true; spinner.style.display = 'inline-flex';
+            runBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> running...';
+            try {
+                const res = await fetch('@Url.Action("RunRetrievalBenchmark", "AiAnalysis")');
+                currentResults = await res.json();
+                updateSummary(currentResults);
+                loadBenchmarkData();
+                loadBenchmarkHistory();
+            } finally {
+                runBtn.disabled = false; spinner.style.display = 'none';
+                runBtn.innerHTML = '<i class="bi bi-play-circle-fill me-2 fs-5"></i><span>@Loc.Get("RunBenchmark")</span>';
+            }
+        };
+
+        async function runSingle(bucket, id) {
+            const res = await fetch(`@Url.Action("RunRetrievalBenchmark", "AiAnalysis")?bucket=${bucket}&caseId=${id}`);
+            const data = await res.json();
+            if (!currentResults) currentResults = { cases: [] };
+            const idx = currentResults.cases.findIndex(x => x.id === id);
+            if (idx >= 0) currentResults.cases[idx] = data.cases[0]; else currentResults.cases.push(data.cases[0]);
+            loadBenchmarkData();
+        }
+
+        function updateSummary(r) {
+            const s = document.getElementById('results-summary'); $(s).fadeIn(400);
+            s.style.display = 'flex';
+
+            // Headline animations.
+            animateValue('summary-hit-rate', 0, r.evaluatedCases > 0 ? Math.round((r.hitCases/r.evaluatedCases)*100) : 0, 1000, '%');
+            animateValue('summary-total', 0, r.totalCases, 800, '');
+            document.getElementById('summary-hits').textContent = `${r.hitCases} / ${r.evaluatedCases}`;
+            document.getElementById('summary-version').textContent = 'v ' + r.version;
+
+            // Tier-1 rank-aware metrics. Numbers come from BilingualRetrievalBenchmarkRunResult.
+            const rankRow = document.getElementById('rank-metrics-row');
+            if (rankRow) {
+                rankRow.style.display = 'flex';
+                const setPct = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = ((val || 0) * 100).toFixed(1) + '%';
+                };
+                const setNum = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = (val || 0).toFixed(3);
+                };
+                setPct('metric-recall1', r.recall1);
+                setPct('metric-recall5', r.recall5);
+                setNum('metric-mrr', r.meanReciprocalRank);
+                setNum('metric-ndcg5', r.ndcg5);
+            }
+        }
+
+        function animateValue(id, start, end, duration, suffix) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const obj = document.getElementById(id);
+                obj.innerHTML = Math.floor(progress * (end - start) + start) + suffix;
+                if (progress < 1) { window.requestAnimationFrame(step); }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        async function loadBenchmarkHistory() {
+            const hRes = await fetch('@Url.Action("GetBenchmarkHistory", "AiAnalysis")');
+            const history = await hRes.json();
+            const body = document.getElementById('history-body'); body.innerHTML = '';
+            const empty = document.getElementById('history-empty');
+            if (!history.length) {
+                empty.classList.remove('d-none');
+                renderMatrixFromHistory([]);
+                return;
+            }
+            empty.classList.add('d-none');
+
+            history.forEach(run => {
+                const s = run.settingsJson ? JSON.parse(run.settingsJson) : {};
+                const r = run.resultsJson ? JSON.parse(run.resultsJson) : [];
+                const avg = r.length ? Math.round(r.reduce((a,b)=>a+b.Score, 0)/r.length) : 0;
+                
+                const inc = [];
+                if(s.IncludeComments) inc.push('CMT');
+                if(s.IncludeAttachments) inc.push('ATT');
+                if(s.IncludeTechnicalAssessment) inc.push('TECH');
+                if(s.IncludeResolutionSummary) inc.push('RES');
+                if(s.IncludeMetadata) inc.push('META');
+                const incStr = inc.join(' · ') || 'BASE';
+
+                const row = document.createElement('tr');
+                row.className = 'cursor-pointer transition-all hover-bg-light';
+                row.onclick = () => toggleRow(run.id);
+                row.innerHTML = `
+                    <td class="ps-4 fw-bold text-dark py-4">
+                        <i class="bi bi-chevron-right me-3 text-primary transition-all font-monospace" id="icon-${run.id}" style="font-size:0.8rem;"></i>
+                        <span style="font-size:0.95rem;">${new Date(run.runOnUtc).toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
+                    </td>
+                    <td class="text-center align-middle">
+                        <div class="d-inline-flex px-3 py-1 bg-${run.hitRate >= 0.8 ? 'success' : (run.hitRate >= 0.5 ? 'warning' : 'danger')} bg-opacity-10 text-${run.hitRate >= 0.8 ? 'success' : (run.hitRate >= 0.5 ? 'warning' : 'danger')} rounded-pill fw-bold border border-${run.hitRate >= 0.8 ? 'success' : (run.hitRate >= 0.5 ? 'warning' : 'danger')} border-opacity-25 shadow-sm">
+                            ${Math.round(run.hitRate*100)}%
+                        </div>
+                    </td>
+                    <td class="text-center fw-black text-dark align-middle fs-6">${avg}%</td>
+                    <td class="text-center align-middle">
+                        <span class="badge bg-white text-primary border border-primary border-opacity-25 px-2 py-1 me-1 shadow-sm">V: ${s.VectorWeight}</span>
+                        <span class="badge bg-white text-secondary border border-secondary border-opacity-25 px-2 py-1 shadow-sm">L: ${s.LexicalWeight}</span>
+                    </td>
+                    <td class="text-center small fw-bold text-muted letter-spacing-1 align-middle">${incStr}</td>
+                    <td class="pe-4 text-end align-middle">
+                        <button class="btn btn-sm btn-light border fw-bold rounded-pill shadow-sm px-3 text-dark hover-glow" onclick="event.stopPropagation(); populateForm(${JSON.stringify(s).replace(/"/g, '&quot;')})">
+                            <i class="bi bi-box-arrow-in-up me-1 text-primary"></i> Restore
+                        </button>
+                    </td>
+                `;
+                body.appendChild(row);
+                
+                const details = document.createElement('tr'); 
+                details.id = `details-${run.id}`; 
+                details.className = 'd-none';
+                details.innerHTML = `
+                    <td colspan="6" class="p-0 border-0">
+                        <div class="px-5 py-4 bg-light border-top shadow-inner">
+                            <h6 class="fw-bold mb-3 text-muted text-uppercase" style="font-size:0.7rem; letter-spacing:0.1em;">Case Execution Details</h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                ${r.map(x => `
+                                    <div class="d-flex align-items-center bg-white border rounded-pill shadow-sm pe-3 overflow-hidden">
+                                        <div class="bg-${x.IsHit ? 'success' : 'danger'} text-white fw-bold px-3 py-1" style="font-size:0.8rem;">${Math.round(x.Score)}%</div>
+                                        <span class="ms-2 fw-semibold text-muted" style="font-size:0.8rem;">${x.Id}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </td>
+                `;
+                body.appendChild(details);
+            });
+
+            const count = parseInt(document.getElementById('matrix-run-count').value, 10);
+            renderMatrixFromHistory(history.slice(0, count).reverse());
+        }
+
+        async function renderMatrixFromHistory(runs) {
+            const h = document.getElementById('matrix-head'); const b = document.getElementById('matrix-body');
+            const dRes = await fetch('@Url.Action("GetRetrievalBenchmark", "AiAnalysis")');
+            const dData = await dRes.json();
+            
+            h.innerHTML = `<tr><th class="text-start ps-4 py-4 border-end" style="width:300px;">BENCHMARK TARGET</th>${runs.map((r, i) => {
+                const s = r.settingsJson ? JSON.parse(r.settingsJson) : {};
+                const hr = Math.round(r.hitRate*100);
+                const dateStr = new Date(r.runOnUtc).toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                return `
+                    <th class="py-3 px-3 text-center align-middle" style="min-width: 160px; background: var(--bg-surface-alt);">
+                        <div class="fw-black text-dark fs-6 mb-2">v${i+1} <span class="d-block mt-1" style="font-size: 0.65rem; opacity: 0.5; font-weight: 500;">${dateStr}</span></div>
+                        <div class="badge bg-white text-muted border border-secondary border-opacity-25 mb-3 px-2 py-1 shadow-sm w-100" style="font-size: 0.7rem;">V:${s.VectorWeight} / L:${s.LexicalWeight}</div>
+                        <div class="progress shadow-inner" style="height: 6px; border-radius: 10px; background: rgba(var(--text-muted-rgb),0.15);">
+                            <div class="progress-bar ${r.hitRate >= 0.8 ? 'bg-success' : 'bg-danger'}" style="width: ${hr}%"></div>
+                        </div>
+                        <div class="mt-2 text-dark" style="font-size: 0.75rem; font-weight: 900;">${hr}% HIT REG</div>
+                    </th>`;
+            }).join('')}</tr>`;
+            
+            b.innerHTML = '';
+            dData.cases.forEach(c => {
+                const row = document.createElement('tr');
+                row.className = "hover-bg-light transition-all";
+                row.innerHTML = `
+                    <td class="text-start ps-4 py-4 border-end">
+                        <div class="fw-black text-primary small d-flex align-items-center mb-2">
+                            <i class="bi bi-heptagon-fill me-2 fs-6"></i>${c.id}
+                        </div>
+                        <div class="text-muted small lh-sm" style="max-width: 280px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${c.queryText}</div>
+                    </td>` +
+                    runs.map(run => {
+                        const res = JSON.parse(run.resultsJson).find(x => x.Id === c.id);
+                        if (!res) return `<td class="text-center align-middle bg-light bg-opacity-50"><i class="bi bi-dash text-muted"></i></td>`;
+                        const hit = res.IsHit;
+                        return `
+                            <td class="matrix-cell p-0 position-relative overflow-hidden" style="border: 1px solid var(--border-color);">
+                                <div class="d-flex flex-column justify-content-center align-items-center h-100 py-3 ${hit ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10'}">
+                                    <span class="score-val mb-1 fw-bold ${hit ? 'text-success' : 'text-danger'}" style="font-size: 1.25rem;">${Math.round(res.Score)}<span style="font-size:0.6em; opacity:0.7;">%</span></span>
+                                    <i class="bi ${hit ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'} position-absolute" style="font-size: 3rem; opacity: 0.08; inset-inline-end: -8px; bottom: -12px;"></i>
+                                </div>
+                            </td>`;
+                    }).join('');
+                b.appendChild(row);
+            });
+        }
+
+        function toggleRow(id) {
+            const r = document.getElementById('details-' + id); const i = document.getElementById('icon-' + id);
+            if (r.classList.contains('d-none')) {
+                $(r).hide().removeClass('d-none').slideDown(300);
+                i.style.transform = 'rotate(90deg)';
+                i.style.color = 'var(--primary-color)';
+                i.classList.remove('opacity-50');
+            } else {
+                $(r).slideUp(300, () => r.classList.add('d-none'));
+                i.style.transform = 'rotate(0deg)';
+                i.style.color = '';
+                i.classList.add('opacity-50');
+            }
+        }
+        
+        // Add custom notify if not exist
+        if (!window.app) window.app = {};
+        if (!window.app.notify) {
+            window.app.notify = function(type, msg) {
+                const toast = document.createElement('div');
+                toast.className = `position-fixed bottom-0 end-0 p-3 text-white bg-${type === 'success' ? 'success' : 'dark'} rounded-3 shadow-lg m-4`;
+                toast.style.zIndex = '9999';
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                toast.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':'info-circle'} me-2"></i><span class="fw-bold">${msg}</span>`;
+                document.body.appendChild(toast);
+                setTimeout(() => { toast.style.opacity = '1'; }, 10);
+                setTimeout(() => { $(toast).fadeOut(400, () => toast.remove()); }, 3000);
+            }
+        }
+    </script>
+}

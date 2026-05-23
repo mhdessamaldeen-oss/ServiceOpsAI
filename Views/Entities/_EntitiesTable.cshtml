@@ -1,0 +1,56 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.DTOs.EntityDto>
+
+<div class="table-responsive">
+    <table id="entitiesTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Entity Identity</th>
+                <th class="py-3">System Status</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; background: rgba(var(--primary-color-rgb, 16,185,129), 0.1) !important; color: var(--primary-color) !important; border: 1px solid rgba(var(--primary-color-rgb, 16,185,129), 0.2) !important;">
+                                <i class="bi bi-diagram-3-fill"></i>
+                            </div>
+                            <span style="color: var(--text-main) !important;">@item.Name</span>
+                        </div>
+                    </td>
+                    <td>
+                        @if (item.IsActive)
+                        {
+                            <span class="badge px-3 py-2 rounded-pill" style="background: rgba(var(--primary-color-rgb), 0.1) !important; color: var(--primary-color) !important; border: 1px solid var(--primary-color) !important;">Active Target</span>
+                        }
+                        else
+                        {
+                            <span class="badge px-3 py-2 rounded-pill" style="background: rgba(var(--danger-color-rgb), 0.1) !important; color: var(--danger-color) !important; border: 1px solid var(--danger-color) !important;">Disabled Status</span>
+                        }
+                    </td>
+                    <td class="text-end pe-4">
+                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('WARNING: Are you sure you want to completely destroy this Entity record?');" class="d-inline">
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-soft-primary shadow-none">
+                                <i class="bi bi-pencil-square"></i> Modify
+                            </a>
+                            <button type="submit" class="btn btn-sm btn-soft-danger shadow-none">
+                                <i class="bi bi-trash-fill"></i> Purge
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Items.Any())
+    {
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-inbox fs-1 mb-3"></i>
+            <h6>No entities found in the operational registry.</h6>
+        </div>
+    }
+</div>

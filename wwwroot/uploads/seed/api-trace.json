@@ -1,0 +1,25 @@
+{
+  "log": {
+    "version": "1.2",
+    "entries": [
+      {
+        "request": { "method": "GET", "url": "/api/v2/tickets?status=open", "httpVersion": "HTTP/1.1" },
+        "response": { "status": 500, "statusText": "Internal Server Error" },
+        "time": 15234,
+        "timings": { "wait": 14890, "receive": 344 }
+      },
+      {
+        "request": { "method": "POST", "url": "/api/v2/tickets/sync", "httpVersion": "HTTP/1.1" },
+        "response": { "status": 504, "statusText": "Gateway Timeout" },
+        "time": 30000,
+        "timings": { "wait": 30000, "receive": 0 }
+      },
+      {
+        "request": { "method": "GET", "url": "/api/v2/users/export", "httpVersion": "HTTP/1.1" },
+        "response": { "status": 200, "statusText": "OK", "content": { "size": 0, "text": "" } },
+        "time": 890,
+        "timings": { "wait": 650, "receive": 240 }
+      }
+    ]
+  }
+}

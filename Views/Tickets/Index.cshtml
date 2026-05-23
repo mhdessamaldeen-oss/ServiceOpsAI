@@ -1,0 +1,182 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
+
+@{
+    ViewData["Title"] = Loc.Get("Tickets");
+    var request = Model.Request;
+    var ticketsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("OperationalInquiries"),
+        Subtitle = Loc.Get("InquiriesSubtitle"),
+        IconClass = "bi bi-ticket-detailed-fill",
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("GenerateInquiry"),
+                Href = Url.Action("Create", "Tickets") ?? "#",
+                IconClass = "bi bi-plus-lg",
+                CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="ticketsHeader" />
+
+<div class="metric-strip mb-4 animate__animated animate__fadeIn">
+    <div class="metric-tile">
+        <div class="metric-tile-label">@Loc.Get("VisibleTickets")</div>
+        <div class="metric-tile-value">@Model.TotalCount</div>
+    </div>
+    <div class="metric-tile">
+        <div class="metric-tile-label">@Loc.Get("ShownInResult")</div>
+        <div class="metric-tile-value">@Model.Items.Count</div>
+    </div>
+    <div class="metric-tile">
+        <div class="metric-tile-label">@Loc.Get("AssignedOnPage")</div>
+        <div class="metric-tile-value">@Model.Items.Count(t => !string.IsNullOrWhiteSpace(t.AssignedToUserId))</div>
+    </div>
+    <div class="metric-tile">
+        <div class="metric-tile-label">@Loc.Get("EscalatedOnPage")</div>
+        <div class="metric-tile-value">@Model.Items.Count(t => t.EscalatedAt.HasValue)</div>
+    </div>
+    <div class="metric-tile">
+        <div class="metric-tile-label">@Loc.Get("HighImpactOnPage")</div>
+        <div class="metric-tile-value">@Model.Items.Count(t => t.AffectedUsersCount.HasValue && t.AffectedUsersCount >= 20)</div>
+    </div>
+</div>
+
+<div class="row mb-4 animate__animated animate__fadeIn">
+    <div class="col-12 d-flex flex-wrap gap-2">
+        @foreach (var filter in new[] { ("mytickets", Loc.Get("MyTickets"), "bi-person-fill"), ("assignedtome", Loc.Get("AssignedToMe"), "bi-person-check-fill"), ("openhighpriority", Loc.Get("PriorityAlerts"), "bi-lightning-fill"), ("recentlyupdated", Loc.Get("ActiveLast24h"), "bi-clock-history") })
+        {
+            <a asp-action="Index"
+               asp-route-request.Filter="@filter.Item1"
+               asp-route-request.PageSize="@request.PageSize"
+               class="btn btn-sm btn-pill @(request.Filter == filter.Item1 ? "btn-primary" : "btn-outline-primary")">
+                <i class="bi @filter.Item3 @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@filter.Item2
+            </a>
+        }
+        <a asp-action="Index"
+           asp-route-request.PageSize="@request.PageSize"
+           class="btn btn-sm btn-pill @(string.IsNullOrEmpty(request.Filter) ? "btn-primary" : "btn-outline-secondary")">
+            @Loc.Get("AllClear")
+        </a>
+    </div>
+</div>
+
+<div class="panel-soft shadow-sm mb-5">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+            <div>
+                <div class="fw-bold" style="color: var(--text-main) !important;">@Loc.Get("FilterWorkspace")</div>
+                <div class="small" style="color: var(--text-muted) !important;">@Loc.Get("FilterSubtitle")</div>
+            </div>
+            <span class="pill-badge" style="background: rgba(56,189,248,0.1); color: var(--info-color); border: 1px solid rgba(56,189,248,0.22);">
+                <i class="bi bi-sliders2 @(Loc.IsRtl ? "ms-1" : "me-1")"></i>@Loc.Get("LiveFilters")
+            </span>
+        </div>
+        <form method="get" class="row g-3 align-items-end">
+            <input type="hidden" name="request.PageNumber" value="1" />
+            <input type="hidden" name="request.PageSize" value="@request.PageSize" />
+            <input type="hidden" name="request.SortOrder" value="@request.SortOrder" />
+            <div class="col-lg-@(ViewBag.IsAdmin == true ? "2" : "3")">
+                <label class="form-label small fw-bold text-muted text-uppercase ls-1">@Loc.Get("SearchKeywords")</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent border-end-0" style="border-color: var(--border-color) !important;"><i class="bi bi-search text-primary"></i></span>
+                    <input type="text" name="request.SearchString" class="form-control border-start-0 bg-transparent shadow-none" style="border-color: var(--border-color) !important; color: var(--text-main) !important;" placeholder="@Loc.Get("IdOrKeyword")" value="@request.SearchString">
+                </div>
+            </div>
+            <div class="col-lg-2">
+                <label class="form-label small fw-bold text-muted text-uppercase ls-1">@Loc.Get("Status")</label>
+                <select name="request.StatusId" asp-items="ViewBag.StatusId" class="form-select bg-transparent shadow-none" style="border-color: var(--border-color) !important; color: var(--text-main) !important;">
+                    <option value="">@Loc.Get("AllStatuses")</option>
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <label class="form-label small fw-bold text-muted text-uppercase ls-1">@Loc.Get("PriorityLevel")</label>
+                <select name="request.PriorityId" asp-items="ViewBag.PriorityId" class="form-select bg-transparent shadow-none" style="border-color: var(--border-color) !important; color: var(--text-main) !important;">
+                    <option value="">@Loc.Get("AllLevels")</option>
+                </select>
+            </div>
+            @if(ViewBag.IsAdmin == true)
+            {
+                <div class="col-lg-2">
+                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">@Loc.Get("OrganizationalEntity")</label>
+                    <select name="request.EntityId" asp-items="ViewBag.EntityFilterId" class="form-select bg-transparent shadow-none" style="border-color: var(--border-color) !important; color: var(--text-main) !important;">
+                        <option value="">@Loc.Get("AllEntities")</option>
+                    </select>
+                </div>
+            }
+            <div class="col-lg-@(ViewBag.IsAdmin == true ? "2" : "3")">
+                <label class="form-label small fw-bold text-muted text-uppercase ls-1">@Loc.Get("StrategicClassification")</label>
+                <select name="request.CategoryId" asp-items="ViewBag.CategoryId" class="form-select bg-transparent shadow-none" style="border-color: var(--border-color) !important; color: var(--text-main) !important;">
+                    <option value="">@Loc.Get("AllClassifications")</option>
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1 shadow-sm">
+                        <i class="bi bi-filter"></i>
+                    </button>
+                    <partial name="_ColumnChooser" />
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="ticketsGridContainer" data-ajax-grid="true" data-ajax-url="@Url.Action("Index", "Tickets")">
+    <partial name="~/Views/Tickets/_QueueGrid.cshtml" model="Model" />
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectAllCheck = document.getElementById('selectAll');
+            const rowChecks = document.querySelectorAll('.row-checkbox');
+            const rows = document.querySelectorAll('.ticket-row');
+
+            function updateRowHighlights() {
+                rowChecks.forEach(c => {
+                    const tr = c.closest('.ticket-row');
+                    if (tr) {
+                        if (c.checked) {
+                            tr.classList.add('ticket-row-selected');
+                        } else {
+                            tr.classList.remove('ticket-row-selected');
+                        }
+                    }
+                });
+            }
+
+            selectAllCheck.addEventListener('change', function() {
+                rowChecks.forEach(c => c.checked = this.checked);
+                updateRowHighlights();
+            });
+
+            rowChecks.forEach(c => {
+                c.addEventListener('change', updateRowHighlights);
+            });
+
+            window.clearSelection = function() {
+                selectAllCheck.checked = false;
+                rowChecks.forEach(c => c.checked = false);
+                updateRowHighlights();
+            };
+
+            // Phase 3: Intelligent Pre-fetching (High Performance)
+            const prefetchCache = new Set();
+            rows.forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    const id = this.getAttribute('data-id');
+                    if (prefetchCache.has(id)) return;
+
+                    const prefetchUrl = `@Url.Action("Details", "Tickets")/${id}`;
+                    fetch(prefetchUrl, { method: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(() => prefetchCache.add(id))
+                        .catch(err => console.log('Prefetch ignored: ', err));
+                });
+            });
+        });
+    </script>
+}

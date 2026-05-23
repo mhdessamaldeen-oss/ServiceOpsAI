@@ -1,0 +1,198 @@
+{
+  "name": "03 - Realistic Hard Suite",
+  "version": "1.0",
+  "description": "Real-data business questions at the hard level — multi-table joins, anti-joins, HAVING, computed metrics. Every scenario has ExpectedSql.",
+  "Scenarios": [
+    {
+      "Code": "HR-001",
+      "Question": "Compare ticket counts between this month and last month.",
+      "Category": "Hard / Period compare",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 'ThisMonth' AS Period, COUNT(*) AS Total FROM Tickets WHERE YEAR(CreatedAt) = YEAR(GETDATE()) AND MONTH(CreatedAt) = MONTH(GETDATE()) AND IsDeleted = 0 UNION ALL SELECT 'LastMonth', COUNT(*) FROM Tickets WHERE YEAR(CreatedAt) = YEAR(DATEADD(month, -1, GETDATE())) AND MONTH(CreatedAt) = MONTH(DATEADD(month, -1, GETDATE())) AND IsDeleted = 0",
+      "ExpectedMaxRows": 2,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-002",
+      "Question": "Compare ticket volume this year versus last year.",
+      "Category": "Hard / Year compare",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 'CurrentYear' AS Period, COUNT(*) AS Total FROM Tickets WHERE YEAR(CreatedAt) = YEAR(GETDATE()) AND IsDeleted = 0 UNION ALL SELECT 'LastYear', COUNT(*) FROM Tickets WHERE YEAR(CreatedAt) = YEAR(GETDATE()) - 1 AND IsDeleted = 0",
+      "ExpectedMaxRows": 2,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-003",
+      "Question": "Show me tickets per user — full name, their entity, and the number of tickets they created.",
+      "Category": "Hard / Tickets per user with entity",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.FirstName + ' ' + u.LastName AS UserName, e.Name AS Entity, COUNT(*) AS Tickets FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId LEFT JOIN Entitys e ON e.Id = u.EntityId WHERE t.IsDeleted = 0 GROUP BY u.FirstName, u.LastName, e.Name ORDER BY Tickets DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-004",
+      "Question": "For each agent, show the number of tickets assigned and average resolution time in hours.",
+      "Category": "Hard / Per-agent metric",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.FirstName + ' ' + u.LastName AS Agent, COUNT(*) AS Assigned, AVG(CAST(DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) AS FLOAT)) AS AvgResolutionHours FROM Tickets t JOIN AspNetUsers u ON u.Id = t.AssignedToUserId WHERE t.IsDeleted = 0 GROUP BY u.FirstName, u.LastName ORDER BY Assigned DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-005",
+      "Question": "Which tickets have no comments yet?",
+      "Category": "Hard / Anti-join",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title FROM Tickets t LEFT JOIN TicketComments c ON c.TicketId = t.Id WHERE c.Id IS NULL AND t.IsDeleted = 0",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-006",
+      "Question": "Which users haven't created any tickets?",
+      "Category": "Hard / Anti-join on users",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.Id, u.FirstName + ' ' + u.LastName AS UserName, u.Email FROM AspNetUsers u LEFT JOIN Tickets t ON t.CreatedByUserId = u.Id WHERE t.Id IS NULL",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-007",
+      "Question": "What is the average resolution time in hours for resolved tickets?",
+      "Category": "Hard / Average DATEDIFF",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT AVG(CAST(DATEDIFF(hour, CreatedAt, ResolvedAt) AS FLOAT)) AS AvgResolutionHours FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "HR-008",
+      "Question": "Who are the top 5 users by tickets created?",
+      "Category": "Hard / Top-N creators",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 5 u.FirstName + ' ' + u.LastName AS UserName, COUNT(*) AS Tickets FROM Tickets t JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE t.IsDeleted = 0 GROUP BY u.FirstName, u.LastName ORDER BY Tickets DESC",
+      "ExpectedMaxRows": 5,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-009",
+      "Question": "Who are the top 5 agents by tickets resolved?",
+      "Category": "Hard / Top-N resolvers",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 5 u.FirstName + ' ' + u.LastName AS Agent, COUNT(*) AS Resolved FROM Tickets t JOIN AspNetUsers u ON u.Id = t.ResolvedByUserId WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 GROUP BY u.FirstName, u.LastName ORDER BY Resolved DESC",
+      "ExpectedMaxRows": 5,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-010",
+      "Question": "Show me tickets that breached their SLA along with their priority and who created them.",
+      "Category": "Hard / Multi-join with flag",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title, p.Name AS Priority, u.FirstName + ' ' + u.LastName AS CreatedBy FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId JOIN AspNetUsers u ON u.Id = t.CreatedByUserId WHERE t.IsSlaBreached = 1 AND t.IsDeleted = 0",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-011",
+      "Question": "Which categories have more than 15 tickets?",
+      "Category": "Hard / HAVING",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT c.Name AS Category, COUNT(*) AS Total FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0 GROUP BY c.Name HAVING COUNT(*) > 15 ORDER BY Total DESC",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "HR-012",
+      "Question": "Which entities have more than 10 tickets?",
+      "Category": "Hard / HAVING on entity",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT e.Name AS Entity, COUNT(*) AS Total FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0 GROUP BY e.Name HAVING COUNT(*) > 10 ORDER BY Total DESC",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "HR-013",
+      "Question": "Show me tickets that took more than 24 hours to resolve.",
+      "Category": "Hard / Computed predicate",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title, DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) AS Hours FROM Tickets t WHERE t.ResolvedAt IS NOT NULL AND DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) > 24 AND t.IsDeleted = 0 ORDER BY Hours DESC",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-014",
+      "Question": "Which 10 tickets have the most comments?",
+      "Category": "Hard / Top-N by comment count",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 t.Id, t.TicketNumber, t.Title, COUNT(c.Id) AS Comments FROM Tickets t JOIN TicketComments c ON c.TicketId = t.Id WHERE t.IsDeleted = 0 GROUP BY t.Id, t.TicketNumber, t.Title ORDER BY Comments DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-015",
+      "Question": "Show pending tickets along with their pending reason.",
+      "Category": "Hard / Status + text",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title, t.PendingReason FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Pending' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "HR-016",
+      "Question": "List all end-users with their entity name.",
+      "Category": "Hard / Users with role + entity",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.FirstName + ' ' + u.LastName AS UserName, e.Name AS Entity FROM AspNetUsers u JOIN Entitys e ON e.Id = u.EntityId JOIN AspNetUserRoles ur ON ur.UserId = u.Id JOIN AspNetRoles r ON r.Id = ur.RoleId WHERE r.Name = 'EndUser' AND u.IsActive = 1 ORDER BY e.Name, u.FirstName",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-017",
+      "Question": "Show escalated tickets with the escalation level and who they were escalated to.",
+      "Category": "Hard / Multi-join with NULL handling",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title, t.EscalationLevel, u.FirstName + ' ' + u.LastName AS EscalatedTo FROM Tickets t LEFT JOIN AspNetUsers u ON u.Id = t.EscalatedToUserId WHERE t.EscalatedAt IS NOT NULL AND t.IsDeleted = 0",
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-018",
+      "Question": "How many closed tickets does each category have?",
+      "Category": "Hard / Conditional group-by",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT c.Name AS Category, COUNT(*) AS ClosedTotal FROM Tickets t JOIN TicketCategories c ON c.Id = t.CategoryId JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Closed' AND t.IsDeleted = 0 GROUP BY c.Name ORDER BY ClosedTotal DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-019",
+      "Question": "Which 10 tickets took the longest to resolve?",
+      "Category": "Hard / Top-N by resolution duration",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 t.Id, t.TicketNumber, t.Title, DATEDIFF(hour, t.CreatedAt, t.ResolvedAt) AS Hours FROM Tickets t WHERE t.ResolvedAt IS NOT NULL AND t.IsDeleted = 0 ORDER BY Hours DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 25000
+    },
+    {
+      "Code": "HR-020",
+      "Question": "Show child tickets with their parent ticket number and title.",
+      "Category": "Hard / Self-join",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id AS ChildId, t.TicketNumber AS ChildNumber, t.Title AS ChildTitle, p.TicketNumber AS ParentNumber, p.Title AS ParentTitle FROM Tickets t JOIN Tickets p ON p.Id = t.ParentTicketId WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 25000
+    }
+  ]
+}

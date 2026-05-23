@@ -1,0 +1,779 @@
+@model AISupportAnalysisPlatform.Models.AI.AdminCopilotExecutionDetails
+@using AISupportAnalysisPlatform.Models.AI
+@using System.Text.Json
+
+@*
+    Pipeline View — canonical workflow graph rendered with Mermaid.
+
+    Server emits:
+      1. The Mermaid flowchart definition with the SAME shape for every request — 13 nodes
+         covering every branch the orchestrator can take. Active branch coloured blue,
+         skipped branches dim grey/dashed, failed nodes red, terminals green.
+      2. A JSON map of node-id → list-of-step-detail objects (status, action, detail,
+         elapsedMs, technicalData, sub-steps, sql when present, error when present).
+         The browser uses this to populate the detail card on click — no extra HTTP call.
+
+    The browser-side JS lives in investigation-pipeline.js and only does three things:
+      (a) call mermaid.run() to render the SVG,
+      (b) wire click handlers onto the rendered SVG nodes,
+      (c) populate the detail card div with the clicked node's data.
+*@
+
+@functions {
+    static bool ActionContains(CopilotExecutionStep s, string needle) =>
+        (s.Action ?? string.Empty).Contains(needle, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Map a recorded step to one of the canonical graph node IDs. Returns null if the step
+    /// doesn't correspond to a graph node (some steps are sub-detail of a node).
+    /// Order matters: more specific markers first (aborted → exact source) before generic layer matches.
+    /// </summary>
+    static string? StepToNodeId(CopilotExecutionStep step)
+    {
+        var action = (step.Action ?? string.Empty).ToLowerInvariant();
+
+        // Legacy aborts — kept for backward-compat with older trace records.
+        if (action.Contains("aborted [classifier]")) return "CLASS";
+        if (action.Contains("aborted [planner]"))    return "PLAN";
+        if (action.Contains("aborted [executor]"))   return "EXEC";
+        if (action.Contains("aborted"))              return "ABORT";
+
+        // Delegate to the canonical mapper in Stages.cs (single source of truth — the
+        // DI startup assert there fails fast if any Step* constant lacks a node mapping).
+        var mapped = SuperAdminCopilot.Pipeline.StageNames.StageToGraphNode(action);
+        if (mapped is not null) return mapped;
+        // Some stage names are deliberately mapped to null (informational markers like Tier).
+        // Distinguish that from an unrecognised stage by checking whether the mapper recognised
+        // the action token at all — but the mapper conflates both cases. For now, fall through
+        // to legacy substring matchers below so older records still render.
+
+        // ── Legacy substring matchers (kept for backward-compat) ─────────────
+        if (action.Contains("intake"))                                                return "INTAKE";
+        if (action.Contains("unified analysis"))                                      return "CLASS";
+        if (action.Contains("clarification gate") || action.Contains("invalid request guard")) return "CTRL";
+        if (action.Contains("external tool"))                                         return "TOOL";
+        if (action.Contains("general support"))                                       return "GEN";
+        if (action.Contains("validating"))                                            return "VAL";
+        if (action.Contains("synthesis") || action.Contains("answer synthesis"))      return "FMT";
+
+        // SemanticSearch bypasses the SQL pipeline (vector embeddings, not SQL). Map the actual
+        // search invocation to the dedicated SEMANTIC graph node. The seed-resolve pre-step
+        // ("Resolve seed ticket [SemanticSearch]") only fires on the failure path before the
+        // real search runs — keep it off-graph so the SEMANTIC node doesn't falsely light up
+        // when the search actually never happened (the Clarification gate that follows will
+        // correctly highlight CTRL instead).
+        if (action.Contains("[isemanticsearchservice]")) return "SEMANTIC";
+        if (action.Contains("[semanticsearch]"))         return null;
+
+        return step.Layer switch
+        {
+            CopilotExecutionLayer.DataPlanning  => "PLAN",
+            CopilotExecutionLayer.DataExecution => "EXEC",
+            CopilotExecutionLayer.Executor      => "EXEC",
+            _                                   => null
+        };
+    }
+
+    /// <summary>
+    /// Build active + failed sets, plus the node→steps map for the detail card. Walks the steps
+    /// tree depth-first (top-level + every level of SubSteps) so the active-path computation
+    /// includes decomposer sub-pipelines and explainer/planner LLM-call substeps — without
+    /// recursion, a decomposed question shows only the top-level "Decomposer" lit and the
+    /// downstream stages look inactive even though they actually ran.
+    ///
+    /// <para><b>Active-path rule (fixes the "broken / cut path" rendering complaint):</b>
+    /// a step lights up its node ONLY when its status is <c>Ok</c> or <c>Error</c>. Stages that
+    /// ran but didn't match (status=<c>Skip</c> — e.g. ShapeEngine probed every shape and found
+    /// none) do NOT count as "active path", because they're not part of the actual journey
+    /// from question to answer. The legacy behaviour lit those too, which made the graph look
+    /// like multiple parallel paths fired at once.</para>
+    ///
+    /// <para>Step order is captured (first encounter wins) so the renderer can overlay an
+    /// execution-sequence number on each active node — the user sees the actual journey
+    /// 1 → 2 → 3 → … even when intermediate nodes were skipped, so a "cut" visual is no
+    /// longer ambiguous.</para>
+    /// </summary>
+    static (HashSet<string> Active, HashSet<string> Failed, Dictionary<string, List<object>> Map, Dictionary<string, int> Order)
+        BuildNodeData(AdminCopilotExecutionDetails d)
+    {
+        var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var failed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, List<object>>(StringComparer.OrdinalIgnoreCase);
+        var order = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        // Q is always the start bookend. The end bookend depends on the trace outcome — see
+        // the RouteReason check below. Pre-cleanup code unconditionally lit ANS even on aborted
+        // traces, which made every failed run look like "ended at error, then magically reached
+        // the answer" with no visible link — exactly the "broken route" the user reported.
+        active.Add("Q");
+
+        var steps = d.Steps ?? new List<CopilotExecutionStep>();
+        var detectedIntent = (d.DetectedIntent ?? string.Empty).ToLowerInvariant();
+
+        // Heuristic overlay: detect external-tool branch via DetectedIntent because the orchestrator
+        // doesn't always emit a single "External tool" labelled step (it merges in handler steps).
+        if (detectedIntent.Contains("externaltool"))
+        {
+            active.Add("TOOL");
+        }
+
+        // Counter incremented for every step we credit to the active path; the first time we
+        // see a node we record its order so the UI can render "step N" badges.
+        var sequence = 0;
+        VisitSteps(steps, ref sequence, active, failed, map, order);
+
+        // Pick the terminal node from the trace's outcome token (RouteReason). The orchestrator
+        // doesn't emit a separate "aborted" step — it just returns from PersistAndReturnAsync
+        // with the matching trace token. Without this lookup, every aborted trace looked like
+        // it ended at the last successful stage with no terminal node lit, which is the
+        // "this route is broken" symptom from the user's screenshot.
+        var routeReason = (d.RouteReason ?? string.Empty).Trim().ToLowerInvariant();
+        var terminalNode = ResolveTerminalNode(routeReason);
+        active.Add(terminalNode);
+
+        // Seed Q at order 0 and the terminal at sequence+1 so the bookends always sit at the
+        // ends of the numbered journey. Whichever terminal won (ANS for success / ABORT for
+        // any failure token) gets the last badge number.
+        order.TryAdd("Q", 0);
+        order[terminalNode] = sequence + 1;
+
+        return (active, failed, map, order);
+    }
+
+    /// <summary>
+    /// Static adjacency list mirroring the Mermaid flowchart definition below. Used by
+    /// <see cref="ComputeActivePathEdges"/> to BFS from each active node to the next in step
+    /// order, marking the connecting edges so the JS can paint them as the bright active
+    /// path — even when the path crosses dim intermediate nodes (the Tier-1 cascade between
+    /// DECOMPOSE and RETR, the LLM-planner chain between RETR and EXEC).
+    /// <para>This list MUST stay in sync with the edges declared in the <c>mermaidDef</c>
+    /// string. Adding a new edge to the chart without adding it here means the active-path
+    /// painter will skip over it — the journey will look broken again. A future cleanup is
+    /// to generate both from a single source of truth.</para>
+    /// </summary>
+    static readonly Dictionary<string, List<string>> GraphAdjacency = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Q"]         = new() { "GUARD" },
+        ["GUARD"]     = new() { "INTAKE", "ABORT" },
+        ["INTAKE"]    = new() { "DECOMPOSE", "ABORT" },
+        ["DECOMPOSE"] = new() { "CONV" },
+        ["CONV"]      = new() { "ANS", "KNOWN" },
+        ["KNOWN"]     = new() { "ANS", "SEMSEARCH" },
+        ["SEMSEARCH"] = new() { "ANS", "METADATA" },
+        ["METADATA"]  = new() { "ANS", "TOOL" },
+        ["TOOL"]      = new() { "ANS", "SHAPE" },
+        ["SHAPE"]     = new() { "EXEC", "RETR" },
+        ["RETR"]      = new() { "PLAN" },
+        ["PLAN"]      = new() { "GUARDS" },
+        ["GUARDS"]    = new() { "ROUTE" },
+        ["ROUTE"]     = new() { "CTRL", "ABORT", "COMP" },
+        ["COMP"]      = new() { "ABORT", "VAL" },
+        ["VAL"]       = new() { "PLAN", "ABORT", "EXEC" },
+        ["EXEC"]      = new() { "PLAN", "ABORT", "DEGEN" },
+        ["DEGEN"]     = new() { "ABORT", "FMT" },
+        ["CTRL"]      = new() { "ANS" },
+        ["FMT"]       = new() { "ANS" },
+        ["ABORT"]     = new() { "ANS" },
+    };
+
+    /// <summary>
+    /// BFS-walk the graph from each active node to the next-in-order active node, collecting
+    /// every edge along the shortest path. The result is the set of edges that form the
+    /// continuous "actual journey" — colored brightly by the JS so the user sees an unbroken
+    /// path from User Question to the terminal (ANS or ABORT), regardless of how many dim
+    /// intermediate nodes the path passes through.
+    /// </summary>
+    static HashSet<string> ComputeActivePathEdges(Dictionary<string, int> order)
+    {
+        var edges = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (order.Count < 2) return edges;
+
+        // Sort active node IDs by their step index ascending. Pairs of consecutive entries
+        // become BFS start/goal: a → b, b → c, c → d, …
+        var sequence = order
+            .Where(kv => kv.Value >= 0)
+            .OrderBy(kv => kv.Value)
+            .Select(kv => kv.Key)
+            .ToList();
+
+        for (int i = 0; i + 1 < sequence.Count; i++)
+        {
+            var src = sequence[i];
+            var dst = sequence[i + 1];
+            var path = ShortestPathEdges(src, dst);
+            foreach (var e in path) edges.Add(e);
+        }
+        return edges;
+    }
+
+    /// <summary>
+    /// Plain BFS over <see cref="GraphAdjacency"/> from <paramref name="src"/> to
+    /// <paramref name="dst"/>, returning the list of "A->B" edge keys along the shortest path.
+    /// Empty list when no path exists (which only happens if the graph is mis-encoded above —
+    /// every node in the canonical workflow has at least one outgoing path to a terminal).
+    /// </summary>
+    static List<string> ShortestPathEdges(string src, string dst)
+    {
+        if (string.Equals(src, dst, StringComparison.OrdinalIgnoreCase)) return new List<string>();
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { src };
+        // parent[node] = (predecessor, edge-key) so we can reconstruct the chain at the end.
+        var parent = new Dictionary<string, (string Pred, string Edge)>(StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<string>();
+        queue.Enqueue(src);
+        while (queue.Count > 0)
+        {
+            var cur = queue.Dequeue();
+            if (!GraphAdjacency.TryGetValue(cur, out var neighbours)) continue;
+            foreach (var nb in neighbours)
+            {
+                if (!visited.Add(nb)) continue;
+                parent[nb] = (cur, $"{cur}->{nb}");
+                if (string.Equals(nb, dst, StringComparison.OrdinalIgnoreCase))
+                {
+                    var chain = new List<string>();
+                    var node = nb;
+                    while (parent.TryGetValue(node, out var p))
+                    {
+                        chain.Add(p.Edge);
+                        node = p.Pred;
+                    }
+                    chain.Reverse();
+                    return chain;
+                }
+                queue.Enqueue(nb);
+            }
+        }
+        return new List<string>();
+    }
+
+    /// <summary>
+    /// Decide which terminal node to light up based on the trace's RouteReason token. Any
+    /// known abort/refusal token routes to ABORT; an empty / "ok" token routes to ANS.
+    /// Unknown tokens are treated as success — better to land on ANS than mislabel a healthy
+    /// run as aborted, and unknown tokens almost always come from older traces that completed
+    /// before the orchestrator added richer abort tracking.
+    /// </summary>
+    static string ResolveTerminalNode(string routeReason)
+    {
+        if (string.IsNullOrEmpty(routeReason) || routeReason == "ok") return "ANS";
+
+        // Mirrors StageNames.* abort tokens. Kept here as a hardcoded list because the cshtml
+        // can't pull a single source of truth without a runtime call, and the token strings
+        // change rarely. If a new abort token is added in Stages.cs, append it here too.
+        return routeReason switch
+        {
+            "preflight-refused"      => "ABORT",
+            "out-of-scope"           => "ABORT",
+            "metadata-unsupported"   => "ABORT",
+            "planner-error"          => "ABORT",
+            "compiler-error"         => "ABORT",
+            "validator-rejected"     => "ABORT",
+            "execution-error"        => "ABORT",
+            "pipeline-exception"     => "ABORT",
+            "kill-switch-engaged"    => "ABORT",
+            "rate-limited"           => "ABORT",
+            "retry-degenerated"      => "ABORT",
+            "retry-budget-exhausted" => "ABORT",
+            "error"                  => "ABORT",   // fallback the bridge stamps when no specific token
+            _                         => "ANS"
+        };
+    }
+
+    /// <summary>
+    /// Depth-first walk of <paramref name="steps"/> + their SubSteps. Each step that maps to a
+    /// graph node and isn't a status=Skip placeholder activates the node, populates the detail
+    /// map, and (on first sighting) gets a step-order number. Recursion lets decomposed
+    /// sub-pipelines + nested LLM-call substeps light up their nodes too.
+    /// </summary>
+    static void VisitSteps(
+        IEnumerable<CopilotExecutionStep>? steps,
+        ref int sequence,
+        HashSet<string> active,
+        HashSet<string> failed,
+        Dictionary<string, List<object>> map,
+        Dictionary<string, int> order)
+    {
+        if (steps is null) return;
+        foreach (var step in steps)
+        {
+            // Status=Skip means "stage ran but didn't match" — by design, these aren't part of
+            // the active path. Without this guard the ShapeEngine "no shape matched" step (which
+            // is always emitted for trace visibility) lit up the SHAPE node even though the
+            // request actually moved on to the LLM planner — confusing the user with a "broken"
+            // path. We still recurse into SubSteps because a skipped parent can wrap real work.
+            var nodeId = StepToNodeId(step);
+            var includeInActive = nodeId is not null && step.Status != CopilotStepStatus.Skip;
+
+            if (includeInActive)
+            {
+                active.Add(nodeId!);
+                if (step.Status == CopilotStepStatus.Error) failed.Add(nodeId!);
+
+                // First-encounter wins: a node visited from multiple sub-pipelines reports the
+                // earliest occurrence, which mirrors the visual left-to-right flow on the graph.
+                sequence++;
+                order.TryAdd(nodeId!, sequence);
+            }
+
+            // Always populate the detail map (even for skipped steps) so clicking the node
+            // still surfaces what was tried — the renderer just won't draw the active outline.
+            if (nodeId is not null)
+            {
+                if (!map.TryGetValue(nodeId, out var list))
+                {
+                    list = new List<object>();
+                    map[nodeId] = list;
+                }
+                list.Add(SerializeStep(step));
+            }
+
+            // Recurse — SubSteps from Decomposer / Planner / Explainer / Tool dispatch all
+            // contain meaningful work that deserves to light up its own node when relevant.
+            VisitSteps(step.SubSteps, ref sequence, active, failed, map, order);
+        }
+    }
+
+    /// <summary>
+    /// Serialize a step (and recursively its sub-steps) into a plain object the JS detail card
+    /// can render without further normalization. Sub-steps carry the SAME shape as parents so the
+    /// JS renderer can call itself recursively. TechnicalData is passed through verbatim — the JS
+    /// inspects its first chars to detect typed payloads (kind="llm-call", "sql-execution", "function-call")
+    /// and renders them in dedicated panels.
+    /// </summary>
+    static object SerializeStep(CopilotExecutionStep step)
+    {
+        return new
+        {
+            action     = step.Action ?? string.Empty,
+            layer      = step.Layer.ToString(),
+            status     = step.Status.ToString(),
+            elapsedMs  = step.ElapsedMs,
+            startedAt  = step.StartedAt.ToString("HH:mm:ss.fff"),
+            completedAt = step.CompletedAt?.ToString("HH:mm:ss.fff") ?? string.Empty,
+            location   = step.Location ?? string.Empty,
+            detail     = step.Detail ?? string.Empty,
+            technicalData = step.TechnicalData ?? string.Empty,
+            subSteps   = (step.SubSteps ?? new List<CopilotExecutionStep>()).Select(SerializeStep).ToList()
+        };
+    }
+
+    static string ClassFor(string nodeId, HashSet<string> active, HashSet<string> failed, HashSet<string> terminals)
+    {
+        // Two-tone scheme by user request:
+        //   - active   = darker blue (the real path the request actually took)
+        //   - inactive = light blue  (everything the orchestrator could have done but didn't)
+        //   - failed   = red  (only when a step on the active path errored)
+        // Terminals (Q, ANS) follow the same rule — they're part of every path so they
+        // always end up in the active set.
+        if (failed.Contains(nodeId)) return "failed";
+        return active.Contains(nodeId) ? "active" : "inactive";
+    }
+}
+
+@{
+    var (activeNodes, failedNodes, nodeMap, nodeOrder) = BuildNodeData(Model);
+    // Terminals include BOTH ANS and ABORT — whichever one BuildNodeData picked. ABORT lights
+    // up in red when the trace ended with an error token (see ResolveTerminalNode).
+    var terminals = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Q", "ANS", "ABORT" };
+    var routeReasonForTerminal = (Model?.RouteReason ?? string.Empty).Trim().ToLowerInvariant();
+    var endedInAbort = activeNodes.Contains("ABORT");
+
+    // Terminals are bookends — they always render as active but BuildNodeData doesn't seed them
+    // with steps. Without entries the click-card showed "Not taken" even though the request did
+    // start and finish. Seed Q with the actual user question, and the chosen terminal (ANS for
+    // success, ABORT for any failure token) with the corresponding payload so clicking it shows
+    // the real text.
+    var traceObj = ViewBag.Trace as AISupportAnalysisPlatform.Models.AI.CopilotTraceHistory;
+    if (traceObj != null)
+    {
+        if (!nodeMap.ContainsKey("Q"))
+        {
+            nodeMap["Q"] = new List<object>
+            {
+                new
+                {
+                    action      = Loc.Get("PipelineUserAsk"),
+                    layer       = "Context",
+                    status      = "Ok",
+                    elapsedMs   = 0L,
+                    startedAt   = traceObj.CreatedAt.ToString("HH:mm:ss.fff"),
+                    completedAt = traceObj.CreatedAt.ToString("HH:mm:ss.fff"),
+                    location    = Loc.Get("YouLabel"),
+                    detail      = traceObj.Question ?? string.Empty,
+                    technicalData = string.Empty,
+                    subSteps    = new List<object>()
+                }
+            };
+        }
+
+        // Seed the SUCCESS terminal with the answer text — only meaningful when the request
+        // didn't abort. For aborted runs we instead seed the ABORT terminal below; ANS stays
+        // empty so it correctly reads "not taken" if the user clicks it.
+        if (!endedInAbort && !nodeMap.ContainsKey("ANS"))
+        {
+            nodeMap["ANS"] = new List<object>
+            {
+                new
+                {
+                    action      = Loc.Get("PipelineFinalAnswerLabel"),
+                    layer       = "Complete",
+                    status      = "Ok",
+                    elapsedMs   = traceObj.TotalElapsedMs,
+                    startedAt   = traceObj.CreatedAt.ToString("HH:mm:ss.fff"),
+                    completedAt = traceObj.CreatedAt.AddMilliseconds(traceObj.TotalElapsedMs).ToString("HH:mm:ss.fff"),
+                    location    = traceObj.ModelName ?? string.Empty,
+                    detail      = string.IsNullOrWhiteSpace(traceObj.Answer) ? Loc.Get("PipelineNoAnswerRecorded") : traceObj.Answer,
+                    technicalData = string.Empty,
+                    subSteps    = new List<object>()
+                }
+            };
+        }
+
+        // Seed the ABORT terminal with the trace's error / abort token so the user can click
+        // it to see WHY the pipeline stopped. Mirrors the ANS-on-success block above but with
+        // status=Error so the detail card highlights it in red. We also mark ABORT as failed
+        // so the graph paints it red — matches the visual semantic of "pipeline died here".
+        if (endedInAbort)
+        {
+            failedNodes.Add("ABORT");
+            if (!nodeMap.ContainsKey("ABORT"))
+            {
+                var abortDetail = string.IsNullOrWhiteSpace(traceObj.ErrorMessage)
+                    ? $"Pipeline aborted at trace token: {routeReasonForTerminal}"
+                    : $"{routeReasonForTerminal}: {traceObj.ErrorMessage}";
+                nodeMap["ABORT"] = new List<object>
+                {
+                    new
+                    {
+                        action      = Loc.Get("NodePipelineAborted"),
+                        layer       = "Complete",
+                        status      = "Error",
+                        elapsedMs   = traceObj.TotalElapsedMs,
+                        startedAt   = traceObj.CreatedAt.ToString("HH:mm:ss.fff"),
+                        completedAt = traceObj.CreatedAt.AddMilliseconds(traceObj.TotalElapsedMs).ToString("HH:mm:ss.fff"),
+                        location    = traceObj.ModelName ?? string.Empty,
+                        detail      = abortDetail,
+                        technicalData = string.Empty,
+                        subSteps    = new List<object>()
+                    }
+                };
+            }
+        }
+    }
+
+    // Compute the active-path edge set, then expand activeNodes with every endpoint so the
+    // graph shows a logically-honest journey. The request DEMONSTRABLY traversed every node
+    // on the path (no alternate route exists in the topology — e.g. Q can only reach
+    // Decomposer via Operational Guard → Request Intake). Marking those passthrough nodes
+    // as "inactive" would lie about what happened. They get the active colour BUT no step
+    // badge — the badge is reserved for stages that actually recorded their work, so the
+    // user can still distinguish "did real work" from "transparent passthrough". The click
+    // detail card adds a "passed through silently" subtitle for the latter — see the
+    // detail renderer in investigation-pipeline.js.
+    var activeEdgeSet = ComputeActivePathEdges(nodeOrder);
+    var passthroughNodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var edgeKey in activeEdgeSet)
+    {
+        var parts = edgeKey.Split("->", 2);
+        if (parts.Length != 2) continue;
+        foreach (var n in parts)
+        {
+            // Track nodes added via edge expansion (passthroughs) — the JS needs this to
+            // distinguish "real step here" from "request passed through here". Mid-path
+            // nodes that already had a step (e.g. Decomposer) stay out of this set.
+            if (!activeNodes.Contains(n) && !nodeOrder.ContainsKey(n))
+            {
+                passthroughNodes.Add(n);
+            }
+            activeNodes.Add(n);
+        }
+    }
+
+    // Build the Mermaid definition. Extended for the new SuperAdminCopilot:
+    //   - GUARD = operational kill-switch / rate-limit (runs FIRST, before INTAKE)
+    //   - SHAPE = Tier-2 deterministic shape engine (between CLASS and PLAN; sub-second SQL)
+    //   - DECOMPOSE = compound/sequential question splitter (sits before CLASS, only lights up
+    //     for multi-part questions)
+    // Faithful workflow graph for the new SuperAdminCopilot — no "Classifier" diamond fiction.
+    // The orchestrator is a CASCADE of Tier-1 try-match-or-fall-through handlers, then the Tier-2
+    // ShapeEngine, then the Tier-3 LLM Planner with retry-back arrows from Validator and
+    // Executor. Real edges, real outcomes — designed for debugging.
+    var classes = string.Join("\n    ",
+        new[] {
+            "Q", "GUARD", "INTAKE", "DECOMPOSE",
+            "CONV", "KNOWN", "SEMSEARCH", "METADATA", "TOOL", "SHAPE",
+            "RETR", "PLAN", "GUARDS", "ROUTE", "CTRL",
+            "COMP", "VAL", "EXEC", "DEGEN", "FMT", "ABORT", "ANS"
+        }
+        .Select(id => $"class {id} {ClassFor(id, activeNodes, failedNodes, terminals)}"));
+
+    // Localized node labels. Mermaid is sensitive to special characters inside labels
+    // (notably `/`, `(`, `)`), so wrap every label in double quotes so multi-word and RTL
+    // text — including Arabic with `/` — renders correctly.
+    string MermaidLabel(string key) => Loc.Get(key).Replace("\"", "'");
+    var lblQ         = MermaidLabel("NodeUserQuestion");
+    var lblGuard     = "Operational Guard";
+    var lblIntake    = MermaidLabel("NodeRequestIntake");
+    var lblDecompose = "Decomposer";
+    var lblConv      = "Conversational";
+    var lblKnown     = "Knowledge Match";
+    var lblSemSearch = MermaidLabel("NodeSemanticSearch");
+    var lblMetadata  = "Metadata Handler";
+    var lblTool      = MermaidLabel("NodeExternalToolHandler");
+    var lblShape     = "Shape Engine (Tier-2)";
+    var lblRetr      = "Schema Retriever";
+    var lblPlan      = MermaidLabel("NodeSqlPlanner");
+    var lblGuards    = "Post-Plan Guards";
+    var lblRoute     = "Intent Route";
+    var lblCtrl      = MermaidLabel("NodeClarificationGuard");
+    var lblComp      = "SQL Compiler";
+    var lblVal       = MermaidLabel("NodeResultValidator");
+    var lblExec      = MermaidLabel("NodeSqlExecutor");
+    var lblDegen     = "Retry-Degen Guard";
+    var lblFmt       = MermaidLabel("NodeAnswerFormatter");
+    var lblAbort     = MermaidLabel("NodePipelineAborted");
+    var lblAns       = MermaidLabel("NodeFinalAnswer");
+
+    var edgeSysError = MermaidLabel("EdgeSystemError");
+
+    // Horizontal layout — left → right in English, right → left in Arabic so the journey
+    // reads naturally with the locale. Mermaid's `RL` direction handles RTL natively;
+    // node labels stay readable because Mermaid passes them as text, not glyph runs.
+    var flowDirection = Loc.IsRtl ? "RL" : "LR";
+    var mermaidDef = $@"flowchart {flowDirection}
+    Q([""{lblQ}""])
+    GUARD[""{lblGuard}""]
+    INTAKE[""{lblIntake}""]
+    DECOMPOSE[""{lblDecompose}""]
+    CONV[""{lblConv}""]
+    KNOWN[""{lblKnown}""]
+    SEMSEARCH[""{lblSemSearch}""]
+    METADATA[""{lblMetadata}""]
+    TOOL[""{lblTool}""]
+    SHAPE[""{lblShape}""]
+    RETR[""{lblRetr}""]
+    PLAN[""{lblPlan}""]
+    GUARDS[""{lblGuards}""]
+    ROUTE{{""{lblRoute}""}}
+    CTRL[""{lblCtrl}""]
+    COMP[""{lblComp}""]
+    VAL[""{lblVal}""]
+    EXEC[""{lblExec}""]
+    DEGEN[""{lblDegen}""]
+    FMT[""{lblFmt}""]
+    ABORT[""{lblAbort}""]
+    ANS([""{lblAns}""])
+
+    Q --> GUARD
+    GUARD -->|""passed""| INTAKE
+    GUARD -.->|""refused""| ABORT
+    INTAKE -->|""passed""| DECOMPOSE
+    INTAKE -.->|""refused""| ABORT
+
+    DECOMPOSE --> CONV
+    CONV -->|""matched""| ANS
+    CONV -.->|""no match""| KNOWN
+    KNOWN -->|""matched""| ANS
+    KNOWN -.->|""no match""| SEMSEARCH
+    SEMSEARCH -->|""matched""| ANS
+    SEMSEARCH -.->|""no match""| METADATA
+    METADATA -->|""matched""| ANS
+    METADATA -.->|""no match""| TOOL
+    TOOL -->|""matched""| ANS
+    TOOL -.->|""no match""| SHAPE
+    SHAPE -->|""matched""| EXEC
+    SHAPE -.->|""no match""| RETR
+
+    RETR --> PLAN
+    PLAN --> GUARDS
+    GUARDS --> ROUTE
+    ROUTE -->|""clarification""| CTRL
+    ROUTE -->|""out of scope""| ABORT
+    ROUTE -->|""data query""| COMP
+
+    COMP -.->|""error""| ABORT
+    COMP --> VAL
+    VAL -.->|""retry""| PLAN
+    VAL -.->|""final error""| ABORT
+    VAL --> EXEC
+    EXEC -.->|""retry""| PLAN
+    EXEC -.->|""final error""| ABORT
+    EXEC --> DEGEN
+    DEGEN -.->|""degenerated""| ABORT
+    DEGEN --> FMT
+
+    CTRL --> ANS
+    FMT --> ANS
+    ABORT -.->|""{edgeSysError}""| ANS
+
+    classDef active   fill:#1d4ed8,color:#fff,stroke:#1e3a8a,stroke-width:2.5px
+    classDef inactive fill:#dbeafe,color:#1e3a8a,stroke:#93c5fd,stroke-width:1.5px
+    classDef failed   fill:#ef4444,color:#fff,stroke:#b91c1c,stroke-width:2.5px
+    {classes}
+";
+
+    var nodeMapJson = JsonSerializer.Serialize(nodeMap);
+
+    // Friendly node-id → display name (used by the detail card title).
+    var nodeNames = new Dictionary<string, string>
+    {
+        ["Q"] = Loc.Get("NodeUserQuestion"),
+        ["GUARD"] = "Operational Guard",
+        ["INTAKE"] = Loc.Get("NodeRequestIntake"),
+        ["DECOMPOSE"] = "Decomposer",
+        ["CONV"] = "Conversational",
+        ["KNOWN"] = "Knowledge Match",
+        ["SEMSEARCH"] = Loc.Get("NodeSemanticSearch"),
+        ["METADATA"] = "Metadata Handler",
+        ["TOOL"] = Loc.Get("NodeExternalToolHandler"),
+        ["SHAPE"] = "Shape Engine (Tier-2)",
+        ["RETR"] = "Schema Retriever",
+        ["PLAN"] = Loc.Get("NodeSqlPlanner"),
+        ["GUARDS"] = "Post-Plan Guards",
+        ["ROUTE"] = "Intent Route",
+        ["CTRL"] = Loc.Get("NodeClarificationGuard"),
+        ["COMP"] = "SQL Compiler",
+        ["EXEC"] = Loc.Get("NodeSqlExecutor"),
+        ["VAL"] = Loc.Get("NodeResultValidator"),
+        ["DEGEN"] = "Retry-Degen Guard",
+        ["FMT"] = Loc.Get("NodeAnswerFormatter"),
+        ["ABORT"] = Loc.Get("NodePipelineAborted"),
+        ["ANS"] = Loc.Get("NodeFinalAnswer")
+    };
+    var nodeNamesJson = JsonSerializer.Serialize(nodeNames);
+
+    // node-id → execution order. Drives the "step N" badge on each active node so the user
+    // can read the actual journey 1 → 2 → 3 → … even when intermediate nodes are skipped and
+    // the visual cascade looks "cut". Empty map = pre-cleanup trace with no recoverable order.
+    var nodeOrderJson = JsonSerializer.Serialize(nodeOrder);
+
+    // Active-edge set was computed earlier so it could be passed to the JS painter.
+    var activeEdgesDict = activeEdgeSet.ToDictionary(e => e, _ => true);
+    var activeEdgesJson = JsonSerializer.Serialize(activeEdgesDict);
+
+    // Mirror of activeNodes for the JS so it agrees with Mermaid's classDef on which nodes
+    // should NOT receive the .inactive dim filter. Includes stages-with-steps + terminals +
+    // edge-expanded passthroughs (the latter were traversed by the request but didn't record
+    // a step). All three get the active colour; passthroughs are distinguished by the
+    // separate pipeline-passthrough-nodes payload below so the click card explains them
+    // correctly instead of saying "not in active path".
+    var pathNodesDict = activeNodes.ToDictionary(n => n, _ => true, StringComparer.OrdinalIgnoreCase);
+    var pathNodesJson = JsonSerializer.Serialize(pathNodesDict);
+
+    // Passthrough nodes: on the journey but didn't emit a step (Operational Guard / Request
+    // Intake on a successful run, Tier-1 cascade fall-through stages). The JS uses this to
+    // pick the right detail-card message — "passed through silently" instead of the wrong
+    // "not part of active path".
+    var passthroughDict = passthroughNodes.ToDictionary(n => n, _ => true, StringComparer.OrdinalIgnoreCase);
+    var passthroughJson = JsonSerializer.Serialize(passthroughDict);
+
+    // Strings the click-to-detail card (rendered by investigation-pipeline.js) needs to localize
+    // dynamically. Emitted as a JSON island the JS reads on init.
+    var pipelineI18n = new Dictionary<string, string>
+    {
+        ["notTakenBadge"]    = Loc.Get("PipelineNotTakenBadge"),
+        ["notInActivePath"]  = Loc.Get("PipelineNotInActivePath"),
+        ["stepsRecorded"]    = Loc.Get("StepsRecordedSuffix"),
+        ["stepIndexOf"]      = Loc.Get("StepIndexOf"),
+        ["layerLabel"]       = Loc.Get("LayerLabel"),
+        ["startedLabel"]     = Loc.Get("StartedLabel"),
+        ["completedLabel"]   = Loc.Get("CompletedLabel"),
+        ["componentLabel"]   = Loc.Get("ComponentLabel"),
+        ["summaryLabel"]     = Loc.Get("SummaryLabel"),
+        ["substepsLabel"]    = Loc.Get("SubstepsLabel"),
+        ["technicalData"]    = Loc.Get("TechnicalDataLabel"),
+        ["promptSent"]       = Loc.Get("CopilotSearchQuery"),
+        ["rawResponse"]      = Loc.Get("ResponsePreview"),
+        ["sqlStatement"]     = Loc.Get("SQLGeneration"),
+        ["inputLabel"]       = Loc.Get("SystemInput"),
+        ["outputLabel"]      = Loc.Get("GeneratedResolution"),
+        ["copy"]             = Loc.Get("CopyText"),
+        ["copied"]           = Loc.Get("CopiedLabel"),
+        ["providerError"]    = Loc.Get("ConnectionFail"),
+        ["databaseError"]    = Loc.Get("AnalysisFailedWithError").Replace("{0}", "").Trim(),
+        ["executionFailed"]  = Loc.Get("RunFailed"),
+        ["mermaidFailed"]    = Loc.Get("PipelineMermaidFailed"),
+        ["renderFailed"]     = Loc.Get("PipelineMermaidRenderFailed")
+    };
+    var pipelineI18nJson = JsonSerializer.Serialize(pipelineI18n);
+}
+
+<div class="pipeline-graph-wrap">
+    <!-- Click hint banner -->
+    <div class="pipeline-hint mb-3">
+        <div class="pipeline-hint-icon">
+            <i class="bi bi-hand-index-thumb-fill"></i>
+        </div>
+        <div class="pipeline-hint-text">
+            <div class="pipeline-hint-title">@Loc.Get("PipelineHintTitle")</div>
+            <div class="pipeline-hint-sub">@Loc.Get("PipelineHintSubBefore") <span class="pipeline-hint-pill">@Loc.Get("PipelineHintDarkBlue")</span> @Loc.Get("PipelineHintSubAfter")</div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="pipeline-legend-row mb-3">
+        <span class="pipeline-legend-item">
+            <span class="pipeline-legend-swatch swatch-active"></span>
+            <strong>@Loc.Get("PipelineActivePath")</strong> <span class="text-muted">— @Loc.Get("PipelineActivePathHint")</span>
+        </span>
+        <span class="pipeline-legend-item">
+            <span class="pipeline-legend-swatch swatch-inactive"></span>
+            @Loc.Get("PipelineNotTaken")
+        </span>
+        <span class="pipeline-legend-item">
+            <span class="pipeline-legend-swatch swatch-failed"></span>
+            @Loc.Get("PipelineFailedStep")
+        </span>
+    </div>
+
+    <!-- The graph itself -->
+    <div class="card border-0 shadow-sm rounded-4 mb-3 pipeline-graph-card">
+        <div class="card-body p-3 position-relative">
+            <!-- Pan / zoom / view controls. Float over the SVG; no horizontal-space cost. -->
+            <div class="pipeline-toolbar" role="toolbar" aria-label="Pipeline graph controls">
+                <button type="button" id="pipeline-zoom-in" class="btn btn-sm btn-light border" title="Zoom in (mouse wheel up)">
+                    <i class="bi bi-zoom-in"></i>
+                </button>
+                <button type="button" id="pipeline-zoom-out" class="btn btn-sm btn-light border" title="Zoom out (mouse wheel down)">
+                    <i class="bi bi-zoom-out"></i>
+                </button>
+                <button type="button" id="pipeline-zoom-fit" class="btn btn-sm btn-light border" title="Reset zoom &amp; recenter">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                </button>
+                <span class="pipeline-toolbar-divider"></span>
+                <button type="button" id="pipeline-toggle-active" class="btn btn-sm btn-light border" title="Show only active path (hide not-taken branches)">
+                    <i class="bi bi-eye"></i> <span class="d-none d-md-inline">Active only</span>
+                </button>
+                <button type="button" id="pipeline-toggle-direction" class="btn btn-sm btn-light border" title="Toggle layout direction (Left-Right ⟷ Top-Bottom)">
+                    <i class="bi bi-arrow-left-right"></i> <span class="d-none d-md-inline">LR / TB</span>
+                </button>
+                <span class="pipeline-toolbar-divider"></span>
+                <span id="pipeline-zoom-label" class="pipeline-toolbar-readout text-muted small" title="Current zoom level">100%</span>
+            </div>
+            <div class="pipeline-graph-viewport" id="pipeline-graph-viewport">
+                <pre class="mermaid" id="pipeline-mermaid-graph">@mermaidDef</pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Click-to-detail card (full width below the graph). -->
+    <div class="card border-0 shadow-sm rounded-4" id="pipeline-detail-card">
+        <div class="card-body p-4 text-center text-muted">
+            <i class="bi bi-cursor-fill fs-3 d-block mb-2 opacity-50"></i>
+            <div>@Loc.Get("PipelineDetailEmpty")</div>
+        </div>
+    </div>
+</div>
+
+@*
+    Inline JSON payload consumed by investigation-pipeline.js. Kept inside a non-evaluating
+    <script type="application/json"> so Razor doesn't have to escape JS, and an XSS-safe
+    fetch via JSON.parse() picks it up at runtime.
+*@
+<script type="application/json" id="pipeline-node-map">@Html.Raw(nodeMapJson)</script>
+<script type="application/json" id="pipeline-node-names">@Html.Raw(nodeNamesJson)</script>
+<script type="application/json" id="pipeline-node-order">@Html.Raw(nodeOrderJson)</script>
+<script type="application/json" id="pipeline-active-edges">@Html.Raw(activeEdgesJson)</script>
+<script type="application/json" id="pipeline-path-nodes">@Html.Raw(pathNodesJson)</script>
+<script type="application/json" id="pipeline-passthrough-nodes">@Html.Raw(passthroughJson)</script>
+<script type="application/json" id="pipeline-i18n">@Html.Raw(pipelineI18nJson)</script>

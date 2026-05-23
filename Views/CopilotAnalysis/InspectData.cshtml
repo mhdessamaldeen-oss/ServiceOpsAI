@@ -1,0 +1,247 @@
+@using AISupportAnalysisPlatform.Services.AI.Copilot.Analysis
+@{
+    ViewData["Title"] = "Copilot Trace Data Inspection";
+    var traces = ViewBag.Traces as List<TraceInspectionResult>;
+    var analysis = ViewBag.Analysis as CorrectnessAnalysis;
+
+    var inspectHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Copilot Trace Data Inspection",
+        Subtitle = "Real data from CopilotTraceHistories — questions vs answers analysis",
+        IconClass = "bi bi-database",
+        Actions = new()
+        {
+            new() {
+                Text = "Overview",
+                Href = "/AiAnalysis/CopilotAnalysis/TraceInvestigation",
+                IconClass = "bi bi-arrow-left",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            },
+            new() {
+                Text = "Correctness Report",
+                Href = "/AiAnalysis/CopilotAnalysis/CorrectnessReport",
+                IconClass = "bi bi-check2-square",
+                CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="inspectHeader" />
+
+<div class="container-fluid">
+    @if (analysis != null)
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="kpi-card h-100">
+                    <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--success-color-rgb),0.12); color: var(--success-color); border-color: rgba(var(--success-color-rgb),0.22);"><i class="bi bi-check-circle-fill"></i></div><div class="kpi-label">Correct</div></div>
+                    <div class="kpi-value">@(analysis.CorrectAnswers?.Count ?? 0)</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card h-100">
+                    <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--warning-color-rgb),0.12); color: var(--warning-color); border-color: rgba(var(--warning-color-rgb),0.22);"><i class="bi bi-question-circle-fill"></i></div><div class="kpi-label">Probably Correct</div></div>
+                    <div class="kpi-value">@(analysis.ProbablyCorrect?.Count ?? 0)</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card h-100">
+                    <div class="kpi-card-head"><div class="kpi-icon" style="background: rgba(var(--danger-color-rgb),0.12); color: var(--danger-color); border-color: rgba(var(--danger-color-rgb),0.22);"><i class="bi bi-x-circle-fill"></i></div><div class="kpi-label">Incorrect</div></div>
+                    <div class="kpi-value">@(analysis.IncorrectAnswers?.Count ?? 0)</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card h-100">
+                    <div class="kpi-card-head"><div class="kpi-icon"><i class="bi bi-collection"></i></div><div class="kpi-label">Total Analyzed</div></div>
+                    <div class="kpi-value">@analysis.TotalAnalyzed</div>
+                </div>
+            </div>
+        </div>
+
+        @if (analysis.TopIssues?.Any() == true)
+        {
+            <div class="app-card mb-4">
+                <div class="app-card-header">
+                    <h5 class="app-card-title"><i class="bi bi-exclamation-triangle @(Loc.IsRtl ? "ms-2" : "me-2")" style="color: var(--danger-color);"></i>Top Issues Found</h5>
+                </div>
+                <div class="app-card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Issue</th>
+                                    <th>Count</th>
+                                    <th>Percentage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var issue in analysis.TopIssues)
+                                {
+                                    <tr>
+                                        <td>@issue.Issue</td>
+                                        <td>@issue.Count</td>
+                                        <td>@((issue.Count * 100.0 / analysis.TotalAnalyzed).ToString("F1"))%</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (analysis.FailedExamples?.Any() == true)
+        {
+            <div class="app-card mb-4">
+                <div class="app-card-header">
+                    <h5 class="app-card-title"><i class="bi bi-clipboard-x @(Loc.IsRtl ? "ms-2" : "me-2")" style="color: var(--warning-color);"></i>Failed Examples — Why They Failed</h5>
+                </div>
+                <div class="app-card-body">
+                    <div class="accordion" id="failedExamples">
+                        @foreach (var example in analysis.FailedExamples)
+                        {
+                            <div class="accordion-item" style="background: var(--bg-card); border: 1px solid var(--border-color);">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fail-@example.TraceId">
+                                        <span class="pill-badge me-2" style="background: rgba(var(--danger-color-rgb),0.1); color: var(--danger-color); border: 1px solid rgba(var(--danger-color-rgb),0.22);">FAIL</span>
+                                        @example.Question
+                                    </button>
+                                </h2>
+                                <div id="fail-@example.TraceId" class="accordion-collapse collapse" data-bs-parent="#failedExamples">
+                                    <div class="accordion-body">
+                                        <div class="mb-3">
+                                            <strong>Answer:</strong>
+                                            <div class="p-2 rounded" style="background: var(--bg-surface-alt); border: 1px solid var(--border-color); color: var(--text-main);">@example.Answer</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <strong class="text-danger">Why Failed:</strong>
+                                            <div class="text-danger">@example.WhyFailed</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <strong class="text-success">Suggested Fix:</strong>
+                                            <div class="text-success">@example.SuggestedFix</div>
+                                        </div>
+                                        <a href="/AiAnalysis/Investigation/@example.TraceId" class="btn btn-sm btn-primary">
+                                            View Full Investigation
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    @if (traces?.Any() == true)
+    {
+        <div class="app-card">
+            <div class="app-card-header">
+                <h5 class="app-card-title"><i class="bi bi-list-ul @(Loc.IsRtl ? "ms-2" : "me-2")" style="color: var(--primary-color);"></i>Question-Answer Pairs (@traces.Count records)</h5>
+            </div>
+            <div class="app-card-body">
+                <div class="accordion" id="traceAccordion">
+                    @foreach (var trace in traces)
+                    {
+                        var statusColor = trace.Analysis.IsCorrect ? "success" :
+                                         trace.Analysis.IsProbablyCorrect ? "warning" : "danger";
+                        var statusBadge = trace.Analysis.IsCorrect ? "✓ CORRECT" :
+                                         trace.Analysis.IsProbablyCorrect ? "? PROBABLY" : "✗ INCORRECT";
+
+                        <div class="accordion-item mb-2 rounded-3" style="background: var(--bg-card); border: 1px solid var(--border-color);">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#trace-@trace.TraceId">
+                                    <span class="pill-badge me-2" style="background: rgba(var(--@(statusColor)-color-rgb),0.1); color: var(--@(statusColor)-color); border: 1px solid rgba(var(--@(statusColor)-color-rgb),0.22);">@statusBadge</span>
+                                    <strong>Q:</strong> @trace.Question
+                                    <span class="ms-auto small text-muted">Score: @trace.Analysis.CorrectnessScore/100</span>
+                                </button>
+                            </h2>
+                            <div id="trace-@trace.TraceId" class="accordion-collapse collapse" data-bs-parent="#traceAccordion">
+                                <div class="accordion-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Question:</h6>
+                                            <p class="lead">@trace.Question</p>
+
+                                            <h6>Answer:</h6>
+                                            <div class="p-3 rounded" style="background: var(--bg-surface-alt); border: 1px solid var(--border-color); color: var(--text-main);">
+                                                @(trace.Answer ?? "[No answer provided]")
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Analysis:</h6>
+                                            <ul class="list-group list-group-flush">
+                                                <li class="list-group-item">
+                                                    <strong>Intent:</strong> @trace.Intent
+                                                    @if (!string.IsNullOrEmpty(trace.DetectedIntent))
+                                                    {
+                                                        <span class="text-muted">(Detected: @trace.DetectedIntent)</span>
+                                                    }
+                                                </li>
+                                                <li class="list-group-item">
+                                                    <strong>Confidence:</strong> @trace.Confidence
+                                                </li>
+                                                <li class="list-group-item">
+                                                    <strong>Result Count:</strong> @trace.ResultCount
+                                                </li>
+                                                <li class="list-group-item">
+                                                    <strong>Execution Time:</strong> @trace.ExecutionTimeMs ms
+                                                </li>
+                                                <li class="list-group-item">
+                                                    <strong>Legacy Mode:</strong> @(trace.IsLegacyCompat ? "Yes ⚠️" : "No")
+                                                </li>
+                                                <li class="list-group-item">
+                                                    <strong>Correctness Score:</strong>
+                                                    @{ var scoreColor = trace.Analysis.CorrectnessScore >= 70 ? "success" : trace.Analysis.CorrectnessScore >= 50 ? "warning" : "danger"; }
+                                                    <span class="pill-badge ms-2" style="background: rgba(var(--@(scoreColor)-color-rgb),0.1); color: var(--@(scoreColor)-color); border: 1px solid rgba(var(--@(scoreColor)-color-rgb),0.22);">
+                                                        @trace.Analysis.CorrectnessScore/100
+                                                    </span>
+                                                </li>
+                                            </ul>
+
+                                            @if (trace.Analysis.CorrectnessIssues?.Any() == true)
+                                            {
+                                                <div class="mt-3">
+                                                    <h6 class="text-danger">Issues Found:</h6>
+                                                    <ul class="list-group">
+                                                        @foreach (var issue in trace.Analysis.CorrectnessIssues)
+                                                        {
+                                                            <li class="list-group-item list-group-item-danger">@issue</li>
+                                                        }
+                                                    </ul>
+                                                </div>
+                                            }
+
+                                            @if (!string.IsNullOrEmpty(trace.SqlQuery))
+                                            {
+                                                <div class="mt-3">
+                                                    <h6>Generated SQL:</h6>
+                                                    <pre class="p-2 rounded" style="background: var(--bg-elevated); color: var(--text-main); border: 1px solid var(--border-color);"><code>@trace.SqlQuery</code></pre>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <a href="/AiAnalysis/Investigation/@trace.TraceId" class="btn btn-primary btn-sm">
+                                            <i class="bi bi-search me-1"></i>Investigate Trace #@trace.TraceId
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            No trace data found in CopilotTraceHistories table.
+        </div>
+    }
+
+</div>

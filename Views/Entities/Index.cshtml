@@ -1,0 +1,65 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.DTOs.EntityDto>
+
+@{
+    ViewData["Title"] = "Entities Management";
+    var request = Model.Request;
+    var entitiesTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    {
+        Title = "Entity Registry",
+        Subtitle = "Shared operational table for active organizations and controls.",
+        ShowColumnSearchToggle = true,
+        ColumnSearchLabel = "In-Depth Column Filters",
+        TableSelector = "#entitiesTable",
+        TablePartialName = "~/Views/Entities/_EntitiesTable.cshtml",
+        TableModel = Model,
+        PaginationModel = Model
+    };
+    var entitiesHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Entities Registry",
+        Subtitle = "Manage operational agencies and client hierarchies.",
+        IconClass = "bi bi-building-fill-gear",
+        Actions = new()
+        {
+            new() {
+                Text = "New Entity",
+                Href = Url.Action("Create", "Entities") ?? "#",
+                IconClass = "bi bi-plus-circle",
+                CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="entitiesHeader" />
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger bg-danger-subtle text-danger border-0 d-flex align-items-center mb-4 rounded-3">
+        <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+        <div>
+            <strong>Deletion Prevented:</strong> @TempData["Error"]
+        </div>
+    </div>
+}
+
+<div class="card border-0 shadow-sm mb-4" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body p-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-lg-10">
+                <label class="form-label small fw-bold text-muted text-uppercase ls-1">Identify Entity</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent border-end-0" style="border-color: var(--border-color) !important;"><i class="bi bi-search text-primary"></i></span>
+                    <input type="text" name="request.SearchString" class="form-control border-start-0 bg-transparent shadow-none" style="border-color: var(--border-color) !important; color: var(--text-main) !important;" placeholder="Search entity name..." value="@request.SearchString">
+                </div>
+            </div>
+            <div class="col-lg-2">
+                <button type="submit" class="btn btn-primary w-100 shadow-sm">
+                    <i class="bi bi-filter"></i> Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="entitiesTable" />

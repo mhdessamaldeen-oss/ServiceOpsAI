@@ -1,0 +1,71 @@
+2026-04-03 14:30:00.001 [INFO ] [tid:001] ApplicationHost - Runtime version: .NET 10.0.3 | Environment: Production | Region: UAE-North
+2026-04-03 14:30:00.002 [INFO ] [tid:001] ApplicationHost - Loaded configuration: appsettings.Production.json. Connection pool: 50. Redis: cache01.tech.local:6379.
+2026-04-03 14:30:00.003 [INFO ] [tid:001] ApplicationHost - Background services started: SlaMonitor, CacheWarmer, NotificationDispatcher, IndexMaintenanceJob
+2026-04-03 14:30:01.111 [TRACE] [tid:004] RequestPipeline - Incoming: GET /health | IP: 10.0.0.1 (load balancer)
+2026-04-03 14:30:01.115 [TRACE] [tid:004] RequestPipeline - Response: 200 OK (4ms)
+2026-04-03 14:31:22.001 [TRACE] [tid:008] RequestPipeline - Incoming: GET /api/v2/tickets?page=1&size=20 | CorrelationId: rt-001 | User: agent1@tech.local
+2026-04-03 14:31:22.034 [TRACE] [tid:008] EFCore - Query: SELECT t.Id, t.Title, t.StatusId, t.PriorityId, t.CreatedAt FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY
+2026-04-03 14:31:22.056 [TRACE] [tid:008] EFCore - Rows returned: 20 (22ms)
+2026-04-03 14:31:22.058 [TRACE] [tid:008] CacheService - Cache MISS for key 'ticket-list:page1:size20:nosort'. Storing result with TTL=300s.
+2026-04-03 14:31:22.065 [TRACE] [tid:008] RequestPipeline - Response: 200 OK (64ms)
+2026-04-03 14:32:00.001 [INFO ] [tid:004] NotificationDispatcher - Processing notification queue. Pending: 23 messages.
+2026-04-03 14:32:00.100 [TRACE] [tid:004] NotificationDispatcher - Sending email via SMTP smtp.tech.local:587 to agent2@tech.local
+2026-04-03 14:32:00.345 [TRACE] [tid:004] NotificationDispatcher - Email delivered (245ms). MessageId: <msg-001@tech.local>
+2026-04-03 14:32:00.400 [TRACE] [tid:004] NotificationDispatcher - Sending email to user1@health.local
+2026-04-03 14:32:00.412 [WARN ] [tid:004] NotificationDispatcher - SMTP connection reset by peer. Retrying (1/2)...
+2026-04-03 14:32:01.412 [TRACE] [tid:004] NotificationDispatcher - Retry 1/2: Sending email to user1@health.local
+2026-04-03 14:32:01.678 [TRACE] [tid:004] NotificationDispatcher - Email delivered on retry (1266ms). MessageId: <msg-002@tech.local>
+2026-04-03 14:32:01.700 [TRACE] [tid:004] NotificationDispatcher - Sending email to user3@education.local
+2026-04-03 14:32:01.712 [ERROR] [tid:004] NotificationDispatcher - SMTP error: 550 5.1.1 <user3@education.local>: Recipient address rejected: User unknown in virtual mailbox table
+2026-04-03 14:32:01.713 [WARN ] [tid:004] NotificationDispatcher - Permanent delivery failure for user3@education.local. Marking notification as UNDELIVERABLE. NotificationId: 4891.
+2026-04-03 14:32:01.715 [INFO ] [tid:004] NotificationDispatcher - Queue processing complete. Delivered: 21, Failed: 1, Retried: 1. Remaining: 0.
+2026-04-03 14:33:45.001 [TRACE] [tid:012] RequestPipeline - Incoming: POST /api/v2/tickets/556/comments | CorrelationId: rt-002 | User: agent1@tech.local
+2026-04-03 14:33:45.012 [TRACE] [tid:012] ValidationService - Validating comment payload: { Content: "...", Length: 2847 }
+2026-04-03 14:33:45.013 [WARN ] [tid:012] ValidationService - Comment length 2847 exceeds recommended max 2000. Allowing but logging.
+2026-04-03 14:33:45.034 [TRACE] [tid:012] EFCore - INSERT INTO TicketComments (TicketId, Content, CreatedByUserId, CreatedAt) VALUES (556, @p0, @p1, @p2). Rows affected: 1 (18ms)
+2026-04-03 14:33:45.040 [TRACE] [tid:012] CacheService - Invalidating cache keys: 'ticket:556', 'ticket-list:*'
+2026-04-03 14:33:45.042 [TRACE] [tid:012] RequestPipeline - Response: 201 Created (41ms)
+2026-04-03 14:35:00.001 [TRACE] [tid:014] RequestPipeline - Incoming: GET /api/v2/tickets/556 | CorrelationId: rt-003 | User: user2@interior.local
+2026-04-03 14:35:00.002 [TRACE] [tid:014] TenantIsolationFilter - user2@interior.local (Entity:Interior) requesting ticket 556 (Entity: Health).
+2026-04-03 14:35:00.003 [WARN ] [tid:014] TenantIsolationFilter - Cross-entity access DENIED for EndUser role.
+2026-04-03 14:35:00.004 [TRACE] [tid:014] RequestPipeline - Response: 403 Forbidden (3ms)
+2026-04-03 14:36:12.001 [TRACE] [tid:016] RequestPipeline - Incoming: GET /api/v2/search?q=password+reset&type=tickets | CorrelationId: rt-004 | User: agent3@tech.local
+2026-04-03 14:36:12.012 [TRACE] [tid:016] SearchService - Executing full-text search: "password reset" on Tickets (Title, Description)
+2026-04-03 14:36:12.445 [TRACE] [tid:016] SearchService - Results: 34 matches (433ms). Top result: TCK-2026-00211 (score: 0.94)
+2026-04-03 14:36:12.450 [TRACE] [tid:016] RequestPipeline - Response: 200 OK (449ms)
+2026-04-03 14:38:00.001 [INFO ] [tid:004] CacheWarmer - Warming dashboard stats cache.
+2026-04-03 14:38:00.334 [TRACE] [tid:004] EFCore - SELECT COUNT(*) FROM Tickets WHERE StatusId IN (1,2,3,4) AND IsDeleted = 0 -- Result: 849 (112ms)
+2026-04-03 14:38:00.556 [TRACE] [tid:004] EFCore - SELECT StatusId, COUNT(*) FROM Tickets WHERE IsDeleted = 0 GROUP BY StatusId -- 7 rows (222ms)
+2026-04-03 14:38:00.890 [TRACE] [tid:004] EFCore - SELECT EntityId, COUNT(*) FROM Tickets WHERE IsDeleted = 0 AND CreatedAt > '2026-03-03' GROUP BY EntityId -- 4 rows (334ms)
+2026-04-03 14:38:00.891 [TRACE] [tid:004] CacheService - Stored dashboard stats in Redis. Key: 'dashboard:stats'. TTL: 600s.
+2026-04-03 14:38:00.892 [INFO ] [tid:004] CacheWarmer - Dashboard cache warmed in 891ms.
+2026-04-03 14:40:22.001 [TRACE] [tid:018] RequestPipeline - Incoming: PUT /api/v2/tickets/900/assign | CorrelationId: rt-005 | User: admin@tech.local
+2026-04-03 14:40:22.012 [TRACE] [tid:018] TicketService - Reassigning TCK-2026-00900 from agent2@tech.local to agent1@tech.local
+2026-04-03 14:40:22.034 [TRACE] [tid:018] EFCore - UPDATE Tickets SET AssignedToUserId = @newAgent WHERE Id = 900. (12ms)
+2026-04-03 14:40:22.036 [TRACE] [tid:018] NotificationDispatcher - Queued assignment notification for agent1@tech.local
+2026-04-03 14:40:22.037 [TRACE] [tid:018] AuditService - Logged: TCK-2026-00900 reassigned agent2 -> agent1 by admin@tech.local
+2026-04-03 14:40:22.040 [TRACE] [tid:018] RequestPipeline - Response: 200 OK (39ms)
+2026-04-03 14:42:55.001 [TRACE] [tid:020] RequestPipeline - Incoming: DELETE /api/v2/tickets/122 | CorrelationId: rt-006 | User: agent1@tech.local
+2026-04-03 14:42:55.002 [TRACE] [tid:020] AuthorizationMiddleware - Checking permission: TicketDelete. User role: SupportAgent.
+2026-04-03 14:42:55.003 [WARN ] [tid:020] AuthorizationMiddleware - SupportAgent does NOT have TicketDelete permission. Only Admin can delete tickets.
+2026-04-03 14:42:55.004 [TRACE] [tid:020] RequestPipeline - Response: 403 Forbidden (3ms)
+2026-04-03 14:42:55.005 [INFO ] [tid:020] AuditLogger - Event: UNAUTHORIZED_ACTION | User: agent1@tech.local | Action: DELETE ticket 122 | Required: Admin role
+2026-04-03 14:45:00.001 [INFO ] [tid:004] ScheduledJobs.SlaMonitor - SLA scan: 3 newly breached tickets.
+2026-04-03 14:45:00.002 [WARN ] [tid:004] ScheduledJobs.SlaMonitor - TCK-2026-00780 first response breached by 6h12m. Assigned to agent3@tech.local.
+2026-04-03 14:45:00.003 [WARN ] [tid:004] ScheduledJobs.SlaMonitor - TCK-2026-00811 resolution breached by 1d4h. Critical priority.
+2026-04-03 14:45:00.004 [INFO ] [tid:004] NotificationDispatcher - Queued SLA breach alerts for 3 tickets.
+2026-04-03 14:48:33.001 [TRACE] [tid:022] RequestPipeline - Incoming: POST /api/v2/tickets | CorrelationId: rt-007 | User: user1@health.local
+2026-04-03 14:48:33.012 [TRACE] [tid:022] TicketService - New ticket: { Title: "Cannot access lab results module", Category: "Authorization / Access", Priority: "High" }
+2026-04-03 14:48:33.034 [TRACE] [tid:022] EFCore - INSERT INTO Tickets ... Rows: 1 (14ms). Generated Id: 1002
+2026-04-03 14:48:33.036 [TRACE] [tid:022] TicketService - Auto-assigned TCK-2026-01002 to agent1@tech.local (round-robin, 3 agents available)
+2026-04-03 14:48:33.038 [TRACE] [tid:022] NotificationDispatcher - Queued: new ticket alert for agent1@tech.local, confirmation for user1@health.local
+2026-04-03 14:48:33.040 [TRACE] [tid:022] RequestPipeline - Response: 201 Created (39ms)
+2026-04-03 14:50:00.001 [TRACE] [tid:024] RequestPipeline - Incoming: GET /api/v2/tickets?page=2&size=20 | CorrelationId: rt-008 | User: agent1@tech.local
+2026-04-03 14:50:00.003 [TRACE] [tid:024] CacheService - Cache MISS for key 'ticket-list:page2:size20'. Querying DB.
+2026-04-03 14:50:00.025 [TRACE] [tid:024] EFCore - SELECT ... OFFSET 20 ROWS FETCH NEXT 20 ROWS ONLY (22ms)
+2026-04-03 14:50:00.028 [TRACE] [tid:024] RequestPipeline - Response: 200 OK (27ms)
+2026-04-03 14:52:11.001 [TRACE] [tid:026] RequestPipeline - Incoming: GET /api/v2/tickets/1002/attachments | CorrelationId: rt-009 | User: agent1@tech.local
+2026-04-03 14:52:11.012 [TRACE] [tid:026] EFCore - SELECT * FROM TicketAttachments WHERE TicketId = 1002 -- 0 rows (5ms)
+2026-04-03 14:52:11.014 [TRACE] [tid:026] RequestPipeline - Response: 200 OK (13ms). Body: []
+2026-04-03 14:55:00.001 [INFO ] [tid:004] HealthCheckService - All checks healthy. DB: 45ms, Redis: 8ms, Blob: 67ms.
+2026-04-03 15:00:00.001 [INFO ] [tid:001] ApplicationHost - Uptime: 30m. Requests served: 847. Errors: 2 (0.24%). Avg response: 89ms. P99: 2455ms.

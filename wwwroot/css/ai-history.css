@@ -1,0 +1,624 @@
+/* 
+   REASONING INVESTIGATION ARCHIVE - MODULAR STYLES
+   Focus: Forensic Audit, Trace Timelines, and Hover Interactions
+*/
+
+:root {
+    --copilot-accent-glow: rgba(var(--primary-color-rgb), 0.15);
+    --copilot-success-glow: rgba(var(--primary-color-rgb), 0.12);
+}
+
+.history-row {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.history-row:hover {
+    background-color: rgba(var(--primary-color-rgb), 0.02) !important;
+    transform: scale(1.002);
+}
+
+.history-select-column {
+    width: 3.25rem;
+}
+
+.history-select-checkbox {
+    width: 1.05rem;
+    height: 1.05rem;
+    cursor: pointer;
+    border-color: rgba(var(--primary-color-rgb), 0.35);
+}
+
+.history-select-checkbox:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.history-selection-pill {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.28);
+    border-radius: 999px;
+    padding: 0.45rem 0.8rem;
+    background: rgba(var(--primary-color-rgb), 0.08);
+    color: var(--primary-color);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+/* Workflow Steps Tree - Separate Workflow Breakdown */
+.workflow-steps-tree {
+    position: relative;
+}
+
+.workflow-steps-tree::before {
+    content: '';
+    position: absolute;
+    left: 13px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, 
+        rgba(var(--primary-color-rgb), 0.3) 0%, 
+        rgba(var(--primary-color-rgb), 0.1) 100%);
+    z-index: 0;
+}
+
+.workflow-step {
+    position: relative;
+    z-index: 1;
+}
+
+.workflow-step-icon {
+    flex-shrink: 0;
+    border: 2px solid var(--bg-card);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.workflow-step:not(:last-child) .workflow-step-icon::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    width: 2px;
+    height: 1rem;
+    background: rgba(var(--primary-color-rgb), 0.2);
+    transform: translateX(-50%);
+}
+
+.letter-spacing-1 {
+    letter-spacing: 0.1em;
+}
+
+#archiveDetailView {
+    min-height: 70vh;
+}
+
+/* Local Badge Overrides for Forensic Clarity */
+.bg-soft-primary {
+    background-color: rgba(var(--primary-color-rgb), 0.08) !important;
+}
+
+/* Progress Indicators */
+.history-perf-track {
+    height: 4px;
+    width: 60px;
+    background: rgba(var(--text-main-rgb), 0.06);
+}
+
+/* Copilot Timeline Pipeline */
+.copilot-story-timeline {
+    position: relative;
+    padding-left: 0;
+    margin: 1rem 0;
+}
+
+.copilot-story-timeline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 15px;
+    width: 2px;
+    background: var(--border-color);
+    opacity: 0.4;
+    z-index: 1;
+}
+
+.copilot-story-step {
+    position: relative;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: flex-start;
+}
+
+.copilot-story-step-last {
+    margin-bottom: 0;
+}
+
+.copilot-story-dot {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    flex-shrink: 0;
+    margin-right: 1.5rem;
+    background: var(--bg-card);
+}
+
+.copilot-story-content {
+    flex-grow: 1;
+    padding: 1.25rem;
+    position: relative;
+    transition: all 0.3s ease;
+    border-radius: 16px !important;
+}
+.copilot-story-content:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.05) !important;
+    border-color: rgba(var(--primary-color-rgb), 0.3) !important;
+}
+
+.copilot-story-detail {
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+/* Step Inspector Panels */
+.copilot-trace-node-panel {
+    background: color-mix(in srgb, var(--bg-card) 96%, var(--primary-color)) !important;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.2) !important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important;
+    backdrop-filter: blur(10px);
+}
+
+.copilot-trace-node-box {
+    background: rgba(var(--primary-color-rgb), 0.03) !important;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.1) !important;
+    border-radius: 12px !important;
+    padding: 1.25rem !important;
+    transition: all 0.2s ease;
+}
+
+.copilot-trace-node-box:hover {
+    background: rgba(var(--primary-color-rgb), 0.05) !important;
+    border-color: rgba(var(--primary-color-rgb), 0.2) !important;
+    transform: translateY(-2px);
+}
+
+.copilot-trace-node-box-label {
+    color: var(--primary-color) !important;
+    opacity: 0.8;
+    font-size: 0.65rem !important;
+}
+
+.copilot-trace-node-box-value {
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+}
+
+.copilot-trace-node-payloads-list .copilot-code-block {
+    background: var(--bg-main) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-main) !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+    font-size: 0.85rem !important;
+    box-shadow: none;
+}
+
+.copilot-trace-node-payloads-list .copilot-code-block pre {
+    margin: 0 !important;
+}
+
+/* Aggressive Layout Expansion for Investigation Story */
+html.investigation-page-body,
+body.investigation-page-body {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    display: block !important;
+    position: relative !important;
+}
+
+.investigation-page-body .copilot-story-step::before {
+    display: none !important;
+}
+
+/* Restore standard header and shell components */
+.sf-header {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.sf-header .header-titles,
+.sf-header .header-titles *,
+.sf-header .d-flex.align-items-center.gap-4.flex-nowrap {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.sf-header .header-titles {
+    margin-right: 2rem;
+}
+
+.sf-breadcrumb-wrapper,
+.breadcrumb-wrapper,
+footer {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+body.investigation-page-body .breadcrumb {
+    display: flex !important;
+}
+
+/* Break out of all containers */
+/* Force full-width expansion for investigation story */
+html.investigation-page-body .sf-wrapper {
+    position: absolute !important;
+    top: 0 !important;
+    left: var(--sidebar-width) !important;
+    right: 0 !important;
+    width: auto !important;
+    margin: 0 !important;
+    max-width: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 100vh !important;
+    background: var(--bg-main) !important;
+}
+
+html.investigation-page-body main[role="main"],
+html.investigation-page-body .investigation-page-shell,
+html.investigation-page-body .glass-card,
+html.investigation-page-body .copilot-trace-detail-root {
+    width: 100% !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    display: block !important;
+}
+
+html.investigation-page-body main[role="main"] {
+    padding: 1.5rem !important;
+    flex: 1 1 auto !important;
+}
+
+html.investigation-page-body .copilot-story-content,
+html.investigation-page-body .copilot-story-step,
+html.investigation-page-body .copilot-story-timeline,
+html.investigation-page-body .copilot-trace-view-shell,
+html.investigation-page-body .copilot-story-view {
+    width: 100% !important;
+    max-width: none !important;
+    flex: 1 1 auto !important;
+}
+
+html.investigation-page-body .copilot-mermaid-shell {
+    overflow: auto !important;
+    min-height: 500px;
+    width: 100% !important;
+}
+
+body.investigation-page-body .copilot-mermaid-graph {
+    width: 100% !important;
+    min-width: 0 !important;
+}
+
+body.investigation-page-body .copilot-mermaid-graph svg {
+    max-width: none !important;
+    width: 100% !important;
+    height: auto !important;
+}
+
+/* Premium Story/Tree Switcher */
+.copilot-trace-view-toggle {
+    background: rgba(var(--primary-color-rgb), 0.05);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.1);
+    padding: 4px;
+    border-radius: 100px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.copilot-trace-view-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 20px;
+    border-radius: 100px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.copilot-trace-view-btn i {
+    font-size: 1rem;
+    opacity: 0.7;
+}
+
+.copilot-trace-view-btn:hover {
+    color: var(--primary-color);
+    background: rgba(var(--primary-color-rgb), 0.05);
+}
+
+.copilot-trace-view-btn.is-active {
+    background: var(--primary-color);
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.3);
+}
+
+.copilot-trace-view-btn.is-active i {
+    opacity: 1;
+}
+
+.copilot-tree-legend {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.copilot-tree-legend-item {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.copilot-tree-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-color);
+}
+
+.copilot-tree-legend-item-active .copilot-tree-legend-dot {
+    background: var(--primary-color);
+    box-shadow: 0 0 8px var(--primary-color);
+}
+.copilot-story-step.is-sub-step {
+    border-left: 2px solid rgba(var(--primary-color-rgb), 0.1);
+    padding-left: 1rem;
+    margin-top: -1rem;
+}
+
+.copilot-story-step.is-sub-step .copilot-story-content {
+    background: rgba(var(--primary-color-rgb), 0.01) !important;
+    transform: scale(0.98);
+    transform-origin: left top;
+}
+
+.copilot-trace-substep-card.is-child {
+    border-left: 2px solid rgba(var(--primary-color-rgb), 0.15);
+    background: rgba(var(--primary-color-rgb), 0.01);
+    margin-top: 0.5rem;
+    padding-left: 1rem;
+}
+
+.copilot-trace-substep-payload-toggle {
+    border: 1px solid rgba(var(--primary-color-rgb), 0.2);
+    background: rgba(var(--primary-color-rgb), 0.05);
+    color: var(--primary-color);
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.copilot-trace-substep-payload-toggle:hover,
+.copilot-trace-substep-payload-toggle.is-active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.copilot-trace-substep-children {
+    position: relative;
+    margin-top: 1rem;
+}
+
+.copilot-trace-substep-children::before {
+    content: '';
+    position: absolute;
+    left: -12px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(var(--primary-color-rgb), 0.05);
+}
+/* ================================================================
+   WORKFLOW DIAGRAM (TREE VIEW) — PREMIUM THEME-ALIGNED STYLES
+   ================================================================ */
+
+/* Tree intro header area */
+.copilot-tree-intro {
+    margin-bottom: 1rem;
+}
+.copilot-tree-intro-title {
+    font-size: 0.7rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+.copilot-tree-intro-text {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Actual path breadcrumb bar */
+.copilot-tree-path-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    background: rgba(var(--primary-color-rgb), 0.04);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.12);
+    border-radius: 0.75rem;
+}
+.copilot-tree-path-bar-label {
+    font-size: 0.65rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--primary-color);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.copilot-tree-path-bar-value {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.5;
+}
+
+/* Mermaid diagram outer shell */
+.copilot-mermaid-shell {
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    overflow: hidden;
+    background: var(--bg-card);
+}
+
+/* Diagram toolbar */
+.copilot-mermaid-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    background: rgba(var(--primary-color-rgb), 0.04);
+    border-bottom: 1px solid var(--border-color);
+}
+.copilot-mermaid-toolbar-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+}
+.copilot-mermaid-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.copilot-mermaid-control {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+.copilot-mermaid-control:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    border-color: rgba(var(--primary-color-rgb), 0.2);
+    color: var(--primary-color);
+}
+
+/* Diagram viewport */
+.copilot-mermaid-viewport {
+    min-height: 480px;
+    max-height: 70vh;
+    overflow: auto;
+    padding: 1rem;
+    background: var(--bg-card);
+    position: relative;
+}
+.copilot-mermaid-graph {
+    width: 100%;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.copilot-mermaid-graph svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    background: transparent !important;
+}
+
+/* Step inspector panel (shown on node click) */
+.copilot-trace-node-panel {
+    background: var(--bg-card) !important;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.15) !important;
+    border-radius: 1rem !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08) !important;
+    padding: 1.25rem !important;
+    backdrop-filter: blur(10px);
+}
+
+.copilot-trace-node-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.copilot-trace-node-panel-label {
+    font-size: 0.65rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--primary-color);
+    margin-bottom: 0.2rem;
+}
+.copilot-trace-node-panel-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.35;
+}
+.copilot-trace-node-panel-summary {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+.copilot-trace-node-section-title {
+    font-size: 0.68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}

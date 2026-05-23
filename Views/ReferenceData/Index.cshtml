@@ -1,0 +1,158 @@
+@{
+    ViewData["Title"] = "Reference Data Management";
+    var refDataHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Configuration Center",
+        Subtitle = "Manage global lookup tables and system taxonomies (Super Admin Only)",
+        IconClass = "bi bi-database-fill"
+    };
+}
+
+<partial name="_PageHeader" model="refDataHeader" />
+
+<div class="row g-4 mb-5">
+    <!-- Categories -->
+    <div class="col-xl-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+            <div class="card-header border-0 pb-0 bg-transparent d-flex align-items-center gap-3">
+                <div class="kpi-icon"><i class="bi bi-tags-fill"></i></div>
+                <h6 class="fw-bold mb-0" style="color: var(--text-main) !important;">Inquiry Classifications</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush mb-4">
+                    @foreach(var item in ViewBag.Categories)
+                    {
+                        <div class="p-3 rounded-3 d-flex justify-content-between align-items-center mb-2" style="background: var(--bg-main) !important; border: 1px solid var(--border-color) !important;">
+                            <span class="fw-bold" style="color: var(--text-main) !important;">@item.Name</span>
+                            <form asp-action="ToggleStatus" method="post" class="m-0">
+                                <input type="hidden" name="type" value="category" />
+                                <input type="hidden" name="id" value="@item.Id" />
+                                <button type="submit" class="btn btn-sm btn-pill @(item.IsActive ? "btn-soft-primary" : "btn-soft-danger") opacity-75">
+                                    @(item.IsActive ? "Active" : "Disabled")
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+                <form asp-action="AddCategory" method="post" class="input-group rounded-3 p-1" style="background: var(--bg-main) !important; border: 1px solid var(--border-color) !important;">
+                    <input type="text" name="name" class="form-control border-0 bg-transparent shadow-none" style="color: var(--text-main) !important;" placeholder="New Category Name..." required />
+                    <button class="btn btn-primary rounded-3 px-3 shadow-sm" type="submit"><i class="bi bi-plus-lg"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statuses -->
+    <div class="col-xl-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+            <div class="card-header border-0 pb-0 bg-transparent d-flex align-items-center gap-3">
+                <div class="kpi-icon"><i class="bi bi-toggle-on"></i></div>
+                <h6 class="fw-bold mb-0" style="color: var(--text-main) !important;">Workflow States</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush mb-4">
+                    @foreach(var item in ViewBag.Statuses)
+                    {
+                        <div class="p-3 rounded-3 d-flex justify-content-between align-items-center mb-2" style="background: var(--bg-main) !important; border: 1px solid var(--border-color) !important;">
+                            <div>
+                                <span class="fw-bold d-block" style="color: var(--text-main) !important;">@item.Name</span>
+                                <span class="text-muted small">Type: @(item.IsClosedState ? "Terminal/Release" : "Operational/Active")</span>
+                            </div>
+                            <form asp-action="ToggleStatus" method="post" class="m-0">
+                                <input type="hidden" name="type" value="status" />
+                                <input type="hidden" name="id" value="@item.Id" />
+                                <button type="submit" class="btn btn-sm btn-pill @(item.IsActive ? "btn-soft-primary" : "btn-soft-danger") opacity-75">
+                                    @(item.IsActive ? "Active" : "Disabled")
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+                <form asp-action="AddStatus" method="post" class="input-group rounded-3 p-1" style="background: var(--bg-main) !important; border: 1px solid var(--border-color) !important;">
+                    <input type="text" name="name" class="form-control border-0 bg-transparent shadow-none" style="color: var(--text-main) !important;" placeholder="New Workflow State..." required />
+                    <div class="input-group-text bg-transparent border-0 pe-1">
+                        <input class="form-check-input" type="checkbox" name="isClosedState" value="true" title="Terminal State">
+                    </div>
+                    <button class="btn btn-primary rounded-3 px-3 shadow-sm" type="submit"><i class="bi bi-plus-lg"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+
+<div class="row g-4">
+    <!-- Priorities -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+            <div class="card-header border-0 pb-0 bg-transparent d-flex align-items-center gap-3">
+                <div class="kpi-icon"><i class="bi bi-exclamation-octagon-fill"></i></div>
+                <h6 class="fw-bold mb-0" style="color: var(--text-main) !important;">Priority Configuration</h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    @foreach(var item in ViewBag.Priorities)
+                    {
+                        <div class="col-sm-6">
+                            <div class="p-3 rounded-3 d-flex justify-content-between align-items-center" style="background: var(--bg-main) !important; border: 1px solid var(--border-color) !important;">
+                                <div>
+                                    <span class="fw-bold d-block" style="color: var(--text-main) !important;">@item.Name</span>
+                                    <span class="text-muted small">Level @item.Level</span>
+                                </div>
+                                <form asp-action="ToggleStatus" method="post" class="m-0">
+                                    <input type="hidden" name="type" value="priority" />
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <button type="submit" class="btn btn-sm btn-pill @(item.IsActive ? "btn-soft-primary" : "btn-soft-danger") opacity-75">
+                                        @(item.IsActive ? "Active" : "Disabled")
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <hr class="my-4" style="border-color: var(--border-color) !important;">
+                <form asp-action="AddPriority" method="post" class="row g-2">
+                    <div class="col-8">
+                        <input type="text" name="name" class="form-control border-0 p-3 shadow-none" style="background: var(--bg-main) !important; color: var(--text-main) !important; border: 1px solid var(--border-color) !important; border-radius: 12px;" placeholder="Priority Name..." required />
+                    </div>
+                    <div class="col">
+                        <input type="number" name="level" class="form-control border-0 p-3 shadow-none" style="background: var(--bg-main) !important; color: var(--text-main) !important; border: 1px solid var(--border-color) !important; border-radius: 12px;" placeholder="Lvl" required />
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary rounded-3 h-100 px-3 shadow-sm" type="submit"><i class="bi bi-plus-lg"></i></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sources -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+            <div class="card-header border-0 pb-0 bg-transparent d-flex align-items-center gap-3">
+                <div class="kpi-icon"><i class="bi bi-broadcast"></i></div>
+                <h6 class="fw-bold mb-0" style="color: var(--text-main) !important;">Ingestion Channels</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                    @foreach(var item in ViewBag.Sources)
+                    {
+                        <form asp-action="ToggleStatus" method="post" class="m-0">
+                            <input type="hidden" name="type" value="source" />
+                            <input type="hidden" name="id" value="@item.Id" />
+                            <button type="submit" class="btn btn-sm btn-pill @(item.IsActive ? "btn-soft-primary" : "btn-soft-danger") opacity-75 fw-bold">
+                                @item.Name
+                                @if (!item.IsActive) { <span class="ms-1 opacity-50 small">(Disabled)</span> }
+                            </button>
+                        </form>
+                    }
+                </div>
+                <form asp-action="AddSource" method="post" class="input-group rounded-3 p-1" style="background: var(--bg-main) !important; border: 1px solid var(--border-color) !important;">
+                    <input type="text" name="name" class="form-control border-0 bg-transparent shadow-none" style="color: var(--text-main) !important;" placeholder="New Channel Name..." required />
+                    <button class="btn btn-primary rounded-3 px-3 shadow-sm" type="submit"><i class="bi bi-plus-lg"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

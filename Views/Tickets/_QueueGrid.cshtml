@@ -1,0 +1,19 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
+
+@{
+    var queueTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    {
+        ShowColumnSearchToggle = true,
+        ColumnSearchLabel = Loc.Get("Filter"),
+        TableSelector = "#ticketsTable",
+        ToolbarActionText = Model.Items.Count > 100 ? null : Loc.Get("UltraMode") ?? "Ultra Mode (Full Inquiry Search)",
+        ToolbarActionHref = Model.Items.Count > 100 ? null : Url.Action("Index", "Tickets", new Microsoft.AspNetCore.Routing.RouteValueDictionary { ["request.PageSize"] = -1 }),
+        ToolbarActionCssClass = "btn btn-sm btn-outline-primary fw-bold rounded-pill",
+        ToolbarActionStyle = "font-size: 0.75rem;",
+        TablePartialName = "~/Views/Tickets/_QueueTable.cshtml",
+        TableModel = Model,
+        PaginationModel = Model
+    };
+}
+
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="queueTable" />

@@ -1,0 +1,61 @@
+@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.DTOs.UserDto>
+
+@{
+    ViewData["Title"] = "Users Management";
+    var request = Model.Request;
+    var usersTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    {
+        Title = "Access Directory",
+        Subtitle = "Unified user grid with shared filters, search, and table controls.",
+        ShowColumnSearchToggle = true,
+        ColumnSearchLabel = "In-Depth Column Filters",
+        TableSelector = "#usersTable",
+        TablePartialName = "~/Views/Users/_UsersTable.cshtml",
+        TableModel = Model,
+        PaginationModel = Model
+    };
+    var usersHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = "Human Resources",
+        Subtitle = "Manage user access and organizational allocations",
+        IconClass = "bi bi-people-fill",
+        Actions = new()
+        {
+            new() {
+                Text = "Provision New User",
+                Href = Url.Action("Create", "Users") ?? "#",
+                IconClass = "bi bi-person-plus-fill",
+                CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm"
+            }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="usersHeader" />
+
+<div class="card border-0 shadow-sm mb-4" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body p-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-lg-6">
+                <label class="form-label small fw-bold text-muted text-uppercase ls-1">Identify Agent</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent border-end-0" style="border-color: var(--border-color) !important;"><i class="bi bi-search text-primary"></i></span>
+                    <input type="text" name="request.SearchString" class="form-control border-start-0 bg-transparent shadow-none" style="border-color: var(--border-color) !important; color: var(--text-main) !important;" placeholder="Search name or email..." value="@request.SearchString">
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <label class="form-label small fw-bold text-muted text-uppercase ls-1">Organizational Entity</label>
+                <select name="request.EntityId" asp-items="ViewBag.EntityFilterId" class="form-select bg-transparent shadow-none" style="border-color: var(--border-color) !important; color: var(--text-main) !important;">
+                    <option value="">All Entities</option>
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm" style="background: var(--primary-color) !important; color: #000 !important; border: none !important;">
+                    <i class="bi bi-filter"></i> Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="usersTable" />

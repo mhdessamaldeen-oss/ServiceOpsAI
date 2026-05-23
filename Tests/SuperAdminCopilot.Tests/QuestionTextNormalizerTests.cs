@@ -1,0 +1,84 @@
+namespace SuperAdminCopilot.Tests;
+
+using SuperAdminCopilot.Internal;
+using Xunit;
+
+/// <summary>
+/// Pins the surface-form-collapsing contract for QuestionTextNormalizer. Behaviour is
+/// intentionally schema-agnostic — no table or column names appear in inputs.
+/// </summary>
+public class QuestionTextNormalizerTests
+{
+    [Theory]
+    [InlineData("users(name, email)", "users name email")]
+    [InlineData("users (name, email)", "users name email")]
+    [InlineData("users( name , email )", "users name email")]
+    [InlineData("users(name,email)", "users name email")]
+    [InlineData("users(name;email;phone)", "users name email phone")]
+    public void Expands_parenthesised_column_lists(string input, string expected)
+    {
+        Assert.Equal(expected, QuestionTextNormalizer.Normalize(input));
+    }
+
+    [Theory]
+    [InlineData("list of user( name ,id ,email ) with their role and ticket counts",
+                "list of user name id email with their role and ticket counts")]
+    public void Reproduces_live_failure_input(string input, string expected)
+    {
+        Assert.Equal(expected, QuestionTextNormalizer.Normalize(input));
+    }
+
+    [Theory]
+    [InlineData("show  me   open    tickets", "show me open tickets")]
+    [InlineData("show\tme\nopen\ttickets", "show me open tickets")]
+    public void Collapses_whitespace_runs(string input, string expected)
+    {
+        Assert.Equal(expected, QuestionTextNormalizer.Normalize(input));
+    }
+
+    [Theory]
+    [InlineData("show, , open tickets", "show open tickets")]
+    [InlineData("show,,,open tickets", "show open tickets")]
+    [InlineData("a; ; b", "a b")]
+    public void Collapses_comma_and_semicolon_runs(string input, string expected)
+    {
+        Assert.Equal(expected, QuestionTextNormalizer.Normalize(input));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\t\n  \t")]
+    public void Returns_empty_for_blank_input(string? input)
+    {
+        Assert.Equal(string.Empty, QuestionTextNormalizer.Normalize(input));
+    }
+
+    [Fact]
+    public void Preserves_arabic_text()
+    {
+        // Arabic input should pass through whitespace / paren normalization unchanged
+        // for the actual letterforms — only structural cleanup applies.
+        const string ar = "اعرض التذاكر المفتوحة";
+        Assert.Equal(ar, QuestionTextNormalizer.Normalize(ar));
+    }
+
+    [Fact]
+    public void Preserves_typos_and_informal_spelling()
+    {
+        // Typos like "tikect" and "ans there" stay — the embedder is cross-lingual and
+        // tolerates misspellings; correcting them here would risk silently changing intent.
+        const string input = "list users and there tikect counts";
+        Assert.Equal(input, QuestionTextNormalizer.Normalize(input));
+    }
+
+    [Fact]
+    public void Idempotent()
+    {
+        const string input = "users(name, email)  and  their  role";
+        var once = QuestionTextNormalizer.Normalize(input);
+        var twice = QuestionTextNormalizer.Normalize(once);
+        Assert.Equal(once, twice);
+    }
+}

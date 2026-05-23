@@ -1,0 +1,406 @@
+@model AISupportAnalysisPlatform.Models.AI.AdminCopilotExecutionDetails
+@using AISupportAnalysisPlatform.Models.AI
+
+@*
+    Pipeline Overview — drop-in preview at the top of the Story tab.
+    Shows the FULL picture in one glance:
+      1. Pipeline Flow      — 5 phases (Context → Router → Planning → Execution → Complete) with status, timing
+      2. Routing Decision   — all 5 possible branches, with the one that fired highlighted
+      3. Step Inspector     — every step expandable to its full detail (status, timing, technical data, errors)
+
+    The deeper sections of the existing _InvestigationTraceDetail partial render below this preview;
+    this is the high-signal summary the user looks at first.
+*@
+
+@functions {
+    string StatusBadgeClass(CopilotStepStatus status) => status switch
+    {
+        CopilotStepStatus.Ok    => "bg-soft-success text-success",
+        CopilotStepStatus.Warn  => "bg-soft-warning text-warning",
+        CopilotStepStatus.Error => "bg-soft-danger text-danger",
+        CopilotStepStatus.Skip  => "bg-soft-secondary text-secondary",
+        _                       => "bg-soft-secondary text-secondary"
+    };
+
+    string StatusIcon(CopilotStepStatus status) => status switch
+    {
+        CopilotStepStatus.Ok    => "bi-check-circle-fill",
+        CopilotStepStatus.Warn  => "bi-exclamation-triangle-fill",
+        CopilotStepStatus.Error => "bi-x-circle-fill",
+        CopilotStepStatus.Skip  => "bi-dash-circle",
+        _                       => "bi-dash-circle"
+    };
+
+    string LayerColor(CopilotExecutionLayer layer) => layer switch
+    {
+        CopilotExecutionLayer.Context       => "primary",
+        CopilotExecutionLayer.Router        => "info",
+        CopilotExecutionLayer.DataPlanning  => "warning",
+        CopilotExecutionLayer.DataExecution => "success",
+        CopilotExecutionLayer.Executor      => "success",
+        CopilotExecutionLayer.Complete      => "secondary",
+        _                                   => "secondary"
+    };
+
+    string LayerIcon(CopilotExecutionLayer layer) => layer switch
+    {
+        CopilotExecutionLayer.Context       => "bi-box-arrow-in-right",
+        CopilotExecutionLayer.Router        => "bi-signpost-split",
+        CopilotExecutionLayer.DataPlanning  => "bi-pencil-square",
+        CopilotExecutionLayer.DataExecution => "bi-database-check",
+        CopilotExecutionLayer.Executor      => "bi-database-check",
+        CopilotExecutionLayer.Complete      => "bi-flag-fill",
+        _                                   => "bi-circle"
+    };
+
+    string LayerLabel(CopilotExecutionLayer layer) => layer switch
+    {
+        CopilotExecutionLayer.Context       => Loc.Get("PhaseIntake"),
+        CopilotExecutionLayer.Router        => Loc.Get("PhaseRouting"),
+        CopilotExecutionLayer.DataPlanning  => Loc.Get("PhasePlanning"),
+        CopilotExecutionLayer.DataExecution => Loc.Get("PhaseExecution"),
+        CopilotExecutionLayer.Executor      => Loc.Get("PhaseExecution"),
+        CopilotExecutionLayer.Complete      => Loc.Get("PhaseSynthesis"),
+        _                                   => layer.ToString()
+    };
+
+    string FormatMs(long ms) => ms < 1000 ? $"{ms} ms" : $"{(ms / 1000.0):F2} s";
+
+    string CleanAction(string? action)
+    {
+        if (string.IsNullOrWhiteSpace(action)) return "Step";
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(action, @"\s*\[[^\]]+\]", string.Empty).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? action : cleaned;
+    }
+
+    string ExtractComponent(string? action)
+    {
+        if (string.IsNullOrWhiteSpace(action)) return string.Empty;
+        var match = System.Text.RegularExpressions.Regex.Match(action, @"\[([^\]]+)\]");
+        return match.Success ? match.Groups[1].Value : string.Empty;
+    }
+}
+
+@{
+    // Walk the steps once to derive everything we need for the preview.
+    var allSteps = Model.Steps ?? new List<CopilotExecutionStep>();
+    var totalElapsed = Model.TotalElapsedMs;
+    var stepCount = allSteps.Count;
+    var errorCount = allSteps.Count(s => s.Status == CopilotStepStatus.Error);
+    var warnCount  = allSteps.Count(s => s.Status == CopilotStepStatus.Warn);
+    var hadFailure = errorCount > 0;
+    var hadAbort   = allSteps.Any(s => (s.Action ?? string.Empty).Contains("aborted", StringComparison.OrdinalIgnoreCase));
+
+    // The 5 canonical phases the request can pass through. We want to show ALL of them so
+    // the user sees the pipeline shape — not just the ones that fired. Phases the request
+    // skipped are rendered dimmed.
+    var canonicalPhases = new[]
+    {
+        CopilotExecutionLayer.Context,
+        CopilotExecutionLayer.Router,
+        CopilotExecutionLayer.DataPlanning,
+        CopilotExecutionLayer.DataExecution,
+        CopilotExecutionLayer.Complete
+    };
+
+    var stepsByLayer = canonicalPhases.ToDictionary(
+        p => p,
+        p => allSteps.Where(s => s.Layer == p ||
+                                 (p == CopilotExecutionLayer.DataExecution && s.Layer == CopilotExecutionLayer.Executor))
+                     .ToList());
+
+    // Routing branch detection. The orchestrator picks ONE of these 5 routes after classification.
+    // Active branch comes from details.DetectedIntent + the actual step that fired.
+    var detectedIntent = (Model.DetectedIntent ?? string.Empty).ToLowerInvariant();
+    var routerActions = stepsByLayer[CopilotExecutionLayer.Router]
+        .Select(s => (s.Action ?? string.Empty).ToLowerInvariant()).ToList();
+
+    bool ranControl = routerActions.Any(a => a.Contains("invalid request") || a.Contains("clarification gate"));
+    bool ranExternal = routerActions.Any(a => a.Contains("external tool"));
+    bool ranGeneral = routerActions.Any(a => a.Contains("general support"));
+    bool ranAborted = routerActions.Any(a => a.Contains("aborted")) || hadAbort;
+    bool ranData = stepsByLayer[CopilotExecutionLayer.DataPlanning].Any() ||
+                   stepsByLayer[CopilotExecutionLayer.DataExecution].Any();
+
+    var branches = new[]
+    {
+        (Key: "data",        Label: Loc.Get("RouteDataQuery"),       Icon: "bi-database",    Active: ranData,     Description: Loc.Get("RouteDataQueryDesc")),
+        (Key: "control",     Label: Loc.Get("RouteClarification"),   Icon: "bi-question-circle", Active: ranControl, Description: Loc.Get("RouteClarificationDesc")),
+        (Key: "external",    Label: Loc.Get("RouteExternalTool"),    Icon: "bi-cloud-arrow-down", Active: ranExternal, Description: Loc.Get("RouteExternalToolDesc")),
+        (Key: "general",     Label: Loc.Get("RouteGeneralSupport"),  Icon: "bi-chat-left-text", Active: ranGeneral, Description: Loc.Get("RouteGeneralSupportDesc")),
+        (Key: "aborted",     Label: Loc.Get("RoutePipelineAborted"), Icon: "bi-exclamation-octagon", Active: ranAborted,  Description: Loc.Get("RoutePipelineAbortedDesc"))
+    };
+
+    var traceIdSafe = (ViewBag.Trace?.Id?.ToString() ?? "preview");
+}
+
+<div class="investigation-preview mb-4">
+
+    <!-- ─── Run Summary Header ─────────────────────────────────────────────── -->
+    <div class="card border-0 shadow-sm rounded-4 mb-3">
+        <div class="card-body p-3">
+            <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="badge rounded-pill px-3 py-2 @(hadFailure ? "bg-soft-danger text-danger" : (warnCount > 0 ? "bg-soft-warning text-warning" : "bg-soft-success text-success"))">
+                        <i class="bi @(hadFailure ? "bi-x-circle-fill" : (warnCount > 0 ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")) me-1"></i>
+                        @(hadFailure ? Loc.Get("RunFailed") : (warnCount > 0 ? Loc.Get("RunCompletedWithWarnings") : Loc.Get("RunCompletedSuccessfully")))
+                    </div>
+                    <div class="small text-muted">
+                        <span class="me-3"><i class="bi bi-stopwatch me-1"></i><strong>@FormatMs(totalElapsed)</strong> @Loc.Get("TotalSuffix")</span>
+                        <span class="me-3"><i class="bi bi-list-ol me-1"></i><strong>@stepCount</strong> @Loc.Get("StepsWord")</span>
+                        @if (errorCount > 0)
+                        {
+                            <span class="me-3 text-danger"><i class="bi bi-x-circle me-1"></i><strong>@errorCount</strong> @Loc.Get("ErrorsSuffix")</span>
+                        }
+                        @if (warnCount > 0)
+                        {
+                            <span class="me-3 text-warning"><i class="bi bi-exclamation-triangle me-1"></i><strong>@warnCount</strong> @Loc.Get("WarningsSuffix")</span>
+                        }
+                        @{
+                            // LLM cost / usage roll-up from the trace row's four cost columns
+                            // (populated by HostTraceSink from the per-question LlmCallScope).
+                            // Null on legacy rows from before the migration — render only when present.
+                            var traceForCost = ViewBag.Trace as AISupportAnalysisPlatform.Models.AI.CopilotTraceHistory;
+                            var llmCalls = traceForCost?.LlmCallCount;
+                            var pTok = traceForCost?.TotalPromptTokens ?? 0;
+                            var cTok = traceForCost?.TotalCompletionTokens ?? 0;
+                            var costUsd = traceForCost?.EstimatedCostUsd;
+                        }
+                        @if (llmCalls.HasValue && llmCalls > 0)
+                        {
+                            <span class="me-3"><i class="bi bi-cpu me-1"></i><strong>@llmCalls</strong> LLM calls</span>
+                            <span class="me-3"><i class="bi bi-hash me-1"></i><strong>@($"{pTok:N0}+{cTok:N0}")</strong> tokens</span>
+                            <span class="me-3 @(costUsd == 0 ? "text-success" : "")">
+                                <i class="bi bi-currency-dollar me-1"></i>
+                                <strong>@(costUsd == 0 ? "free" : (costUsd >= 0.01m ? costUsd.Value.ToString("0.0000") : costUsd.Value.ToString("0.000000")))</strong>
+                            </span>
+                        }
+                    </div>
+                </div>
+                <div class="small text-muted">
+                    <strong>@(string.IsNullOrWhiteSpace(Model.Brain) ? "—" : Model.Brain)</strong>
+                    @if (!string.IsNullOrWhiteSpace(Model.DetectedIntent))
+                    {
+                        <span class="ms-2 badge bg-soft-info text-info rounded-pill">@Model.DetectedIntent</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Pipeline Flow (5 phases) ───────────────────────────────────────── -->
+    <div class="card border-0 shadow-sm rounded-4 mb-3">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0 px-3">
+            <h6 class="fw-bold mb-1 small text-uppercase text-muted ls-1">
+                <i class="bi bi-diagram-3 me-1"></i>@Loc.Get("PipelineFlow")
+            </h6>
+            <p class="small text-muted mb-3">@Loc.Get("PipelineFlowSubtitle")</p>
+        </div>
+        <div class="card-body p-3 pt-0">
+            <div class="d-flex flex-wrap gap-2 align-items-stretch">
+                @for (int i = 0; i < canonicalPhases.Length; i++)
+                {
+                    var phase = canonicalPhases[i];
+                    var phaseSteps = stepsByLayer[phase];
+                    var phaseRan = phaseSteps.Any();
+                    var phaseFailed = phaseSteps.Any(s => s.Status == CopilotStepStatus.Error);
+                    var phaseWarned = phaseSteps.Any(s => s.Status == CopilotStepStatus.Warn);
+                    var phaseElapsed = phaseSteps.Sum(s => s.ElapsedMs);
+                    var color = phaseFailed ? "danger" : (phaseWarned ? "warning" : (phaseRan ? LayerColor(phase) : "secondary"));
+                    var dimClass = phaseRan ? "" : "opacity-50";
+
+                    <div class="flex-fill" style="min-width: 160px; max-width: 240px;">
+                        <div class="card border-0 h-100 @dimClass" style="background: var(--bg-secondary);">
+                            <div class="card-body p-3 text-center">
+                                <div class="badge bg-soft-@color text-@color rounded-pill mb-2">
+                                    <i class="bi @LayerIcon(phase) me-1"></i>@LayerLabel(phase)
+                                </div>
+                                <div class="fw-bold small mb-1">@phase.ToString()</div>
+                                @if (phaseRan)
+                                {
+                                    <div class="small text-muted">@phaseSteps.Count @(phaseSteps.Count == 1 ? Loc.Get("StepWord") : Loc.Get("StepsWord"))</div>
+                                    <div class="small fw-semibold">@FormatMs(phaseElapsed)</div>
+                                }
+                                else
+                                {
+                                    <div class="small text-muted fst-italic">@Loc.Get("PipelinePhaseSkipped")</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    @if (i < canonicalPhases.Length - 1)
+                    {
+                        <div class="d-flex align-items-center px-1 d-none d-lg-flex">
+                            <i class="bi bi-arrow-right text-muted"></i>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Routing Decision (which branch fired) ──────────────────────────── -->
+    <div class="card border-0 shadow-sm rounded-4 mb-3">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0 px-3">
+            <h6 class="fw-bold mb-1 small text-uppercase text-muted ls-1">
+                <i class="bi bi-signpost-split me-1"></i>@Loc.Get("RoutingDecision")
+            </h6>
+            <p class="small text-muted mb-3">@Loc.Get("RoutingDecisionSubtitle")</p>
+        </div>
+        <div class="card-body p-3 pt-0">
+            <div class="d-flex flex-wrap gap-2">
+                @foreach (var b in branches)
+                {
+                    var activeClass = b.Active ? "border-primary border-2 shadow-sm" : "border-secondary border-1 opacity-50";
+                    var bgClass = b.Active ? (b.Key == "aborted" ? "bg-soft-danger" : "bg-soft-primary") : "";
+                    <div class="card flex-fill @activeClass @bgClass" style="min-width: 200px; max-width: 260px;">
+                        <div class="card-body p-3 d-flex align-items-start gap-2">
+                            <i class="bi @b.Icon @(b.Active ? (b.Key == "aborted" ? "text-danger" : "text-primary") : "text-muted") fs-4"></i>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold small">@b.Label</div>
+                                <div class="small text-muted">@b.Description</div>
+                                @if (b.Active)
+                                {
+                                    <span class="badge bg-primary text-white rounded-pill mt-1 small">
+                                        <i class="bi bi-check2 me-1"></i>@Loc.Get("ActiveBadge")
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Step Inspector (rich detail per step) ──────────────────────────── -->
+    <div class="card border-0 shadow-sm rounded-4 mb-3">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0 px-3">
+            <h6 class="fw-bold mb-1 small text-uppercase text-muted ls-1">
+                <i class="bi bi-list-ol me-1"></i>@Loc.Get("StepInspector")
+            </h6>
+            <p class="small text-muted mb-3">@Loc.Get("StepInspectorSubtitle")</p>
+        </div>
+        <div class="card-body p-3 pt-0">
+            <div class="accordion" id="step-inspector-@traceIdSafe">
+                @for (int i = 0; i < allSteps.Count; i++)
+                {
+                    var step = allSteps[i];
+                    var statusClass = StatusBadgeClass(step.Status);
+                    var statusIcon = StatusIcon(step.Status);
+                    var component = ExtractComponent(step.Action);
+                    var headingId = $"step-h-{traceIdSafe}-{i}";
+                    var collapseId = $"step-c-{traceIdSafe}-{i}";
+                    var hasTechData = !string.IsNullOrWhiteSpace(step.TechnicalData);
+
+                    <div class="accordion-item border-0 mb-2 rounded-3 overflow-hidden" style="background: var(--bg-secondary);">
+                        <h2 class="accordion-header" id="@headingId">
+                            <button class="accordion-button collapsed py-2 px-3" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#@collapseId"
+                                    aria-expanded="false" aria-controls="@collapseId"
+                                    style="background: transparent;">
+                                <div class="d-flex flex-wrap align-items-center gap-2 flex-grow-1 me-2">
+                                    <span class="badge @statusClass rounded-pill">
+                                        <i class="bi @statusIcon me-1"></i>@step.Status
+                                    </span>
+                                    <span class="badge bg-soft-@LayerColor(step.Layer) text-@LayerColor(step.Layer) rounded-pill">
+                                        <i class="bi @LayerIcon(step.Layer) me-1"></i>@step.Layer
+                                    </span>
+                                    <span class="fw-semibold small">@CleanAction(step.Action)</span>
+                                    @if (!string.IsNullOrWhiteSpace(component))
+                                    {
+                                        <code class="small text-muted">@component</code>
+                                    }
+                                    <span class="ms-auto small text-muted text-nowrap d-flex align-items-center gap-2">
+                                        @if (step.PromptTokens.HasValue || step.CompletionTokens.HasValue)
+                                        {
+                                            <span title="prompt + completion tokens"><i class="bi bi-hash me-1"></i>@($"{(step.PromptTokens ?? 0):N0}+{(step.CompletionTokens ?? 0):N0}")</span>
+                                        }
+                                        @if (step.EstimatedCostUsd.HasValue)
+                                        {
+                                            <span title="estimated cost from ModelPricing" class="@(step.EstimatedCostUsd == 0 ? "text-success" : "")">
+                                                <i class="bi bi-currency-dollar me-1"></i>@(step.EstimatedCostUsd == 0 ? "free" : (step.EstimatedCostUsd >= 0.01m ? step.EstimatedCostUsd.Value.ToString("0.0000") : step.EstimatedCostUsd.Value.ToString("0.000000")))
+                                            </span>
+                                        }
+                                        <span><i class="bi bi-stopwatch me-1"></i>@FormatMs(step.ElapsedMs)</span>
+                                    </span>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="@collapseId" class="accordion-collapse collapse"
+                             aria-labelledby="@headingId" data-bs-parent="#step-inspector-@traceIdSafe">
+                            <div class="accordion-body py-3 px-3 small">
+                                @if (!string.IsNullOrWhiteSpace(step.Detail))
+                                {
+                                    <div class="mb-3">
+                                        <div class="small fw-bold text-uppercase text-muted ls-1 mb-1">@Loc.Get("DetailLabel")</div>
+                                        <pre class="mb-0 small p-2 rounded" style="white-space: pre-wrap; word-break: break-word; background: var(--bg-primary); border: 1px solid var(--border-color); max-height: 240px; overflow-y: auto;">@step.Detail</pre>
+                                    </div>
+                                }
+                                <div class="row small g-2 mb-3">
+                                    <div class="col-md-3">
+                                        <div class="text-muted">@Loc.Get("StartedLabel")</div>
+                                        <div class="fw-semibold">@step.StartedAt.ToString("HH:mm:ss.fff")</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="text-muted">@Loc.Get("CompletedLabel")</div>
+                                        <div class="fw-semibold">@(step.CompletedAt?.ToString("HH:mm:ss.fff") ?? "—")</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="text-muted">@Loc.Get("Duration")</div>
+                                        <div class="fw-semibold">@FormatMs(step.ElapsedMs)</div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="text-muted">@Loc.Get("ComponentLabel")</div>
+                                        <div class="fw-semibold">@(step.Location ?? component ?? "—")</div>
+                                    </div>
+                                </div>
+                                @if (hasTechData)
+                                {
+                                    var copyText = Loc.Get("CopyText");
+                                    var copiedText = Loc.Get("CopiedLabel");
+                                    <div>
+                                        <div class="small fw-bold text-uppercase text-muted ls-1 mb-1">
+                                            @Loc.Get("TechnicalDataLabel")
+                                            <button type="button" class="btn btn-sm btn-link p-0 ms-2"
+                                                    onclick="navigator.clipboard.writeText(this.nextElementSibling.nextElementSibling.textContent); this.innerHTML = '<i class=&quot;bi bi-check2&quot;></i> @copiedText'; setTimeout(() => this.innerHTML = '<i class=&quot;bi bi-clipboard&quot;></i> @copyText', 1500);">
+                                                <i class="bi bi-clipboard"></i> @copyText
+                                            </button>
+                                        </div>
+                                        <pre class="mb-0 small p-2 rounded" style="white-space: pre-wrap; word-break: break-word; background: var(--bg-primary); border: 1px solid var(--border-color); max-height: 320px; overflow-y: auto;"><code>@step.TechnicalData</code></pre>
+                                    </div>
+                                }
+                                @if (step.SubSteps != null && step.SubSteps.Any())
+                                {
+                                    <div class="mt-3">
+                                        <div class="small fw-bold text-uppercase text-muted ls-1 mb-1">@Loc.Get("SubstepsLabel") (@step.SubSteps.Count)</div>
+                                        <ul class="list-unstyled mb-0">
+                                            @foreach (var sub in step.SubSteps)
+                                            {
+                                                <li class="d-flex align-items-center gap-2 py-1 small">
+                                                    <span class="badge @StatusBadgeClass(sub.Status) rounded-pill">
+                                                        <i class="bi @StatusIcon(sub.Status)"></i>
+                                                    </span>
+                                                    <span class="flex-grow-1">@CleanAction(sub.Action)</span>
+                                                    <span class="text-muted small">@FormatMs(sub.ElapsedMs)</span>
+                                                </li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+                @if (allSteps.Count == 0)
+                {
+                    <div class="text-center text-muted py-4 small">
+                        <i class="bi bi-inbox fs-3 d-block mb-2 opacity-50"></i>
+                        @Loc.Get("NoStepsRecorded")
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+</div>

@@ -1,0 +1,9 @@
+{
+  "status": "Error",
+  "operation": "GetTicketDetails",
+  "traceId": "00-51b129-00",
+  "exception": "SqlException",
+  "message": "Timeout expired. The timeout period elapsed prior to completion of the operation or the server is not responding.",
+  "spanId": "span-29",
+  "duration_ms": 290
+}

@@ -1,0 +1,24 @@
+@model (string Column, string Title, string Icon)
+@{
+    var currentSort = Context.Request.Query["sortOrder"].ToString();
+    var routeData = new Dictionary<string, string>();
+    foreach(var key in Context.Request.Query.Keys)
+    {
+        routeData[key] = Context.Request.Query[key].ToString();
+    }
+    
+    bool isActive = currentSort == Model.Column || currentSort == Model.Column + "_desc";
+    bool isDesc = currentSort == Model.Column + "_desc";
+    
+    // Toggle sort order
+    routeData["sortOrder"] = currentSort == Model.Column ? Model.Column + "_desc" : Model.Column;
+}
+
+<a asp-all-route-data="@routeData" 
+   class="sort-header @(isActive ? "sort-active" : "")">
+    <i class="bi @Model.Icon me-1 opacity-50"></i> @Model.Title
+    @if(isActive)
+    {
+        <i class="bi @(isDesc ? "bi-sort-down" : "bi-sort-up-alt") sort-icon"></i>
+    }
+</a>

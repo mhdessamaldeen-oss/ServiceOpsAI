@@ -1,0 +1,2913 @@
+{
+  "Version": "2.0",
+  "GeneratedAt": "2026-05-14T16:12:44.2611497+00:00",
+  "SchemaHash": "7DFA3EA173280A79FDC567D8D0450BAAD2C38D2256121C1B8AD651215A2C444E",
+  "Tables": [
+    {
+      "Name": "__EFMigrationsHistory",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "MigrationId"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "MigrationId",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "ProductVersion",
+          "Type": "nvarchar(32)",
+          "Nullable": false,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "AspNetRoleClaims",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "RoleId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "AspNetRoles.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ClaimType",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ClaimValue",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "RoleId",
+          "Table": "AspNetRoles",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "AspNetRoles",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": true,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Name",
+        "NaturalKey": "NormalizedName"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Name",
+          "Type": "nvarchar(256)",
+          "Nullable": true,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "NormalizedName",
+          "Type": "nvarchar(256)",
+          "Nullable": true,
+          "Role": "natural_key",
+          "IsPii": false
+        },
+        {
+          "Name": "ConcurrencyStamp",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "Role": "audit",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "AspNetRoleClaims",
+          "FromColumn": "RoleId"
+        },
+        {
+          "FromTable": "AspNetUserRoles",
+          "FromColumn": "RoleId"
+        }
+      ],
+      "SampleValues": [
+        "Admin",
+        "EndUser",
+        "Manager",
+        "Support Agent",
+        "SupportAgent",
+        "Viewer"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "AspNetUserClaims",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "UserId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ClaimType",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ClaimValue",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "UserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "AspNetUserLogins",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "LoginProvider",
+        "ProviderKey"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "LoginProvider",
+          "Type": "nvarchar(128)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "ProviderKey",
+          "Type": "nvarchar(128)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "ProviderDisplayName",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "UserId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "UserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "AspNetUserRoles",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "UserId",
+        "RoleId"
+      ],
+      "Flags": {
+        "IsBridge": true,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "UserId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RoleId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "References": "AspNetRoles.Id",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "RoleId",
+          "Table": "AspNetRoles",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "UserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "AspNetUsers",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": true
+      },
+      "Roles": {
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "NormalizedUserName"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "FirstName",
+          "Type": "nvarchar(50)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "LastName",
+          "Type": "nvarchar(50)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "EntityId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "Entitys.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "UserName",
+          "Type": "nvarchar(256)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "NormalizedUserName",
+          "Type": "nvarchar(256)",
+          "Nullable": true,
+          "Role": "natural_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Email",
+          "Type": "nvarchar(256)",
+          "Nullable": true,
+          "IsPii": true
+        },
+        {
+          "Name": "NormalizedEmail",
+          "Type": "nvarchar(256)",
+          "Nullable": true,
+          "IsPii": true
+        },
+        {
+          "Name": "EmailConfirmed",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "PasswordHash",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": true
+        },
+        {
+          "Name": "SecurityStamp",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ConcurrencyStamp",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "Role": "audit",
+          "IsPii": false
+        },
+        {
+          "Name": "PhoneNumber",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": true
+        },
+        {
+          "Name": "PhoneNumberConfirmed",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "TwoFactorEnabled",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "LockoutEnd",
+          "Type": "datetimeoffset",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "LockoutEnabled",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "AccessFailedCount",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "EntityId",
+          "Table": "Entitys",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "AspNetUserClaims",
+          "FromColumn": "UserId"
+        },
+        {
+          "FromTable": "AspNetUserLogins",
+          "FromColumn": "UserId"
+        },
+        {
+          "FromTable": "AspNetUserRoles",
+          "FromColumn": "UserId"
+        },
+        {
+          "FromTable": "AspNetUserTokens",
+          "FromColumn": "UserId"
+        },
+        {
+          "FromTable": "CopilotChatSessions",
+          "FromColumn": "UserId"
+        },
+        {
+          "FromTable": "Notifications",
+          "FromColumn": "UserId"
+        },
+        {
+          "FromTable": "TicketAttachments",
+          "FromColumn": "UploadedByUserId"
+        },
+        {
+          "FromTable": "TicketComments",
+          "FromColumn": "CreatedByUserId"
+        },
+        {
+          "FromTable": "TicketHistories",
+          "FromColumn": "UserId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "AssignedToUserId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "CreatedByUserId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "EscalatedToUserId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "ResolutionApprovedByUserId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "ResolvedByUserId"
+        }
+      ],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "AspNetUserTokens",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "UserId",
+        "LoginProvider",
+        "Name"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Name"
+      },
+      "Columns": [
+        {
+          "Name": "UserId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "LoginProvider",
+          "Type": "nvarchar(128)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Name",
+          "Type": "nvarchar(128)",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Value",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "UserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "CopilotAssessmentRunSummaries",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Label"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "RunId",
+          "Type": "uniqueidentifier",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "RunAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ModelName",
+          "Type": "nvarchar(128)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "TotalCases",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "PassCount",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "FailCount",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "AvgLatencyMs",
+          "Type": "bigint",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "MaxLatencyMs",
+          "Type": "bigint",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "FailedCaseCodes",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Label",
+          "Type": "nvarchar(256)",
+          "Nullable": true,
+          "Role": "label",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "CopilotChatMessages",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "SessionId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "CopilotChatSessions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Role",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Content",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        },
+        {
+          "Name": "TraceId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "CopilotTraceHistories.Id",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "SessionId",
+          "Table": "CopilotChatSessions",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "TraceId",
+          "Table": "CopilotTraceHistories",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "CopilotChatSessions",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Title",
+        "SoftDeleteColumn": "IsDeleted"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "UserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Title",
+          "Type": "nvarchar(200)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        },
+        {
+          "Name": "LastInteractionAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Surface",
+          "Type": "nvarchar(50)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IsDeleted",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "IsAssessment",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "UserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "CopilotChatMessages",
+          "FromColumn": "SessionId"
+        },
+        {
+          "FromTable": "CopilotTraceHistories",
+          "FromColumn": "SessionId"
+        }
+      ],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "CopilotToolDefinitions",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Title"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "ToolKey",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Title",
+          "Type": "nvarchar(200)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "Description",
+          "Type": "nvarchar(500)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ToolType",
+          "Type": "nvarchar(20)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CopilotMode",
+          "Type": "nvarchar(50)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IsEnabled",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "EndpointUrl",
+          "Type": "nvarchar(1000)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "KeywordHints",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "QueryExtractionHint",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ResponseFormatHint",
+          "Type": "nvarchar(2000)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "SortOrder",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        },
+        {
+          "Name": "UpdatedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "modified",
+          "IsPii": false
+        },
+        {
+          "Name": "TestPrompt",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "CopilotTraceHistories",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Question",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Answer",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ExecutionPlan",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        },
+        {
+          "Name": "ModelName",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "TotalElapsedMs",
+          "Type": "bigint",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "SessionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "CopilotChatSessions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CaseCode",
+          "Type": "nvarchar(64)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ExecutionTimes",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "PipelineTraceId",
+          "Type": "nvarchar(128)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "GeneratedScript",
+          "Type": "nvarchar(4000)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ErrorMessage",
+          "Type": "nvarchar(2000)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "EmbeddingModelName",
+          "Type": "nvarchar(100)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "QuestionEmbeddingJson",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "SourceSuite",
+          "Type": "nvarchar(200)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "SessionId",
+          "Table": "CopilotChatSessions",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "CopilotChatMessages",
+          "FromColumn": "TraceId"
+        }
+      ],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "CustomThemes",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Name"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Name",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "PrimaryColor",
+          "Type": "nvarchar(10)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "BgMain",
+          "Type": "nvarchar(10)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "BgCard",
+          "Type": "nvarchar(10)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "BgSidebar",
+          "Type": "nvarchar(10)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "BgHeader",
+          "Type": "nvarchar(10)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "TextMain",
+          "Type": "nvarchar(10)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "TextMuted",
+          "Type": "nvarchar(10)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "BorderColor",
+          "Type": "nvarchar(10)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IsSystemTheme",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "SystemIdentifier",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "PrimaryContrastText",
+          "Type": "nvarchar(10)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "BgSurfaceAlt",
+          "Type": "nvarchar(10)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "BgElevated",
+          "Type": "nvarchar(10)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "SuccessColor",
+          "Type": "nvarchar(10)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "WarningColor",
+          "Type": "nvarchar(10)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "DangerColor",
+          "Type": "nvarchar(10)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "InfoColor",
+          "Type": "nvarchar(10)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ShadowColor",
+          "Type": "nvarchar(40)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Entitys",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": true,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Name",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Name",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "AspNetUsers",
+          "FromColumn": "EntityId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "EntityId"
+        }
+      ],
+      "SampleValues": [
+        "Audit \u0026 Compliance",
+        "Customer Service",
+        "Education",
+        "Engineering",
+        "Finance",
+        "Health",
+        "HR",
+        "Infrastructure",
+        "Legal",
+        "Marketing"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "ExternalApiSettings",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Title",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Title",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "Endpoint",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "Description",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "GeminiApiKeys",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Label",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Label",
+          "Type": "nvarchar(80)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "ApiKey",
+          "Type": "nvarchar(200)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "SortOrder",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "DailyRequestCount",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "LastDailyResetUtc",
+          "Type": "datetime2",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "LastUsedAtUtc",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "RateLimitedUntilUtc",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "LastErrorMessage",
+          "Type": "nvarchar(400)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ConsecutiveFailures",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAtUtc",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        },
+        {
+          "Name": "KeyFingerprint",
+          "Type": "nvarchar(64)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "OwnerEmail",
+          "Type": "nvarchar(120)",
+          "Nullable": true,
+          "IsPii": true
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "GroqApiKeys",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Label",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Label",
+          "Type": "nvarchar(80)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "ApiKey",
+          "Type": "nvarchar(200)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "KeyFingerprint",
+          "Type": "nvarchar(64)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "OwnerEmail",
+          "Type": "nvarchar(120)",
+          "Nullable": true,
+          "IsPii": true
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "SortOrder",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "DailyRequestCount",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "LastDailyResetUtc",
+          "Type": "datetime2",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "LastUsedAtUtc",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "RateLimitedUntilUtc",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "LastErrorMessage",
+          "Type": "nvarchar(400)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ConsecutiveFailures",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "RemainingRequests",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "RemainingTokens",
+          "Type": "bigint",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "LimitRequests",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "LimitTokens",
+          "Type": "bigint",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "QuotaSnapshotAtUtc",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAtUtc",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Notifications",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Title"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Title",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "Message",
+          "Type": "nvarchar(500)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        },
+        {
+          "Name": "IsRead",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "UserId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Link",
+          "Type": "nvarchar(255)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "UserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "RetrievalBenchmarkRuns",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "RunOnUtc",
+          "Type": "datetime2",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "TotalCases",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "EvaluatedCases",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "HitCases",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "HitRate",
+          "Type": "float",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Version",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "SettingsJson",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ResultsJson",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "SystemSettings",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Key",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Value",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketAiAnalyses",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "TicketId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "Tickets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Summary",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "SuggestedClassification",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "SuggestedPriority",
+          "Type": "nvarchar(50)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "KeyClues",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "NextStepSuggestion",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ConfidenceLevel",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ModelName",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "PromptVersion",
+          "Type": "nvarchar(20)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "AnalysisStatus",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedOn",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        },
+        {
+          "Name": "LastRefreshedOn",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedBy",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "audit",
+          "IsPii": false
+        },
+        {
+          "Name": "DiagnosticMetadata",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "InputPromptSize",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ProcessingDurationMs",
+          "Type": "bigint",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "RunNumber",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "TicketId",
+          "Table": "Tickets",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "TicketAiAnalysisLogs",
+          "FromColumn": "TicketAiAnalysisId"
+        }
+      ],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketAiAnalysisLogs",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "TicketAiAnalysisId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "TicketAiAnalyses.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Message",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "LogLevel",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedOn",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "TicketAiAnalysisId",
+          "Table": "TicketAiAnalyses",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketAttachments",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "TicketId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "Tickets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "FileName",
+          "Type": "nvarchar(255)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "FilePath",
+          "Type": "nvarchar(500)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ContentType",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "FileSize",
+          "Type": "bigint",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "UploadedByUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "UploadedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CommentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "TicketComments.Id",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "UploadedByUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "CommentId",
+          "Table": "TicketComments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "TicketId",
+          "Table": "Tickets",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketCategories",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": true,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Name",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Name",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "CategoryId"
+        }
+      ],
+      "SampleValues": [
+        "Access Request",
+        "Account Management",
+        "Attachment / File Handling",
+        "Authentication",
+        "Authorization / Access",
+        "Data Issue",
+        "Hardware",
+        "Integration",
+        "Network",
+        "Notification"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketComments",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "TicketId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "Tickets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Content",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedByUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        },
+        {
+          "Name": "CommentAttachmentId",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "CreatedByUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "TicketId",
+          "Table": "Tickets",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "TicketAttachments",
+          "FromColumn": "CommentId"
+        }
+      ],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketHistories",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "TicketId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "Tickets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Action",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "OldValue",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "NewValue",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "UserId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "UserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "TicketId",
+          "Table": "Tickets",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketPriorities",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": true,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Name",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Name",
+          "Type": "nvarchar(50)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "Level",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "PriorityId"
+        }
+      ],
+      "SampleValues": [
+        "Critical",
+        "High",
+        "Low",
+        "Medium"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Tickets",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Title",
+        "SoftDeleteColumn": "IsDeleted"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "TicketNumber",
+          "Type": "nvarchar(20)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Title",
+          "Type": "nvarchar(200)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "Description",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CategoryId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "TicketCategories.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "PriorityId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "TicketPriorities.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "StatusId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "TicketStatuses.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "SourceId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "TicketSources.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "EntityId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "Entitys.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "AssignedToUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedByUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        },
+        {
+          "Name": "UpdatedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "modified",
+          "IsPii": false
+        },
+        {
+          "Name": "DueDate",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "due",
+          "IsPii": false
+        },
+        {
+          "Name": "ResolvedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "resolved",
+          "IsPii": false
+        },
+        {
+          "Name": "ClosedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "completed",
+          "IsPii": false
+        },
+        {
+          "Name": "IsDeleted",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "ResolutionSummary",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "FirstRespondedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "FirstResponseDueAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "due",
+          "IsPii": false
+        },
+        {
+          "Name": "IsSlaBreached",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "PendingReason",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ResolutionDueAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "due",
+          "IsPii": false
+        },
+        {
+          "Name": "RequiresManagerReview",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "AffectedUsersCount",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "BrowserName",
+          "Type": "nvarchar(80)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "EnvironmentName",
+          "Type": "nvarchar(50)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ExternalReferenceId",
+          "Type": "nvarchar(120)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ExternalSystemName",
+          "Type": "nvarchar(120)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ImpactScope",
+          "Type": "nvarchar(50)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "OperatingSystem",
+          "Type": "nvarchar(80)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ProductArea",
+          "Type": "nvarchar(100)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "EscalatedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "EscalatedToUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "EscalationLevel",
+          "Type": "nvarchar(50)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ResolutionApprovedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ResolutionApprovedByUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ResolvedByUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RootCause",
+          "Type": "nvarchar(1500)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "TechnicalAssessment",
+          "Type": "nvarchar(2000)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "VerificationNotes",
+          "Type": "nvarchar(1500)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ParentTicketId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "Tickets.Id",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "AssignedToUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "CreatedByUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "EscalatedToUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ResolutionApprovedByUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ResolvedByUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "EntityId",
+          "Table": "Entitys",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "CategoryId",
+          "Table": "TicketCategories",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "PriorityId",
+          "Table": "TicketPriorities",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ParentTicketId",
+          "Table": "Tickets",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "SourceId",
+          "Table": "TicketSources",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "StatusId",
+          "Table": "TicketStatuses",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "TicketAiAnalyses",
+          "FromColumn": "TicketId"
+        },
+        {
+          "FromTable": "TicketAttachments",
+          "FromColumn": "TicketId"
+        },
+        {
+          "FromTable": "TicketComments",
+          "FromColumn": "TicketId"
+        },
+        {
+          "FromTable": "TicketHistories",
+          "FromColumn": "TicketId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "ParentTicketId"
+        },
+        {
+          "FromTable": "TicketSemanticEmbeddings",
+          "FromColumn": "TicketId"
+        }
+      ],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketSemanticEmbeddings",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "TicketId"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "TicketId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "References": "Tickets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "VectorJson",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ModelName",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "TicketId",
+          "Table": "Tickets",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketSources",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": true,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Name",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Name",
+          "Type": "nvarchar(50)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "SourceId"
+        }
+      ],
+      "SampleValues": [
+        "Email",
+        "Internal Request",
+        "Mobile App",
+        "Phone",
+        "Web Platform",
+        "Web Portal"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TicketStatuses",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": true,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "Name",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Name",
+          "Type": "nvarchar(50)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "IsClosedState",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "StatusId"
+        }
+      ],
+      "SampleValues": [
+        "Closed",
+        "In Progress",
+        "New",
+        "Open",
+        "Pending",
+        "Rejected",
+        "Resolved"
+      ],
+      "Source": "heuristic"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+2026-04-03 14:32:01.002 [INFO ] AuthPipeline - Incoming authentication request from IP 192.168.1.45 for user admin@tech.local
+2026-04-03 14:32:01.055 [DEBUG] TokenValidator - Validating JWT signature using keys from discovery endpoint https://sso.tech.local/.well-known/openid-configuration
+2026-04-03 14:32:01.109 [DEBUG] TokenValidator - Signature validated successfully. Checking claims.
+2026-04-03 14:32:01.112 [WARN ] ClaimsTransformer - Missing expected custom claim 'tenant_id'. Falling back to default 'general'.
+2026-04-03 14:32:01.115 [INFO ] AuthPipeline - Authentication successful for user admin@tech.local. Session established.
+2026-04-03 14:32:02.000 [INFO ] SystemWorker - Executing scheduled task: MonthlyReconciliationExport
+2026-04-03 14:32:02.001 [INFO ] SystemWorker - Attempting DB connection pool checkout
+2026-04-03 14:32:02.005 [INFO ] SystemWorker - DB connection acquired. Spawning concurrent synchronization threads.
+2026-04-03 14:32:02.010 [DEBUG] SystemWorker - Thread pool status: active=12, available=88, min=8, max=100
+2026-04-03 14:32:02.500 [TRACE] SystemWorker - ReconciliationExport: Reading fiscal records for period 2026-Q1
+2026-04-03 14:32:03.112 [TRACE] SystemWorker - ReconciliationExport: Processing batch 1/15 (667 records)
+2026-04-03 14:32:03.780 [TRACE] SystemWorker - ReconciliationExport: Processing batch 2/15 (667 records)
+2026-04-03 14:32:04.334 [TRACE] SystemWorker - ReconciliationExport: Processing batch 3/15 (667 records)
+2026-04-03 14:32:04.890 [WARN ] SystemWorker - ReconciliationExport: Batch 3 contains 12 records with NULL department_code. Mapping to 'Unassigned'.
+2026-04-03 14:32:05.001 [TRACE] SystemWorker - ReconciliationExport: Processing batch 4/15
+2026-04-03 14:32:05.340 [ERROR] ConnectionMultiplexer - Timeout waiting for response from Redis instance cache01.tech.local:6379. ioTimeout=5000ms, synctimeout=5000ms, connected=True, mgr_state=Connected, last-read-ago=5012, last-write-ago=0, unanswered=3
+StackExchange.Redis.RedisTimeoutException: Timeout performing GET (5000ms), inst: 3, mgr: 10 of 10 available, last-hierarchical-slot: 0, nq: 0, qs: 0, wr: 0/0, in: 65536/0, in-hierarchical: 0, serverEndpoint: cache01.tech.local:6379, mc: 1/1/0, mgr: 10 of 10 available, conn_state: Interactive, last-hierarchical-slot: 0, last-read-ago: 5012, last-write-ago: 0, unanswered: 3, 
+   at StackExchange.Redis.ConnectionMultiplexer.ExecuteSyncImpl[T](Message message, ResultProcessor`1 processor, ServerEndPoint server, T defaultValue)
+   at StackExchange.Redis.RedisBase.ExecuteSync[T](Message message, ResultProcessor`1 processor, ServerEndPoint server, T defaultValue)
+   at StackExchange.Redis.RedisDatabase.StringGet(RedisKey key, CommandFlags flags)
+   at SupportFlow.Services.CacheService.GetAsync[T](String key) in /src/Services/CacheService.cs:line 34
+2026-04-03 14:32:05.341 [WARN ] CacheService - Redis timeout. Bypassing cache for this request. Performance impact expected.
+2026-04-03 14:32:05.890 [TRACE] SystemWorker - ReconciliationExport: Processing batch 5/15
+2026-04-03 14:32:06.445 [TRACE] SystemWorker - ReconciliationExport: Processing batch 6/15
+2026-04-03 14:32:07.001 [TRACE] SystemWorker - ReconciliationExport: Processing batch 7/15
+2026-04-03 14:32:07.556 [TRACE] SystemWorker - ReconciliationExport: Processing batch 8/15
+2026-04-03 14:32:08.112 [TRACE] SystemWorker - ReconciliationExport: Processing batch 9/15
+2026-04-03 14:32:08.667 [TRACE] SystemWorker - ReconciliationExport: Processing batch 10/15
+2026-04-03 14:32:09.223 [TRACE] SystemWorker - ReconciliationExport: Processing batch 11/15
+2026-04-03 14:32:09.778 [TRACE] SystemWorker - ReconciliationExport: Processing batch 12/15
+2026-04-03 14:32:10.334 [TRACE] SystemWorker - ReconciliationExport: Processing batch 13/15
+2026-04-03 14:32:10.890 [TRACE] SystemWorker - ReconciliationExport: Processing batch 14/15
+2026-04-03 14:32:11.445 [TRACE] SystemWorker - ReconciliationExport: Processing batch 15/15
+2026-04-03 14:32:11.446 [INFO ] SystemWorker - ReconciliationExport: All 15 batches processed. Total: 10,005 records. Time: 9.446s.
+2026-04-03 14:32:12.001 [INFO ] SystemWorker - ReconciliationExport: Attempting to write results to shared drive \\fileserver01\reports\monthly\
+2026-04-03 14:32:12.445 [ERROR] SystemWorker - ReconciliationExport: Failed to write output file.
+System.IO.IOException: The specified network name is no longer available.
+   at System.IO.FileStream.WriteNative(ReadOnlySpan`1 source)
+   at System.IO.FileStream.FlushWriteBuffer()
+   at System.IO.StreamWriter.Flush(Boolean flushStream, Boolean flushEncoder)
+   at SupportFlow.Jobs.ReconciliationExportJob.WriteOutputAsync(String path, ReportData data) in /src/Jobs/ReconciliationExportJob.cs:line 201
+2026-04-03 14:32:12.446 [WARN ] SystemWorker - Network share \\fileserver01\reports\monthly\ unavailable. Falling back to local temp: C:\temp\reports\
+2026-04-03 14:32:12.890 [INFO ] SystemWorker - ReconciliationExport: Output written to C:\temp\reports\reconciliation-2026-Q1.xlsx (2.4 MB)
+2026-04-03 14:32:12.891 [WARN ] SystemWorker - ReconciliationExport: WARNING - Report saved to local temp only. Network share delivery FAILED. Manual copy required.
+2026-04-03 14:32:15.890 [ERROR] QuotaEnforcer - Tenant 'general' has exceeded the allocated memory quota (2048 MB). Current usage: 4096 MB. Active workload: ReconciliationExport (consuming 1.8 GB), DashboardCache (consuming 0.3 GB), RequestPool (consuming 1.9 GB).
+2026-04-03 14:32:15.891 [WARN ] QuotaEnforcer - Issuing UI warning signal: 'Quota Exceeded'. This will display as a modal dialog to all active users.
+2026-04-03 14:32:15.892 [WARN ] QuotaEnforcer - Memory pressure detected. GC generation 2 collection triggered.
+2026-04-03 14:32:16.034 [FATAL] AuthPipeline - Unhandled Exception during request lifecycle.
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at Security.Pipelines.Identity.TokenValidator.ExtractTenantContext(ClaimsPrincipal user) in /src/Security/Pipelines/Identity/TokenValidator.cs:line 182
+   --- ANALYSIS: The 'tenant_id' claim was missing (logged at 14:32:01.112 as WARN). When ExtractTenantContext processes users 
+   --- with the fallback 'general' tenant, it attempts to load the tenant config from a cache key. However the Redis timeout at 
+   --- 14:32:05.340 caused the cache lookup to fail, and the fallback code path does NOT handle null cache results. ---
+   at Security.Pipelines.Identity.AuthenticationMiddleware.InvokeAsync(HttpContext context) in /src/Security/Pipelines/Identity/AuthenticationMiddleware.cs:line 45
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware.<Invoke>g__Awaited|6_0(ExceptionHandlerMiddleware middleware, HttpContext context, Task task)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware.HandleException(HttpContext context, ExceptionDispatchInfo edi)
+   at Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware.<Invoke>g__AwaitMatch|8_0(EndpointRoutingMiddleware middleware, HttpContext httpContext, Task`1 matchTask)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http.HttpProtocol.ProcessRequests[TContext](IHttpApplication`1 application)
+2026-04-03 14:32:16.050 [INFO ] AuthPipeline - Downgrading active session for admin@tech.local to role 'Viewer' due to missing tenant context. This is a safety fallback to prevent unauthorized access when tenant resolution fails.
+2026-04-03 14:32:16.051 [WARN ] AuthPipeline - admin@tech.local session downgraded from [Admin] to [Viewer]. User will experience reduced functionality until re-authentication.
+2026-04-03 14:32:16.052 [WARN ] AuthPipeline - agent1@tech.local session also downgraded from [SupportAgent] to [Viewer]. Same tenant resolution failure.
+2026-04-03 14:32:20.001 [INFO ] QuotaEnforcer - GC completed. Memory recovered: 1.2 GB. Current usage: 2.9 GB (still above 2.0 GB quota).
+2026-04-03 14:32:30.001 [TRACE] CacheService - Redis connection restored. Latency: 12ms. Previous timeout was transient.
+2026-04-03 14:32:30.002 [INFO ] CacheService - Re-populating critical cache keys after Redis recovery.
+2026-04-03 14:32:30.334 [INFO ] CacheService - Tenant config cache restored for all 4 tenants.
+2026-04-03 14:32:45.000 [INFO ] SystemWorker - GC: generation 2 collection complete. Memory: 2.1 GB (near quota).
+2026-04-03 14:32:46.012 [INFO ] AuthPipeline - Received refresh token for admin@tech.local. Tenant context resolved successfully from restored cache. Restoring original roles: [Admin].
+2026-04-03 14:32:46.013 [INFO ] AuthPipeline - admin@tech.local session restored to [Admin].
+2026-04-03 14:32:46.100 [INFO ] AuthPipeline - agent1@tech.local session restored to [SupportAgent].
+2026-04-03 14:32:46.200 [INFO ] AuthPipeline - All downgraded sessions restored. Incident duration: ~30 seconds.
+2026-04-03 14:32:46.201 [WARN ] IncidentTracker - AUTO-INCIDENT CREATED: INC-2026-0403-RUNTIME
+  Summary: Cascading failure triggered by ReconciliationExport memory pressure -> Redis timeout -> NullReferenceException in tenant resolution -> session downgrades
+  Affected users: admin@tech.local, agent1@tech.local (2 users for ~30 seconds)
+  Root cause chain:
+    1. ReconciliationExport consumed 1.8 GB processing 10,005 records
+    2. Combined with existing workload, memory exceeded 2 GB quota (reached 4.1 GB)
+    3. GC pressure caused Redis timeout (5012ms > 5000ms threshold)
+    4. ClaimsTransformer had already set fallback tenant 'general' due to missing claim
+    5. TokenValidator.ExtractTenantContext fetched tenant config from cache -> cache returned null due to Redis timeout
+    6. ExtractTenantContext did not handle null cache result -> NullReferenceException
+    7. Safety fallback downgraded admin and agent sessions to Viewer role
+  Recommended fix: Add null check in TokenValidator.ExtractTenantContext (line 182) for cache misses. Load tenant config directly from DB as secondary fallback.

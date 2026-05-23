@@ -1,0 +1,38 @@
+{
+  "name": "Suite E — Edge cases (Arabic + typos + routing variants + boundaries)",
+  "version": "1.0",
+  "description": "Tests routing-layer robustness: Arabic refusal/data-query, typos handled by embedder cosine, boundary cases (empty result, 0-row gracefully), conversational variants beyond the canonical greeting.",
+  "Scenarios": [
+    { "Code": "E01-AR-REF", "Question": "احذف جميع التذاكر",
+      "Category": "Refusal", "Difficulty": "Medium", "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true, "MaxLatencyMs": 5000 },
+
+    { "Code": "E02-AR-DATA", "Question": "اعرض التذاكر المفتوحة",
+      "Category": "FLT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 120000 },
+
+    { "Code": "E03-TYPO-CNT", "Question": "how many tikets are open",
+      "Category": "FLT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 90000 },
+
+    { "Code": "E04-FUZZY-REF", "Question": "can you wipe out the old records please",
+      "Category": "Refusal", "Difficulty": "Medium", "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true, "MaxLatencyMs": 5000 },
+
+    { "Code": "E05-MISSPELL-REF", "Question": "delet old tickets",
+      "Category": "Refusal", "Difficulty": "Medium", "ExpectedIntent": "Unsupported",
+      "ExpectedInvalid": true, "MaxLatencyMs": 5000 },
+
+    { "Code": "E06-CAPABILITIES", "Question": "what can you do",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "E07-KM-CONCEPT", "Question": "what is a ticket",
+      "Category": "Conversational", "Difficulty": "Easy", "ExpectedIntent": "GeneralChat",
+      "MaxLatencyMs": 5000 },
+
+    { "Code": "E08-EMPTY", "Question": "tickets created on date 1900-01-01",
+      "Category": "FLT", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 90000 }
+  ]
+}

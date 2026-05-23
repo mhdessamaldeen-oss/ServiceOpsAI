@@ -1,0 +1,57 @@
+{
+  "name": "Suite 4 — Window functions (running total / rank / percentile / lag / partition)",
+  "version": "1.0",
+  "description": "Window function shapes that QuerySpec can't express directly — the LlmDirectSqlEmitter escape valve should handle these. The QuestionShapeClassifier routes here on keyword match (running total, rank, percentile, etc.).",
+  "Scenarios": [
+    { "Code": "S4-RUN-001", "Question": "running total of tickets created in the last 30 days by day",
+      "Category": "RUN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Day, SUM(DayCount) OVER (ORDER BY Day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS RunningTotal FROM (SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS DayCount FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-30,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE)) d ORDER BY Day",
+      "MaxLatencyMs": 180000 },
+    { "Code": "S4-RUN-002", "Question": "cumulative count of tickets per month",
+      "Category": "RUN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Month, SUM(MonthCount) OVER (ORDER BY Month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS Cumulative FROM (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS MonthCount FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')) m ORDER BY Month",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S4-RNK-001", "Question": "rank entities by ticket volume",
+      "Category": "RNK", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Entitys",
+      "ExpectedSql": "SELECT e.Name, COUNT(t.Id) AS TicketCount, RANK() OVER (ORDER BY COUNT(t.Id) DESC) AS Rank FROM Entitys e LEFT JOIN Tickets t ON t.EntityId = e.Id AND t.IsDeleted = 0 WHERE e.IsActive = 1 GROUP BY e.Name",
+      "MaxLatencyMs": 180000 },
+    { "Code": "S4-RNK-002", "Question": "rank users by tickets created",
+      "Category": "RNK", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "AspNetUsers",
+      "ExpectedSql": "SELECT u.UserName, COUNT(t.Id) AS TicketCount, RANK() OVER (ORDER BY COUNT(t.Id) DESC) AS Rank FROM AspNetUsers u LEFT JOIN Tickets t ON t.CreatedByUserId = u.Id AND t.IsDeleted = 0 GROUP BY u.UserName",
+      "MaxLatencyMs": 180000 },
+    { "Code": "S4-RNK-row-001", "Question": "row number for tickets ordered by created date",
+      "Category": "RNK", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT ROW_NUMBER() OVER (ORDER BY CreatedAt) AS RowNum, TicketNumber, CreatedAt FROM Tickets WHERE IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S4-PCTL-median-001", "Question": "median resolution time in days",
+      "Category": "PCTL", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) OVER () AS MedianResolutionDays FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+    { "Code": "S4-PCTL-p95-001", "Question": "95th percentile of ticket resolution time",
+      "Category": "PCTL", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT DISTINCT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY CAST(DATEDIFF(DAY, CreatedAt, ResolvedAt) AS FLOAT)) OVER () AS P95ResolutionDays FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "S4-LAG-001", "Question": "month over month ticket creation change using lag",
+      "Category": "LAG", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Month, MonthCount, LAG(MonthCount) OVER (ORDER BY Month) AS PrevMonth, MonthCount - LAG(MonthCount) OVER (ORDER BY Month) AS Change FROM (SELECT FORMAT(CreatedAt, 'yyyy-MM') AS Month, COUNT(*) AS MonthCount FROM Tickets WHERE IsDeleted = 0 GROUP BY FORMAT(CreatedAt, 'yyyy-MM')) m",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S4-PART-001", "Question": "rank tickets within each entity by creation date",
+      "Category": "RNK", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT t.TicketNumber, e.Name AS Entity, RANK() OVER (PARTITION BY t.EntityId ORDER BY t.CreatedAt ASC) AS RankWithinEntity FROM Tickets t JOIN Entitys e ON e.Id = t.EntityId WHERE t.IsDeleted = 0",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S4-MOV-AVG-001", "Question": "7 day rolling average of tickets created",
+      "Category": "RUN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT Day, AVG(CAST(DayCount AS FLOAT)) OVER (ORDER BY Day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS Rolling7DayAvg FROM (SELECT CAST(CreatedAt AS DATE) AS Day, COUNT(*) AS DayCount FROM Tickets WHERE CreatedAt >= DATEADD(DAY,-60,GETDATE()) AND IsDeleted = 0 GROUP BY CAST(CreatedAt AS DATE)) d ORDER BY Day",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "S4-NTILE-001", "Question": "split tickets into 4 quartiles by created date",
+      "Category": "RNK", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT TicketNumber, CreatedAt, NTILE(4) OVER (ORDER BY CreatedAt) AS Quartile FROM Tickets WHERE IsDeleted = 0",
+      "MaxLatencyMs": 180000 }
+  ]
+}

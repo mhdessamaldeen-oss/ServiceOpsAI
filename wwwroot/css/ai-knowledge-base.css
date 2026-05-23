@@ -1,0 +1,44 @@
+/* 
+   KNOWLEDGE BASE MANAGEMENT - MODULAR STYLES
+   Focus: Document Catalog, Upload Interface, and Path Visualization
+*/
+
+.kb-shell {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.kb-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 1.25rem;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+}
+
+.kb-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.8rem;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    background: rgba(var(--primary-color-rgb), 0.08);
+    color: var(--primary-color);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.15);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.kb-doc {
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1rem 1.1rem;
+    background: rgba(255,255,255,0.02);
+}
+
+.kb-doc-path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}

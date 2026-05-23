@@ -1,0 +1,657 @@
+@{
+    var activeProvider = ViewBag.DbActiveProvider as AiProviderType? ?? AiProviderType.DockerLocal;
+}
+
+<div class="animate__animated animate__fadeIn">
+    <!-- AI Workload Orchestration -->
+    <div class="card mb-2 border-0 shadow-sm routing-control-card overflow-hidden" style="border-radius: 12px; border: 1px solid rgba(var(--primary-color-rgb), 0.1) !important;">
+        <div class="card-body p-2 px-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h6 class="fw-bolder mb-0 d-flex align-items-center gap-2" style="font-size: 0.85rem;">
+                        <i class="bi bi-diagram-3-fill text-primary"></i>
+                        @Loc.Get("AIWorkloadOrchestration")
+                    </h6>
+                    <p class="text-muted smaller mb-0" style="font-size: 0.65rem;">@Loc.Get("RouteCognitiveTasks")</p>
+                </div>
+                <div class="routing-status-badge d-inline-flex align-items-center gap-1 px-3 py-1 rounded-pill bg-success bg-opacity-10 text-success fw-bold border border-success border-opacity-25" style="font-size: 0.65rem;">
+                    <span class="position-relative d-flex" style="height: 8px; width: 8px;">
+                      <span class="animate-ping position-absolute h-100 w-100 rounded-circle bg-success opacity-75"></span>
+                      <span class="position-relative rounded-circle h-100 w-100 bg-success"></span>
+                    </span>
+                    @Loc.Get("ActiveRouting")
+                </div>
+            </div>
+            
+            <form asp-action="SaveWorkloadRouting" method="post" id="workloadRoutingForm">
+                <div class="row g-2">
+                    @{
+                        var providers = Enum.GetValues<AiProviderType>();
+                        string GetName(AiProviderType p) => p switch {
+                            AiProviderType.DockerLocal => Loc.Get("DockerEngine"),
+                            AiProviderType.OpenAI => "OpenAI / ChatGPT",
+                            AiProviderType.Cloud => Loc.Get("CloudAI"),
+                            AiProviderType.Gemini => "Google Gemini",
+                            AiProviderType.Groq => "Groq",
+                            _ => p.ToString()
+                        };
+                    }
+                    
+                    @foreach(var slot in new[] {
+                        (Name: "GLOBALDEFAULT", Key: "activeProvider",   Val: (string)activeProvider.ToString(),     Desc: "FallbackEngineDesc", ModelKey: (string?)null,         ModelVal: (string?)null),
+                        (Name: "ANALYSIS",      Key: "analysisProvider", Val: (string)ViewBag.DbAnalysisProvider,    Desc: "AnalysisDesc",       ModelKey: "analysisModel",   ModelVal: (string?)ViewBag.DbAnalysisModel),
+                        (Name: "KNOWLEDGERAG",  Key: "ragProvider",      Val: (string)ViewBag.DbRagProvider,         Desc: "RAGDesc",            ModelKey: "ragModel",        ModelVal: (string?)ViewBag.DbRagModel),
+                        // Intent Router runs BEFORE the SQL Generator. Same model is fine to start;
+                        // can be swapped to a smaller/faster model later without retraining anything.
+                        (Name: "INTENTROUTER",  Key: "classifierProvider", Val: (string)ViewBag.DbClassifierProvider, Desc: "ClassifierDesc",   ModelKey: "classifierModel", ModelVal: (string?)ViewBag.DbClassifierModel),
+                        (Name: "SQLGENERATOR",  Key: "copilotProvider",  Val: (string)ViewBag.DbCopilotProvider,     Desc: "CopilotDesc",        ModelKey: "copilotModel",    ModelVal: (string?)ViewBag.DbCopilotModel)
+                    }) {
+                        <div class="col-md-3">
+                            <div class="routing-slot h-100 p-2 rounded-3 bg-white border border-opacity-10 position-relative transition-all hover-lift">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <div class="p-1 rounded-circle" style="background: var(--bg-surface-alt);">
+                                        <i class="bi bi-circle-fill" style="font-size: 0.5rem; color: @(slot.Name == "GLOBALDEFAULT" ? "var(--text-muted)" : (slot.Name == "ANALYSIS" ? "var(--info-color)" : (slot.Name == "KNOWLEDGERAG" ? "var(--success-color)" : "var(--warning-color)")));"></i>
+                                    </div>
+                                    <h6 class="fw-bold mb-0 text-uppercase tracking-wider" style="font-size: 0.6rem;">@slot.Name</h6>
+                                </div>
+                                @{
+                                    var providerSelectId = $"prov-sel-{slot.Key}";
+                                    var modelSelectId = slot.ModelKey != null ? $"model-sel-{slot.ModelKey}" : null;
+                                }
+                                <select id="@providerSelectId" name="@slot.Key" class="form-select form-select-sm border border-light fw-semibold text-dark shadow-none mb-2"
+                                        data-model-select-id="@(modelSelectId ?? "")"
+                                        onchange="onWorkloadProviderChange(this)">
+                                    @if(slot.Key != "activeProvider") { <option value="">@Loc.Get("InheritDefault")</option> }
+                                    @foreach(var p in providers) {
+                                        <option value="@p" selected="@(slot.Val == p.ToString())">@GetName(p)</option>
+                                    }
+                                </select>
+                                @if(slot.ModelKey != null) {
+                                    <select id="@modelSelectId" name="@slot.ModelKey"
+                                            class="form-select form-select-sm border border-light shadow-none workload-model-select"
+                                            data-current-value="@(slot.ModelVal ?? "")"
+                                            data-provider-select-id="@providerSelectId"
+                                            title="Pick a model from the provider's curated 'Allowed Models' list. Empty = use the provider's default model. The form saves when you pick here — switching provider alone does not save."
+                                            onchange="onWorkloadModelChange(this)">
+                                        <option value="">(provider default)</option>
+                                        @if (!string.IsNullOrEmpty(slot.ModelVal)) {
+                                            <option value="@slot.ModelVal" selected="selected">@slot.ModelVal</option>
+                                        }
+                                    </select>
+                                    <div class="routing-cascade-hint small text-muted mt-1 d-none">
+                                        <i class="bi bi-arrow-down-circle me-1"></i>Pick a model to apply.
+                                    </div>
+                                }
+                                <p class="smaller text-muted mt-2 mb-0 lh-sm" style="font-size: 0.65rem;">@Loc.Get(slot.Desc)</p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- AI Providers — unified .app-tabs (same component as Investigation) -->
+    <div class="mt-2 mb-3">
+        <h6 class="fw-bold mb-2 d-flex align-items-center gap-2" style="font-size: 0.85rem;">
+            <i class="bi bi-broadcast text-primary"></i> @Loc.Get("AvailableAIEngines")
+        </h6>
+        <ul class="app-tabs" id="providerTabs" role="tablist">
+            @foreach(var (id, name, icon) in new[] {
+                ("docker", "Docker Engine", "bi-hdd-network-fill"),
+                ("ollama", "Ollama (Native)", "bi-box-fill"),
+                ("openai", "OpenAI", "bi-cpu"),
+                ("gemini", "Google Gemini", "bi-stars"),
+                ("groq", "Groq", "bi-lightning-charge-fill"),
+                ("cloud", "Cloud AI", "bi-cloud-check-fill")
+            }) {
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link @(id == "docker" ? "active" : "")"
+                            data-bs-toggle="tab" data-bs-target="#provider-@id" type="button" role="tab">
+                        <i class="bi @icon"></i>@name
+                    </button>
+                </li>
+            }
+        </ul>
+    </div>
+
+        <div class="tab-content" id="providerTabContent">
+            <!-- ──── DOCKER ENGINE ──── -->
+            <div class="tab-pane fade show active" id="provider-docker" role="tabpanel">
+                <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                    <div class="card-header border-0 pb-0 pt-3 px-3 bg-transparent d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-bold mb-0"><i class="bi bi-hdd-network-fill me-2 text-primary"></i>Docker Desktop Engine</h6>
+                            <p class="text-muted smaller mb-0">Native model execution via <code>docker model</code>.</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="validateProvider('DockerLocal', this)">
+                                <i class="bi bi-wifi me-1"></i>Test
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0 text-uppercase small ls-1 text-muted">Model Inventory</h6>
+                                <button class="btn btn-sm btn-link text-primary text-decoration-none" onclick="loadProviderModels('DockerLocal', 'models-container'); populateQuickTestModelSelect('DockerLocal'); refreshAllWorkloadModelSelects();">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Scan Docker
+                                </button>
+                            </div>
+                            <div class="row g-3" id="models-container">
+                                <div class="col-12 text-center py-4 text-muted small">Loading discovered models...</div>
+                            </div>
+                        </div>
+                        <form asp-action="UpdateAiProvider" method="post" class="mt-4 pt-4 border-top">
+                            <input type="hidden" name="providerType" value="DockerLocal" />
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Timeout (Sec)</label>
+                                    <input type="number" class="form-control" name="timeoutSeconds" value="@ViewBag.DbDockerTimeout" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Temperature</label>
+                                    <input type="text" class="form-control" name="temperature" value="@ViewBag.DbDockerTemp" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Max Prompt Chars</label>
+                                    <input type="number" class="form-control" name="maxPromptChars" value="@ViewBag.DbDockerMaxChars" />
+                                </div>
+                            </div>
+                            <div class="mt-4 text-end">
+                                <button type="submit" class="btn btn-primary shadow-sm rounded-pill px-4">Save Engine Config</button>
+                            </div>
+                        </form>
+
+                        <hr class="my-4" />
+                        <partial name="Partials/_ProviderQuickTest" model='("DockerLocal", "primary")' />
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──── OLLAMA NATIVE ──── -->
+            <div class="tab-pane fade" id="provider-ollama" role="tabpanel">
+                <div class="card border-0 shadow-lg rounded-4 overflow-hidden" style="border: 1px solid rgba(var(--warning-color-rgb), 0.1) !important;">
+                    <div class="card-header border-0 pb-0 pt-3 px-3 bg-transparent d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-bold mb-0"><i class="bi bi-box-fill me-2 text-warning"></i>Ollama Native Engine</h6>
+                            <p class="text-muted smaller mb-0">Local execution via Windows <code>ollama serve</code>.</p>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-xs rounded-pill px-3" onclick="validateProvider('Ollama', this)" style="font-size: 0.65rem;">
+                            <i class="bi bi-wifi me-1"></i>Test
+                        </button>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="mb-3 p-3 rounded-4" style="background: rgba(237, 137, 54, 0.05); border: 1px solid rgba(237, 137, 54, 0.15);">
+                            <h6 class="fw-bold mb-2 text-uppercase small ls-1 text-muted">Pull New Model</h6>
+                            <div class="d-flex gap-2">
+                                <input type="text" id="pull-ollama-model-name-p" class="form-control border-0 shadow-sm form-control-sm" placeholder="e.g. llama3.2" />
+                                <button class="btn btn-warning btn-sm fw-bold px-4 rounded-3" onclick="pullProviderModel('Ollama', 'pull-ollama-model-name-p', 'ollama-pull-status-p')">Pull</button>
+                            </div>
+                            <div id="ollama-pull-status-p" class="mt-3 d-none">
+                                <div class="progress mb-2" style="height: 8px;"><div class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div></div>
+                                <p class="smaller text-muted mb-0" id="ollama-pull-text-p">Initializing...</p>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0 text-uppercase small ls-1 text-muted">Model Inventory</h6>
+                                <button class="btn btn-sm btn-link text-primary text-decoration-none" onclick="loadProviderModels('Ollama', 'ollama-models-container-p'); populateQuickTestModelSelect('Ollama'); refreshAllWorkloadModelSelects();">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh Tags
+                                </button>
+                            </div>
+                            <div class="row g-3" id="ollama-models-container-p">
+                                <div class="col-12 text-center py-4 text-muted small">Scanning Ollama...</div>
+                            </div>
+                        </div>
+                        <form asp-action="SaveOllamaConfig" method="post" class="mt-4 pt-4 border-top">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Base URL</label>
+                                    <input type="text" class="form-control" name="baseUrl" value="@(ViewBag.DbOllamaBaseUrl ?? "http://localhost:11434")" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Default Embedding Model</label>
+                                    <input type="text" class="form-control" name="embeddingModel" value="@(ViewBag.DbOllamaEmbeddingModel ?? "bge-m3")" placeholder="bge-m3" />
+                                    <small class="form-text text-muted">Fallback used when a workload routes to Ollama and asks for embeddings without picking a specific embedding model. Workloads can still override per-slot. Recommended: <code>bge-m3</code>.</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Temperature</label>
+                                    <input type="number" step="0.1" class="form-control" name="temperature" value="@(ViewBag.DbOllamaTemperature ?? "0.7")" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Timeout (Sec)</label>
+                                    <input type="number" class="form-control" name="timeoutSeconds" value="@(ViewBag.DbOllamaTimeoutSeconds ?? "120")" />
+                                    <small class="form-text text-muted">0 = no timeout (wait forever).</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Context Window (tokens)</label>
+                                    <input type="number" class="form-control" name="contextWindow" value="@(ViewBag.DbOllamaContextWindow ?? "4096")" />
+                                    <small class="form-text text-muted">qwen3.5: up to 32768. llama3.2: up to 131072. Bump from 4096 if your prompts get truncated (empty responses).</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Max Prompt Chars</label>
+                                    <input type="number" class="form-control" name="maxPromptChars" value="@(ViewBag.DbOllamaMaxPromptChars ?? "8000")" />
+                                    <small class="form-text text-muted">Truncates the LLM prompt at this many characters. Increase when running large prompts.</small>
+                                </div>
+                            </div>
+                            <div class="mt-4 text-end">
+                                <button type="submit" class="btn btn-primary shadow-sm rounded-pill px-4">Apply Ollama Settings</button>
+                            </div>
+                        </form>
+
+                        <hr class="my-4" />
+                        <partial name="Partials/_ProviderQuickTest" model='("Ollama", "warning")' />
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──── OPENAI ──── -->
+            <div class="tab-pane fade" id="provider-openai" role="tabpanel">
+                <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                    <div class="card-header border-0 pb-0 pt-4 px-4 bg-transparent d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-1"><i class="bi bi-cpu-fill me-2 text-primary"></i>OpenAI / ChatGPT</h5>
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="validateProvider('OpenAI', this)">Test</button>
+                    </div>
+                    <div class="card-body p-3">
+                        <form asp-action="SaveOpenAiConfig" method="post">
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold text-muted text-uppercase ls-1">API Key</label>
+                                <input type="password" class="form-control" name="apiKey" value="@ViewBag.DbOpenAiKey" />
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Model</label>
+                                    <input type="text" class="form-control" name="model" value="@ViewBag.DbOpenAiModel" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Temperature</label>
+                                    <input type="number" step="0.1" class="form-control" name="temperature" value="@ViewBag.DbOpenAiTemperature" />
+                                </div>
+                            </div>
+                            <div class="mt-4 text-end">
+                                <button type="submit" class="btn btn-primary shadow-sm rounded-pill px-4">Save OpenAI Config</button>
+                            </div>
+                        </form>
+
+                        <partial name="Partials/_AllowedModelsSection" model='("OpenAI", "primary")' />
+
+                        <hr class="my-4" />
+                        <partial name="Partials/_ProviderQuickTest" model='("OpenAI", "primary")' />
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──── GEMINI ──── -->
+            <div class="tab-pane fade" id="provider-gemini" role="tabpanel">
+                <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                    <div class="card-header border-0 pb-0 pt-4 px-4 bg-transparent d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-1"><i class="bi bi-stars me-2 text-info"></i>Google Gemini</h5>
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="validateProvider('Gemini', this)">Test</button>
+                    </div>
+                    <div class="card-body p-3">
+                        <form asp-action="SaveGeminiConfig" method="post">
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold text-muted text-uppercase ls-1">API Key</label>
+                                <input type="password" class="form-control" name="apiKey" value="@ViewBag.DbGeminiKey" />
+                                <div class="form-text small">Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Model</label>
+                                    <input type="text" class="form-control" name="model" value="@ViewBag.DbGeminiModel" placeholder="gemini-2.5-flash" />
+                                    <div class="form-text small">Recommended: <code>gemini-2.5-flash</code> (free tier).</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Temperature</label>
+                                    <input type="number" step="0.1" min="0" max="2" class="form-control" name="temperature" value="@ViewBag.DbGeminiTemperature" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Max Tokens</label>
+                                    <input type="number" min="1" class="form-control" name="maxTokens" value="@ViewBag.DbGeminiMaxTokens" />
+                                </div>
+                            </div>
+
+                            <hr class="my-4" />
+                            <div class="mb-3">
+                                <h6 class="fw-bold text-muted text-uppercase small ls-1 mb-3">
+                                    <i class="bi bi-speedometer2 me-1"></i>Rate Limit & Retry
+                                </h6>
+                                <div class="form-text small mb-3">
+                                    Free tier of <code>gemini-2.5-flash</code> is <strong>10 requests/minute, 250/day</strong>. The
+                                    Assessment runner runs many cases back-to-back; without throttling, most fail with HTTP 429.
+                                    Set the delay to ~7000ms (7 sec) for the free tier, or 0 if you have a paid plan.
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Assessment Delay (ms)</label>
+                                    <input type="number" min="0" step="100" class="form-control" name="assessmentDelayMs" value="@ViewBag.DbGeminiAssessmentDelayMs" placeholder="7000" />
+                                    <div class="form-text small">Wait time between assessment cases. <strong>0 = no throttle.</strong></div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Retry on 429</label>
+                                    <select class="form-select" name="retryOn429">
+                                        <option value="true" selected="@(string.Equals(ViewBag.DbGeminiRetryOn429 as string, "True", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(ViewBag.DbGeminiRetryOn429 as string))">Yes (recommended)</option>
+                                        <option value="false" selected="@(string.Equals(ViewBag.DbGeminiRetryOn429 as string, "False", StringComparison.OrdinalIgnoreCase))">No</option>
+                                    </select>
+                                    <div class="form-text small">Auto-retry when quota is hit.</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Retry Wait (ms)</label>
+                                    <input type="number" min="1000" step="1000" class="form-control" name="retryDelayMs" value="@ViewBag.DbGeminiRetryDelayMs" placeholder="30000" />
+                                    <div class="form-text small">How long to wait before retrying.</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Max Attempts</label>
+                                    <input type="number" min="1" max="5" class="form-control" name="retryMaxAttempts" value="@ViewBag.DbGeminiRetryMaxAttempts" placeholder="2" />
+                                    <div class="form-text small">Total tries (incl. first call).</div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 text-end">
+                                <button type="submit" class="btn btn-primary shadow-sm rounded-pill px-4">Save Gemini Config</button>
+                            </div>
+                        </form>
+
+                        <partial name="Partials/_AllowedModelsSection" model='("Gemini", "info")' />
+
+                        <hr class="my-4" />
+                        <partial name="Partials/_ProviderQuickTest" model='("Gemini", "info")' />
+
+                        <hr class="my-4" />
+                        <!-- ─── Gemini Key Pool ─────────────────────────────────────
+                             Multi-key rotation. Each key has its own daily quota (~250 RPD on free
+                             tier) — pooling 7-10 personal keys multiplies your effective budget.
+                             The provider picks the lowest-usage non-blocked key on each call. -->
+                        <div>
+                            <h6 class="fw-bold text-muted text-uppercase small ls-1 mb-3">
+                                <i class="bi bi-key me-1"></i>API Key Pool
+                            </h6>
+                            <div class="form-text small mb-3">
+                                Save multiple Gemini API keys (one per Google account). When one hits its daily ~250 request limit,
+                                the next active key takes over automatically. The "remaining" count is our own estimate —
+                                Google doesn't return exact quota numbers in API responses.
+                            </div>
+
+                            <!-- Add-key form -->
+                            <div class="row g-2 mb-3 align-items-end">
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Label</label>
+                                    <input type="text" class="form-control" id="gemini-pool-label" placeholder="e.g. Personal G1" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1" title="Google API doesn't expose this — type the email this key belongs to">
+                                        Owner email
+                                    </label>
+                                    <input type="email" class="form-control" id="gemini-pool-owner" placeholder="you@gmail.com" />
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">API Key</label>
+                                    <input type="password" class="form-control" id="gemini-pool-key" placeholder="AIza..." />
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-primary w-100 rounded-pill" onclick="addGeminiKey()">
+                                        <i class="bi bi-plus-circle me-1"></i>Add
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Inline alert for add-result (duplicate / error / success) -->
+                            <div id="gemini-pool-add-alert" class="alert d-none small py-2" role="alert"></div>
+
+                            <!-- Pool health summary — populated by JS. Tells you at-a-glance:
+                                 - How many keys are currently in play vs parked vs dead
+                                 - Which key is the "next pick" (lowest count among ok)
+                                 - Which key was last used (rotation visibility)
+                                 - Total daily quota consumed / pool capacity (= is 7 keys enough?) -->
+                            <div id="gemini-pool-summary" class="mb-3"></div>
+
+                            <!-- Live pool table populated by JS -->
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr class="small text-uppercase text-muted ls-1">
+                                            <th>Label</th>
+                                            <th>Owner</th>
+                                            <th>Key</th>
+                                            <th>Status</th>
+                                            <th class="text-center" title="Today's request count vs ~240 RPD safety ceiling">Used today</th>
+                                            <th class="text-center" title="Estimated — Google doesn't report exact remaining">Remaining (est.)</th>
+                                            <th>Last used</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="gemini-pool-tbody">
+                                        <tr><td colspan="8" class="text-center text-muted py-3">Loading…</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-flex justify-content-end mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadGeminiPool()">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──── GROQ ──── -->
+            <div class="tab-pane fade" id="provider-groq" role="tabpanel">
+                <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                    <div class="card-header border-0 pb-0 pt-4 px-4 bg-transparent d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-1"><i class="bi bi-lightning-charge-fill me-2 text-success"></i>Groq</h5>
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="validateProvider('Groq', this)">Test</button>
+                    </div>
+                    <div class="card-body p-3">
+                        <form asp-action="SaveGroqConfig" method="post">
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold text-muted text-uppercase ls-1">API Key (legacy / single-key fallback)</label>
+                                <input type="password" class="form-control" name="apiKey" value="@ViewBag.DbGroqKey" />
+                                <div class="form-text small">
+                                    Get a free key at <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>.
+                                    For multi-key rotation, prefer adding keys to the pool below — this single field is the legacy fallback.
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Model</label>
+                                    <input type="text" class="form-control" name="model" value="@ViewBag.DbGroqModel" placeholder="llama-3.3-70b-versatile" />
+                                    <div class="form-text small">
+                                        Common: <code>llama-3.3-70b-versatile</code>, <code>llama-3.1-70b-versatile</code>, <code>gpt-oss-120b</code>, <code>qwen3-32b</code>.
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Temperature</label>
+                                    <input type="number" step="0.1" min="0" max="2" class="form-control" name="temperature" value="@ViewBag.DbGroqTemperature" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Max Tokens</label>
+                                    <input type="number" min="1" class="form-control" name="maxTokens" value="@ViewBag.DbGroqMaxTokens" />
+                                </div>
+                            </div>
+
+                            <hr class="my-4" />
+                            <div class="mb-3">
+                                <h6 class="fw-bold text-muted text-uppercase small ls-1 mb-3">
+                                    <i class="bi bi-speedometer2 me-1"></i>Rate Limit & Retry
+                                </h6>
+                                <div class="form-text small mb-3">
+                                    Groq's free tier is roughly <strong>30 requests/minute</strong> per key plus a daily token cap. Unlike Gemini,
+                                    Groq returns <em>real</em> remaining quota in response headers — see the pool table below for live numbers.
+                                    Retries on 429 use Groq's own `retry-after` hint when available.
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Retry on 429</label>
+                                    <select class="form-select" name="retryOn429">
+                                        <option value="true" selected="@(string.Equals(ViewBag.DbGroqRetryOn429 as string, "True", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(ViewBag.DbGroqRetryOn429 as string))">Yes (recommended)</option>
+                                        <option value="false" selected="@(string.Equals(ViewBag.DbGroqRetryOn429 as string, "False", StringComparison.OrdinalIgnoreCase))">No</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Retry Wait (ms)</label>
+                                    <input type="number" min="500" step="500" class="form-control" name="retryDelayMs" value="@ViewBag.DbGroqRetryDelayMs" placeholder="5000" />
+                                    <div class="form-text small">Used when Groq doesn't supply its own hint.</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Max Attempts</label>
+                                    <input type="number" min="1" max="5" class="form-control" name="retryMaxAttempts" value="@ViewBag.DbGroqRetryMaxAttempts" placeholder="2" />
+                                </div>
+                            </div>
+
+                            <div class="mt-4 text-end">
+                                <button type="submit" class="btn btn-primary shadow-sm rounded-pill px-4">Save Groq Config</button>
+                            </div>
+                        </form>
+
+                        <partial name="Partials/_AllowedModelsSection" model='("Groq", "success")' />
+
+                        <hr class="my-4" />
+                        <partial name="Partials/_ProviderQuickTest" model='("Groq", "success")' />
+
+                        <hr class="my-4" />
+                        <!-- ─── Groq Key Pool ────────────────────────────────────────
+                             Same multi-key rotation as Gemini. Bonus: Groq publishes
+                             `x-ratelimit-remaining-*` headers — we capture and show
+                             them as authoritative remaining quota, not estimates. -->
+                        <div>
+                            <h6 class="fw-bold text-muted text-uppercase small ls-1 mb-3">
+                                <i class="bi bi-key me-1"></i>API Key Pool
+                            </h6>
+                            <div class="form-text small mb-3">
+                                Add multiple Groq API keys (one per Groq account). The pool rotates across them so a single
+                                key's per-minute limit doesn't bottleneck the copilot. <strong>Remaining</strong> columns are
+                                Groq's actual numbers from the last successful call — not estimates.
+                            </div>
+
+                            <div class="row g-2 mb-3 align-items-end">
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Label</label>
+                                    <input type="text" class="form-control" id="groq-pool-label" placeholder="e.g. Personal" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1" title="Groq account email — for UI display">
+                                        Owner email
+                                    </label>
+                                    <input type="email" class="form-control" id="groq-pool-owner" placeholder="you@example.com" />
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">API Key</label>
+                                    <input type="password" class="form-control" id="groq-pool-key" placeholder="gsk_..." />
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-success w-100 rounded-pill" onclick="addGroqKey()">
+                                        <i class="bi bi-plus-circle me-1"></i>Add
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="groq-pool-add-alert" class="alert d-none small py-2" role="alert"></div>
+
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead>
+                                        <tr class="small text-uppercase text-muted ls-1">
+                                            <th>Label</th>
+                                            <th>Owner</th>
+                                            <th>Key</th>
+                                            <th>Status</th>
+                                            <th class="text-center" title="Our own counter — total requests today">Used today</th>
+                                            <th class="text-center" title="Authoritative — from Groq's x-ratelimit-remaining-requests header on the last call">Remaining req (live)</th>
+                                            <th class="text-center" title="Authoritative — from Groq's x-ratelimit-remaining-tokens header on the last call">Remaining tokens (live)</th>
+                                            <th>Last used</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="groq-pool-tbody">
+                                        <tr><td colspan="9" class="text-center text-muted py-3">Loading…</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-flex justify-content-end mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" onclick="loadGroqPool()">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ──── CLOUD AI ──── -->
+            <div class="tab-pane fade" id="provider-cloud" role="tabpanel">
+                <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                    <div class="card-header border-0 pb-0 pt-4 px-4 bg-transparent d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-1"><i class="bi bi-cloud-check-fill me-2 text-secondary"></i>Cloud AI (Azure-compatible)</h5>
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="validateProvider('Cloud', this)">Test</button>
+                    </div>
+                    <div class="card-body p-3">
+                        <form asp-action="SaveCloudConfig" method="post">
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Endpoint</label>
+                                    <input type="text" class="form-control" name="endpoint" value="@ViewBag.DbCloudEndpoint" placeholder="https://your-resource.openai.azure.com" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">API Version</label>
+                                    <input type="text" class="form-control" name="apiVersion" value="@ViewBag.DbCloudApiVersion" placeholder="2024-02-15-preview" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">API Key</label>
+                                    <input type="password" class="form-control" name="apiKey" value="@ViewBag.DbCloudApiKey" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Deployment Name</label>
+                                    <input type="text" class="form-control" name="deploymentName" value="@ViewBag.DbCloudDeployment" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Model</label>
+                                    <input type="text" class="form-control" name="model" value="@ViewBag.DbCloudModel" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Temperature</label>
+                                    <input type="number" step="0.1" class="form-control" name="temperature" value="@ViewBag.DbCloudTemperature" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Max Tokens</label>
+                                    <input type="number" class="form-control" name="maxTokens" value="@ViewBag.DbCloudMaxTokens" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Timeout (s)</label>
+                                    <input type="number" class="form-control" name="timeoutSeconds" value="@ViewBag.DbCloudTimeoutSeconds" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Max Prompt Chars</label>
+                                    <input type="number" class="form-control" name="maxPromptChars" value="@ViewBag.DbCloudMaxPromptChars" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted text-uppercase ls-1">Auth Header Name</label>
+                                    <input type="text" class="form-control" name="authHeaderName" value="@ViewBag.DbCloudAuthHeaderName" placeholder="api-key" />
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    @{
+                                        var useBearer = ViewBag.DbCloudUseBearerToken is bool b && b;
+                                    }
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" name="useBearerToken" value="true" id="cloud-use-bearer" @(useBearer ? "checked" : "") />
+                                        <label class="form-check-label small fw-bold text-muted text-uppercase ls-1" for="cloud-use-bearer">Use Bearer Token</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4 text-end">
+                                <button type="submit" class="btn btn-primary shadow-sm rounded-pill px-4">Save Cloud Config</button>
+                            </div>
+                        </form>
+
+                        <partial name="Partials/_AllowedModelsSection" model='("Cloud", "secondary")' />
+
+                        <hr class="my-4" />
+                        <partial name="Partials/_ProviderQuickTest" model='("Cloud", "secondary")' />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>

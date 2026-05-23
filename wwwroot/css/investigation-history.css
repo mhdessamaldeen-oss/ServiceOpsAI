@@ -1,0 +1,204 @@
+/* Investigation History Page Specific Styles */
+
+/* Sortable table headers */
+.sortable {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.sortable .bi-arrow-down-up {
+    transition: transform 0.2s;
+}
+
+.sortable.asc .bi-arrow-down-up {
+    transform: rotate(180deg);
+    color: var(--primary-color) !important;
+    opacity: 1 !important;
+}
+
+.sortable.desc .bi-arrow-down-up {
+    color: var(--primary-color) !important;
+    opacity: 1 !important;
+}
+
+.sortable:hover {
+    color: var(--primary-color);
+}
+
+/* Table styling */
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-striped-bg: rgba(var(--primary-color-rgb), 0.02);
+    --bs-table-hover-bg: rgba(var(--primary-color-rgb), 0.04);
+}
+
+.table thead th {
+    background: var(--bg-main);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.table tbody tr {
+    border-bottom: 1px solid rgba(var(--border-color-rgb), 0.3);
+}
+
+.table tbody tr:hover {
+    background: rgba(var(--primary-color-rgb), 0.03);
+}
+
+/* Status badges */
+.bg-soft-success {
+    background: rgba(var(--success-color-rgb), 0.12) !important;
+    border: 1px solid rgba(var(--success-color-rgb), 0.18);
+    color: var(--success-color) !important;
+}
+
+.bg-soft-danger {
+    background: rgba(var(--danger-color-rgb), 0.12) !important;
+    border: 1px solid rgba(var(--danger-color-rgb), 0.18);
+    color: var(--danger-color) !important;
+}
+
+.bg-soft-primary {
+    background: rgba(var(--primary-color-rgb), 0.12) !important;
+    border: 1px solid rgba(var(--primary-color-rgb), 0.18);
+    color: var(--primary-color) !important;
+}
+
+.bg-soft-secondary {
+    background: rgba(var(--text-muted-rgb), 0.08) !important;
+    border: 1px solid rgba(var(--text-muted-rgb), 0.12);
+    color: var(--text-muted) !important;
+}
+
+/* Card styling */
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+}
+
+/* Button styling consistency */
+.btn-soft-primary {
+    background: rgba(var(--primary-color-rgb), 0.12);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.18);
+    color: var(--primary-color);
+}
+
+.btn-soft-secondary {
+    background: rgba(var(--text-muted-rgb), 0.08);
+    border: 1px solid rgba(var(--text-muted-rgb), 0.12);
+    color: var(--text-muted);
+}
+
+.btn-outline-primary {
+    background: transparent;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-outline-primary:hover {
+    background: rgba(var(--primary-color-rgb), 0.1);
+}
+
+.btn-outline-danger {
+    background: transparent;
+    border: 1px solid var(--danger-color);
+    color: var(--danger-color);
+}
+
+/* Progress bar styling */
+.progress {
+    background: rgba(var(--bg-main-rgb), 0.5);
+    border-radius: 10px;
+}
+
+.progress-bar {
+    border-radius: 10px;
+    transition: width 1s ease-in-out;
+}
+
+/* Search input styling */
+.form-control {
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+}
+
+.form-control:focus {
+    background: transparent;
+    color: var(--text-main);
+    box-shadow: none;
+}
+
+.form-control::placeholder {
+    color: var(--text-muted);
+}
+
+/* Glass card effect */
+.glass-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.glass-header {
+    background: rgba(var(--bg-main-rgb), 0.5);
+    backdrop-filter: blur(10px);
+}
+
+/* Selection checkbox */
+.history-select-checkbox {
+    border-color: var(--border-color);
+    background-color: var(--bg-main);
+}
+
+.history-select-checkbox:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* Alert styling */
+.alert-success {
+    background: rgba(var(--success-color-rgb), 0.1);
+    border: 1px solid rgba(var(--success-color-rgb), 0.2);
+    color: var(--success-color);
+}
+
+.alert-warning {
+    background: rgba(var(--warning-color-rgb), 0.1);
+    border: 1px solid rgba(var(--warning-color-rgb), 0.2);
+    color: var(--warning-color);
+}
+
+/* Cursor pointer for rows */
+.history-row {
+    cursor: pointer;
+}
+
+/* Statistics card hover effects */
+.card:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease;
+}
+
+/* Badge transitions */
+.badge {
+    transition: all 0.2s ease;
+}
+
+/* Focus glow effect */
+.focus-ring-glow:focus-within {
+    box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb), 0.25);
+}
+
+/* Hover glow for buttons */
+.hover-glow:hover {
+    box-shadow: 0 0 15px rgba(var(--primary-color-rgb), 0.3);
+}
+
+/* Spinner colors */
+.spinner-grow.text-primary {
+    color: var(--primary-color);
+}

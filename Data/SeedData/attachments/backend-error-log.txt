@@ -1,0 +1,125 @@
+2026-04-03 06:00:01.003 [INFO ] [tid:001] Microsoft.Hosting.Lifetime - Application started. Press Ctrl+C to shut down.
+2026-04-03 06:00:01.004 [INFO ] [tid:001] Microsoft.Hosting.Lifetime - Hosting environment: Production
+2026-04-03 06:00:01.005 [INFO ] [tid:001] Microsoft.Hosting.Lifetime - Content root path: /app
+2026-04-03 06:00:02.112 [INFO ] [tid:004] HealthCheckService - Health check 'db_connection' completed after 45ms with status 'Healthy'
+2026-04-03 06:00:02.115 [INFO ] [tid:004] HealthCheckService - Health check 'redis_cache' completed after 12ms with status 'Healthy'
+2026-04-03 06:00:02.116 [INFO ] [tid:004] HealthCheckService - Health check 'blob_storage' completed after 89ms with status 'Healthy'
+2026-04-03 06:01:14.334 [INFO ] [tid:012] RequestPipeline - GET /api/v2/tickets?page=1&size=20 | CorrelationId: 7a3f8b21-e4c1-4d9a-b2e7-1c3d5a9f0e22 | User: agent1@tech.local | IP: 10.0.4.51
+2026-04-03 06:01:14.401 [DEBUG] [tid:012] EFCore.Database.Command - Executed DbCommand (23ms) [Parameters=[@__p_0='0', @__p_1='20'], CommandType='Text'] SELECT t.Id, t.Title, t.StatusId ... FROM Tickets AS t ORDER BY t.CreatedAt DESC OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
+2026-04-03 06:01:14.445 [INFO ] [tid:012] RequestPipeline - 200 OK in 111ms
+2026-04-03 06:02:33.009 [INFO ] [tid:015] RequestPipeline - POST /api/v2/tickets | CorrelationId: 9e1c4d77-f3a2-41b8-8e5d-2b6a9c0d1f33 | User: user2@health.local | IP: 10.0.2.18
+2026-04-03 06:02:33.055 [DEBUG] [tid:015] TicketService - Validating ticket creation payload: { Title: "Network intermittent drops", CategoryId: 3, PriorityId: 2 }
+2026-04-03 06:02:33.101 [INFO ] [tid:015] TicketService - Ticket TCK-2026-01001 created successfully. Assigned to agent2@tech.local via round-robin.
+2026-04-03 06:02:33.145 [INFO ] [tid:015] NotificationService - Queued email notification for agent2@tech.local regarding ticket TCK-2026-01001
+2026-04-03 06:02:33.147 [INFO ] [tid:015] RequestPipeline - 201 Created in 138ms
+2026-04-03 06:05:00.001 [INFO ] [tid:004] ScheduledJobs.SlaMonitor - Starting SLA compliance scan for 847 active tickets
+2026-04-03 06:05:00.834 [INFO ] [tid:004] ScheduledJobs.SlaMonitor - SLA scan complete: 12 tickets newly breached, 835 compliant
+2026-04-03 06:05:00.836 [WARN ] [tid:004] ScheduledJobs.SlaMonitor - Ticket TCK-2026-00312 first response SLA breached (due: 2026-04-02 14:00:00, current: 2026-04-03 06:05:00, delta: +16h05m)
+2026-04-03 06:05:00.837 [WARN ] [tid:004] ScheduledJobs.SlaMonitor - Ticket TCK-2026-00455 resolution SLA breached (due: 2026-04-01 09:00:00, delta: +2d21h)
+2026-04-03 06:10:22.501 [INFO ] [tid:018] RequestPipeline - GET /api/v2/reports/monthly?entityId=2&month=3 | CorrelationId: ab12cd34-ef56-7890-ab12-cd34ef567890 | User: admin@tech.local | IP: 10.0.1.5
+2026-04-03 06:10:22.612 [DEBUG] [tid:018] ReportingEngine - Executing aggregation query for Entity 2, March 2026
+2026-04-03 06:10:22.613 [DEBUG] [tid:018] EFCore.Database.Command - Executing stored procedure [dbo].[sp_MonthlyReport] with params: @EntityId=2, @Year=2026, @Month=3
+2026-04-03 06:10:30.998 [WARN ] [tid:018] EFCore.Database.Command - Command execution timeout. Elapsed: 8386ms. Threshold: 5000ms.
+2026-04-03 06:10:31.001 [ERROR] [tid:018] ReportingEngine - Report generation failed for Entity 2
+Microsoft.Data.SqlClient.SqlException (0x80131904): Execution Timeout Expired.  The timeout period elapsed prior to completion of the operation or the server is not responding.
+ ---> System.ComponentModel.Win32Exception (258): The wait operation timed out.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.SqlInternalConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at Microsoft.Data.SqlClient.TdsParser.TryRun(RunBehavior runBehavior, SqlCommand cmdHandler, SqlDataReader dataStream, BulkCopySimpleResultSet bulkCopyHandler, TdsParserStateObject stateObj, Boolean& dataReady)
+   at Microsoft.Data.SqlClient.SqlDataReader.TryConsumeMetaData()
+   at Microsoft.Data.SqlClient.SqlDataReader.get_MetaData()
+   at Microsoft.Data.SqlClient.SqlCommand.FinishExecuteReader(SqlDataReader ds, RunBehavior runBehavior, String resetOptionsString, Boolean isInternal, Boolean forDescribeParameterEncryption, Boolean shouldCacheForAlwaysEncrypted)
+   at Microsoft.Data.SqlClient.SqlCommand.CompleteAsyncExecuteReader(Boolean isInternal, Boolean forDescribeParameterEncryption)
+   at Microsoft.Data.SqlClient.SqlCommand.InternalEndExecuteNonQuery(IAsyncResult asyncResult, Boolean isInternal, String endMethod)
+   at Microsoft.Data.SqlClient.SqlCommand.EndExecuteNonQueryInternal(IAsyncResult asyncResult)
+   at SupportFlow.Services.ReportingEngine.GenerateMonthlyReportAsync(Int32 entityId, Int32 year, Int32 month) in /src/Services/ReportingEngine.cs:line 142
+2026-04-03 06:10:31.012 [INFO ] [tid:018] RequestPipeline - 500 Internal Server Error in 8511ms
+2026-04-03 06:12:01.000 [INFO ] [tid:004] HealthCheckService - Health check 'db_connection' completed after 1205ms with status 'Degraded'
+2026-04-03 06:12:01.002 [WARN ] [tid:004] HealthCheckService - Database connection response time exceeds threshold (1205ms > 500ms)
+2026-04-03 06:15:33.120 [INFO ] [tid:022] RequestPipeline - PUT /api/v2/tickets/312/status | CorrelationId: ff00aa11-bb22-cc33-dd44-ee55ff66aa77 | User: agent1@tech.local | IP: 10.0.4.51
+2026-04-03 06:15:33.188 [DEBUG] [tid:022] TicketService - Updating ticket TCK-2026-00312 status from 'New' to 'In Progress'
+2026-04-03 06:15:33.245 [DEBUG] [tid:022] EFCore.Database.Command - Executed DbCommand (32ms) UPDATE Tickets SET StatusId = 3, UpdatedAt = '2026-04-03T06:15:33' WHERE Id = 312
+2026-04-03 06:15:33.289 [INFO ] [tid:022] AuditService - Logged status change for TCK-2026-00312: New -> In Progress by agent1@tech.local
+2026-04-03 06:15:33.291 [INFO ] [tid:022] RequestPipeline - 200 OK in 171ms
+2026-04-03 06:18:45.773 [INFO ] [tid:025] RequestPipeline - GET /api/v2/tickets/455 | CorrelationId: 11223344-5566-7788-99aa-bbccddeeff00 | User: agent3@tech.local | IP: 10.0.4.53
+2026-04-03 06:18:45.814 [DEBUG] [tid:025] EFCore.Database.Command - Executed DbCommand (18ms) SELECT * FROM Tickets WHERE Id = 455
+2026-04-03 06:18:45.817 [DEBUG] [tid:025] EFCore.Database.Command - Executed DbCommand (7ms) SELECT * FROM TicketComments WHERE TicketId = 455 ORDER BY CreatedAt DESC
+2026-04-03 06:18:45.820 [DEBUG] [tid:025] EFCore.Database.Command - Executed DbCommand (5ms) SELECT * FROM TicketAttachments WHERE TicketId = 455
+2026-04-03 06:18:45.830 [INFO ] [tid:025] RequestPipeline - 200 OK in 57ms
+2026-04-03 06:22:00.001 [INFO ] [tid:004] ScheduledJobs.CacheWarmer - Warming dashboard statistics cache
+2026-04-03 06:22:00.445 [DEBUG] [tid:004] EFCore.Database.Command - Executed DbCommand (210ms) SELECT COUNT(*) FROM Tickets WHERE StatusId IN (1,2,3,4) AND IsDeleted = 0
+2026-04-03 06:22:00.667 [DEBUG] [tid:004] EFCore.Database.Command - Executed DbCommand (222ms) SELECT StatusId, COUNT(*) as Cnt FROM Tickets WHERE IsDeleted = 0 GROUP BY StatusId
+2026-04-03 06:22:00.891 [DEBUG] [tid:004] EFCore.Database.Command - Executed DbCommand (224ms) SELECT EntityId, COUNT(*) as Cnt FROM Tickets WHERE IsDeleted = 0 AND CreatedAt > '2026-03-03' GROUP BY EntityId
+2026-04-03 06:22:01.012 [INFO ] [tid:004] ScheduledJobs.CacheWarmer - Dashboard cache warmed in 1011ms
+2026-04-03 06:30:00.002 [INFO ] [tid:004] HealthCheckService - Health check 'db_connection' completed after 2330ms with status 'Degraded'
+2026-04-03 06:30:00.004 [WARN ] [tid:004] HealthCheckService - Database connection response time exceeds threshold (2330ms > 500ms). Consider reviewing active connections.
+2026-04-03 06:30:00.005 [WARN ] [tid:004] ConnectionPoolMonitor - Active connections: 47/50. Pool nearly exhausted.
+2026-04-03 06:31:11.445 [INFO ] [tid:028] RequestPipeline - GET /api/v2/tickets?status=Closed&page=1&size=50 | CorrelationId: aabb0011-2233-4455-6677-8899aabbccdd | User: admin@tech.local | IP: 10.0.1.5
+2026-04-03 06:31:11.446 [DEBUG] [tid:028] EFCore.Database.Command - Executing query for closed tickets with pagination...
+2026-04-03 06:31:26.773 [ERROR] [tid:028] EFCore.Database.Command - Command execution timeout. Elapsed: 15327ms. Threshold: 15000ms.
+2026-04-03 06:31:26.774 [ERROR] [tid:028] TicketService - Failed to retrieve closed tickets list
+Microsoft.Data.SqlClient.SqlException (0x80131904): Execution Timeout Expired.  The timeout period elapsed prior to completion of the operation or the server is not responding.
+   at Microsoft.Data.SqlClient.SqlConnection.OnError(SqlException exception, Boolean breakConnection, Action`1 wrapCloseInAction)
+   at Microsoft.Data.SqlClient.TdsParser.ThrowExceptionAndWarning(TdsParserStateObject stateObj, Boolean callerHasConnectionLock, Boolean asyncClose)
+   at SupportFlow.Services.TicketService.GetTicketsAsync(TicketQueryParameters queryParams) in /src/Services/TicketService.cs:line 88
+2026-04-03 06:31:26.780 [INFO ] [tid:028] RequestPipeline - 500 Internal Server Error in 15335ms
+2026-04-03 06:31:26.782 [WARN ] [tid:004] ConnectionPoolMonitor - Active connections: 50/50. POOL EXHAUSTED. New requests will be queued.
+2026-04-03 06:31:45.001 [ERROR] [tid:030] RequestPipeline - GET /api/v2/dashboard/stats | CorrelationId: deadbeef-0000-1111-2222-333344445555 | User: user1@interior.local | IP: 10.0.3.22
+2026-04-03 06:31:45.002 [ERROR] [tid:030] DashboardService - Timeout waiting for available connection from pool.
+System.InvalidOperationException: Timeout expired. The timeout period elapsed prior to obtaining a connection from the pool. This may have occurred because all pooled connections were in use and max pool size was reached.
+   at Microsoft.Data.ProviderBase.DbConnectionFactory.TryGetConnection(DbConnection owningConnection, TaskCompletionSource`1 retry, DbConnectionOptions userOptions, DbConnectionInternal oldConnection, DbConnectionInternal& connection)
+   at Microsoft.Data.ProviderBase.DbConnectionInternal.TryOpenConnectionInternal(DbConnection outerConnection, DbConnectionFactory connectionFactory, TaskCompletionSource`1 retry, DbConnectionOptions userOptions)
+   at Microsoft.Data.SqlClient.SqlConnection.TryOpen(TaskCompletionSource`1 retry, SqlConnectionOverrides overrides)
+   at Microsoft.Data.SqlClient.SqlConnection.OpenAsync(CancellationToken cancellationToken)
+   at SupportFlow.Controllers.DashboardController.GetStats() in /src/Controllers/DashboardController.cs:line 34
+2026-04-03 06:31:45.010 [INFO ] [tid:030] RequestPipeline - 503 Service Unavailable in 8ms
+2026-04-03 06:31:46.120 [ERROR] [tid:031] RequestPipeline - POST /api/v2/tickets/1001/comments | CorrelationId: 00112233-4455-6677-8899-aabb00112233 | User: agent2@tech.local | IP: 10.0.4.52
+2026-04-03 06:31:46.121 [ERROR] [tid:031] CommentService - Failed to save comment for ticket TCK-2026-01001
+System.InvalidOperationException: Timeout expired. The timeout period elapsed prior to obtaining a connection from the pool.
+   at SupportFlow.Services.CommentService.AddCommentAsync(Int32 ticketId, String content, String userId) in /src/Services/CommentService.cs:line 56
+2026-04-03 06:31:46.122 [INFO ] [tid:031] RequestPipeline - 503 Service Unavailable in 2ms
+2026-04-03 06:31:47.000 [ERROR] [tid:032] RequestPipeline - GET /api/v2/notifications | User: user3@education.local - 503 Service Unavailable - Pool exhausted
+2026-04-03 06:31:47.500 [ERROR] [tid:033] RequestPipeline - GET /api/v2/tickets?page=1 | User: user1@health.local - 503 Service Unavailable - Pool exhausted
+2026-04-03 06:31:48.001 [ERROR] [tid:034] RequestPipeline - PUT /api/v2/tickets/890/status | User: agent1@tech.local - 503 Service Unavailable - Pool exhausted
+2026-04-03 06:31:48.500 [ERROR] [tid:035] RequestPipeline - GET /api/v2/dashboard/stats | User: admin@tech.local - 503 Service Unavailable - Pool exhausted
+2026-04-03 06:31:49.000 [ERROR] [tid:036] RequestPipeline - POST /api/v2/tickets | User: user2@interior.local - 503 Service Unavailable - Pool exhausted
+2026-04-03 06:31:50.001 [WARN ] [tid:004] ConnectionPoolMonitor - Connection pool saturation alert. 50/50 connections in use for > 25 seconds. Possible connection leak detected.
+2026-04-03 06:31:50.003 [WARN ] [tid:004] ConnectionPoolMonitor - Longest held connection: 84s, originated from TicketService.GetTicketsAsync (Closed status filter)
+2026-04-03 06:31:50.004 [WARN ] [tid:004] ConnectionPoolMonitor - Second longest held connection: 79s, originated from ReportingEngine.GenerateMonthlyReportAsync
+2026-04-03 06:31:55.000 [INFO ] [tid:004] ConnectionPoolMonitor - 2 connections returned to pool. Active: 48/50
+2026-04-03 06:32:00.001 [INFO ] [tid:004] HealthCheckService - Health check 'db_connection' completed after 3801ms with status 'Unhealthy'
+2026-04-03 06:32:00.003 [ERROR] [tid:004] HealthCheckService - DATABASE HEALTH CRITICAL: Response time 3801ms, pool utilization 48/50
+2026-04-03 06:32:10.445 [INFO ] [tid:037] RequestPipeline - GET /api/v2/tickets?page=1&size=20 | CorrelationId: cafe1234-babe-5678-dead-beef90123456 | User: agent1@tech.local | IP: 10.0.4.51
+2026-04-03 06:32:10.501 [DEBUG] [tid:037] EFCore.Database.Command - Executed DbCommand (2455ms) SELECT ... FROM Tickets ORDER BY CreatedAt DESC OFFSET 0 ROWS FETCH NEXT 20 ROWS ONLY
+2026-04-03 06:32:10.510 [WARN ] [tid:037] PerformanceMonitor - Query execution time 2455ms exceeds warning threshold (1000ms) for TicketService.GetTicketsAsync
+2026-04-03 06:32:10.512 [INFO ] [tid:037] RequestPipeline - 200 OK in 2067ms
+2026-04-03 06:35:00.001 [INFO ] [tid:004] ScheduledJobs.IndexMaintenanceJob - Running missing index analysis on Tickets table
+2026-04-03 06:35:00.780 [WARN ] [tid:004] ScheduledJobs.IndexMaintenanceJob - MISSING INDEX DETECTED: Table 'Tickets' - Suggested index on columns [StatusId, IsDeleted] INCLUDE [Id, Title, CreatedAt, EntityId, PriorityId, CategoryId, AssignedToUserId, CreatedByUserId]. Estimated improvement: 89.4%
+2026-04-03 06:35:00.782 [WARN ] [tid:004] ScheduledJobs.IndexMaintenanceJob - MISSING INDEX DETECTED: Table 'Tickets' - Suggested index on columns [CreatedAt DESC, EntityId] INCLUDE [Id, Title, StatusId]. Estimated improvement: 72.1%
+2026-04-03 06:35:00.783 [WARN ] [tid:004] ScheduledJobs.IndexMaintenanceJob - QUERY PLAN WARNING: Table scan detected on Tickets (1,247 rows) when filtering by StatusId. No suitable index found.
+2026-04-03 06:35:00.784 [INFO ] [tid:004] ScheduledJobs.IndexMaintenanceJob - Index analysis complete. 2 missing indexes identified. Email sent to dba-alerts@tech.local.
+2026-04-03 06:40:12.334 [INFO ] [tid:040] RequestPipeline - GET /api/v2/reports/monthly?entityId=1&month=3 | CorrelationId: 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d | User: admin@tech.local | IP: 10.0.1.5
+2026-04-03 06:40:12.400 [DEBUG] [tid:040] ReportingEngine - Executing aggregation query for Entity 1, March 2026
+2026-04-03 06:40:19.112 [WARN ] [tid:040] EFCore.Database.Command - Command execution slow. Elapsed: 6712ms.
+2026-04-03 06:40:20.334 [ERROR] [tid:040] ReportingEngine - Report generation failed for Entity 1 (timeout)
+2026-04-03 06:40:20.340 [INFO ] [tid:040] RequestPipeline - 500 Internal Server Error in 8006ms
+2026-04-03 06:42:00.001 [INFO ] [tid:004] HealthCheckService - Health check 'db_connection' completed after 890ms with status 'Degraded'
+2026-04-03 06:42:00.003 [INFO ] [tid:004] ConnectionPoolMonitor - Active connections: 38/50. Pool pressure easing.
+2026-04-03 06:45:22.001 [INFO ] [tid:042] RequestPipeline - GET /api/v2/tickets?status=Closed&page=1&size=20 | CorrelationId: 99887766-5544-3322-1100-ffeeddccbbaa | User: admin@tech.local | IP: 10.0.1.5
+2026-04-03 06:45:22.002 [DEBUG] [tid:042] EFCore.Database.Command - Executing query for closed tickets...
+2026-04-03 06:45:36.889 [ERROR] [tid:042] TicketService - Query timeout filtering by Closed status
+Microsoft.Data.SqlClient.SqlException (0x80131904): Execution Timeout Expired.
+   at SupportFlow.Services.TicketService.GetTicketsAsync(TicketQueryParameters queryParams) in /src/Services/TicketService.cs:line 88
+2026-04-03 06:45:36.890 [INFO ] [tid:042] RequestPipeline - 500 Internal Server Error in 14888ms
+2026-04-03 06:45:36.892 [WARN ] [tid:004] ConnectionPoolMonitor - Active connections jumped to 46/50 after closed-status query timeout
+2026-04-03 06:50:00.001 [INFO ] [tid:004] ScheduledJobs.SlaMonitor - Starting SLA compliance scan for 849 active tickets
+2026-04-03 06:50:01.122 [INFO ] [tid:004] ScheduledJobs.SlaMonitor - SLA scan complete (slow: 1121ms): 14 tickets breached, 835 compliant
+2026-04-03 07:00:00.003 [INFO ] [tid:004] HealthCheckService - Health check 'db_connection' completed after 340ms with status 'Healthy'
+2026-04-03 07:00:00.004 [INFO ] [tid:004] ConnectionPoolMonitor - Active connections: 12/50. Pool recovered.
+2026-04-03 07:00:00.005 [INFO ] [tid:004] HealthCheckService - Health check 'redis_cache' completed after 8ms with status 'Healthy'
+2026-04-03 07:00:00.006 [INFO ] [tid:004] HealthCheckService - Health check 'blob_storage' completed after 45ms with status 'Healthy'
+2026-04-03 07:05:11.334 [INFO ] [tid:044] RequestPipeline - GET /api/v2/tickets?status=Closed&page=1&size=10 | User: admin@tech.local
+2026-04-03 07:05:21.445 [ERROR] [tid:044] TicketService - Query timeout (again) filtering by Closed status. 3rd occurrence in 55 minutes.
+2026-04-03 07:05:21.446 [ERROR] [tid:044] PerformanceMonitor - RECURRING TIMEOUT ALERT: TicketService.GetTicketsAsync with StatusId filter has timed out 3 times since 06:31:11. Root cause likely: missing index on [StatusId, IsDeleted] columns of Tickets table causing full table scan on 1,247 rows.
+2026-04-03 07:05:21.447 [INFO ] [tid:044] RequestPipeline - 500 Internal Server Error in 10111ms

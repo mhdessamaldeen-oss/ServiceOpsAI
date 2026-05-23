@@ -1,0 +1,91 @@
+/* Premium UI Theme Utilities */
+
+/* Backgrounds */
+.bg-card-premium {
+    background: var(--bg-card) !important;
+}
+
+.bg-main-premium {
+    background: var(--bg-main) !important;
+}
+
+.card-premium {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.card-inner-premium {
+    background: var(--bg-main) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px;
+}
+
+/* Text Colors */
+.text-main {
+    color: var(--text-main) !important;
+}
+
+.text-muted-custom {
+    color: var(--text-muted) !important;
+}
+
+.text-primary-custom {
+    color: var(--primary-color) !important;
+}
+
+/* Borders */
+.border-premium {
+    border-color: var(--border-color) !important;
+}
+
+.border-primary-premium {
+    border-color: var(--primary-color) !important;
+}
+
+/* Hover Effects */
+.hover-glow:hover {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 15px rgba(var(--primary-color-rgb), 0.15);
+}
+
+/* Custom Avatars */
+.avatar-premium {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    border-radius: 10px;
+    background: var(--primary-color) !important;
+    color: var(--primary-contrast-text) !important;
+}
+
+/* Input Fields */
+.input-premium {
+    background: var(--bg-card) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--border-color) !important;
+    transition: all 0.2s ease;
+}
+
+.input-premium:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 0.25rem rgba(var(--primary-color-rgb), 0.25) !important;
+}
+
+/* Dropdowns */
+.dropdown-premium {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+}
+
+.dropdown-item-premium {
+    color: var(--text-main) !important;
+    transition: background 0.2s;
+}
+
+.dropdown-item-premium:hover {
+    background: rgba(var(--primary-color-rgb), 0.1) !important;
+}

@@ -1,0 +1,53 @@
+{
+  "SuperAdminCopilot": {
+    "Text": {
+      "_comment": "Override any CopilotTextCatalog property here. Changes hot-reload via IOptionsMonitor — no restart needed. Empty / missing entries fall back to the in-code default.",
+      "PreflightRefusalPrefix": "I can't run that — ",
+      "PreflightWriteIntent": "this looks like a write/action request; the copilot is read-only.",
+      "PreflightOutOfScope": "this looks like a prediction or opinion question; the copilot only answers from the database.",
+      "PreflightSecretDisclosure": "this looks like a secrets-disclosure request; the copilot will not surface credentials or keys.",
+
+      "IntentOutOfScope": "This question is out of scope for the data copilot.",
+      "IntentMetadataUnsupported": "Metadata questions (about table/column structure) aren't supported in this build yet.",
+      "IntentGreeting": "Hi — please ask a question about the database.",
+
+      "PlannerFailed": "Could not plan a query for that question.",
+      "CompilerFailed": "Could not compile the plan into SQL.",
+      "ValidatorRejected": "Generated SQL did not pass validation.",
+      "ExecutorFailed": "Query failed at execution.",
+
+      "RetryBudgetExhausted": "I tried twice but couldn't form a clean plan within the budget. Try rephrasing or simplifying.",
+      "RetryDegenerated": "I tried twice but couldn't get a query that matches the question's intent (the retry dropped the aggregation). Try rephrasing.",
+      "PipelineExhausted": "Pipeline exhausted retry budget.",
+      "PipelineUnhandled": "Unhandled error in the pipeline.",
+
+      "KillSwitchEngaged": "the copilot is currently disabled by an admin.",
+      "RateLimited": "you're sending requests too quickly; please wait a few seconds and try again.",
+
+      "EmptyQuestion": "Please send a question in the body.",
+
+      "_domainComment": "Below: host-specific overrides for the AISupportAnalysisPlatform deployment. The defaults baked into CopilotTextCatalog are domain-neutral; this section narrows them to the support-ticket vocabulary so the conversational handler and suggested-prompt fallbacks match what users actually ask about.",
+
+      "ConversationalGreeting": "Hi! I'm the support data copilot. Ask me anything about tickets, users, categories, comments, attachments, or AI analyses — I'll translate your question into SQL and run it for you. Try \"how many open tickets?\" or \"top 5 categories by volume\".",
+
+      "ConversationalCapabilities": "Here's what I can do:\n\n**📊 Ask data questions in plain English** — \"how many tickets are open\", \"top 5 categories by volume\", \"average resolution time in hours\", \"users with no tickets\".\n\n**🔍 Find tickets by similarity or keyword** — \"tickets about login error\", \"similar tickets to TCK-2026-00050\", \"search for printer queue\".\n\n**🗂️ Schema metadata** — \"what tables do we have\", \"what columns are in Tickets\", \"how are Tickets and Users related\".\n\n**🧮 Aggregations + grouping** — count, sum, average, min, max, with per-X breakdowns.\n\n**🔗 Multi-step questions** — \"find the customer with most tickets, then show their last 5 tickets\".\n\n**🛡️ Read-only & safe** — I never modify the database. Write/delete/update requests are refused.\n\nJust ask in your own words — I'll figure out the SQL.",
+
+      "SuggestedPromptPool": [
+        "How many tickets are open?",
+        "Show me tickets created in the last 7 days",
+        "Top 5 ticket categories by volume",
+        "List users with no tickets",
+        "Average resolution time by priority"
+      ],
+
+      "DbShapeMarkers": [
+        "count", "how many", "how much", "show", "list", "find", "what", "which", "between",
+        "top", "average", "avg", "sum", "minimum", "maximum", "min", "max", "group by", "per",
+        "ticket", "tickets", "user", "users", "customer", "agent", "client", "comment", "comments",
+        "attachment", "attachments", "analysis", "analyses", "category", "categories",
+        "status", "statuses", "priority", "priorities", "role", "roles", "history", "histories",
+        "open", "closed", "resolved", "critical", "urgent", "sla", "breached", "escalat"
+      ]
+    }
+  }
+}

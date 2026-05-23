@@ -1,0 +1,398 @@
+@model AISupportAnalysisPlatform.Models.AI.AiInsightsDashboardViewModel
+@{
+    ViewData["Title"] = Loc.Get("Insights");
+    var insightsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("AIOperationalInsights"),
+        IconClass = "bi bi-robot",
+        Chips = new()
+        {
+            new() { Text = Loc.Get("SuperAdmin") }
+        },
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("Hub"),
+                Href = Url.Action("Hub", "AiAnalysis") ?? "#",
+                IconClass = "bi bi-grid",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+<style>
+    .ai-card {
+        border-radius: 15px;
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border-color) !important;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .text-main { color: var(--text-main) !important; }
+    .text-muted-alt { color: var(--text-muted) !important; }
+    .filter-panel { 
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+    }
+    .styled-input {
+        background: var(--bg-main) !important; 
+        color: var(--text-main) !important; 
+        border-color: var(--border-color) !important;
+    }
+    .styled-checkbox {
+        background-color: var(--bg-main) !important;
+        border-color: var(--border-color) !important;
+    }
+    .styled-checkbox:checked {
+        background-color: var(--primary-color) !important;
+        border-color: var(--primary-color) !important;
+    }
+</style>
+
+<partial name="_PageHeader" model="insightsHeader" />
+
+@* --- FILTERS SECTION --- *@
+<div class="filter-panel mb-4">
+    <form method="get" action="/AiInsights/Index" class="row g-3 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label small fw-bold text-muted-alt text-uppercase">@Loc.Get("Confidence")</label>
+            <select asp-for="Filter.ConfidenceLevel" class="form-select form-select-sm styled-input">
+                <option value="">@Loc.Get("All")</option>
+                <option value="High">@Loc.Get("High")</option>
+                <option value="Medium">@Loc.Get("Medium")</option>
+                <option value="Low">@Loc.Get("Low")</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small fw-bold text-muted-alt text-uppercase">@Loc.Get("CurrentCategory")</label>
+            <select asp-for="Filter.CurrentClassification" asp-items="Model.ClassificationList" class="form-select form-select-sm styled-input">
+                <option value="">@Loc.Get("AllCategories")</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small fw-bold text-muted-alt text-uppercase">@Loc.Get("AiCategory")</label>
+            <select asp-for="Filter.AiSuggestedClassification" asp-items="Model.AiClassificationList" class="form-select form-select-sm styled-input">
+                <option value="">@Loc.Get("AllPredicted")</option>
+                <option value="Unknown">@Loc.Get("UnknownOnly")</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-bold text-muted-alt text-uppercase">@Loc.Get("TimeRange")</label>
+            <div class="input-group input-group-sm">
+                <input type="date" asp-for="Filter.StartDate" class="form-control styled-input" />
+                <span class="input-group-text styled-input border-start-0 border-end-0">@Loc.Get("To")</span>
+                <input type="date" asp-for="Filter.EndDate" class="form-control styled-input" />
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="d-flex flex-column gap-2">
+                <div class="form-check form-switch form-check-inline m-0">
+                    <input class="form-check-input styled-checkbox" type="checkbox" asp-for="Filter.NeedsReviewOnly">
+                    <label class="form-check-label small text-muted-alt" asp-for="Filter.NeedsReviewOnly">@Loc.Get("NeedsReviewOnly")</label>
+                </div>
+                <div class="form-check form-switch form-check-inline m-0">
+                    <input class="form-check-input styled-checkbox" type="checkbox" asp-for="Filter.MismatchOnly">
+                    <label class="form-check-label small text-muted-alt" asp-for="Filter.MismatchOnly">@Loc.Get("MismatchOnly")</label>
+                </div>
+                <div class="form-check form-switch form-check-inline m-0">
+                    <input class="form-check-input styled-checkbox" type="checkbox" asp-for="Filter.HasAttachmentsOnly">
+                    <label class="form-check-label small text-muted-alt" asp-for="Filter.HasAttachmentsOnly">@Loc.Get("WithAttachments")</label>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 mt-3 pt-3 d-flex gap-2" style="border-top: 1px solid var(--border-color) !important;">
+            <button type="submit" class="btn btn-sm btn-primary fw-bold px-4 rounded-pill shadow-sm">@Loc.Get("ApplyFilters")</button>
+            <a href="/AiInsights/Index" class="btn btn-sm btn-outline-secondary fw-bold rounded-pill text-muted-alt" style="border-color: var(--border-color) !important;">@Loc.Get("Reset")</a>
+        </div>
+    </form>
+</div>
+
+@* --- 1. AI Overview KPIs --- *@
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="p-3 ai-card text-center h-100">
+            <h6 class="text-uppercase fw-bold text-muted-alt small mb-2">@Loc.Get("TotalAnalyzed")</h6>
+            <h2 class="fw-bold text-main mb-0">@Model.Kpis.TotalAnalyses</h2>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="p-3 ai-card text-center h-100" style="border-bottom: 3px solid var(--warning-color) !important;">
+            <h6 class="text-uppercase fw-bold text-muted-alt small mb-2">@Loc.Get("NeedsReview")</h6>
+            <h2 class="fw-bold text-warning mb-0">@Model.Kpis.NeedsReview</h2>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="p-3 ai-card text-center h-100">
+            <h6 class="text-uppercase fw-bold text-muted-alt small mb-2">@Loc.Get("ClassMismatch")</h6>
+            <h2 class="fw-bold text-main mb-0">@Model.Kpis.ClassificationMismatch</h2>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="p-3 ai-card text-center h-100">
+            <h6 class="text-uppercase fw-bold text-muted-alt small mb-2">@Loc.Get("StrongAttachments")</h6>
+            <h2 class="fw-bold text-success mb-0">@Model.Kpis.StrongAttachmentEvidence</h2>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    @* --- 6. Trends Chart Section --- *@
+    <div class="col-lg-8">
+        <div class="ai-card p-4 h-100 focus-ring shadow-sm">
+            <h5 class="fw-bold mb-3 border-bottom pb-2 text-main" style="border-color: var(--border-color) !important;">@Loc.Get("AiVolumeTrend")</h5>
+            <div style="height: 300px;">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    @* --- 5. Confidence Section --- *@
+    <div class="col-lg-4">
+        <div class="ai-card p-4 h-100 shadow-sm">
+            <h5 class="fw-bold mb-3 border-bottom pb-2 text-main" style="border-color: var(--border-color) !important;">@Loc.Get("ConfidenceBreakdown")</h5>
+            <div style="height: 200px; display: flex; justify-content: center;">
+                <canvas id="confidenceChart"></canvas>
+            </div>
+            <div class="d-flex justify-content-between text-muted-alt mt-3 small fw-bold">
+                <span class="text-success">@Loc.Get("High").ToUpper(): @Model.ConfidenceData.High</span>
+                <span class="text-warning">@Loc.Get("Medium").ToUpper(): @Model.ConfidenceData.Medium</span>
+                <span class="text-danger">@Loc.Get("Low").ToUpper(): @Model.ConfidenceData.Low</span>
+            </div>
+            <hr style="border-color: var(--border-color) !important;" />
+            <div class="text-muted-alt small text-center">
+                <strong>@Model.Kpis.UnknownClassification</strong> @Loc.Get("AiCategory") "Unknown"
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    @* --- 3. Pattern Insights --- *@
+    <div class="col-md-6">
+        <div class="ai-card p-4 h-100 d-flex flex-column shadow-sm">
+            <h5 class="fw-bold mb-3 border-bottom pb-2 text-main" style="border-color: var(--border-color) !important;">@Loc.Get("TopSuggestedClassifications")</h5>
+            @if(Model.ClassificationPatterns.Any())
+            {
+                <div class="flex-grow-1" style="height: 250px;">
+                    <canvas id="classPatternsChart"></canvas>
+                </div>
+            }
+            else
+            {
+                <span class="text-muted-alt small">@Loc.Get("NoPatternsDetected")</span>
+            }
+        </div>
+    </div>
+
+    @* --- 4. Attachment Evidence Insights --- *@
+    <div class="col-md-6">
+        <div class="ai-card p-4 h-100 shadow-sm">
+            <h5 class="fw-bold mb-3 border-bottom pb-2 text-main" style="border-color: var(--border-color) !important;">@Loc.Get("AttachmentEvidenceFocus")</h5>
+            <div class="row text-center mb-4">
+                <div class="col-md-6 border-end" style="border-color: var(--border-color) !important;">
+                    <h3 class="fw-bold text-main">@Model.AttachmentInsights.TicketsWithAiAttachments</h3>
+                    <div class="text-muted-alt small text-uppercase fw-bold">@Loc.Get("FilesInterpreted")</div>
+                </div>
+                <div class="col-md-6">
+                    <h3 class="fw-bold text-success">@Model.AttachmentInsights.TicketsWithHighRelevanceAttachments</h3>
+                    <div class="text-muted-alt small text-uppercase fw-bold">@Loc.Get("HighRelevanceHit")</div>
+                </div>
+            </div>
+            
+            <h6 class="text-muted-alt small fw-bold text-uppercase mb-2 border-bottom pb-1" style="border-color: var(--border-color) !important;">@Loc.Get("CommonAttachmentTypes")</h6>
+            @if (Model.AttachmentInsights.MostRelevantAttachments.Any())
+            {
+                <ul class="list-group list-group-flush bg-transparent">
+                    @foreach (var p in Model.AttachmentInsights.MostRelevantAttachments)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent px-0 text-main" style="border-color: var(--border-color) !important;">
+                            @p.Label
+                            <span class="badge rounded-pill" style="background: rgba(var(--primary-color-rgb), 0.1); border: 1px solid rgba(var(--primary-color-rgb), 0.3); color: var(--primary-color); font-size: 0.75rem;">@p.Count</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</div>
+
+@* --- 2. Review Attention Section --- *@
+<div id="reviewAttentionGridContainer" data-ajax-grid="true" data-ajax-url="@Url.Action("Index", "AiInsights")">
+    <partial name="~/Views/AiInsights/_ReviewAttentionGrid.cshtml" model="Model" />
+</div>
+
+@* --- Review Modal --- *@
+<div class="modal fade" id="reviewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); border-radius: 15px;">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">@Loc.Get("CompleteReview") - <span id="reviewTicketNum" style="color: var(--primary-color);"></span></h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" style="filter: var(--btn-close-filter);"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="reviewAnalysisId" />
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted-alt text-uppercase">@Loc.Get("ReviewNotes")</label>
+                    <textarea id="reviewNotes" class="form-control styled-input" rows="4" placeholder="@Loc.Get("ReviewNotesPlaceholder")"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill fw-bold" data-bs-dismiss="modal">@Loc.Get("Cancel")</button>
+                <button type="button" class="btn btn-sm btn-primary rounded-pill fw-bold px-4" onclick="submitReview()">@Loc.Get("MarkAsReviewed")</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function openReviewModal(id, num) {
+            document.getElementById('reviewAnalysisId').value = id;
+            document.getElementById('reviewTicketNum').innerText = '#' + num;
+            document.getElementById('reviewNotes').value = '';
+            new bootstrap.Modal(document.getElementById('reviewModal')).show();
+        }
+
+        async function submitReview() {
+            const id = document.getElementById('reviewAnalysisId').value;
+            const notes = document.getElementById('reviewNotes').value;
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+            try {
+                const response = await fetch('/AiInsights/CompleteReview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': token
+                    },
+                    body: `analysisId=${id}&notes=${encodeURIComponent(notes)}`
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(result.message || 'Error completing review');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Connection error');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup Charts
+            const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+            const textMain = cssVar('--text-main') || '#333';
+            const primaryColor = cssVar('--primary-color') || '#6366f1';
+            const primaryRgb = cssVar('--primary-color-rgb') || '99, 102, 241';
+            let gridColor = cssVar('--text-muted') || 'rgba(128,128,128,0.5)';
+            // Make grid color more transparent
+            gridColor = gridColor.replace('rgb', 'rgba').replace(')', ', 0.1)');
+            if (gridColor.includes('rgba') && gridColor.split(',').length === 5) {
+               // naive fix if it was already rgba
+               gridColor = 'rgba(128,128,128,0.1)';
+            }
+
+            Chart.defaults.color = textMain;
+            Chart.defaults.font.family = "'Outfit', sans-serif";
+
+            // Data Payloads
+            const labelsTrend = [@Html.Raw(string.Join(",", Model.VolumeTrends.Select(t => $"'{t.DateLabel}'")))];
+            const dataVol = [@string.Join(",", Model.VolumeTrends.Select(t => t.AnalysisVolume))];
+            const dataRev = [@string.Join(",", Model.VolumeTrends.Select(t => t.NeedsReviewVolume))];
+
+            // 1. Trend Line Chart
+            if (document.getElementById('trendChart') && labelsTrend.length > 0) {
+                new Chart(document.getElementById('trendChart'), {
+                    type: 'line',
+                    data: {
+                        labels: labelsTrend,
+                        datasets: [
+                            {
+                                label: '@Loc.Get("TotalAiAnalyses")',
+                                data: dataVol,
+                                borderColor: primaryColor,
+                                backgroundColor: `rgba(${primaryRgb}, 0.1)`,
+                                tension: 0.4,
+                                fill: true
+                            },
+                            {
+                                label: '@Loc.Get("ReviewEscalations")',
+                                data: dataRev,
+                                borderColor: '#f59e0b',
+                                backgroundColor: 'transparent',
+                                borderDash: [5, 5],
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: { grid: { color: gridColor }, beginAtZero: true }
+                        }
+                    }
+                });
+            }
+
+            // 2. Confidence Donut Chart
+            if (document.getElementById('confidenceChart')) {
+                new Chart(document.getElementById('confidenceChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['@Loc.Get("High")', '@Loc.Get("Medium")', '@Loc.Get("Low")'],
+                        datasets: [{
+                            data: [@Model.ConfidenceData.High, @Model.ConfidenceData.Medium, @Model.ConfidenceData.Low],
+                            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '75%',
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+
+            // 3. Classifications Bar Chart
+            if (document.getElementById('classPatternsChart')) {
+                const classLabels = [@Html.Raw(string.Join(",", Model.ClassificationPatterns.Select(p => $"'{p.Label}'")))];
+                const classData = [@string.Join(",", Model.ClassificationPatterns.Select(p => p.Count))];
+
+                new Chart(document.getElementById('classPatternsChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: classLabels,
+                        datasets: [{
+                            label: '@Loc.Get("Volume")',
+                            data: classData,
+                            backgroundColor: primaryColor,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { color: gridColor }, beginAtZero: true },
+                            y: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+}

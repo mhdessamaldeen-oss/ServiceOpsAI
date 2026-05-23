@@ -1,0 +1,225 @@
+/* =============================================================================
+   copilot-uhub-restyle.css
+   Visual overlay that ports the UtilityHub Copilot's clearer "sequential chat
+   with avatars + iconed sections + accent borders + color pills" feel onto the
+   workflow app's /AiAnalysis/Copilot view.
+   No functionality is changed — only CSS class restyles on top of copilot.css.
+   ========================================================================== */
+
+/* ── 1. Sequential rhythm: both sides aligned LEFT in a clean column so the
+        eye reads top-to-bottom instead of zig-zagging across the page.
+        Both message types share the SAME max-width so question and answer
+        line up on both edges — no more tiny chip next to a giant card.       */
+.copilot-thread {
+    gap: 1.25rem;
+}
+
+.copilot-message-user,
+.copilot-message-assistant {
+    /* Shared cap so both sides have predictable widths inside one column.    */
+    max-width: min(96%, 80rem) !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+}
+
+/* Assistant: anchor LEFT (or right in RTL) so the answer sits opposite the
+   question. width:100% keeps it wide enough for tables.                       */
+.copilot-message-assistant {
+    align-self: flex-start !important;
+    width: 100% !important;
+    margin-inline-start: 1.5rem !important;
+    margin-inline-end: auto !important;
+}
+
+/* User: anchor RIGHT (or left in RTL) — classic chat pattern. Bubble shrinks
+   to its content; text inside is right-aligned.                              */
+.copilot-message-user {
+    align-self: flex-end !important;
+    width: fit-content !important;
+    margin-inline-start: auto !important;
+    margin-inline-end: 1.5rem !important;
+    text-align: end !important;
+    padding-inline-start: 1.25rem !important;   /* no left avatar — push it to the right */
+    padding-inline-end: 3rem !important;        /* room for avatar on the right */
+}
+
+/* User message: keep it a chip, but on the LEFT with an avatar — same flow as
+   UtilityHub. Removes the "WhatsApp right-side bubble" feel.
+   margin-inline-start = breathing room from the page edge; logical property so
+   the gap auto-flips to the right edge in RTL.                              */
+/* Visual treatment of the user bubble — layout (alignment, widths, paddings)
+   is set in the block at the top of this file so we don't duplicate it.     */
+.copilot-message-user {
+    position: relative;
+    background: rgba(var(--primary-color-rgb, 16, 185, 129), 0.10) !important;
+    border: 1px solid rgba(var(--primary-color-rgb, 16, 185, 129), 0.25) !important;
+    border-radius: 14px !important;
+    border-bottom-right-radius: 4px !important;   /* tail notch on the right */
+    box-shadow: none !important;
+    color: var(--text-main) !important;
+}
+
+.copilot-message-user .copilot-message-body,
+.copilot-message-user .copilot-message-body p,
+.copilot-message-user .copilot-message-body strong,
+.copilot-message-user .copilot-message-body span {
+    color: var(--text-main) !important;
+    font-weight: 600;
+}
+
+.copilot-message-user:hover { transform: none !important; }
+
+/* Avatar circle for the user — anchored to the END side of the bubble so it
+   sits on the right in LTR and the left in RTL (logical inset). */
+.copilot-message-user::before {
+    content: "\F4DA"; /* bi-person */
+    font-family: "bootstrap-icons";
+    position: absolute;
+    inset-inline-end: 0.6rem;
+    top: 0.7rem;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--text-muted, #6c757d);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+}
+
+/* ── 2. Assistant card: stronger left-accent + avatar for instant "AI is talking" cue.
+        margin-inline-start gives the same breathing room as the user message so
+        both sides line up in a clean column.                                    */
+.copilot-message-assistant {
+    margin-inline-start: 1.5rem !important;
+    padding-inline-start: 3.25rem !important;
+    position: relative;
+    border-left: 3px solid var(--primary-color) !important;
+}
+
+.copilot-message-assistant::before {
+    content: "\F586"; /* bi-stars */
+    font-family: "bootstrap-icons";
+    position: absolute;
+    inset-inline-start: 0.7rem;
+    top: 0.9rem;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    box-shadow: 0 2px 8px rgba(var(--primary-color-rgb, 16, 185, 129), 0.35);
+}
+
+/* ── 3. Promote the "AI COPILOT" header into a cleaner small-caps label. */
+.copilot-message-assistant .copilot-message-header {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* ── 4. Iconed section dividers — any in-card section that follows the pattern
+        "first child is a heading-like element". This catches "Data (N rows):",
+        "Citations:", action-button rows, etc. without us having to touch the
+        HTML template.                                                            */
+.copilot-message-assistant .copilot-message-body > div:not(:first-child),
+.copilot-message-assistant .copilot-message-body > details {
+    margin-top: 0.85rem;
+}
+
+.copilot-message-assistant .copilot-message-body strong {
+    color: var(--primary-color);
+}
+
+/* Citations line at the bottom — visually demote so it doesn't compete. */
+.copilot-message-assistant .copilot-message-body p:has(> em),
+.copilot-message-assistant .copilot-message-body :is(p, div):where([data-citations], .citations) {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    border-top: 1px dashed var(--border-color);
+    padding-top: 0.5rem;
+    margin-top: 1rem !important;
+}
+
+/* ── 5. Tables inside the answer card — sharper header, hairline rows.        */
+.copilot-message-assistant table,
+.copilot-message-assistant .table,
+.copilot-inline-table-wrap table {
+    font-size: 0.85rem;
+}
+.copilot-message-assistant table thead th,
+.copilot-message-assistant .table thead th {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: rgba(var(--primary-color-rgb, 16, 185, 129), 0.06);
+    border-bottom: 1px solid var(--border-color);
+}
+.copilot-message-assistant table tbody td,
+.copilot-message-assistant .table tbody td {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-color: rgba(var(--text-main-rgb, 200, 200, 200), 0.06);
+}
+
+/* ── 6. Action buttons row in the assistant footer — make them tighter chips. */
+.copilot-message-footer .btn,
+.copilot-message-footer button {
+    border-radius: 999px !important;
+    font-size: 0.78rem !important;
+    padding: 0.3rem 0.85rem !important;
+    border: 1px solid var(--border-color) !important;
+    background: var(--bg-card) !important;
+    color: var(--text-main) !important;
+    transition: all 0.15s ease;
+}
+.copilot-message-footer .btn:hover,
+.copilot-message-footer button:hover {
+    border-color: var(--primary-color) !important;
+    color: var(--primary-color) !important;
+    background: rgba(var(--primary-color-rgb, 16, 185, 129), 0.08) !important;
+}
+
+/* ── 7. Suggestion / follow-up chips: pill shape with hover lift.            */
+.copilot-suggestion-chip,
+.copilot-followup-chip,
+[class*="suggestion-chip"],
+[class*="followup-chip"] {
+    border-radius: 999px !important;
+    padding: 0.35rem 0.95rem !important;
+    border: 1px solid var(--border-color) !important;
+    background: var(--bg-card) !important;
+    color: var(--text-main) !important;
+    font-size: 0.8rem !important;
+    transition: all 0.15s ease;
+}
+.copilot-suggestion-chip:hover,
+.copilot-followup-chip:hover,
+[class*="suggestion-chip"]:hover,
+[class*="followup-chip"]:hover {
+    border-color: var(--primary-color) !important;
+    color: var(--primary-color) !important;
+    background: rgba(var(--primary-color-rgb, 16, 185, 129), 0.08) !important;
+    transform: translateY(-1px);
+}
+
+/* ── 8. RTL — logical properties auto-mirror most things; only the bits that
+        use physical sides (border-left, border-bottom-*-radius) need explicit
+        rules.                                                                  */
+[dir="rtl"] .copilot-message-assistant {
+    border-left: none !important;
+    border-right: 3px solid var(--primary-color) !important;
+}
+[dir="rtl"] .copilot-message-user {
+    /* In RTL the bubble is on the LEFT side, so flip the tail notch.          */
+    border-bottom-right-radius: 14px !important;
+    border-bottom-left-radius: 4px !important;
+}

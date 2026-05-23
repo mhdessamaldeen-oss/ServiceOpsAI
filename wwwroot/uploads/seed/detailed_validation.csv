@@ -1,0 +1,5 @@
+Row,FirstName,LastName,Email,Status,Error
+1,John,Doe,john.d@acme.com,Success,
+2,Jane,,jane@acme.com,Failed,LastName is required
+3,Mike,Smith,mike,Failed,Invalid email format
+4,Sarah,Connor,sarah.c@acme.com,Success,

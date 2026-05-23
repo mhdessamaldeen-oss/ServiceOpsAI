@@ -1,0 +1,690 @@
+/**
+ * Pipeline Viewer Styles for Investigation View Tab
+ */
+
+/* ── Detail card panes (prompt / response / SQL / generic) — all theme-aware ─────────── */
+.pipeline-pre-soft,
+.pipeline-pre-prompt,
+.pipeline-pre-response,
+.pipeline-pre-sql {
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 320px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 0.78rem;
+}
+
+.pipeline-pre-soft {
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+
+/* Prompt to model — info-tinted (input / upstream) */
+.pipeline-pre-prompt {
+    background: rgba(var(--info-color-rgb), 0.06);
+    border: 1px solid rgba(var(--info-color-rgb), 0.22);
+    color: var(--text-main);
+}
+
+/* Response from model — primary-tinted (output / downstream) */
+.pipeline-pre-response {
+    background: rgba(var(--primary-color-rgb), 0.05);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.22);
+    color: var(--text-main);
+}
+
+/* SQL — uses the elevated surface (always darker than card so it reads as a "code panel") */
+.pipeline-pre-sql {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+
+/* Nested step block — slightly recessed look so the tree shape reads at a glance. */
+.pipeline-step-nested {
+    border-radius: 0.5rem !important;
+}
+
+/* ── Click-hint banner above the graph ─────────────────────────────── */
+.pipeline-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.85rem 1.1rem;
+    border-radius: 0.85rem;
+    background: linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.06) 0%, rgba(var(--info-color-rgb), 0.04) 100%);
+    border: 1px solid rgba(var(--primary-color-rgb), 0.18);
+}
+
+.pipeline-hint-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-color);
+    color: var(--primary-contrast-text);
+    font-size: 1.05rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(var(--primary-color-rgb), 0.28);
+}
+
+.pipeline-hint-title {
+    font-weight: 700;
+    color: var(--text-main);
+    font-size: 0.92rem;
+    line-height: 1.25;
+}
+
+.pipeline-hint-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.pipeline-hint-pill {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--primary-color);
+    color: var(--primary-contrast-text);
+    font-weight: 700;
+    font-size: 0.72rem;
+    vertical-align: middle;
+}
+
+/* ── Legend row ────────────────────────────────────────────────────── */
+.pipeline-legend-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    align-items: center;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.78rem;
+}
+
+.pipeline-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-main);
+}
+
+.pipeline-legend-swatch {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.pipeline-legend-swatch.swatch-active   { background: var(--primary-color); box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.22); }
+.pipeline-legend-swatch.swatch-inactive { background: rgba(var(--primary-color-rgb), 0.18); border: 1px solid rgba(var(--primary-color-rgb), 0.35); }
+.pipeline-legend-swatch.swatch-failed   { background: var(--danger-color); }
+
+/* ── The graph card itself — uses theme card surface, not hardcoded white ─────────── */
+.pipeline-graph-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+}
+
+.pipeline-graph-card .card-body {
+    overflow-x: auto;          /* horizontal layout can be wider than viewport */
+    overflow-y: hidden;
+}
+
+/*
+ * Mermaid SVG node interactivity.
+ *
+ * Important: do NOT apply `transform: scale(...)` to <g class="node"> — Mermaid positions
+ * each node via its own translate() and the inner shape/text by absolute SVG coords.
+ * Adding a CSS scale on top makes the rendering wobble around the text origin
+ * (the "vibration" the user reported). Use only filter/opacity changes for hover/pulse.
+ */
+.pipeline-graph-wrap .mermaid svg .node {
+    cursor: pointer;
+    transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.pipeline-graph-wrap .mermaid svg .node.pipeline-active:hover,
+.pipeline-graph-wrap .mermaid svg .node.pipeline-failed:hover {
+    filter: brightness(1.08) drop-shadow(0 4px 10px rgba(var(--primary-color-rgb), 0.35));
+}
+
+/* Inactive (not-taken) nodes are slightly faded so the dark-blue active path pops.
+ * They lift on hover so the user knows they're still inspectable. */
+.pipeline-graph-wrap .mermaid svg .node:not(.pipeline-active):not(.pipeline-failed) {
+    opacity: 0.65;
+}
+
+.pipeline-graph-wrap .mermaid svg .node:not(.pipeline-active):not(.pipeline-failed):hover {
+    opacity: 1;
+    filter: drop-shadow(0 2px 6px var(--shadow-color));
+}
+
+/* Tabs Styling */
+/* Legacy .investigation-tabs CSS removed — Investigation now uses the unified .app-tabs pattern. */
+
+/* Pipeline Visualization Container */
+.pipeline-visualization {
+    padding: 1rem 0;
+}
+
+.pipeline-header h4 {
+    color: var(--text-main);
+    font-weight: 600;
+}
+
+/* Tree Structure */
+.trees-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.pipeline-tree {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
+
+.pipeline-tree .card-header {
+    background: var(--bg-surface-alt);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem;
+}
+
+.tree-query {
+    font-weight: 500;
+    color: var(--text-main);
+}
+
+.tree-status {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Node Structure */
+.tree-structure {
+    padding: 1rem;
+}
+
+.node-wrapper {
+    position: relative;
+    margin-bottom: 0.75rem;
+}
+
+.node-children {
+    margin-top: 0.75rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--border-color);
+}
+
+/* Pipeline Node */
+.pipeline-node {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    min-width: 220px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.pipeline-node:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Executed Path - Full Color */
+.pipeline-node.executed-path {
+    box-shadow: var(--shadow-md);
+}
+
+.pipeline-node.executed-path::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: currentColor;
+    border-radius: 2px;
+    opacity: 0.5;
+}
+
+/* Alternative Path - Dimmed */
+.node-wrapper.alternative-path {
+    opacity: 0.7;
+}
+
+.node-children.alternative-children {
+    border-left-style: dashed;
+    border-left-color: var(--border-color);
+    opacity: 0.8;
+}
+
+.pipeline-node:not(.executed-path) {
+    background: var(--bg-surface-alt);
+    border-style: dashed;
+}
+
+.pipeline-node:not(.executed-path):hover {
+    opacity: 0.9;
+    background: var(--surface-soft);
+}
+
+.pipeline-node.active {
+    box-shadow: 0 0 0 3px rgba(var(--primary-color-rgb), 0.3);
+}
+
+/* High-contrast executed path */
+.pipeline-node.executed-path {
+    background: var(--bg-card);
+    border-width: 3px;
+    box-shadow: var(--shadow-md);
+    z-index: 5;
+    border-style: solid !important;
+}
+
+.pipeline-node.executed-path .node-name {
+    font-weight: 700;
+}
+
+/* Collapsible state */
+.node-children.collapsed {
+    display: none;
+}
+
+.node-toggle {
+    cursor: pointer;
+    margin-right: 8px;
+    transition: transform 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: rgba(var(--text-main-rgb), 0.06);
+    color: var(--text-muted);
+}
+
+.node-toggle:hover {
+    background: rgba(var(--text-main-rgb), 0.1);
+    color: var(--primary);
+}
+
+.node-toggle.collapsed-icon {
+    transform: rotate(-90deg);
+}
+
+.pipeline-node.expandable {
+    cursor: pointer;
+}
+
+.pipeline-node.fork-point::after,
+.pipeline-node.join-point::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    color: var(--bg-card);
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--bg-card);
+}
+
+.pipeline-node.fork-point::after {
+    content: '⑂';
+}
+
+.pipeline-node.join-point::after {
+    content: '◉';
+}
+
+.node-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.node-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.node-name {
+    font-weight: 500;
+    color: var(--text-main);
+    flex: 1;
+}
+
+.node-duration {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: monospace;
+    background: var(--bg-surface-alt);
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+/* Node Details Panel */
+.node-details-panel {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    margin-top: 2rem;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.node-details-panel .card-header {
+    background: var(--bg-surface-alt);
+    font-weight: 500;
+}
+
+.node-details-panel pre {
+    max-height: 400px;
+    overflow: auto;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+/* Merge Connections */
+.merge-connections {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+}
+
+.merge-connections .card-header {
+    background: var(--bg-surface-alt);
+    font-weight: 500;
+}
+
+.merge-item {
+    padding: 0.5rem;
+    background: var(--bg-surface-alt);
+    border-radius: 0.5rem;
+}
+
+/* Legend */
+.pipeline-legend {
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+.legend-item {
+    font-size: 0.75rem;
+}
+
+.legend-color {
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Loading State */
+#pipeline-container .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    border-width: 0.2rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .investigation-tabs .nav-link {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    .pipeline-node {
+        min-width: 180px;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .node-name {
+        font-size: 0.875rem;
+    }
+    
+    .node-children {
+        padding-left: 0.5rem;
+    }
+}
+
+/* Dark-mode hardcoded overrides removed — theme is always applied via _Layout.cshtml CSS variables. */
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Pipeline graph viewport — pan / zoom / view-mode controls.
+   The Mermaid SVG sits inside `.pipeline-graph-viewport`; the JS in
+   investigation-pipeline.js applies CSS transforms to it for zoom + pan.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.pipeline-graph-card .card-body {
+    overflow: hidden;
+}
+
+.pipeline-graph-viewport {
+    position: relative;
+    overflow: hidden;
+    min-height: 260px;
+    cursor: grab;
+    user-select: none;
+}
+
+.pipeline-graph-viewport:active {
+    cursor: grabbing;
+}
+
+.pipeline-graph-viewport .mermaid {
+    transform-origin: 0 0;
+    transition: transform 0.15s ease-out;
+    will-change: transform;
+}
+
+.pipeline-graph-viewport.is-panning .mermaid {
+    transition: none;
+}
+
+.pipeline-toolbar {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(4px);
+    border-radius: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.pipeline-toolbar .btn {
+    line-height: 1;
+}
+
+.pipeline-toolbar-divider {
+    width: 1px;
+    height: 22px;
+    background: #d1d5db;
+    margin: 0 0.25rem;
+}
+
+.pipeline-toolbar-readout {
+    min-width: 3rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.pipeline-toolbar .btn.is-toggled {
+    background-color: #dbeafe;
+    border-color: #93c5fd;
+    color: #1e3a8a;
+}
+
+/* "Active only" mode: hide every node that didn't run on this trace. CSS classes are
+   added by investigation-pipeline.js to keep the Mermaid-generated DOM intact. */
+.pipeline-graph-viewport.show-active-only .mermaid .node.inactive {
+    opacity: 0.08;
+    pointer-events: none;
+}
+.pipeline-graph-viewport.show-active-only .mermaid .edgePath.inactive-edge {
+    opacity: 0.05;
+}
+
+/* DEFAULT mode (all nodes visible): inactive nodes are visibly de-emphasised so the user
+   can scan the active path at a glance without losing the cascade context. We do this
+   with desaturation + reduced opacity + a dashed stroke — strong enough to read "not
+   taken" instantly, soft enough to still see the label when needed. */
+.pipeline-graph-viewport .mermaid .node.inactive {
+    opacity: 0.55;
+    filter: grayscale(0.4);
+}
+.pipeline-graph-viewport .mermaid .node.inactive rect,
+.pipeline-graph-viewport .mermaid .node.inactive polygon,
+.pipeline-graph-viewport .mermaid .node.inactive circle {
+    stroke-dasharray: 4 3;
+    stroke-width: 1.2px;
+}
+.pipeline-graph-viewport .mermaid .edgePath.inactive-edge,
+.pipeline-graph-viewport .mermaid g.edgePath.inactive-edge path {
+    opacity: 0.45;
+    stroke-dasharray: 3 3;
+}
+
+/* Active path: bolder strokes + slightly brighter to draw the eye. The JS already adds
+   `pipeline-active` to nodes that recorded steps; we just sharpen them visually. */
+.pipeline-graph-viewport .mermaid .node.pipeline-active rect,
+.pipeline-graph-viewport .mermaid .node.pipeline-active polygon,
+.pipeline-graph-viewport .mermaid .node.pipeline-active circle {
+    stroke-width: 2.4px;
+    filter: drop-shadow(0 1px 2px rgba(13, 110, 253, 0.25));
+}
+.pipeline-graph-viewport .mermaid .node.pipeline-failed rect,
+.pipeline-graph-viewport .mermaid .node.pipeline-failed polygon,
+.pipeline-graph-viewport .mermaid .node.pipeline-failed circle {
+    stroke-width: 2.4px;
+    filter: drop-shadow(0 1px 2px rgba(220, 53, 69, 0.3));
+}
+
+/* Crisper labels at every zoom level. Mermaid emits labels via foreignObject + HTML
+   spans (htmlLabels: true), so we target the inner span for the size bump rather than
+   the SVG text element. text-rendering: geometricPrecision keeps glyphs from blurring
+   when the viewport applies a fractional scale transform. */
+.pipeline-graph-viewport .mermaid .nodeLabel,
+.pipeline-graph-viewport .mermaid .nodeLabel span,
+.pipeline-graph-viewport .mermaid foreignObject div {
+    font-size: 14px !important;
+    font-weight: 600;
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
+}
+.pipeline-graph-viewport .mermaid .edgeLabel,
+.pipeline-graph-viewport .mermaid .edgeLabel span {
+    font-size: 11.5px !important;
+    font-weight: 500;
+    text-rendering: geometricPrecision;
+}
+
+@media (max-width: 640px) {
+    .pipeline-toolbar {
+        top: 0.25rem;
+        right: 0.25rem;
+        padding: 0.15rem 0.25rem;
+    }
+}
+
+/* ── Step-order badge on active nodes ─────────────────────────────────────────
+   Stamped by investigation-pipeline.js inside each active <g.node> so the user
+   can read the actual execution sequence 1 → 2 → 3 → … even when intermediate
+   stages were skipped and the visual cascade looks broken. The badge is a small
+   circle anchored at the top-right corner of the node's shape — bright enough
+   to stand out against both active (dark blue) and failed (red) backgrounds. */
+.pipeline-graph-viewport .mermaid .pipeline-step-badge {
+    pointer-events: none; /* clicks fall through to the node */
+}
+.pipeline-graph-viewport .mermaid .pipeline-step-badge-bg {
+    fill: #fbbf24;
+    stroke: #92400e;
+    stroke-width: 1.2px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+}
+.pipeline-graph-viewport .mermaid .pipeline-step-badge-text {
+    fill: #1f2937;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    user-select: none;
+}
+/* Hide badges on inactive nodes when the user enables Active-only filter — keeps
+   the dimmed branches clean of numbered noise. */
+.pipeline-graph-viewport.show-active-only .mermaid .node.inactive .pipeline-step-badge {
+    display: none;
+}
+
+/* ── Active-path edges ────────────────────────────────────────────────────────
+   The JS tags every Mermaid edge on the actual journey (computed server-side
+   via BFS through GraphAdjacency in _InvestigationPipelineGraph.cshtml) with
+   class `active-edge`. We re-paint these edges in the same dark blue as the
+   active-node fill so the path reads as a continuous coloured trail from
+   User Question to terminal — even when it crosses dim intermediate nodes in
+   the Tier-1 cascade (DECOMPOSE → CONV → … → SHAPE → RETR) or the LLM-planner
+   chain (RETR → PLAN → GUARDS → ROUTE → COMP → VAL → EXEC). */
+.pipeline-graph-viewport .mermaid .edgePath.active-edge,
+.pipeline-graph-viewport .mermaid g.edgePath.active-edge path,
+.pipeline-graph-viewport .mermaid path.flowchart-link.active-edge {
+    stroke: #1d4ed8 !important;     /* same hue as classDef active fill */
+    stroke-width: 2.6px !important;
+    stroke-dasharray: none !important; /* override Mermaid's dashed style on no-match cascade */
+    opacity: 1 !important;
+    filter: drop-shadow(0 1px 2px rgba(29, 78, 216, 0.25));
+}
+/* The arrow marker for an active edge: keep the same blue so the arrowhead matches. */
+.pipeline-graph-viewport .mermaid g.edgePath.active-edge marker path,
+.pipeline-graph-viewport .mermaid g.edgePath.active-edge polygon {
+    fill: #1d4ed8 !important;
+    stroke: #1d4ed8 !important;
+}
+
+/* ── Step-job description ────────────────────────────────────────────────────
+   Rendered by investigation-pipeline.js (renderStepJobDescription) under each
+   step's header. One-sentence plain-English explanation of what the stage
+   does — surfaced so the user understands the PURPOSE of every step they
+   click, not just its name + timing. Soft info-tinted background to read as
+   "annotation" rather than "data". */
+.pipeline-step-job {
+    background: rgba(var(--info-color-rgb, 13, 110, 253), 0.06);
+    border-left: 3px solid rgba(var(--info-color-rgb, 13, 110, 253), 0.55);
+    border-radius: 0.35rem;
+    padding: 0.55rem 0.75rem;
+}
+.pipeline-step-job-text {
+    color: var(--text-main);
+    line-height: 1.45;
+}

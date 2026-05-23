@@ -1,0 +1,53 @@
+@model AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+
+<div class="page-header animate__animated animate__fadeIn">
+    <div class="page-header-lead">
+        <div class="page-header-icon">
+            <i class="@Model.IconClass"></i>
+        </div>
+        <div class="page-header-text">
+            <h1 class="page-header-title">@Model.Title</h1>
+            @if (!string.IsNullOrWhiteSpace(Model.Subtitle))
+            {
+                <p class="page-header-subtitle">@Model.Subtitle</p>
+            }
+        </div>
+    </div>
+
+    @if (Model.Chips.Count > 0 || Model.Actions.Count > 0)
+    {
+        <div class="page-header-aside">
+            @foreach (var chip in Model.Chips)
+            {
+                <span class="page-header-chip" style="@chip.Style">
+                    @if (!string.IsNullOrWhiteSpace(chip.IconClass))
+                    {
+                        <i class="@chip.IconClass"></i>
+                    }
+                    @chip.Text
+                </span>
+            }
+            @foreach (var action in Model.Actions)
+            {
+                @* The new .btn-action / .btn-action-soft / .btn-action-ghost classes use
+                   `gap` for icon-label spacing, which is direction-agnostic. We rely on
+                   bootstrap.rtl.min.css (loaded in _Layout when Loc.IsRtl) to flip any
+                   legacy `me-*` classes inside @action.CssClass automatically. *@
+                <a href="@action.Href" class="@action.CssClass" title="@action.Title">
+                    @if (!string.IsNullOrWhiteSpace(action.IconClass))
+                    {
+                        <i class="@action.IconClass"></i>
+                    }
+                    @action.Text
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.ToolbarPartialName))
+{
+    <div class="page-header-toolbar mb-3">
+        <partial name="@Model.ToolbarPartialName" model="@Model.ToolbarModel" />
+    </div>
+}

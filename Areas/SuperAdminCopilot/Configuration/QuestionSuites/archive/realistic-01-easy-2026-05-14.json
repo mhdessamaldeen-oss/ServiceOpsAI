@@ -1,0 +1,203 @@
+{
+  "name": "01 - Realistic Easy Suite",
+  "version": "1.0",
+  "description": "Real-data business questions at the easy level — single table or one lookup. Every scenario has ExpectedSql so the runner uses Execution Accuracy (result-set comparison).",
+  "Scenarios": [
+    {
+      "Code": "EZ-001",
+      "Question": "How many tickets do we have in total?",
+      "Category": "Easy / Count",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Total FROM Tickets WHERE IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-002",
+      "Question": "How many open tickets do we have right now?",
+      "Category": "Easy / Filter by status",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS OpenTickets FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-003",
+      "Question": "Show me all unassigned tickets.",
+      "Category": "Easy / NULL filter",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title FROM Tickets t WHERE t.AssignedToUserId IS NULL AND t.IsDeleted = 0",
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-004",
+      "Question": "How many tickets were created today?",
+      "Category": "Easy / Temporal today",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Today FROM Tickets WHERE CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-005",
+      "Question": "How many tickets were created yesterday?",
+      "Category": "Easy / Temporal yesterday",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Yesterday FROM Tickets WHERE CAST(CreatedAt AS DATE) = CAST(DATEADD(day, -1, GETDATE()) AS DATE) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-006",
+      "Question": "How many closed tickets do we have?",
+      "Category": "Easy / Filter by status",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Closed FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Closed' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-007",
+      "Question": "How many tickets does each priority have?",
+      "Category": "Easy / Group-by lookup",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT p.Name AS Priority, COUNT(*) AS Total FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0 GROUP BY p.Name ORDER BY Total DESC",
+      "ExpectedMinRows": 1,
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "EZ-008",
+      "Question": "Show me all critical tickets.",
+      "Category": "Easy / Filter by priority",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name = 'Critical' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "EZ-009",
+      "Question": "How many active users do we have?",
+      "Category": "Easy / Boolean filter",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS ActiveUsers FROM AspNetUsers WHERE IsActive = 1",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-010",
+      "Question": "How many active entities do we have?",
+      "Category": "Easy / Boolean filter",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS ActiveEntities FROM Entitys WHERE IsActive = 1",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-011",
+      "Question": "How many tickets came in through email?",
+      "Category": "Easy / Filter by source",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS EmailTickets FROM Tickets t JOIN TicketSources s ON s.Id = t.SourceId WHERE s.Name = 'Email' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-012",
+      "Question": "Show me the 10 newest tickets.",
+      "Category": "Easy / TOP + ORDER BY",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 10 t.Id, t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "ExpectedMaxRows": 10,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-013",
+      "Question": "How many tickets were resolved this month?",
+      "Category": "Easy / Current month",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS ResolvedThisMonth FROM Tickets WHERE ResolvedAt IS NOT NULL AND YEAR(ResolvedAt) = YEAR(GETDATE()) AND MONTH(ResolvedAt) = MONTH(GETDATE()) AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-014",
+      "Question": "How many tickets have their SLA breached?",
+      "Category": "Easy / Boolean flag",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Breached FROM Tickets WHERE IsSlaBreached = 1 AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-015",
+      "Question": "Show me tickets created in the last 7 days.",
+      "Category": "Easy / Rolling window",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title, t.CreatedAt FROM Tickets t WHERE t.CreatedAt >= DATEADD(day, -7, GETDATE()) AND t.IsDeleted = 0 ORDER BY t.CreatedAt DESC",
+      "MaxLatencyMs": 20000
+    },
+    {
+      "Code": "EZ-016",
+      "Question": "Find tickets whose title contains 'login'.",
+      "Category": "Easy / LIKE search",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT t.Id, t.TicketNumber, t.Title FROM Tickets t WHERE t.Title LIKE '%login%' AND t.IsDeleted = 0",
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-017",
+      "Question": "How many rejected tickets are there?",
+      "Category": "Easy / Filter by status",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Rejected FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Rejected' AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-018",
+      "Question": "How many tickets are currently still open (not closed yet)?",
+      "Category": "Easy / Computed boolean",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS StillOpen FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.IsClosedState = 0 AND t.IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-019",
+      "Question": "How many tickets have been escalated?",
+      "Category": "Easy / NULL anti-filter",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS Escalated FROM Tickets WHERE EscalatedAt IS NOT NULL AND IsDeleted = 0",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    },
+    {
+      "Code": "EZ-020",
+      "Question": "How many comments are there across all tickets?",
+      "Category": "Easy / Count related",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) AS TotalComments FROM TicketComments",
+      "ExpectedMaxRows": 1,
+      "MaxLatencyMs": 15000
+    }
+  ]
+}

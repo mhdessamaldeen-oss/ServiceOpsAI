@@ -1,0 +1,399 @@
+@model List<AISupportAnalysisPlatform.Models.AI.CopilotTraceHistory>
+@{
+    ViewData["Title"] = @Loc.Get("InvestigationArchive");
+    var historyHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("ForensicArchiveCatalog"),
+        IconClass = "bi bi-shield-lock-fill",
+        Chips = new()
+        {
+            new() { Text = $"{Model.Count} {Loc.Get("Samples")}", IconClass = "bi bi-server" }
+        },
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("BackToChat"),
+                Href = Url.Action("Copilot", "AiAnalysis") ?? "#",
+                IconClass = "bi bi-chat-dots",
+                CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm"
+            },
+            new() {
+                Text = Loc.Get("Hub"),
+                Href = Url.Action("Hub", "AiAnalysis") ?? "#",
+                IconClass = "bi bi-grid",
+                CssClass = "btn btn-sm btn-soft-secondary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+<div class="investigation-page-shell">
+    <partial name="_PageHeader" model="historyHeader" />
+</div>
+
+    <!-- Statistics Cards -->
+    <div class="row g-3 mt-1 mb-4">
+        @{ 
+            var todayTraces = Model.Where(t => t.CreatedAt.Date == DateTime.UtcNow.Date).Count();
+            var avgLatency = Model.Any() ? (long)Model.Average(t => t.TotalElapsedMs) : 0;
+            var successfulTraces = Model.Count(t => !string.IsNullOrEmpty(t.Answer));
+            var failedTraces = Model.Count() - successfulTraces;
+            var successRate = Model.Any() ? (successfulTraces * 100.0 / Model.Count) : 0;
+        }
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card); border-radius: 1rem;">
+                <div class="card-body">
+                    <div class="text-muted text-uppercase fw-bold small mb-2" style="letter-spacing: 0.08em;">@Loc.Get("TotalTraces")</div>
+                    <div class="fs-3 fw-bold text-main">@Model.Count</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card); border-radius: 1rem;">
+                <div class="card-body">
+                    <div class="text-muted text-uppercase fw-bold small mb-2" style="letter-spacing: 0.08em;">@Loc.Get("Today")</div>
+                    <div class="fs-3 fw-bold text-primary">@todayTraces</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card); border-radius: 1rem;">
+                <div class="card-body">
+                    <div class="text-muted text-uppercase fw-bold small mb-2" style="letter-spacing: 0.08em;">@Loc.Get("SuccessRate")</div>
+                    <div id="statSuccessRate" class="fs-3 fw-bold @(successRate >= 90 ? "text-success" : successRate >= 70 ? "text-warning" : "text-danger")">@(successRate.ToString("F0"))%</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card); border-radius: 1rem;">
+                <div class="card-body">
+                    <div class="text-muted text-uppercase fw-bold small mb-2" style="letter-spacing: 0.08em;">@Loc.Get("Results")</div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-center">
+                            <div id="statPassed" class="fs-5 fw-bold text-success">@successfulTraces</div>
+                            <div class="small text-muted">@Loc.Get("Passed")</div>
+                        </div>
+                        <div class="text-center">
+                            <div id="statFailed" class="fs-5 fw-bold text-danger">@failedTraces</div>
+                            <div class="small text-muted">@Loc.Get("Failed")</div>
+                        </div>
+                        <div class="text-center">
+                            <div id="statAvgLatency" class="fs-5 fw-bold" style="color: var(--primary-color);">@avgLatency</div>
+                            <div class="small text-muted">@Loc.Get("AvgLatencyShort")</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="archiveMainView" class="animate__animated animate__fadeIn">
+        @if (TempData["Success"] is string successMessage)
+        {
+            <div class="alert alert-success border-0 rounded-4 shadow-sm fw-bold d-flex align-items-center gap-2 mb-4">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>@successMessage</span>
+            </div>
+        }
+        @if (TempData["Error"] is string errorMessage)
+        {
+            <div class="alert alert-warning border-0 rounded-4 shadow-sm fw-bold d-flex align-items-center gap-2 mb-4">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>@errorMessage</span>
+            </div>
+        }
+
+        <form asp-action="DeleteAllInvestigationHistory" asp-controller="AiAnalysis" method="post" id="deleteAllInvestigationHistoryForm">
+            @Html.AntiForgeryToken()
+        </form>
+
+        <form asp-action="DeleteInvestigationHistory" asp-controller="AiAnalysis" method="post" id="investigationDeleteForm">
+            @Html.AntiForgeryToken()
+        <div class="feature-table-shell shadow-sm mb-5">
+            <div class="feature-table-toolbar">
+                <div class="feature-table-toolbar-group">
+                    <div class="input-group" style="max-width: 320px;">
+                        <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search text-primary"></i></span>
+                        <input type="text" id="historySearch" class="form-control border-start-0 shadow-none" placeholder="@Loc.Get("Search")..." />
+                    </div>
+                </div>
+                <div class="feature-table-toolbar-group">
+                    <span id="selectedTraceCount" class="pill-badge d-none" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">
+                        0 selected
+                    </span>
+                    <button type="submit" id="deleteSelectedTracesButton" class="btn btn-sm btn-soft-danger rounded-pill fw-bold px-3" disabled>
+                        <i class="bi bi-trash3 me-1"></i> Delete selected
+                    </button>
+                    <button type="submit" form="deleteAllInvestigationHistoryForm" id="deleteAllTracesButton" class="btn btn-sm btn-soft-danger rounded-pill fw-bold px-3" @(Model.Count == 0 ? "disabled" : "")>
+                        <i class="bi bi-trash-fill me-1"></i> Delete all
+                    </button>
+                    <span class="pill-badge" style="background: rgba(var(--primary-color-rgb),0.08); color: var(--primary-color); border: 1px solid rgba(var(--primary-color-rgb),0.22);">
+                        <i class="bi bi-collection"></i>
+                        @Model.Count @Loc.Get("InteractionsCatalogued")
+                    </span>
+                </div>
+            </div>
+
+            <div class="feature-table-body p-0">
+            <div class="table-responsive" style="max-height: 65vh; overflow-y: auto;">
+                <table class="table table-hover align-middle mb-0 datatable-premium" id="historyTable">
+                    <thead>
+                        <tr>
+                            <th class="ps-4 py-3 no-sort" style="width: 40px;">
+                                <input type="checkbox" id="selectAllTraces" class="form-check-input" aria-label="Select all investigation traces" />
+                            </th>
+                            <th class="py-3 sortable" data-sort="timestamp" style="cursor: pointer;">
+                                @Loc.Get("Timestamp") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i>
+                            </th>
+                            <th class="py-3 sortable" data-sort="question" style="cursor: pointer;">
+                                @Loc.Get("UserIntentQuestion") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i>
+                            </th>
+                            <th class="py-3 sortable text-center" data-sort="status" style="cursor: pointer;">
+                                @Loc.Get("Status") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i>
+                            </th>
+                            <th class="py-3 sortable" data-sort="model" style="cursor: pointer;">
+                                @Loc.Get("AiModel") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i>
+                            </th>
+                            <th class="py-3 sortable" data-sort="performance" style="cursor: pointer;">
+                                @Loc.Get("Performance") <i class="bi bi-arrow-down-up ms-1 small opacity-50"></i>
+                            </th>
+                            <th class="text-end pe-4 py-3 no-sort">@Loc.Get("Audit")</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        @foreach (var trace in Model)
+                        {
+                            <tr class="history-row border-bottom transition-all cursor-pointer" onclick="openTraceStory(@trace.Id, 'story')" style="border-color: var(--border-color) !important; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);">
+                                <td class="ps-4 py-4 history-select-column" onclick="event.stopPropagation();">
+                                    <input type="checkbox" name="selectedTraceIds" value="@trace.Id" class="form-check-input history-trace-checkbox history-select-checkbox" aria-label="Select trace @trace.Id" />
+                                </td>
+                                <td class="py-4 timestamp-col">
+                                    <div class="text-muted fw-bold d-flex align-items-center gap-2 timestamp-val" data-timestamp="@trace.CreatedAt.ToString("O")" style="font-size: 0.8rem; font-family: 'JetBrains Mono', monospace;">
+                                        <i class="bi bi-clock-history opacity-50"></i>
+                                        @trace.CreatedAt.ToString("MMM dd, HH:mm")
+                                    </div>
+                                </td>
+                                <td class="question-col">
+                                    <div class="d-flex flex-column py-1">
+                                        <div class="mb-2">
+                                            <span class="badge bg-soft-primary text-primary border border-primary border-opacity-25 rounded-pill shadow-sm" style="font-size: 0.65rem; padding: 0.35rem 0.65rem; letter-spacing: 0.05em;"><i class="bi bi-intersect me-1"></i>AI ANALYSIS</span>
+                                        </div>
+                                        <div class="fw-bold text-truncate text-main" style="max-width: 450px; font-size: 0.95rem;" title="@trace.Question">@trace.Question</div>
+                                    </div>
+                                </td>
+                                <td class="status-col text-center">
+                                    @if (!string.IsNullOrEmpty(trace.Answer))
+                                    {
+                                        <span class="badge bg-soft-success text-success rounded-pill border border-success border-opacity-10">
+                                            <i class="bi bi-check-circle-fill me-1"></i>@Loc.Get("Success")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-soft-danger text-danger rounded-pill border border-danger border-opacity-10">
+                                            <i class="bi bi-x-circle-fill me-1"></i>@Loc.Get("Failed")
+                                        </span>
+                                    }
+                                </td>
+                                <td class="model-col">
+                                    <div class="px-3 py-1 rounded-pill d-inline-flex align-items-center bg-soft-secondary border text-muted shadow-sm" style="border-color: var(--border-color) !important; font-size: 0.75rem; font-family: 'Inter', sans-serif;">
+                                        <i class="bi bi-cpu text-info opacity-75 me-2"></i>
+                                        <span class="fw-semibold">@trace.ModelName</span>
+                                    </div>
+                                </td>
+                                <td class="performance-col">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="progress flex-grow-1 shadow-inner overflow-visible" style="height: 6px; width: 80px; background: rgba(var(--bg-main-rgb), 0.5); border-radius: 10px;">
+                                            @{ var pct = Math.Min((trace.TotalElapsedMs / 5000.0) * 100, 100); }
+                                            <div class="progress-bar position-relative @(pct < 30 ? "bg-success" : pct < 70 ? "bg-warning" : "bg-danger") shadow-sm" style="width: @pct%; border-radius: 10px; transition: width 1s ease-in-out;">
+                                                <div class="position-absolute align-middle top-50 translate-middle-y bg-white rounded-circle shadow" style="width: 8px; height: 8px; inset-inline-end: -2px !important; opacity: 0.8;"></div>
+                                            </div>
+                                        </div>
+                                        <span class="fw-bold fs-7 text-muted latency-val" style="font-family: 'JetBrains Mono', monospace; width: 50px;" data-latency="@trace.TotalElapsedMs">@trace.TotalElapsedMs<span class="opacity-50">ms</span></span>
+                                    </div>
+                                </td>
+                                <td class="text-end pe-4">
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill fw-bold shadow-sm px-3 hover-glow" title="@Loc.Get("Examine")" onclick="event.stopPropagation(); openTraceStory(@trace.Id, 'story');">
+                                        <i class="bi bi-fingerprint me-1"></i> <span style="font-size: 0.8rem; letter-spacing: 0.05em;">@Loc.Get("Examine")</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            </div>
+        </div>
+        </form>
+    </div>
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/copilot.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ai-history.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/investigation-history.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            $('#historySearch').on('keyup', function() {
+                var value = $(this).val().toLowerCase();
+                $("#historyTableBody tr").filter(function() {
+                    $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+                });
+            });
+        });
+
+        function openTraceStory(id, preferredView = 'story') {
+            if (!id) {
+                return;
+            }
+            window.location.href = '/AiAnalysis/Investigation/' + encodeURIComponent(id) + '?view=' + encodeURIComponent(preferredView);
+        }
+
+        // Table Sorting functionality
+        (function initializeTableSorting() {
+            const sortableHeaders = document.querySelectorAll('.sortable');
+            
+            sortableHeaders.forEach(header => {
+                header.addEventListener('click', function() {
+                    const sortKey = this.dataset.sort;
+                    const isAsc = !this.classList.contains('asc');
+                    
+                    // Clear all sort indicators
+                    sortableHeaders.forEach(h => h.classList.remove('asc', 'desc'));
+                    this.classList.add(isAsc ? 'asc' : 'desc');
+                    
+                    sortTable(sortKey, isAsc);
+                });
+            });
+
+            function sortTable(key, asc) {
+                const tbody = document.getElementById('historyTableBody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                
+                rows.sort((a, b) => {
+                    let valA, valB;
+                    
+                    switch (key) {
+                        case 'timestamp':
+                            valA = getTimestampValue(a);
+                            valB = getTimestampValue(b);
+                            return compareValues(valA, valB, asc, true);
+                        case 'question':
+                            valA = getSortText(a, '.question-col .text-main');
+                            valB = getSortText(b, '.question-col .text-main');
+                            return compareValues(valA, valB, asc);
+                        case 'status':
+                            valA = getSortText(a, '.status-col .badge');
+                            valB = getSortText(b, '.status-col .badge');
+                            return compareStatus(valA, valB, asc);
+                        case 'model':
+                            valA = getSortText(a, '.model-col .fw-semibold');
+                            valB = getSortText(b, '.model-col .fw-semibold');
+                            return compareValues(valA, valB, asc);
+                        case 'performance':
+                            valA = getNumericValue(a, '.latency-val', 'data-latency');
+                            valB = getNumericValue(b, '.latency-val', 'data-latency');
+                            return compareValues(valA, valB, asc, true);
+                        default:
+                            return 0;
+                    }
+                });
+                
+                // Re-append rows in sorted order
+                rows.forEach(row => tbody.appendChild(row));
+            }
+
+            function getSortText(row, selector) {
+                const el = row.querySelector(selector);
+                return el ? el.textContent.toLowerCase().trim() : '';
+            }
+            
+            function getTimestampValue(row) {
+                const el = row.querySelector('.timestamp-val');
+                return el ? new Date(el.dataset.timestamp).getTime() : 0;
+            }
+            
+            function getNumericValue(row, selector, dataAttr) {
+                const el = row.querySelector(selector);
+                if (!el) return 0;
+                const val = el.dataset[dataAttr.replace('data-', '')];
+                return parseInt(val) || 0;
+            }
+
+            function compareValues(valA, valB, asc, isNumeric = false) {
+                if (isNumeric) {
+                    return asc ? valA - valB : valB - valA;
+                }
+                if (valA < valB) return asc ? -1 : 1;
+                if (valA > valB) return asc ? 1 : -1;
+                return 0;
+            }
+            
+            function compareStatus(valA, valB, asc) {
+                const statusOrder = { 'success': 1, 'failed': 2 };
+                const orderA = statusOrder[valA] || 999;
+                const orderB = statusOrder[valB] || 999;
+                return asc ? orderA - orderB : orderB - orderA;
+            }
+        })();
+
+        // Selection functionality
+        (function initializeHistorySelection() {
+            const form = document.getElementById('investigationDeleteForm');
+            const deleteAllForm = document.getElementById('deleteAllInvestigationHistoryForm');
+            const selectAll = document.getElementById('selectAllTraces');
+            const deleteButton = document.getElementById('deleteSelectedTracesButton');
+            const selectedCount = document.getElementById('selectedTraceCount');
+            const checkboxes = Array.from(document.querySelectorAll('.history-trace-checkbox'));
+
+            if (deleteAllForm) {
+                deleteAllForm.addEventListener('submit', (event) => {
+                    if (!confirm('Delete all investigation traces? This cannot be undone.')) {
+                        event.preventDefault();
+                    }
+                });
+            }
+
+            if (!form || !selectAll || !deleteButton || !selectedCount) {
+                return;
+            }
+
+            function updateSelectionState() {
+                const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
+                deleteButton.disabled = selected === 0;
+                selectedCount.classList.toggle('d-none', selected === 0);
+                selectedCount.textContent = selected + (selected === 1 ? ' selected' : ' selected');
+                selectAll.checked = selected > 0 && selected === checkboxes.length;
+                selectAll.indeterminate = selected > 0 && selected < checkboxes.length;
+            }
+
+            selectAll.addEventListener('change', () => {
+                checkboxes.forEach((checkbox) => {
+                    const row = checkbox.closest('tr');
+                    if (!row || row.style.display !== 'none') {
+                        checkbox.checked = selectAll.checked;
+                    }
+                });
+                updateSelectionState();
+            });
+
+            checkboxes.forEach((checkbox) => {
+                checkbox.addEventListener('change', updateSelectionState);
+            });
+
+            form.addEventListener('submit', (event) => {
+                const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
+                if (selected === 0) {
+                    event.preventDefault();
+                    return;
+                }
+
+                if (!confirm('Delete ' + selected + ' selected investigation trace' + (selected === 1 ? '?' : 's?'))) {
+                    event.preventDefault();
+                }
+            });
+        })();
+    </script>
+}

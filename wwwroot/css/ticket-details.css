@@ -1,0 +1,215 @@
+/* Ticket Details Premium Styles */
+
+.ticket-tabset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Legacy .ticket-tabset CSS removed — Ticket Details now uses the unified .app-tabs pattern. */
+
+.sticky-sidebar {
+    position: sticky;
+    top: 80px;
+    z-index: 10;
+}
+
+.meta-item-card {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.meta-item-card:hover {
+    background: var(--surface-soft);
+    border-color: var(--primary-color);
+}
+
+.filter-dropdown-menu {
+    min-width: 280px;
+    padding: 1rem;
+    border-radius: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+.filter-option-item {
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.filter-option-item:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.intelligence-glance {
+    background: linear-gradient(135deg, rgba(99,102,241,0.08), transparent);
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 18px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.ticket-tab-panel {
+    padding-top: 0.5rem;
+}
+
+.grounded-panel {
+    overflow: hidden;
+    border-radius: 1.6rem;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: 0 20px 44px rgba(15, 23, 42, 0.08);
+}
+
+.grounded-panel-header {
+    background:
+        radial-gradient(circle at top left, rgba(var(--primary-color-rgb),0.16), transparent 34%),
+        linear-gradient(90deg, rgba(var(--primary-color-rgb),0.12), transparent) !important;
+}
+
+.grounded-callout {
+    display: grid;
+    gap: 1rem;
+    padding: 1.1rem;
+    border-radius: 1.2rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.92));
+}
+
+.grounded-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.grounded-summary-card,
+.grounded-evidence-card {
+    padding: 1.1rem;
+    border-radius: 1.2rem;
+    border: 1px solid var(--border-color);
+    background: rgba(248,250,252,0.94);
+}
+
+.grounded-evidence-item {
+    padding: 0.95rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(148,163,184,0.22);
+    background: rgba(255,255,255,0.92);
+}
+
+.grounded-action-card {
+    background: linear-gradient(180deg, rgba(var(--primary-color-rgb),0.08), rgba(255,255,255,0.96));
+    border-color: rgba(var(--primary-color-rgb),0.16);
+}
+
+.grounded-evidence-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.grounded-open-copilot {
+    background: rgba(59,130,246,0.10) !important;
+    color: #2563eb !important;
+    border: 1px solid rgba(59,130,246,0.18) !important;
+}
+
+.grounded-open-copilot:hover {
+    background: rgba(59,130,246,0.16) !important;
+    color: #1d4ed8 !important;
+}
+
+@media (max-width: 767.98px) {
+    .grounded-summary-grid,
+    .grounded-evidence-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Ticket Details meta bar ──────────────────────────────────────────────
+ * Replaces the old single-line "Reported by X • date" strip with a row of
+ * labeled cells (reporter, assignee, product area, age). Each cell is its
+ * own column so dense triage facts are scannable at a glance.
+ */
+.ticket-meta-bar .ticket-meta-cell {
+    min-width: 0;
+    flex: 1 1 180px;
+    padding: 0.25rem 0.75rem;
+    border-inline-start: 1px solid var(--border-color);
+}
+.ticket-meta-bar .ticket-meta-cell:first-child {
+    border-inline-start: none;
+    padding-inline-start: 0;
+}
+.ticket-meta-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+.ticket-meta-value {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.2;
+}
+.ticket-meta-sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.ticket-meta-sub i { margin-inline-end: 4px; opacity: 0.7; }
+
+.ticket-risk-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+.ticket-risk-danger {
+    background: rgba(var(--danger-color-rgb), 0.10);
+    color: var(--danger-color);
+    border-color: rgba(var(--danger-color-rgb), 0.25);
+}
+.ticket-risk-warning {
+    background: rgba(var(--warning-color-rgb), 0.10);
+    color: var(--warning-color);
+    border-color: rgba(var(--warning-color-rgb), 0.25);
+}
+.ticket-risk-info {
+    background: rgba(var(--info-color-rgb), 0.10);
+    color: var(--info-color);
+    border-color: rgba(var(--info-color-rgb), 0.25);
+}
+
+@media (max-width: 767.98px) {
+    .ticket-meta-bar .ticket-meta-cell {
+        border-inline-start: none;
+        padding-inline-start: 0;
+        flex-basis: 100%;
+        border-top: 1px dashed var(--border-color);
+        padding-top: 0.65rem;
+    }
+    .ticket-meta-bar .ticket-meta-cell:first-child {
+        border-top: none;
+        padding-top: 0;
+    }
+}

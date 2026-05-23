@@ -1,0 +1,473 @@
+@using AISupportAnalysisPlatform.Models.DTOs
+@{
+    ViewData["Title"] = Loc.Get("OperationsIntelligence");
+
+    var isAdmin = ViewBag.IsAdmin == true;
+    var statusMetrics = (ViewBag.ByStatus as IEnumerable<ReportMetricDto>)?.ToList() ?? new List<ReportMetricDto>();
+    var priorityMetrics = (ViewBag.ByPriority as IEnumerable<ReportMetricDto>)?.ToList() ?? new List<ReportMetricDto>();
+    var categoryMetrics = (ViewBag.ByCategory as IEnumerable<ReportMetricDto>)?.ToList() ?? new List<ReportMetricDto>();
+    var entityMetrics = (ViewBag.ByEntity as IEnumerable<ReportMetricDto>)?.ToList() ?? new List<ReportMetricDto>();
+    var sourceMetrics = (ViewBag.BySource as IEnumerable<ReportMetricDto>)?.ToList() ?? new List<ReportMetricDto>();
+    var monthlyMetrics = (ViewBag.MonthlyData as IEnumerable<ReportMetricDto>)?.ToList() ?? new List<ReportMetricDto>();
+
+    var topStatus = statusMetrics.OrderByDescending(x => x.Count).FirstOrDefault();
+    var topPriority = priorityMetrics.OrderByDescending(x => x.Count).FirstOrDefault();
+    var topCategory = categoryMetrics.OrderByDescending(x => x.Count).FirstOrDefault();
+    var topEntity = entityMetrics.OrderByDescending(x => x.Count).FirstOrDefault();
+    var topSource = sourceMetrics.OrderByDescending(x => x.Count).FirstOrDefault();
+
+    var startDate = ViewBag.StartDate as string;
+    var endDate = ViewBag.EndDate as string;
+    var totalTickets = ViewBag.TotalTickets as int? ?? 0;
+    var slaBreachedTickets = ViewBag.SlaBreachedTickets as int? ?? 0;
+    var escalatedTickets = ViewBag.EscalatedTickets as int? ?? 0;
+    var highImpactTickets = ViewBag.HighImpactTickets as int? ?? 0;
+    var dateWindowLabel = !string.IsNullOrWhiteSpace(startDate) && !string.IsNullOrWhiteSpace(endDate)
+        ? string.Format(Loc.Get("DateWindowRange"), startDate, endDate)
+        : !string.IsNullOrWhiteSpace(startDate)
+            ? string.Format(Loc.Get("DateWindowFrom"), startDate)
+            : !string.IsNullOrWhiteSpace(endDate)
+                ? string.Format(Loc.Get("DateWindowUntil"), endDate)
+                : Loc.Get("DateWindowAll");
+
+    var reportsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    {
+        Title = Loc.Get("OperationsIntelligence"),
+        Subtitle = Loc.Get("OperationsIntelligenceSubtitle"),
+        IconClass = "bi bi-bar-chart-fill",
+        Chips = new()
+        {
+            new() { Text = dateWindowLabel, IconClass = "bi bi-calendar3" },
+            new() { Text = isAdmin ? Loc.Get("AllEntitiesScope") : Loc.Get("YourEntityScope"), IconClass = "bi bi-diagram-3" }
+        },
+        Actions = new()
+        {
+            new() {
+                Text = Loc.Get("OpenCopilotAction"),
+                Href = Url.Action("Copilot", "Reports", new { startDate, endDate }) ?? "#",
+                IconClass = "bi bi-chat-square-text",
+                CssClass = "btn btn-sm btn-soft-primary rounded-pill px-3 fw-bold"
+            }
+        }
+    };
+}
+
+<link rel="stylesheet" href="~/css/reports.css" asp-append-version="true" />
+
+<partial name="_PageHeader" model="reportsHeader" />
+
+<div class="reports-shell">
+    <section class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon"><i class="bi bi-flag-fill"></i></div><div class="kpi-label">@Loc.Get("KpiDominantStatus")</div></div>
+                <div class="kpi-value">@(topStatus?.Label ?? "—")</div>
+                <div class="kpi-foot">@(topStatus?.Count ?? 0) @Loc.Get("KpiTicketsSuffix")</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon"><i class="bi bi-lightning-fill"></i></div><div class="kpi-label">@Loc.Get("KpiPressureBand")</div></div>
+                <div class="kpi-value">@(topPriority?.Label ?? "—")</div>
+                <div class="kpi-foot">@(topPriority?.Count ?? 0) @Loc.Get("KpiTicketsSuffix")</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon"><i class="bi bi-tags-fill"></i></div><div class="kpi-label">@Loc.Get("KpiTopCategory")</div></div>
+                <div class="kpi-value">@(topCategory?.Label ?? "—")</div>
+                <div class="kpi-foot">@(topCategory?.Count ?? 0) @Loc.Get("KpiTicketsSuffix")</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="kpi-card h-100">
+                <div class="kpi-card-head"><div class="kpi-icon"><i class="bi bi-broadcast"></i></div><div class="kpi-label">@Loc.Get("KpiPrimarySource")</div></div>
+                <div class="kpi-value">@(topSource?.Label ?? "—")</div>
+                <div class="kpi-foot">@(topSource?.Count ?? 0) @Loc.Get("KpiTicketsSuffix")</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="reports-filter-bar">
+        <form method="get" class="reports-filter-form">
+            <div class="reports-filter-field">
+                <label for="startDate">@Loc.Get("ReportsStartDate")</label>
+                <input id="startDate" type="date" name="startDate" value="@startDate" />
+            </div>
+            <div class="reports-filter-field">
+                <label for="endDate">@Loc.Get("ReportsEndDate")</label>
+                <input id="endDate" type="date" name="endDate" value="@endDate" />
+            </div>
+            <button type="submit" class="reports-filter-submit">
+                <i class="bi bi-sliders"></i>
+                @Loc.Get("ReportsRefresh")
+            </button>
+        </form>
+    </section>
+
+    <section class="reports-metrics-grid">
+        <article class="reports-metric-card">
+            <span class="reports-metric-label">@Loc.Get("ReportsTicketsInScope")</span>
+            <strong class="reports-metric-value">@totalTickets</strong>
+            <span class="reports-metric-note">@Loc.Get("ReportsTicketsInScopeNote")</span>
+        </article>
+        <article class="reports-metric-card reports-metric-card-danger">
+            <span class="reports-metric-label">@Loc.Get("ReportsSlaBreached")</span>
+            <strong class="reports-metric-value">@slaBreachedTickets</strong>
+            <span class="reports-metric-note">@Loc.Get("ReportsSlaBreachedNote")</span>
+        </article>
+        <article class="reports-metric-card reports-metric-card-violet">
+            <span class="reports-metric-label">@Loc.Get("ReportsEscalated")</span>
+            <strong class="reports-metric-value">@escalatedTickets</strong>
+            <span class="reports-metric-note">@Loc.Get("ReportsEscalatedNote")</span>
+        </article>
+        <article class="reports-metric-card reports-metric-card-amber">
+            <span class="reports-metric-label">@Loc.Get("ReportsHighImpact")</span>
+            <strong class="reports-metric-value">@highImpactTickets</strong>
+            <span class="reports-metric-note">@Loc.Get("ReportsHighImpactNote")</span>
+        </article>
+    </section>
+
+    <section class="reports-layout">
+        <div class="reports-main">
+            <div class="reports-chart-grid reports-chart-grid-top">
+                <article class="reports-panel">
+                    <div class="reports-panel-head">
+                        <div>
+                            <span class="reports-panel-kicker">@Loc.Get("ReportsKickerFlow")</span>
+                            <h2>@Loc.Get("ReportsStatusDistribution")</h2>
+                        </div>
+                        <p>@Loc.Get("ReportsStatusDistributionNote")</p>
+                    </div>
+                    <div class="reports-chart-wrap reports-chart-wrap-doughnut">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </article>
+
+                <article class="reports-panel">
+                    <div class="reports-panel-head">
+                        <div>
+                            <span class="reports-panel-kicker">@Loc.Get("ReportsKickerPressure")</span>
+                            <h2>@Loc.Get("ReportsPriorityLoad")</h2>
+                        </div>
+                        <p>@Loc.Get("ReportsPriorityLoadNote")</p>
+                    </div>
+                    <div class="reports-chart-wrap">
+                        <canvas id="priorityChart"></canvas>
+                    </div>
+                </article>
+            </div>
+
+            <div class="reports-chart-grid reports-chart-grid-bottom">
+                <article class="reports-panel">
+                    <div class="reports-panel-head">
+                        <div>
+                            <span class="reports-panel-kicker">@Loc.Get("ReportsKickerClassification")</span>
+                            <h2>@Loc.Get("ReportsCategorySpread")</h2>
+                        </div>
+                        <p>@Loc.Get("ReportsCategorySpreadNote")</p>
+                    </div>
+                    <div class="reports-chart-wrap">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </article>
+
+                @if (isAdmin)
+                {
+                    <article class="reports-panel">
+                        <div class="reports-panel-head">
+                            <div>
+                                <span class="reports-panel-kicker">@Loc.Get("ReportsKickerCoverage")</span>
+                                <h2>@Loc.Get("ReportsEntityFootprint")</h2>
+                            </div>
+                            <p>@Loc.Get("ReportsEntityFootprintNote")</p>
+                        </div>
+                        <div class="reports-chart-wrap">
+                            <canvas id="entityChart"></canvas>
+                        </div>
+                    </article>
+                }
+            </div>
+
+            <div class="reports-chart-grid reports-chart-grid-wide">
+                <article class="reports-panel reports-panel-wide">
+                    <div class="reports-panel-head">
+                        <div>
+                            <span class="reports-panel-kicker">@Loc.Get("ReportsKickerTrend")</span>
+                            <h2>@Loc.Get("ReportsIncidentIngestion")</h2>
+                        </div>
+                        <p>@Loc.Get("ReportsIncidentIngestionNote")</p>
+                    </div>
+                    <div class="reports-chart-wrap reports-chart-wrap-tall">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </article>
+
+                <article class="reports-panel">
+                    <div class="reports-panel-head">
+                        <div>
+                            <span class="reports-panel-kicker">@Loc.Get("ReportsKickerChannels")</span>
+                            <h2>@Loc.Get("ReportsSourceMix")</h2>
+                        </div>
+                        <p>@Loc.Get("ReportsSourceMixNote")</p>
+                    </div>
+                    <div class="reports-chart-wrap reports-chart-wrap-tall">
+                        <canvas id="sourceChart"></canvas>
+                    </div>
+                </article>
+            </div>
+        </div>
+
+        <aside class="reports-sidebar">
+            <article class="reports-panel reports-panel-sidebar">
+                <div class="reports-panel-head">
+                    <div>
+                        <span class="reports-panel-kicker">@Loc.Get("ReportsKickerSummary")</span>
+                        <h2>@Loc.Get("ReportsOperationalBrief")</h2>
+                    </div>
+                    <p>@Loc.Get("ReportsOperationalBriefNote")</p>
+                </div>
+
+                <div class="reports-brief-list">
+                    <div class="reports-brief-line">
+                        <span>@Loc.Get("ReportsTopStatus")</span>
+                        <strong>@(topStatus?.Label ?? Loc.Get("ReportsNoData"))</strong>
+                    </div>
+                    <div class="reports-brief-line">
+                        <span>@Loc.Get("ReportsTopPriority")</span>
+                        <strong>@(topPriority?.Label ?? Loc.Get("ReportsNoData"))</strong>
+                    </div>
+                    <div class="reports-brief-line">
+                        <span>@Loc.Get("ReportsTopCategory")</span>
+                        <strong>@(topCategory?.Label ?? Loc.Get("ReportsNoData"))</strong>
+                    </div>
+                    <div class="reports-brief-line">
+                        <span>@Loc.Get("ReportsMainSource")</span>
+                        <strong>@(topSource?.Label ?? Loc.Get("ReportsNoData"))</strong>
+                    </div>
+                    @if (isAdmin)
+                    {
+                        <div class="reports-brief-line">
+                            <span>Busiest entity</span>
+                            <strong>@(topEntity?.Label ?? "No data")</strong>
+                        </div>
+                    }
+                </div>
+            </article>
+
+            <article class="reports-panel reports-panel-sidebar reports-panel-accent">
+                <div class="reports-panel-head">
+                    <div>
+                        <span class="reports-panel-kicker">Next move</span>
+                        <h2>Ask the copilot</h2>
+                    </div>
+                    <p>Use the analytics copilot when you need comparisons, top-N slices, or follow-up questions.</p>
+                </div>
+
+                <div class="reports-chip-list">
+                    <a asp-controller="Reports" asp-action="Copilot" asp-route-prompt="show top 5 entities by ticket count" asp-route-startDate="@startDate" asp-route-endDate="@endDate" class="reports-chip">
+                        Show top 5 entities by ticket count
+                    </a>
+                    <a asp-controller="Reports" asp-action="Copilot" asp-route-prompt="compare agents by resolved tickets" asp-route-startDate="@startDate" asp-route-endDate="@endDate" class="reports-chip">
+                        Compare agents by resolved tickets
+                    </a>
+                    <a asp-controller="Reports" asp-action="Copilot" asp-route-prompt="find highest SLA breach areas" asp-route-startDate="@startDate" asp-route-endDate="@endDate" class="reports-chip">
+                        Find highest SLA breach areas
+                    </a>
+                </div>
+            </article>
+        </aside>
+    </section>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const statusMetrics = @Html.Raw(Json.Serialize(statusMetrics.Select(x => new { label = x.Label, count = x.Count })));
+        const priorityMetrics = @Html.Raw(Json.Serialize(priorityMetrics.Select(x => new { label = x.Label, count = x.Count })));
+        const categoryMetrics = @Html.Raw(Json.Serialize(categoryMetrics.Select(x => new { label = x.Label, count = x.Count })));
+        const sourceMetrics = @Html.Raw(Json.Serialize(sourceMetrics.Select(x => new { label = x.Label, count = x.Count })));
+        const trendMetrics = @Html.Raw(Json.Serialize(monthlyMetrics.Select(x => new { label = x.Label, count = x.Count })));
+        const entityMetrics = @Html.Raw(Json.Serialize(entityMetrics.Select(x => new { label = x.Label, count = x.Count })));
+
+        function toSeries(metrics) {
+            const safeMetrics = Array.isArray(metrics) ? metrics : [];
+            return {
+                labels: safeMetrics.map(item => item.label),
+                values: safeMetrics.map(item => item.count)
+            };
+        }
+
+        const rootStyle = getComputedStyle(document.documentElement);
+        const primaryColor = rootStyle.getPropertyValue('--primary-color').trim();
+        const textMain = rootStyle.getPropertyValue('--text-main').trim();
+        const textMuted = rootStyle.getPropertyValue('--text-muted').trim();
+        const borderColor = rootStyle.getPropertyValue('--border-color').trim();
+
+        Chart.defaults.font.family = "'IBM Plex Sans', 'Segoe UI', sans-serif";
+        Chart.defaults.color = textMuted;
+
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        padding: 18,
+                        color: textMain,
+                        font: { size: 11, weight: '600' }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#101828',
+                    titleColor: '#f8fafc',
+                    bodyColor: '#e2e8f0',
+                    borderColor: '#1f2937',
+                    borderWidth: 1,
+                    cornerRadius: 12,
+                    padding: 12
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: textMuted, precision: 0 },
+                    grid: { color: borderColor, drawBorder: false }
+                },
+                x: {
+                    ticks: { color: textMain },
+                    grid: { display: false }
+                }
+            }
+        };
+
+        const doughnutOptions = {
+            ...commonOptions,
+            cutout: '68%',
+            scales: { x: { display: false }, y: { display: false } }
+        };
+
+        const statusSeries = toSeries(statusMetrics);
+        new Chart(document.getElementById('statusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: statusSeries.labels,
+                datasets: [{
+                    data: statusSeries.values,
+                    backgroundColor: ['#1d4ed8', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'],
+                    borderWidth: 0,
+                    hoverOffset: 10
+                }]
+            },
+            options: doughnutOptions
+        });
+
+        const prioritySeries = toSeries(priorityMetrics);
+        new Chart(document.getElementById('priorityChart'), {
+            type: 'bar',
+            data: {
+                labels: prioritySeries.labels,
+                datasets: [{
+                    label: 'Tickets',
+                    data: prioritySeries.values,
+                    backgroundColor: ['#0f766e', '#1d4ed8', '#f59e0b', '#dc2626', '#7c3aed'],
+                    borderRadius: 10,
+                    maxBarThickness: 42
+                }]
+            },
+            options: commonOptions
+        });
+
+        const categorySeries = toSeries(categoryMetrics);
+        new Chart(document.getElementById('categoryChart'), {
+            type: 'bar',
+            data: {
+                labels: categorySeries.labels,
+                datasets: [{
+                    label: 'Tickets',
+                    data: categorySeries.values,
+                    backgroundColor: '#111827',
+                    borderRadius: 10,
+                    maxBarThickness: 28
+                }]
+            },
+            options: { ...commonOptions, indexAxis: 'y' }
+        });
+
+        @if (isAdmin)
+        {
+            <text>
+            const entitySeries = toSeries(entityMetrics);
+            new Chart(document.getElementById('entityChart'), {
+                type: 'polarArea',
+                data: {
+                    labels: entitySeries.labels,
+                    datasets: [{
+                        data: entitySeries.values,
+                        backgroundColor: [
+                            'rgba(29, 78, 216, 0.75)',
+                            'rgba(20, 184, 166, 0.75)',
+                            'rgba(245, 158, 11, 0.75)',
+                            'rgba(124, 58, 237, 0.75)',
+                            'rgba(71, 85, 105, 0.75)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    ...doughnutOptions,
+                    plugins: {
+                        ...doughnutOptions.plugins,
+                        legend: { ...doughnutOptions.plugins.legend, position: 'bottom' }
+                    }
+                }
+            });
+            </text>
+        }
+
+        const trendSeries = toSeries(trendMetrics);
+        new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels: trendSeries.labels,
+                datasets: [{
+                    label: 'Tickets',
+                    data: trendSeries.values,
+                    borderColor: primaryColor,
+                    backgroundColor: 'rgba(29, 78, 216, 0.10)',
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: primaryColor,
+                    pointBorderWidth: 2
+                }]
+            },
+            options: commonOptions
+        });
+
+        const sourceSeries = toSeries(sourceMetrics);
+        new Chart(document.getElementById('sourceChart'), {
+            type: 'polarArea',
+            data: {
+                labels: sourceSeries.labels,
+                datasets: [{
+                    data: sourceSeries.values,
+                    backgroundColor: ['#0f766e', '#1d4ed8', '#f59e0b', '#dc2626', '#6b7280'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                ...doughnutOptions,
+                plugins: {
+                    ...doughnutOptions.plugins,
+                    legend: { ...doughnutOptions.plugins.legend, position: 'bottom' }
+                }
+            }
+        });
+    </script>
+}
