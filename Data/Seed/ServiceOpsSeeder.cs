@@ -298,8 +298,8 @@ public static class ServiceOpsSeeder
                     // Story 3: Homs electricity customers — spike 2x in Nov 2025, Dec 2025, Jan 2026.
                     var isHomsSpikeBill = svc == ServiceType.Electricity
                         && homsElectricityCustomers.Contains(customer.Id)
-                        && (periodStart.Year == 2025 && (periodStart.Month == 11 || periodStart.Month == 12))
-                        || (periodStart.Year == 2026 && periodStart.Month == 1);
+                        && ((periodStart.Year == 2025 && (periodStart.Month == 11 || periodStart.Month == 12))
+                            || (periodStart.Year == 2026 && periodStart.Month == 1));
                     if (isHomsSpikeBill) usageAmt *= 2.0m;
 
                     var taxes = Math.Round((baseAmt + usageAmt) * 0.11m / 100m) * 100m;
