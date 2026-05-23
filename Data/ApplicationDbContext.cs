@@ -10,6 +10,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Department> Departments { get; set; }
     public DbSet<Country> Countries { get; set; }
     public DbSet<Region> Regions { get; set; }
+    public DbSet<Customer> Customers { get; set; }
     public DbSet<TicketCategory> TicketCategories { get; set; }
     public DbSet<TicketPriority> TicketPriorities { get; set; }
     public DbSet<TicketStatus> TicketStatuses { get; set; }
@@ -54,6 +55,11 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<Country>()
             .HasIndex(c => c.IsoCode)
+            .IsUnique();
+
+        builder.Entity<Customer>().Property(c => c.Status).HasConversion<string>();
+        builder.Entity<Customer>()
+            .HasIndex(c => c.NationalId)
             .IsUnique();
 
         builder.Entity<Ticket>()
