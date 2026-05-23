@@ -1,17 +1,17 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Models.Common;
-using AISupportAnalysisPlatform.Models.DTOs;
+using ServiceOpsAI.Models.Common;
+using ServiceOpsAI.Models.DTOs;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 
-namespace AISupportAnalysisPlatform.Controllers.Users
+namespace ServiceOpsAI.Controllers.Users
 {
     [Authorize(Roles = RoleNames.Admin)]
     public class UsersController : Controller

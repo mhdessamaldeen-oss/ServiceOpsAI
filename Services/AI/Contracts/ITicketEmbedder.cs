@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.AI;
+namespace ServiceOpsAI.Services.AI;
 
 /// <summary>
 /// Generic text embedder. Library code uses this; consumers register their preferred provider

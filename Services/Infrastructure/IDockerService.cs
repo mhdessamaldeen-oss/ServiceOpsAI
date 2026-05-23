@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.Infrastructure;
+namespace ServiceOpsAI.Services.Infrastructure;
 
 public interface IDockerService
 {

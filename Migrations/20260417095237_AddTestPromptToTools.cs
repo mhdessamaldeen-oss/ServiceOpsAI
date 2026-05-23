@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AISupportAnalysisPlatform.Migrations
+namespace ServiceOpsAI.Migrations
 {
     /// <inheritdoc />
     public partial class AddTestPromptToTools : Migration

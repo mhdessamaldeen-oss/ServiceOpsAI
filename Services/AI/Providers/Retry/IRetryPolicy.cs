@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.AI.Providers.Retry
+namespace ServiceOpsAI.Services.AI.Providers.Retry
 {
     /// <summary>
     /// Wraps a single LLM call with provider-specific retry behavior. The provider hands the policy

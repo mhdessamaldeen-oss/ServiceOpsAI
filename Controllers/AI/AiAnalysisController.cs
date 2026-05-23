@@ -1,30 +1,30 @@
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Constants;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Models.Common;
-using AISupportAnalysisPlatform.Models.DTOs;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Models.Common;
+using ServiceOpsAI.Models.DTOs;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
-using AISupportAnalysisPlatform.Services.AI;
-using AISupportAnalysisPlatform.Services.AI.Contracts;
+using ServiceOpsAI.Services.AI;
+using ServiceOpsAI.Services.AI.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Services.Infrastructure;
-using AISupportAnalysisPlatform.Services.AI.Investigation;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Assessment;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Tools;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Suggestions;
+using ServiceOpsAI.Services.Infrastructure;
+using ServiceOpsAI.Services.AI.Investigation;
+using ServiceOpsAI.Services.AI.Copilot.Assessment;
+using ServiceOpsAI.Services.AI.Copilot.Tools;
+using ServiceOpsAI.Services.AI.Copilot.Suggestions;
 using SuperAdminCopilot.HostBridge;
 using SuperAdminCopilot.Retrieval;
 using SuperAdminCopilot.Schema;
 using SuperAdminCopilot.Semantic;
 
-namespace AISupportAnalysisPlatform.Controllers.AI
+namespace ServiceOpsAI.Controllers.AI
 {
     [Authorize(Roles = RoleNames.Admin)]
     [Route("AiAnalysis/[action]")]
@@ -1628,7 +1628,7 @@ namespace AISupportAnalysisPlatform.Controllers.AI
         }
 
         [HttpPost]
-        public async Task<IActionResult> UpdateTuningSettings([FromBody] AISupportAnalysisPlatform.Models.AI.RetrievalTuningSettings settings)
+        public async Task<IActionResult> UpdateTuningSettings([FromBody] ServiceOpsAI.Models.AI.RetrievalTuningSettings settings)
         {
             await _semanticSearchService.UpdateTuningSettingsAsync(settings);
             return Ok(new { success = true });

@@ -1,4 +1,4 @@
-@model AISupportAnalysisPlatform.Models.Ticket
+@model ServiceOpsAI.Models.Ticket
 @using Microsoft.AspNetCore.Identity
 @inject UserManager<ApplicationUser> _userManager
 
@@ -7,7 +7,7 @@
     bool isAdmin = ViewBag.IsAdmin ?? false;
     bool isAgent = ViewBag.IsAgent ?? false;
     bool isTechnicalRole = isAdmin || isAgent;
-    var ticketEditHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var ticketEditHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Case Modification",
         Subtitle = $"Updating parameters for incident #{Model.TicketNumber}",

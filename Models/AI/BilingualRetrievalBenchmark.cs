@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     public class BilingualRetrievalBenchmark
     {

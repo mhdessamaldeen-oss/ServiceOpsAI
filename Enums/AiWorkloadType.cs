@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Enums
+namespace ServiceOpsAI.Enums
 {
     public enum AiWorkloadType
     {

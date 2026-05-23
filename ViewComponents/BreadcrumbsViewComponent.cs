@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AISupportAnalysisPlatform.ViewComponents
+namespace ServiceOpsAI.ViewComponents
 {
     public class BreadcrumbsViewComponent : ViewComponent
     {

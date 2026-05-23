@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using SuperAdminCopilot.Schema;
 
-namespace AISupportAnalysisPlatform.Controllers.AI;
+namespace ServiceOpsAI.Controllers.AI;
 
 // Phase 6 Step 21 — schema diff endpoint for the admin UI.
 //

@@ -1,6 +1,6 @@
 namespace SuperAdminCopilot.HostBridge;
 
-using AISupportAnalysisPlatform.Hubs;
+using ServiceOpsAI.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using SuperAdminCopilot.Abstractions;

@@ -1,10 +1,10 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Services.AI.Providers;
-using AISupportAnalysisPlatform.Services.AI.Providers.KeyPool;
-using AISupportAnalysisPlatform.Services.Infrastructure;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Services.AI.Providers;
+using ServiceOpsAI.Services.AI.Providers.KeyPool;
+using ServiceOpsAI.Services.Infrastructure;
+using ServiceOpsAI.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -15,16 +15,16 @@ using Microsoft.Extensions.Options;
 using System.Text.Json;
 using System.Diagnostics;
 
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Tools;
-using AISupportAnalysisPlatform.Models.Common;
-using AISupportAnalysisPlatform.Models.DTOs;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI;
+using ServiceOpsAI.Services.AI.Copilot.Tools;
+using ServiceOpsAI.Models.Common;
+using ServiceOpsAI.Models.DTOs;
 using AutoMapper;
 using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Schema;
 
-namespace AISupportAnalysisPlatform.Controllers.Admin
+namespace ServiceOpsAI.Controllers.Admin
 {
     [Authorize(Roles = RoleNames.Admin)]
     public class SettingsController : Controller
@@ -750,7 +750,7 @@ namespace AISupportAnalysisPlatform.Controllers.Admin
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SavePricing(AISupportAnalysisPlatform.Models.AI.ModelPricing input)
+        public async Task<IActionResult> SavePricing(ServiceOpsAI.Models.AI.ModelPricing input)
         {
             if (string.IsNullOrWhiteSpace(input.Provider) || string.IsNullOrWhiteSpace(input.Model))
             {
@@ -782,8 +782,8 @@ namespace AISupportAnalysisPlatform.Controllers.Admin
             // Bust the calculator's in-memory cache so the next question picks up the new rate
             // immediately instead of waiting out the 60-second TTL — admins editing a price
             // expect their change to take effect now, not a minute from now.
-            (_serviceProvider.GetService(typeof(AISupportAnalysisPlatform.Services.AI.Cost.ICostCalculator))
-                as AISupportAnalysisPlatform.Services.AI.Cost.ICostCalculator)?.InvalidateAll();
+            (_serviceProvider.GetService(typeof(ServiceOpsAI.Services.AI.Cost.ICostCalculator))
+                as ServiceOpsAI.Services.AI.Cost.ICostCalculator)?.InvalidateAll();
             TempData["Success"] = $"Saved pricing for {input.Provider}/{input.Model}.";
             return RedirectToAction(nameof(Pricing));
         }
@@ -797,8 +797,8 @@ namespace AISupportAnalysisPlatform.Controllers.Admin
             {
                 _context.ModelPricings.Remove(row);
                 await _context.SaveChangesAsync();
-                (_serviceProvider.GetService(typeof(AISupportAnalysisPlatform.Services.AI.Cost.ICostCalculator))
-                    as AISupportAnalysisPlatform.Services.AI.Cost.ICostCalculator)?.InvalidateAll();
+                (_serviceProvider.GetService(typeof(ServiceOpsAI.Services.AI.Cost.ICostCalculator))
+                    as ServiceOpsAI.Services.AI.Cost.ICostCalculator)?.InvalidateAll();
                 TempData["Success"] = $"Deleted {row.Provider}/{row.Model}.";
             }
             return RedirectToAction(nameof(Pricing));
@@ -1967,7 +1967,7 @@ namespace AISupportAnalysisPlatform.Controllers.Admin
                 return new SqlConnectionStringBuilder
                 {
                     DataSource = ".",
-                    InitialCatalog = "AISupportAnalysisPlatform",
+                    InitialCatalog = "ServiceOpsAI",
                     IntegratedSecurity = true,
                     TrustServerCertificate = true,
                     Encrypt = false

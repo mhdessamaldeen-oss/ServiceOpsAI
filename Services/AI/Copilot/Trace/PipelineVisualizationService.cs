@@ -1,8 +1,8 @@
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Data;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Trace
+namespace ServiceOpsAI.Services.AI.Copilot.Trace
 {
     /// <summary>
     /// Service to format pipeline traces for visualization

@@ -1,9 +1,9 @@
 using System.Text.Json;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Suggestions;
+namespace ServiceOpsAI.Services.AI.Copilot.Suggestions;
 
 /// <summary>
 /// Reads suggestion prompts straight from the curated assessment catalog JSON

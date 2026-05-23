@@ -1,10 +1,10 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models.Common;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Assessment;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models.Common;
+using ServiceOpsAI.Services.AI.Copilot.Assessment;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AISupportAnalysisPlatform.Controllers.AI;
+namespace ServiceOpsAI.Controllers.AI;
 
 // TEMPORARY — re-added for the iterative benchmark plan. Deletes at Phase 7.
 // Unauthenticated POST endpoint for the local benchmark runner; bypasses the Razor antiforgery

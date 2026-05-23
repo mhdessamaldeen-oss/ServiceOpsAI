@@ -1,9 +1,9 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models.AI;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Tools
+namespace ServiceOpsAI.Services.AI.Copilot.Tools
 {
     /// <summary>
     /// Central registry for Copilot tool definitions. Provides configured tools to the admin UI

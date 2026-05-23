@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>aspnet-AISupportAnalysisPlatform-dbac1c7f-0ed2-4fa2-8d69-846fcded0c80</UserSecretsId>
+    <UserSecretsId>aspnet-ServiceOpsAI-dbac1c7f-0ed2-4fa2-8d69-846fcded0c80</UserSecretsId>
   </PropertyGroup>
 
   <!-- D2 — expose internals to the test project so safety-gate integration tests can

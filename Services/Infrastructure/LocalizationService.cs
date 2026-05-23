@@ -5,7 +5,7 @@ using System.Globalization;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Localization;
 
-namespace AISupportAnalysisPlatform.Services.Infrastructure
+namespace ServiceOpsAI.Services.Infrastructure
 {
     public interface ILocalizationService
     {

@@ -1,8 +1,8 @@
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Services.AI.Providers;
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Services.AI.Providers;
 using System.Text.Json;
 
-namespace AISupportAnalysisPlatform.Services.AI.Retrieval
+namespace ServiceOpsAI.Services.AI.Retrieval
 {
     public sealed class RecommendationGroundingAuditor : IRecommendationGroundingAuditor
     {

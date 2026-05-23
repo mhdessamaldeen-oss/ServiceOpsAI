@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.AI.Retrieval
+namespace ServiceOpsAI.Services.AI.Retrieval
 {
     /// <summary>
     /// Lexical BM25 scoring. Complements the dense (vector) retriever — recovers

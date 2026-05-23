@@ -1,7 +1,7 @@
 namespace SuperAdminCopilot.HostBridge;
 
 using System.Text.RegularExpressions;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 using SuperAdminCopilot.Abstractions;
 using NewCopilotRequest = SuperAdminCopilot.Models.CopilotRequest;
 

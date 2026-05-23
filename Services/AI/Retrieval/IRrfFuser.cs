@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.AI.Retrieval
+namespace ServiceOpsAI.Services.AI.Retrieval
 {
     /// <summary>
     /// Reciprocal Rank Fusion. Merges multiple ranked candidate lists (e.g. dense + BM25)

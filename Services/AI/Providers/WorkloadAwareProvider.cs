@@ -1,7 +1,7 @@
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Models.DTOs;
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Models.DTOs;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// Thin per-workload wrapper around any <see cref="IAiProvider"/>. The factory returns this

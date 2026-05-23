@@ -1,6 +1,6 @@
 # Areas/SuperAdminCopilot
 
-In-host SuperAdminCopilot implementation. Lives inside `AISupportAnalysisPlatform.csproj` (no separate assembly) but is structured so it can be extracted to a standalone DLL later with minimal effort. Built strictly to [docs/abstraction-build-copilot.md](../../docs/abstraction-build-copilot.md).
+In-host SuperAdminCopilot implementation. Lives inside `ServiceOpsAI.csproj` (no separate assembly) but is structured so it can be extracted to a standalone DLL later with minimal effort. Built strictly to [docs/abstraction-build-copilot.md](../../docs/abstraction-build-copilot.md).
 
 ## Public surface
 

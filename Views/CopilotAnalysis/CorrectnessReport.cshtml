@@ -1,4 +1,4 @@
-@using AISupportAnalysisPlatform.Services.AI.Copilot.Analysis
+@using ServiceOpsAI.Services.AI.Copilot.Analysis
 @model CorrectnessReport
 
 @{
@@ -6,7 +6,7 @@
     var correctPercent = Model.TotalTraces > 0 ? (double)Model.CorrectCount / Model.TotalTraces * 100 : 0;
     var needsReviewPercent = Model.TotalTraces > 0 ? (double)Model.NeedsReviewCount / Model.TotalTraces * 100 : 0;
 
-    var correctnessHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var correctnessHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Copilot Answer Correctness",
         Subtitle = $"Analysis of {Model.TotalTraces} answers for factual accuracy and quality",

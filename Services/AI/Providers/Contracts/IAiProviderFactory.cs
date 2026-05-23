@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers;
+namespace ServiceOpsAI.Services.AI.Providers;
 
 public interface IAiProviderFactory
 {

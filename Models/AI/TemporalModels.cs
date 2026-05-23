@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     /// <summary>
     /// Temporal filter for date/time range queries

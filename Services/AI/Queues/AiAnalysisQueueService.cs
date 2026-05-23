@@ -1,9 +1,9 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using System.Collections.Concurrent;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Data;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Data;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     /// Singleton background queue that processes AI analysis requests ONE AT A TIME.
     /// Prevents local Docker models from being overwhelmed with concurrent requests.

@@ -1,7 +1,7 @@
-@model List<AISupportAnalysisPlatform.Models.AI.CopilotTraceHistory>
+@model List<ServiceOpsAI.Models.AI.CopilotTraceHistory>
 @{
     ViewData["Title"] = @Loc.Get("InvestigationArchive");
-    var historyHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var historyHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = Loc.Get("ForensicArchiveCatalog"),
         IconClass = "bi bi-shield-lock-fill",

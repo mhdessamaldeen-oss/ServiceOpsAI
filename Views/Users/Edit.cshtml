@@ -1,8 +1,8 @@
-@model AISupportAnalysisPlatform.Models.ApplicationUser
+@model ServiceOpsAI.Models.ApplicationUser
 
 @{
     ViewData["Title"] = "Edit User";
-    var userEditHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var userEditHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Edit User",
         Subtitle = $"Modify access for {Model.FullName ?? Model.Email}",

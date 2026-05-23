@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Models;
 
-namespace AISupportAnalysisPlatform.Controllers;
+namespace ServiceOpsAI.Controllers;
 
 public class HomeController : Controller
 {

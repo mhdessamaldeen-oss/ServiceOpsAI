@@ -1,13 +1,13 @@
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Constants;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace AISupportAnalysisPlatform.Data
+namespace ServiceOpsAI.Data
 {
     public static class DbSeeder
     {

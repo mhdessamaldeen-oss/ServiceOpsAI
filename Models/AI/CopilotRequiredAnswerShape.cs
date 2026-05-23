@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     /// <summary>
     /// The shape contract a child workflow must satisfy after planning.

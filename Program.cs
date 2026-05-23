@@ -1,25 +1,25 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
 using Serilog;
-using AISupportAnalysisPlatform.Services.AI;
-using AISupportAnalysisPlatform.Services.AI.Contracts;
-using AISupportAnalysisPlatform.Services.AI.Common;
-using AISupportAnalysisPlatform.Services.AI.Investigation;
-using AISupportAnalysisPlatform.Services.AI.Providers;
-using AISupportAnalysisPlatform.Services.Infrastructure;
-using AISupportAnalysisPlatform.Services.Notifications;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Services.AI;
+using ServiceOpsAI.Services.AI.Contracts;
+using ServiceOpsAI.Services.AI.Common;
+using ServiceOpsAI.Services.AI.Investigation;
+using ServiceOpsAI.Services.AI.Providers;
+using ServiceOpsAI.Services.Infrastructure;
+using ServiceOpsAI.Services.Notifications;
+using ServiceOpsAI.Models.AI;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Mappings;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Analysis;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Assessment;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Suggestions;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Tools;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Trace;
-using AISupportAnalysisPlatform.Hubs;
+using ServiceOpsAI.Mappings;
+using ServiceOpsAI.Services.AI.Copilot.Analysis;
+using ServiceOpsAI.Services.AI.Copilot.Assessment;
+using ServiceOpsAI.Services.AI.Copilot.Suggestions;
+using ServiceOpsAI.Services.AI.Copilot.Tools;
+using ServiceOpsAI.Services.AI.Copilot.Trace;
+using ServiceOpsAI.Hubs;
 using SuperAdminCopilot.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -84,17 +84,17 @@ builder.Services.Configure<CopilotTracePersistenceOptions>(builder.Configuration
   builder.Services.AddSingleton<IAiProviderFactory, AiProviderFactory>();
   // Provider retry policies (strategy pattern). GeminiAiProvider takes the rate-limit policy directly;
   // other providers can inject the no-op policy if/when they need to participate in the pipeline.
-  builder.Services.AddSingleton<AISupportAnalysisPlatform.Services.AI.Providers.Retry.NoRetryPolicy>();
-  builder.Services.AddSingleton<AISupportAnalysisPlatform.Services.AI.Providers.Retry.GeminiRateLimitPolicy>();
-  builder.Services.AddSingleton<AISupportAnalysisPlatform.Services.AI.Providers.Retry.GroqRetryPolicy>();
+  builder.Services.AddSingleton<ServiceOpsAI.Services.AI.Providers.Retry.NoRetryPolicy>();
+  builder.Services.AddSingleton<ServiceOpsAI.Services.AI.Providers.Retry.GeminiRateLimitPolicy>();
+  builder.Services.AddSingleton<ServiceOpsAI.Services.AI.Providers.Retry.GroqRetryPolicy>();
   // Multi-key Gemini pool — rotates across saved API keys so one key's daily 250 RPD cap doesn't
   // bottleneck the copilot. Falls back to legacy single-key in SystemSettings if pool is empty.
-  builder.Services.AddSingleton<AISupportAnalysisPlatform.Services.AI.Providers.KeyPool.IGeminiKeyPool,
-      AISupportAnalysisPlatform.Services.AI.Providers.KeyPool.GeminiKeyPool>();
+  builder.Services.AddSingleton<ServiceOpsAI.Services.AI.Providers.KeyPool.IGeminiKeyPool,
+      ServiceOpsAI.Services.AI.Providers.KeyPool.GeminiKeyPool>();
   // Multi-key Groq pool — same pattern, plus persists Groq's authoritative `x-ratelimit-*` headers
   // per key so the UI can show real remaining quota (Groq exposes this; Gemini does not).
-  builder.Services.AddSingleton<AISupportAnalysisPlatform.Services.AI.Providers.KeyPool.IGroqKeyPool,
-      AISupportAnalysisPlatform.Services.AI.Providers.KeyPool.GroqKeyPool>();
+  builder.Services.AddSingleton<ServiceOpsAI.Services.AI.Providers.KeyPool.IGroqKeyPool,
+      ServiceOpsAI.Services.AI.Providers.KeyPool.GroqKeyPool>();
 
 // ── AI Investigation Services ────────────────────────────────────────────────
 builder.Services.AddScoped<TicketContextPreparationService>();
@@ -108,12 +108,12 @@ builder.Services.AddScoped<KnowledgeBaseRagService>();
 // Tier-2 hybrid-retrieval helpers — pure algorithmic services (no state, no IO),
 // safe as singletons. Consumed by KnowledgeBaseRagService and any future ticket
 // hybrid path. Tunables (RrfK, EnableBm25) come from RetrievalTuningSettings UI.
-builder.Services.AddSingleton<AISupportAnalysisPlatform.Services.AI.Retrieval.IBm25Retriever,
-    AISupportAnalysisPlatform.Services.AI.Retrieval.Bm25Retriever>();
-builder.Services.AddSingleton<AISupportAnalysisPlatform.Services.AI.Retrieval.IRrfFuser,
-    AISupportAnalysisPlatform.Services.AI.Retrieval.RrfFuser>();
-builder.Services.AddScoped<AISupportAnalysisPlatform.Services.AI.Retrieval.IRecommendationGroundingAuditor,
-    AISupportAnalysisPlatform.Services.AI.Retrieval.RecommendationGroundingAuditor>();
+builder.Services.AddSingleton<ServiceOpsAI.Services.AI.Retrieval.IBm25Retriever,
+    ServiceOpsAI.Services.AI.Retrieval.Bm25Retriever>();
+builder.Services.AddSingleton<ServiceOpsAI.Services.AI.Retrieval.IRrfFuser,
+    ServiceOpsAI.Services.AI.Retrieval.RrfFuser>();
+builder.Services.AddScoped<ServiceOpsAI.Services.AI.Retrieval.IRecommendationGroundingAuditor,
+    ServiceOpsAI.Services.AI.Retrieval.RecommendationGroundingAuditor>();
 
 // CopilotRecommendationAnalyzer: consumed by AiAnalysisController.GetCopilotRecommendation.
 // Survives the legacy purge as an "orphan island" along with CopilotTextCatalog + CopilotTextTemplate.
@@ -124,7 +124,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<CopilotAssessmentHandler>();
 builder.Services.AddScoped<CopilotToolRegistry>();
 builder.Services.AddScoped<CopilotTraceHistoryStore>();
-builder.Services.AddScoped<AISupportAnalysisPlatform.Services.AI.Cost.ICostCalculator, AISupportAnalysisPlatform.Services.AI.Cost.CostCalculator>();
+builder.Services.AddScoped<ServiceOpsAI.Services.AI.Cost.ICostCalculator, ServiceOpsAI.Services.AI.Cost.CostCalculator>();
 builder.Services.AddSingleton<ICopilotSuggestionService, CopilotSuggestionService>();
 builder.Services.AddScoped<IPipelineTracingService, PipelineTracingService>();
 builder.Services.AddScoped<IPipelineVisualizationService, PipelineVisualizationService>();

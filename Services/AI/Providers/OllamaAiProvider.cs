@@ -1,13 +1,13 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using System.Text;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
 using System.Linq;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     public class OllamaAiProvider : IAiProvider
     {
@@ -68,14 +68,14 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
         /// "Copilot → Ollama / qwen2.5:7b" AND "Rag → Ollama / bge-m3" simultaneously, all served
         /// by the same Ollama instance. When the workload-specific override is unset, falls back
         /// to <see cref="ModelName"/> for chat workloads and <see cref="EmbeddingModelName"/> for Rag.</summary>
-        public string GetModelNameForWorkload(AISupportAnalysisPlatform.Enums.AiWorkloadType workload)
+        public string GetModelNameForWorkload(ServiceOpsAI.Enums.AiWorkloadType workload)
         {
             var key = workload switch
             {
-                AISupportAnalysisPlatform.Enums.AiWorkloadType.Copilot    => SettingKeys.CopilotWorkloadModel,
-                AISupportAnalysisPlatform.Enums.AiWorkloadType.Analysis   => SettingKeys.AnalysisWorkloadModel,
-                AISupportAnalysisPlatform.Enums.AiWorkloadType.Rag        => SettingKeys.RagWorkloadModel,
-                AISupportAnalysisPlatform.Enums.AiWorkloadType.Classifier => SettingKeys.ClassifierWorkloadModel,
+                ServiceOpsAI.Enums.AiWorkloadType.Copilot    => SettingKeys.CopilotWorkloadModel,
+                ServiceOpsAI.Enums.AiWorkloadType.Analysis   => SettingKeys.AnalysisWorkloadModel,
+                ServiceOpsAI.Enums.AiWorkloadType.Rag        => SettingKeys.RagWorkloadModel,
+                ServiceOpsAI.Enums.AiWorkloadType.Classifier => SettingKeys.ClassifierWorkloadModel,
                 _ => null
             };
             if (key != null)
@@ -87,9 +87,9 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
             //   Rag        → embedding-model default
             //   Classifier → Copilot's model (initial intent: one model in two roles)
             //   everything else → the chat model
-            if (workload == AISupportAnalysisPlatform.Enums.AiWorkloadType.Rag)
+            if (workload == ServiceOpsAI.Enums.AiWorkloadType.Rag)
                 return EmbeddingModelName;
-            if (workload == AISupportAnalysisPlatform.Enums.AiWorkloadType.Classifier)
+            if (workload == ServiceOpsAI.Enums.AiWorkloadType.Classifier)
             {
                 var copilotModel = GetDbSetting(SettingKeys.CopilotWorkloadModel);
                 if (!string.IsNullOrWhiteSpace(copilotModel)) return copilotModel;
@@ -289,9 +289,9 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
             }
         }
 
-        public async Task<List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
+        public async Task<List<ServiceOpsAI.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
         {
-            var results = new List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>();
+            var results = new List<ServiceOpsAI.Models.DTOs.AiModelDto>();
             try
             {
                 var baseUrl = GetBaseUrl().TrimEnd('/') + "/";
@@ -336,7 +336,7 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
                             }
                         } catch { /* ignore show errors */ }
 
-                        return new AISupportAnalysisPlatform.Models.DTOs.AiModelDto
+                        return new ServiceOpsAI.Models.DTOs.AiModelDto
                         {
                             Name = name,
                             Size = sizeStr,

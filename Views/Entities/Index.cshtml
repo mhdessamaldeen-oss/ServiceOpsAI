@@ -1,9 +1,9 @@
-@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.DTOs.EntityDto>
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.EntityDto>
 
 @{
     ViewData["Title"] = "Entities Management";
     var request = Model.Request;
-    var entitiesTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    var entitiesTable = new ServiceOpsAI.Models.Common.FeatureTableShellViewModel
     {
         Title = "Entity Registry",
         Subtitle = "Shared operational table for active organizations and controls.",
@@ -14,7 +14,7 @@
         TableModel = Model,
         PaginationModel = Model
     };
-    var entitiesHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var entitiesHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Entities Registry",
         Subtitle = "Manage operational agencies and client hierarchies.",

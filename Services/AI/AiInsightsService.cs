@@ -1,20 +1,20 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using AISupportAnalysisPlatform.Services.Infrastructure;
-using AISupportAnalysisPlatform.Models.Common;
+using ServiceOpsAI.Services.Infrastructure;
+using ServiceOpsAI.Models.Common;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     public class AiInsightsService : IAiInsightsService
     {

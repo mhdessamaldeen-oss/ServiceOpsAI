@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     /// <summary>
     /// Builds the final analysis prompt from a prepared TicketContext.

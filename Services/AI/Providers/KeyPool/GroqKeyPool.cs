@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models.AI;
 using Microsoft.EntityFrameworkCore;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers.KeyPool;
+namespace ServiceOpsAI.Services.AI.Providers.KeyPool;
 
 /// <summary>
 /// EF-backed implementation of <see cref="IGroqKeyPool"/>. Selection rule: prefer the key with the

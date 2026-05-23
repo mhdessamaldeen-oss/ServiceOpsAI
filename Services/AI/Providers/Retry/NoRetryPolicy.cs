@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.AI.Providers.Retry
+namespace ServiceOpsAI.Services.AI.Providers.Retry
 {
     /// <summary>
     /// Default policy for providers that don't need retries (DockerLocal, Ollama, OpenAI proxies, etc.).

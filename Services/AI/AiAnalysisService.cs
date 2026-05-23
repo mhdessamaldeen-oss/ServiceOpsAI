@@ -1,14 +1,14 @@
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Services.AI.Providers;
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Services.AI.Providers;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Services.Infrastructure;
+using ServiceOpsAI.Services.Infrastructure;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     public class AiAnalysisService : IAiAnalysisService
     {
@@ -114,7 +114,7 @@ namespace AISupportAnalysisPlatform.Services.AI
 
         private async Task<TicketAiAnalysis> ExecuteAnalysisAsync(int ticketId, string userId)
         {
-            var provider = _providerFactory.GetProviderForWorkload(AISupportAnalysisPlatform.Enums.AiWorkloadType.Analysis);
+            var provider = _providerFactory.GetProviderForWorkload(ServiceOpsAI.Enums.AiWorkloadType.Analysis);
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
             // Create analysis record

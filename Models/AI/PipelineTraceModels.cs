@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     /// <summary>
     /// Root model for pipeline execution trace - represents a complete investigation

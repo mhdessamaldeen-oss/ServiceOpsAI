@@ -1,7 +1,7 @@
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Diagnostics;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Services.AI.Copilot.Diagnostics;
 
-namespace AISupportAnalysisPlatform.Services.AI;
+namespace ServiceOpsAI.Services.AI;
 
 public interface ISemanticSearchService
 {
@@ -43,6 +43,6 @@ public interface ISemanticSearchService
         CopilotTraceSink? trace = null,
         CancellationToken cancellationToken = default);
 
-    Task<AISupportAnalysisPlatform.Models.AI.RetrievalTuningSettings> GetTuningSettingsAsync();
-    Task UpdateTuningSettingsAsync(AISupportAnalysisPlatform.Models.AI.RetrievalTuningSettings settings);
+    Task<ServiceOpsAI.Models.AI.RetrievalTuningSettings> GetTuningSettingsAsync();
+    Task UpdateTuningSettingsAsync(ServiceOpsAI.Models.AI.RetrievalTuningSettings settings);
 }

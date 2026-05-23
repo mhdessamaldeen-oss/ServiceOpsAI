@@ -1,9 +1,9 @@
-@model IEnumerable<AISupportAnalysisPlatform.Models.Notification>
+@model IEnumerable<ServiceOpsAI.Models.Notification>
 
 @{
     ViewData["Title"] = "System Intelligence Alerts";
     var unreadCount = Model.Count(n => !n.IsRead);
-    var notificationsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var notificationsHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Alert Hub",
         Subtitle = "Track real-time system events and case assignments",

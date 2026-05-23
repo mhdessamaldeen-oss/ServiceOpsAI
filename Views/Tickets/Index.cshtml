@@ -1,9 +1,9 @@
-@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.Ticket>
 
 @{
     ViewData["Title"] = Loc.Get("Tickets");
     var request = Model.Request;
-    var ticketsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var ticketsHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = Loc.Get("OperationalInquiries"),
         Subtitle = Loc.Get("InquiriesSubtitle"),

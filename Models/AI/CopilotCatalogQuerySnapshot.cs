@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     /// <summary>
     /// JSON-serializable snapshot of the validated catalog query that produced a SQL execution.

@@ -1,9 +1,9 @@
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Services.Infrastructure;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Services.Infrastructure;
+using ServiceOpsAI.Constants;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     public class AiReviewSignalService : IAiReviewSignalService
     {

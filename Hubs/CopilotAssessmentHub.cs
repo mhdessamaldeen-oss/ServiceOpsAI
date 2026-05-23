@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 
-namespace AISupportAnalysisPlatform.Hubs
+namespace ServiceOpsAI.Hubs
 {
     public class CopilotAssessmentHub : Hub
     {

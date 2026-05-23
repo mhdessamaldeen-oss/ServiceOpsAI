@@ -1,10 +1,10 @@
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI.Common;
-using AISupportAnalysisPlatform.Services.AI.Providers;
-using AISupportAnalysisPlatform.Services.AI.Retrieval;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI.Common;
+using ServiceOpsAI.Services.AI.Providers;
+using ServiceOpsAI.Services.AI.Retrieval;
 using System.Text.Json;
 
-namespace AISupportAnalysisPlatform.Services.AI.Investigation
+namespace ServiceOpsAI.Services.AI.Investigation
 {
     public class CopilotRecommendationAnalyzer
     {
@@ -43,7 +43,7 @@ namespace AISupportAnalysisPlatform.Services.AI.Investigation
                 ticketId, count: 3,
                 restrictToTerminalStatuses: true, requirePrecisionThreshold: true);
             var knowledgeMatches = await _knowledgeBaseRagService.SearchAsync(BuildKnowledgeQuery(context), count: 3);
-            var provider = _providerFactory.GetProviderForWorkload(AISupportAnalysisPlatform.Enums.AiWorkloadType.Rag);
+            var provider = _providerFactory.GetProviderForWorkload(ServiceOpsAI.Enums.AiWorkloadType.Rag);
 
             var recommendation = new CopilotTicketRecommendation
             {

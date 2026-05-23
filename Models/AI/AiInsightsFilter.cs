@@ -1,7 +1,7 @@
 using System;
-using AISupportAnalysisPlatform.Models.Common;
+using ServiceOpsAI.Models.Common;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     public class AiInsightsFilter
     {

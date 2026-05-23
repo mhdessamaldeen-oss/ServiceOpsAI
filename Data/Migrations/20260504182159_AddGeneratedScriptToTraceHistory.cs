@@ -1,8 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AISupportAnalysisPlatform.Data.Migrations
+namespace ServiceOpsAI.Data.Migrations
 {
     /// <inheritdoc />
     public partial class AddGeneratedScriptToTraceHistory : Migration

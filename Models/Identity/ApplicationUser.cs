@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
 
-namespace AISupportAnalysisPlatform.Models
+namespace ServiceOpsAI.Models
 {
     public class ApplicationUser : IdentityUser
     {

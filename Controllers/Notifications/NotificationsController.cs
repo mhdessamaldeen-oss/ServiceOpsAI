@@ -1,15 +1,15 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Models.DTOs;
-using AISupportAnalysisPlatform.Models.Common;
+using ServiceOpsAI.Models.DTOs;
+using ServiceOpsAI.Models.Common;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 
-namespace AISupportAnalysisPlatform.Controllers.Notifications
+namespace ServiceOpsAI.Controllers.Notifications
 {
     [Authorize]
     public class NotificationsController : Controller

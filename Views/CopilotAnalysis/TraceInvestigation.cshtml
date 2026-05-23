@@ -1,4 +1,4 @@
-@using AISupportAnalysisPlatform.Services.AI.Copilot.Analysis
+@using ServiceOpsAI.Services.AI.Copilot.Analysis
 @{
     ViewData["Title"] = "Copilot Trace Investigation";
     var report = ViewBag.Report as TraceAnalysisReport;
@@ -6,7 +6,7 @@
     var anomalies = ViewBag.Anomalies as List<AnomalousTrace>;
     var intentDist = ViewBag.IntentDistribution as IntentDistributionReport;
 
-    var traceInvHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var traceInvHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Copilot Trace Deep Dive",
         Subtitle = $"Analysis of {report?.TotalTracesAnalyzed ?? 0} traces to understand answer patterns",

@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers.KeyPool;
+namespace ServiceOpsAI.Services.AI.Providers.KeyPool;
 
 /// <summary>
 /// Owns the multi-key rotation strategy for Gemini. The provider asks the pool for a key,

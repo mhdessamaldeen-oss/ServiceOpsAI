@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\AISupportAnalysisPlatform.csproj" />
+    <ProjectReference Include="..\..\ServiceOpsAI.csproj" />
   </ItemGroup>
 
 </Project>

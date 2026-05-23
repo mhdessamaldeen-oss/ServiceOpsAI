@@ -1,9 +1,9 @@
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models.AI;
 using Microsoft.EntityFrameworkCore;
 
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Analysis
+namespace ServiceOpsAI.Services.AI.Copilot.Analysis
 {
     /// <summary>
     /// Deep inspection of actual Copilot trace data from database

@@ -1,7 +1,7 @@
-@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
-@using AISupportAnalysisPlatform.Models
-@using AISupportAnalysisPlatform.Extensions
-@using AISupportAnalysisPlatform.Constants
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.Ticket>
+@using ServiceOpsAI.Models
+@using ServiceOpsAI.Extensions
+@using ServiceOpsAI.Constants
 
 @{
     var analysesByTicketId = ViewBag.AnalysesByTicketId as Dictionary<int, TicketAiAnalysis> ?? new Dictionary<int, TicketAiAnalysis>();

@@ -1,11 +1,11 @@
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Trace;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI.Copilot.Trace;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace AISupportAnalysisPlatform.Controllers.AI
+namespace ServiceOpsAI.Controllers.AI
 {
     /// <summary>
     /// API for visualizing copilot pipeline execution

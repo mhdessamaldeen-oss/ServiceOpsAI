@@ -1,18 +1,18 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Models.DTOs;
+using ServiceOpsAI.Models.DTOs;
 using AutoMapper;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Assessment;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Tools;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI;
+using ServiceOpsAI.Services.AI.Copilot.Assessment;
+using ServiceOpsAI.Services.AI.Copilot.Tools;
 
-namespace AISupportAnalysisPlatform.Controllers.Reports
+namespace ServiceOpsAI.Controllers.Reports
 {
     [Authorize]
     public class ReportsController : Controller

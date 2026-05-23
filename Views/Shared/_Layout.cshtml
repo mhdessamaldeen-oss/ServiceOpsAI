@@ -1,7 +1,7 @@
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
-@inject AISupportAnalysisPlatform.Data.ApplicationDbContext DbContext
+@inject ServiceOpsAI.Data.ApplicationDbContext DbContext
 
 @{
     var themeSetting = DbContext.SystemSettings.FirstOrDefault(s => s.Key == "DefaultTheme");

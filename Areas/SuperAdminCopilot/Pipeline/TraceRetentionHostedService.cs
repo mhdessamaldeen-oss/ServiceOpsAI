@@ -1,7 +1,7 @@
 namespace SuperAdminCopilot.Pipeline;
 
 using System.Diagnostics;
-using AISupportAnalysisPlatform.Data;
+using ServiceOpsAI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -92,7 +92,7 @@ internal sealed class TraceRetentionHostedService : BackgroundService
         // affected-row count goes to ops dashboard. Bounded by retention window so we never
         // delete recent traces even if cutoff math is wrong.
         var deleteSw = Stopwatch.StartNew();
-        var deleted = await ctx.Set<AISupportAnalysisPlatform.Models.AI.CopilotTraceHistory>()
+        var deleted = await ctx.Set<ServiceOpsAI.Models.AI.CopilotTraceHistory>()
             .Where(t => t.CreatedAt < cutoff)
             .ExecuteDeleteAsync(cancellationToken);
         deleteSw.Stop();

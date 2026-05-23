@@ -1,12 +1,12 @@
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models.AI;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SuperAdminCopilot.Models;
 using SuperAdminCopilot.Pipeline;
 
-namespace AISupportAnalysisPlatform.Controllers.AI;
+namespace ServiceOpsAI.Controllers.AI;
 
 // Backend-authoritative workflow graph endpoint.
 //

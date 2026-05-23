@@ -2,11 +2,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Threading.Tasks;
-using AISupportAnalysisPlatform.Data;
+using ServiceOpsAI.Data;
 using Microsoft.AspNetCore.Identity;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Models;
 
-namespace AISupportAnalysisPlatform.ViewComponents
+namespace ServiceOpsAI.ViewComponents
 {
     public class NotificationCountViewComponent : ViewComponent
     {

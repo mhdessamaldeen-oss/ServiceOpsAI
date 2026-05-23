@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Suggestions;
+namespace ServiceOpsAI.Services.AI.Copilot.Suggestions;
 
 /// <summary>
 /// Returns a small, diverse set of example prompts the system is known to handle correctly.

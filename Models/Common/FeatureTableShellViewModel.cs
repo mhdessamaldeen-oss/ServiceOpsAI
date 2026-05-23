@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Html;
 
-namespace AISupportAnalysisPlatform.Models.Common;
+namespace ServiceOpsAI.Models.Common;
 
 public class FeatureTableShellViewModel
 {

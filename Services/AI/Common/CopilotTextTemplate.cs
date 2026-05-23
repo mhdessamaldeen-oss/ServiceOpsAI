@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using Scriban;
 using Scriban.Runtime;
 
-namespace AISupportAnalysisPlatform.Services.AI.Common
+namespace ServiceOpsAI.Services.AI.Common
 {
     public static class CopilotTextTemplate
     {

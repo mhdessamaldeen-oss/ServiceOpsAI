@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace AISupportAnalysisPlatform.Models.Common
+namespace ServiceOpsAI.Models.Common
 {
     public class GridRequestModel
     {

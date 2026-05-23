@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Models.DTOs
+namespace ServiceOpsAI.Models.DTOs
 {
     public class BenchmarkResultDto
     {

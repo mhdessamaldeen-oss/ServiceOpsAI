@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Data;
+namespace ServiceOpsAI.Data;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
@@ -24,16 +24,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<TicketAiAnalysis> TicketAiAnalyses { get; set; }
     public DbSet<TicketAiAnalysisLog> TicketAiAnalysisLogs { get; set; }
     public DbSet<TicketSemanticEmbedding> TicketSemanticEmbeddings { get; set; }
-    public DbSet<AISupportAnalysisPlatform.Models.AI.RetrievalBenchmarkRun> RetrievalBenchmarkRuns { get; set; }
-    public DbSet<AISupportAnalysisPlatform.Models.AI.CopilotToolDefinition> CopilotToolDefinitions { get; set; }
+    public DbSet<ServiceOpsAI.Models.AI.RetrievalBenchmarkRun> RetrievalBenchmarkRuns { get; set; }
+    public DbSet<ServiceOpsAI.Models.AI.CopilotToolDefinition> CopilotToolDefinitions { get; set; }
 
-    public DbSet<AISupportAnalysisPlatform.Models.AI.CopilotTraceHistory> CopilotTraceHistories { get; set; }
-    public DbSet<AISupportAnalysisPlatform.Models.AI.CopilotAssessmentRunSummary> CopilotAssessmentRunSummaries { get; set; }
-    public DbSet<AISupportAnalysisPlatform.Models.AI.CopilotChatSession> CopilotChatSessions { get; set; }
-    public DbSet<AISupportAnalysisPlatform.Models.AI.CopilotChatMessageEntity> CopilotChatMessages { get; set; }
-    public DbSet<AISupportAnalysisPlatform.Models.AI.GeminiApiKey> GeminiApiKeys { get; set; }
-    public DbSet<AISupportAnalysisPlatform.Models.AI.GroqApiKey> GroqApiKeys { get; set; }
-    public DbSet<AISupportAnalysisPlatform.Models.AI.ModelPricing> ModelPricings { get; set; }
+    public DbSet<ServiceOpsAI.Models.AI.CopilotTraceHistory> CopilotTraceHistories { get; set; }
+    public DbSet<ServiceOpsAI.Models.AI.CopilotAssessmentRunSummary> CopilotAssessmentRunSummaries { get; set; }
+    public DbSet<ServiceOpsAI.Models.AI.CopilotChatSession> CopilotChatSessions { get; set; }
+    public DbSet<ServiceOpsAI.Models.AI.CopilotChatMessageEntity> CopilotChatMessages { get; set; }
+    public DbSet<ServiceOpsAI.Models.AI.GeminiApiKey> GeminiApiKeys { get; set; }
+    public DbSet<ServiceOpsAI.Models.AI.GroqApiKey> GroqApiKeys { get; set; }
+    public DbSet<ServiceOpsAI.Models.AI.ModelPricing> ModelPricings { get; set; }
 
     
     protected override void OnModelCreating(ModelBuilder builder)

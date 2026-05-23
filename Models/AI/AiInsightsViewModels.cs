@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using AISupportAnalysisPlatform.Models.Common;
+using ServiceOpsAI.Models.Common;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     public class AiInsightsDashboardViewModel
     {

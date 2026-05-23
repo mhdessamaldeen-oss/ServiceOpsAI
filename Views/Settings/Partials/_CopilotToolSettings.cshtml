@@ -24,7 +24,7 @@
                         </thead>
                         <tbody>
                             @{
-                                var tools = ViewBag.CopilotTools as List<AISupportAnalysisPlatform.Models.AI.CopilotToolDefinition> ?? new();
+                                var tools = ViewBag.CopilotTools as List<ServiceOpsAI.Models.AI.CopilotToolDefinition> ?? new();
                             }
                             @if (!tools.Any())
                             {

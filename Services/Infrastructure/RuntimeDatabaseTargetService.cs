@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Data;
+using ServiceOpsAI.Data;
 
-namespace AISupportAnalysisPlatform.Services.Infrastructure;
+namespace ServiceOpsAI.Services.Infrastructure;
 
 public enum RuntimeDatabaseProvider
 {

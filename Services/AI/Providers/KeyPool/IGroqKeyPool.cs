@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers.KeyPool;
+namespace ServiceOpsAI.Services.AI.Providers.KeyPool;
 
 /// <summary>
 /// Multi-key rotation strategy for Groq, mirroring <see cref="IGeminiKeyPool"/>. Difference: Groq

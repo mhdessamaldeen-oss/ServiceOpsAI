@@ -1,7 +1,7 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
 
-namespace AISupportAnalysisPlatform.Services.Notifications;
+namespace ServiceOpsAI.Services.Notifications;
 
 public class NotificationService : INotificationService
 {

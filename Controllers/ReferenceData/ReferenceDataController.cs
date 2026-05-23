@@ -1,14 +1,14 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
-using AISupportAnalysisPlatform.Models.DTOs;
+using ServiceOpsAI.Models.DTOs;
 
-namespace AISupportAnalysisPlatform.Controllers.ReferenceData
+namespace ServiceOpsAI.Controllers.ReferenceData
 {
     [Authorize(Roles = RoleNames.Admin)]
     public class ReferenceDataController : Controller

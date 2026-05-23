@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// Unified result returned by all AI providers.

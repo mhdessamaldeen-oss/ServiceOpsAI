@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Models
+namespace ServiceOpsAI.Models
 {
     /// <summary>
     /// Tracks the real-time progress of a bulk embedding operation.

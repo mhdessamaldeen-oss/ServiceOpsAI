@@ -1,7 +1,7 @@
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Models.Common;
+namespace ServiceOpsAI.Models.Common;
 
 public class DashboardViewModel
 {

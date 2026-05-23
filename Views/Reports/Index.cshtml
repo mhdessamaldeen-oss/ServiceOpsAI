@@ -1,4 +1,4 @@
-@using AISupportAnalysisPlatform.Models.DTOs
+@using ServiceOpsAI.Models.DTOs
 @{
     ViewData["Title"] = Loc.Get("OperationsIntelligence");
 
@@ -30,7 +30,7 @@
                 ? string.Format(Loc.Get("DateWindowUntil"), endDate)
                 : Loc.Get("DateWindowAll");
 
-    var reportsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var reportsHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = Loc.Get("OperationsIntelligence"),
         Subtitle = Loc.Get("OperationsIntelligenceSubtitle"),

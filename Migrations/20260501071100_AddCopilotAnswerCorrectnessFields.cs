@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AISupportAnalysisPlatform.Migrations
+namespace ServiceOpsAI.Migrations
 {
     /// <inheritdoc />
     public partial class AddCopilotAnswerCorrectnessFields : Migration

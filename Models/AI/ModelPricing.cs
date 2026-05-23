@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     /// <summary>
     /// Pricing for an LLM model identified by (Provider, Model). Stored in the database
@@ -19,7 +19,7 @@ namespace AISupportAnalysisPlatform.Models.AI
         public int Id { get; set; }
 
         /// <summary>Logical provider name (e.g. "gemini", "openai", "groq", "ollama",
-        /// "cloud", "docker", "local"). Matches <see cref="AISupportAnalysisPlatform.Services.AI.Providers.AiProviderType"/>
+        /// "cloud", "docker", "local"). Matches <see cref="ServiceOpsAI.Services.AI.Providers.AiProviderType"/>
         /// stringified, but kept as a free string so new providers don't require an enum migration.</summary>
         [Required, StringLength(50)]
         public string Provider { get; set; } = string.Empty;

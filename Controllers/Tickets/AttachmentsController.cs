@@ -1,10 +1,10 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AISupportAnalysisPlatform.Controllers.Tickets
+namespace ServiceOpsAI.Controllers.Tickets
 {
     [Authorize]
     public class AttachmentsController : Controller

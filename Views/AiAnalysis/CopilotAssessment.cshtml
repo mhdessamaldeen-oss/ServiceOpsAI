@@ -1,6 +1,6 @@
 @using System.Linq
 @using System.Text.Json
-@using AISupportAnalysisPlatform.Models.AI
+@using ServiceOpsAI.Models.AI
 @model CopilotAssessmentLabViewModel
 @{
     ViewData["Title"] = "Copilot Assessment Lab";
@@ -20,7 +20,7 @@
     var needsAnswerCount = allCases.Count - hasAnswerCount;
     var request = Model.CatalogPage.Request;
 
-    var assessmentHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var assessmentHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Copilot Assessment Lab",
         Subtitle = Loc.Get("AssessmentHubSubtitle"),

@@ -1,5 +1,5 @@
-using AISupportAnalysisPlatform.Enums;
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+using ServiceOpsAI.Enums;
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// Core abstraction for all AI providers.
@@ -42,7 +42,7 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
         /// Retrieves a list of models currently installed/available on the local machine for this provider.
         /// Primarily used for Docker and Ollama.
         /// </summary>
-        Task<List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>> GetInstalledModelsAsync();
+        Task<List<ServiceOpsAI.Models.DTOs.AiModelDto>> GetInstalledModelsAsync();
     }
 }
 

@@ -1,14 +1,14 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using System.Text;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// AI provider implementation that uses 'docker model run' CLI.
@@ -243,9 +243,9 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
                 .ToList()!;
         }
 
-        public async Task<List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
+        public async Task<List<ServiceOpsAI.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
         {
-            var results = new List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>();
+            var results = new List<ServiceOpsAI.Models.DTOs.AiModelDto>();
             try
             {
                 var processInfo = new ProcessStartInfo("docker")
@@ -286,7 +286,7 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
                         if (parts.Length >= 1)
                         {
                             var name = parts[0];
-                            results.Add(new AISupportAnalysisPlatform.Models.DTOs.AiModelDto
+                            results.Add(new ServiceOpsAI.Models.DTOs.AiModelDto
                             {
                                 Name = name,
                                 Size = parts.Length > 1 ? parts[parts.Length - 1] : "Unknown",

@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.Infrastructure
+namespace ServiceOpsAI.Services.Infrastructure
 {
     /// <summary>
     /// Marker type for ASP.NET localization infrastructure.

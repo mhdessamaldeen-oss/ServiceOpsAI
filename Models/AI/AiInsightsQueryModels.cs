@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 
-namespace AISupportAnalysisPlatform.Models.AI;
+namespace ServiceOpsAI.Models.AI;
 
 internal sealed class FilteredAnalysisData
 {

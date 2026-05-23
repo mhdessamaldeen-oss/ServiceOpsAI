@@ -1,8 +1,8 @@
-@model AISupportAnalysisPlatform.Models.Entity
+@model ServiceOpsAI.Models.Entity
 
 @{
     ViewData["Title"] = Loc.Get("ModifyEntity");
-    var entityEditHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var entityEditHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = Loc.Get("ModifyEntity"),
         Subtitle = $"{Loc.Get("ModifyEntityDesc")} {Model.Name}",

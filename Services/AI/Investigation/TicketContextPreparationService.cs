@@ -1,11 +1,11 @@
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Services.Infrastructure;
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Services.Infrastructure;
+using ServiceOpsAI.Enums;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     /// <summary>
     /// Collects and prepares all ticket evidence (description, comments, attachment text/logs)

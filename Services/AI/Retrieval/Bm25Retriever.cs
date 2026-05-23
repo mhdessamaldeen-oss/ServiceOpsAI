@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.AI.Retrieval
+namespace ServiceOpsAI.Services.AI.Retrieval
 {
     /// <summary>
     /// Standard Okapi BM25 — the algorithm Elasticsearch / Lucene have shipped for

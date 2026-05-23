@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     /// <summary>
     /// Defines the primary operational modes for the Admin Copilot.

@@ -1,8 +1,8 @@
-@model List<AISupportAnalysisPlatform.Models.CustomTheme>
+@model List<ServiceOpsAI.Models.CustomTheme>
 @{
     ViewData["Title"] = Loc.Get("Settings");
     var activeTab = ViewBag.ActiveTab as string ?? "ai";
-    var settingsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var settingsHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = Loc.Get("PlatformSettings"),
         Subtitle = Loc.Get("PlatformSettingsDescription"),

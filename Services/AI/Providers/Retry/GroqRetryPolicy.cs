@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Data;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers.Retry
+namespace ServiceOpsAI.Services.AI.Providers.Retry
 {
     /// <summary>
     /// Retry strategy for Groq's transient failures. Mirrors GeminiRateLimitPolicy but tuned for Groq:

@@ -1,8 +1,8 @@
 namespace SuperAdminCopilot.HostBridge;
 
 using System.Globalization;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

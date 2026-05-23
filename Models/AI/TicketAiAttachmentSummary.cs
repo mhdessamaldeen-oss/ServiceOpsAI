@@ -1,8 +1,8 @@
 using System;
 using System.ComponentModel.DataAnnotations;
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 
-namespace AISupportAnalysisPlatform.Models
+namespace ServiceOpsAI.Models
 {
     /// <summary>
     /// Normalized per-attachment AI summary. One row per analyzed file per analysis run.

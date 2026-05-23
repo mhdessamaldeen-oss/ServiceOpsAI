@@ -92,7 +92,7 @@ $appProcess = $null
 try {
     if ($StartApp) {
         $projectRoot = Split-Path -Parent $PSScriptRoot
-        $exePath = Join-Path $projectRoot "bin\Debug\net10.0\AISupportAnalysisPlatform.exe"
+        $exePath = Join-Path $projectRoot "bin\Debug\net10.0\ServiceOpsAI.exe"
         if (-not (Test-Path $exePath)) {
             throw "App executable not found at $exePath. Build the project first."
         }

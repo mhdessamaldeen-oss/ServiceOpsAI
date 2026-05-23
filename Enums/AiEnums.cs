@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace AISupportAnalysisPlatform.Enums 
+namespace ServiceOpsAI.Enums 
 { 
     public enum AiAnalysisStatus 
     { 

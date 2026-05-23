@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace AISupportAnalysisPlatform.Models.AI;
+namespace ServiceOpsAI.Models.AI;
 
 /// <summary>
 /// One Gemini API key in the pool. The pool service rotates across these so a single key's daily

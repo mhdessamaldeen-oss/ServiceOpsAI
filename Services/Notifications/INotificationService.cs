@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.Notifications;
+namespace ServiceOpsAI.Services.Notifications;
 
 public interface INotificationService
 {

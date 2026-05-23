@@ -2,7 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Reflection;
 
-namespace AISupportAnalysisPlatform.Extensions
+namespace ServiceOpsAI.Extensions
 {
     public static class EnumExtensions
     {

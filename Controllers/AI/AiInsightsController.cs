@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Services.AI;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Models.Common;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Services.AI;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Models.Common;
 
-namespace AISupportAnalysisPlatform.Controllers.AI
+namespace ServiceOpsAI.Controllers.AI
 {
     [Authorize(Roles = RoleNames.Admin)]
     public class AiInsightsController : Controller

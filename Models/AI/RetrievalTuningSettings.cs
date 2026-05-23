@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     // Single tunable POCO for ALL retrieval knobs across the platform — ticket
     // similarity AND knowledge-base RAG AND the Tier-2 reranker / fusion / grounding

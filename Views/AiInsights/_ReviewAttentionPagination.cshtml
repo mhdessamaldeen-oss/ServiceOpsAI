@@ -1,4 +1,4 @@
-@model AISupportAnalysisPlatform.Models.AI.AiInsightsDashboardViewModel
+@model ServiceOpsAI.Models.AI.AiInsightsDashboardViewModel
 @{
     var filter = Model.Filter;
     var page = Model.ReviewItems;
@@ -114,7 +114,7 @@
             <span>@(Loc.Get("ItemsPerPage")):</span>
             @foreach (var size in new[] { 10, 25, 50, 100, -1 })
             {
-                var isActive = filter.PageSize == size || (size == -1 && filter.PageSize == AISupportAnalysisPlatform.Models.Common.GridRequestModel.FullDataPageSize);
+                var isActive = filter.PageSize == size || (size == -1 && filter.PageSize == ServiceOpsAI.Models.Common.GridRequestModel.FullDataPageSize);
                 <a href="@Url.Action("Index", "AiInsights", getRouteWithPageSize(size))"
                    data-page-size="@size"
                    class="btn btn-sm ajax-pagination-link rounded-pill fw-bold px-3 shadow-none @(isActive ? "btn-primary text-black" : "btn-outline-secondary")"

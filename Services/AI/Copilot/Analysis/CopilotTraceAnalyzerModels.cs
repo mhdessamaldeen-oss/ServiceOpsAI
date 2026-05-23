@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Analysis
+namespace ServiceOpsAI.Services.AI.Copilot.Analysis
 {
     // ─── DTO models for the trace analyzer ──────────────────────────────────────────────
     // Extracted 2026-05-08 from the bottom of CopilotTraceAnalyzer.cs (was 584-line file).

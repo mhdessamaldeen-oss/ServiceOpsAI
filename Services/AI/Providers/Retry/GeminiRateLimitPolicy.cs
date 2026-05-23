@@ -1,10 +1,10 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Data;
 using Microsoft.Extensions.Logging;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers.Retry
+namespace ServiceOpsAI.Services.AI.Providers.Retry
 {
     /// <summary>
     /// Retry strategy for Google Gemini transient failures.

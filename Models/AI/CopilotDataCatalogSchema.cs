@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     /// <summary>
     /// Canonical schema vocabulary for the approved copilot data catalog.

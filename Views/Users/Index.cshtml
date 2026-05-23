@@ -1,9 +1,9 @@
-@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.DTOs.UserDto>
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.UserDto>
 
 @{
     ViewData["Title"] = "Users Management";
     var request = Model.Request;
-    var usersTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    var usersTable = new ServiceOpsAI.Models.Common.FeatureTableShellViewModel
     {
         Title = "Access Directory",
         Subtitle = "Unified user grid with shared filters, search, and table controls.",
@@ -14,7 +14,7 @@
         TableModel = Model,
         PaginationModel = Model
     };
-    var usersHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var usersHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Human Resources",
         Subtitle = "Manage user access and organizational allocations",

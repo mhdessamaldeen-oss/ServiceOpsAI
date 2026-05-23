@@ -1,20 +1,20 @@
 using AutoMapper;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Models.Common;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Services.Notifications;
-using AISupportAnalysisPlatform.Services.AI;
+using ServiceOpsAI.Services.Notifications;
+using ServiceOpsAI.Services.AI;
 
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Models.DTOs;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Models.DTOs;
 using AutoMapper.QueryableExtensions;
 
-namespace AISupportAnalysisPlatform.Controllers.Tickets
+namespace ServiceOpsAI.Controllers.Tickets
 {
     [Authorize]
     public class TicketsController : Controller

@@ -1,10 +1,10 @@
-@model AISupportAnalysisPlatform.Models.Common.PagedResult<AISupportAnalysisPlatform.Models.Ticket>
-@using AISupportAnalysisPlatform.Models
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.Ticket>
+@using ServiceOpsAI.Models
 
 @{
     ViewData["Title"] = Loc.Get("AnalysisHub");
     var visibleTicketCount = Model.Items?.Count ?? 0;
-    var hubHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var hubHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = Loc.Get("AnalysisHub"),
         IconClass = "bi bi-graph-up-arrow",

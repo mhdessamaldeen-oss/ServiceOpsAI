@@ -4,21 +4,21 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI.Contracts;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI.Contracts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
 using System.Reflection;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Tools;
+using ServiceOpsAI.Services.AI.Copilot.Tools;
 using Microsoft.AspNetCore.SignalR;
-using AISupportAnalysisPlatform.Hubs;
+using ServiceOpsAI.Hubs;
 using SuperAdminCopilot.HostBridge;
 
 
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Assessment
+namespace ServiceOpsAI.Services.AI.Copilot.Assessment
 {
     /// <summary>
     /// Loads the curated Copilot assessment catalog and runs the active assessment suite.

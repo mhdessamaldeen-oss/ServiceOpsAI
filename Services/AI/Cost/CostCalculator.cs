@@ -1,11 +1,11 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI.Providers;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI.Providers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace AISupportAnalysisPlatform.Services.AI.Cost
+namespace ServiceOpsAI.Services.AI.Cost
 {
     /// <summary>
     /// Computes USD cost for an LLM call from a (Provider, Model) tuple plus the call's

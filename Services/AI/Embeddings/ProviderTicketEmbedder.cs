@@ -1,8 +1,8 @@
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Services.AI.Providers;
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Services.AI.Providers;
 using Microsoft.Extensions.Logging;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     /// <summary>
     /// Ticket embedder that delegates to whichever provider is currently selected for the

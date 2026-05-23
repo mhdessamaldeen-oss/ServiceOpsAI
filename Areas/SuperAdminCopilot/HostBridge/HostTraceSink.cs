@@ -1,10 +1,10 @@
 namespace SuperAdminCopilot.HostBridge;
 
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Trace;
-using AISupportAnalysisPlatform.Services.AI.Providers;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI.Copilot.Trace;
+using ServiceOpsAI.Services.AI.Providers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -42,14 +42,14 @@ internal sealed class HostTraceSink : ITraceSink
     private readonly CopilotTraceHistoryStore _store;
     private readonly IAiProviderFactory _providerFactory;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly AISupportAnalysisPlatform.Services.AI.Cost.ICostCalculator _costCalculator;
+    private readonly ServiceOpsAI.Services.AI.Cost.ICostCalculator _costCalculator;
     private readonly ILogger<HostTraceSink> _logger;
 
     public HostTraceSink(
         CopilotTraceHistoryStore store,
         IAiProviderFactory providerFactory,
         IServiceScopeFactory scopeFactory,
-        AISupportAnalysisPlatform.Services.AI.Cost.ICostCalculator costCalculator,
+        ServiceOpsAI.Services.AI.Cost.ICostCalculator costCalculator,
         ILogger<HostTraceSink> logger)
     {
         _store = store;

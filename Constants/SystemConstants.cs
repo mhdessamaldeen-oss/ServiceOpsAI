@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Constants
+namespace ServiceOpsAI.Constants
 {
     public static class RoleNames
     {

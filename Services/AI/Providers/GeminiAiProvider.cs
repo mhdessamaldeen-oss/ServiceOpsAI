@@ -1,13 +1,13 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using System.Text;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Services.AI.Providers.KeyPool;
-using AISupportAnalysisPlatform.Services.AI.Providers.Retry;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Services.AI.Providers.KeyPool;
+using ServiceOpsAI.Services.AI.Providers.Retry;
 using Microsoft.Extensions.Options;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// AI provider for Google Gemini (AI Studio / Vertex AI). Handles Gemini's native JSON shape for
@@ -259,9 +259,9 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
             return db.SystemSettings.FirstOrDefault(s => s.Key == key)?.Value;
         }
 
-        public async Task<List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
+        public async Task<List<ServiceOpsAI.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
         {
-            var results = new List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>();
+            var results = new List<ServiceOpsAI.Models.DTOs.AiModelDto>();
             var apiKey = GetLegacyApiKey();
             if (string.IsNullOrWhiteSpace(apiKey)) return results;
 
@@ -291,7 +291,7 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
                     var family = m.TryGetProperty("displayName", out var dn) ? dn.GetString() : null;
                     var ctx = m.TryGetProperty("inputTokenLimit", out var tl) ? tl.GetInt32().ToString("N0") : null;
 
-                    results.Add(new AISupportAnalysisPlatform.Models.DTOs.AiModelDto
+                    results.Add(new ServiceOpsAI.Models.DTOs.AiModelDto
                     {
                         Name = name,
                         Family = family,

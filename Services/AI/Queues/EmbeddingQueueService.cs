@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Models;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     /// <summary>
     /// Singleton service that tracks embedding batch progress and supports cancellation.

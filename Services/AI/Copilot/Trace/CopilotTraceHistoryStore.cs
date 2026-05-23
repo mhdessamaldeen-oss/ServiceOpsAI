@@ -1,10 +1,10 @@
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models.AI;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Trace
+namespace ServiceOpsAI.Services.AI.Copilot.Trace
 {
     public class CopilotTraceHistoryStore
     {

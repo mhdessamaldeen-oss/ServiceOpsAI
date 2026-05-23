@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Options;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Services.AI.Common
+namespace ServiceOpsAI.Services.AI.Common
 {
     public sealed class CopilotTextCatalog
     {

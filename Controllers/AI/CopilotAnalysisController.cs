@@ -1,10 +1,10 @@
-using AISupportAnalysisPlatform.Services.AI.Copilot.Analysis;
+using ServiceOpsAI.Services.AI.Copilot.Analysis;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AISupportAnalysisPlatform.Controllers.AI
+namespace ServiceOpsAI.Controllers.AI
 {
-    using static AISupportAnalysisPlatform.Services.AI.Copilot.Analysis.TraceDataInspector;
+    using static ServiceOpsAI.Services.AI.Copilot.Analysis.TraceDataInspector;
     [Authorize(Roles = "Admin")]
     [Route("AiAnalysis/[controller]/[action]")]
     public class CopilotAnalysisController : Controller

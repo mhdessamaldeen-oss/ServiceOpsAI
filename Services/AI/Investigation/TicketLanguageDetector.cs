@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     public static class TicketLanguageDetector
     {

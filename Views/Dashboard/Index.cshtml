@@ -1,8 +1,8 @@
-@model AISupportAnalysisPlatform.Models.Common.DashboardViewModel
+@model ServiceOpsAI.Models.Common.DashboardViewModel
 
 @{
     ViewData["Title"] = Loc.Get("Dashboard");
-    var dashboardHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var dashboardHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = Loc.Get("Dashboard"),
         Subtitle = Loc.Get("AppDescription"),
@@ -18,7 +18,7 @@
         }
     };
 
-    var recentTicketsTable = new AISupportAnalysisPlatform.Models.Common.FeatureTableShellViewModel
+    var recentTicketsTable = new ServiceOpsAI.Models.Common.FeatureTableShellViewModel
     {
         Title = Loc.Get("RecentTickets"),
         Subtitle = Loc.Get("RecentTicketsSubtitle") ?? "Latest inbound and in-progress work items",

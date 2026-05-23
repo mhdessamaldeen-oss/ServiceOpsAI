@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AISupportAnalysisPlatform.Migrations
+namespace ServiceOpsAI.Migrations
 {
     /// <inheritdoc />
     public partial class AddTicketWorkflowFields : Migration

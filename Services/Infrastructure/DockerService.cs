@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace AISupportAnalysisPlatform.Services.Infrastructure;
+namespace ServiceOpsAI.Services.Infrastructure;
 
 public class DockerService : IDockerService
 {

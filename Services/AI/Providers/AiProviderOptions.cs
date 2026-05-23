@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Constants;
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Constants;
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// Root configuration for AI provider selection.

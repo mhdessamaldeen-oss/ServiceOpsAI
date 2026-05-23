@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// Shared parser for the OpenAI-style <c>usage</c> object that OpenAI, Groq, Azure /

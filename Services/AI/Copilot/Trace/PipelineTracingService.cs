@@ -1,7 +1,7 @@
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 using System.Collections.Concurrent;
 
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Trace
+namespace ServiceOpsAI.Services.AI.Copilot.Trace
 {
     /// <summary>
     /// Service to trace and capture the entire pipeline execution for visualization.

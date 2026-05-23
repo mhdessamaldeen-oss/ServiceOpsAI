@@ -1,5 +1,5 @@
-@model AISupportAnalysisPlatform.Models.AI.AdminCopilotExecutionDetails
-@using AISupportAnalysisPlatform.Models.AI
+@model ServiceOpsAI.Models.AI.AdminCopilotExecutionDetails
+@using ServiceOpsAI.Models.AI
 @using System.Text.Json
 
 @*
@@ -383,7 +383,7 @@
     // start and finish. Seed Q with the actual user question, and the chosen terminal (ANS for
     // success, ABORT for any failure token) with the corresponding payload so clicking it shows
     // the real text.
-    var traceObj = ViewBag.Trace as AISupportAnalysisPlatform.Models.AI.CopilotTraceHistory;
+    var traceObj = ViewBag.Trace as ServiceOpsAI.Models.AI.CopilotTraceHistory;
     if (traceObj != null)
     {
         if (!nodeMap.ContainsKey("Q"))

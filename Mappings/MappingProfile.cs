@@ -1,11 +1,11 @@
 using AutoMapper;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Models.DTOs;
-using AISupportAnalysisPlatform.Models.Common;
-using AISupportAnalysisPlatform.Services.AI;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Models.DTOs;
+using ServiceOpsAI.Models.Common;
+using ServiceOpsAI.Services.AI;
 
-namespace AISupportAnalysisPlatform.Mappings
+namespace ServiceOpsAI.Mappings
 {
     public class MappingProfile : Profile
     {

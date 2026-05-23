@@ -1,15 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Models.Common;
-using AISupportAnalysisPlatform.Models.DTOs;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.Common;
+using ServiceOpsAI.Models.DTOs;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 
-namespace AISupportAnalysisPlatform.Controllers.Entities
+namespace ServiceOpsAI.Controllers.Entities
 {
     [Authorize(Roles = RoleNames.Admin)]
     public class EntitiesController : Controller

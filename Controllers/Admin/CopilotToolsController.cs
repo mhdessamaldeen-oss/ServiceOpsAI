@@ -1,13 +1,13 @@
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Tools;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI;
+using ServiceOpsAI.Services.AI.Copilot.Tools;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using AISupportAnalysisPlatform.Models.DTOs;
+using ServiceOpsAI.Models.DTOs;
 using AutoMapper;
 
-namespace AISupportAnalysisPlatform.Controllers.Admin
+namespace ServiceOpsAI.Controllers.Admin
 {
     [Authorize(Roles = RoleNames.Admin)]
     public class CopilotToolsController : Controller

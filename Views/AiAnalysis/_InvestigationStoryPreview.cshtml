@@ -1,5 +1,5 @@
-@model AISupportAnalysisPlatform.Models.AI.AdminCopilotExecutionDetails
-@using AISupportAnalysisPlatform.Models.AI
+@model ServiceOpsAI.Models.AI.AdminCopilotExecutionDetails
+@using ServiceOpsAI.Models.AI
 
 @*
     Pipeline Overview — drop-in preview at the top of the Story tab.
@@ -160,7 +160,7 @@
                             // LLM cost / usage roll-up from the trace row's four cost columns
                             // (populated by HostTraceSink from the per-question LlmCallScope).
                             // Null on legacy rows from before the migration — render only when present.
-                            var traceForCost = ViewBag.Trace as AISupportAnalysisPlatform.Models.AI.CopilotTraceHistory;
+                            var traceForCost = ViewBag.Trace as ServiceOpsAI.Models.AI.CopilotTraceHistory;
                             var llmCalls = traceForCost?.LlmCallCount;
                             var pTok = traceForCost?.TotalPromptTokens ?? 0;
                             var cTok = traceForCost?.TotalCompletionTokens ?? 0;

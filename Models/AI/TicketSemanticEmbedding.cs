@@ -2,7 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace AISupportAnalysisPlatform.Models
+namespace ServiceOpsAI.Models
 {
     /// <summary>
     /// Stores the high-dimensional vector representation of a ticket's title and description.

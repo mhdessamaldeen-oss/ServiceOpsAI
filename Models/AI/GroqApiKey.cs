@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace AISupportAnalysisPlatform.Models.AI;
+namespace ServiceOpsAI.Models.AI;
 
 /// <summary>
 /// One Groq API key in the pool. Groq is OpenAI-compatible and exposes real-time quota state via

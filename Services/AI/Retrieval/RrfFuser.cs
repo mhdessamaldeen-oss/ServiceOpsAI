@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.AI.Retrieval
+namespace ServiceOpsAI.Services.AI.Retrieval
 {
     public sealed class RrfFuser : IRrfFuser
     {

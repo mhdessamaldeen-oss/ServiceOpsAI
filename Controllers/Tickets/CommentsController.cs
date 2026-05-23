@@ -1,13 +1,13 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Services.Notifications;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Services.Notifications;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace AISupportAnalysisPlatform.Controllers.Tickets
+namespace ServiceOpsAI.Controllers.Tickets
 {
     [Authorize]
     public class CommentsController : Controller

@@ -1,10 +1,10 @@
-using AISupportAnalysisPlatform.Enums;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Enums;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// Resolves the correct AI provider based on DB settings (from UI) with fallback to appsettings.json.

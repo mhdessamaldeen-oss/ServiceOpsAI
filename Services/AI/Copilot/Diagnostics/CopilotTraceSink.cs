@@ -1,7 +1,7 @@
 using System.Text.Json;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Services.AI.Copilot.Diagnostics
+namespace ServiceOpsAI.Services.AI.Copilot.Diagnostics
 {
     /// <summary>
     /// Per-call diagnostic collector. Each agentic service (Classifier, Planner, Validator,

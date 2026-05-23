@@ -1,4 +1,4 @@
-@model AISupportAnalysisPlatform.Models.AI.CopilotChatViewModel
+@model ServiceOpsAI.Models.AI.CopilotChatViewModel
 
 @{
     var pageTitle = ViewData["CopilotPageTitle"] as string ?? Loc.Get("CopilotEngine");
@@ -16,7 +16,7 @@
     var standardLogicLabel = Loc.Get("StandardLogic");
     ViewData["Title"] = pageTitle;
 
-    var copilotHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var copilotHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = headerTitle,
         IconClass = "bi bi-chat-square-text",
@@ -207,7 +207,7 @@
                                 <span class="copilot-capability-badge">@Loc.Get("ExternalBadge")</span>
                             </div>
                             <button type="button" class="btn btn-soft-primary btn-sm text-start py-2 px-3 w-100 copilot-capability-action"
-                                    onclick='applyPrompt(@Html.Raw(Json.Serialize(primaryPrompt ?? new AISupportAnalysisPlatform.Models.AI.CopilotSamplePrompt { Text = capability.ToolDescription })), false)'>
+                                    onclick='applyPrompt(@Html.Raw(Json.Serialize(primaryPrompt ?? new ServiceOpsAI.Models.AI.CopilotSamplePrompt { Text = capability.ToolDescription })), false)'>
                                 <i class="bi bi-link-45deg me-1"></i>@Loc.Get(primaryPromptText)
                             </button>
                             <details class="copilot-capability-details mt-2">

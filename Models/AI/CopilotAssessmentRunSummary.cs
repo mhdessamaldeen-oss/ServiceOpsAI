@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     /// <summary>
     /// One row per assessment run. Lets us compare pass-rate / latency across model versions and planner changes.

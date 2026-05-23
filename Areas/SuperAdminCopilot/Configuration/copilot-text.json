@@ -26,7 +26,7 @@
 
       "EmptyQuestion": "Please send a question in the body.",
 
-      "_domainComment": "Below: host-specific overrides for the AISupportAnalysisPlatform deployment. The defaults baked into CopilotTextCatalog are domain-neutral; this section narrows them to the support-ticket vocabulary so the conversational handler and suggested-prompt fallbacks match what users actually ask about.",
+      "_domainComment": "Below: host-specific overrides for the ServiceOpsAI deployment. The defaults baked into CopilotTextCatalog are domain-neutral; this section narrows them to the support-ticket vocabulary so the conversational handler and suggested-prompt fallbacks match what users actually ask about.",
 
       "ConversationalGreeting": "Hi! I'm the support data copilot. Ask me anything about tickets, users, categories, comments, attachments, or AI analyses — I'll translate your question into SQL and run it for you. Try \"how many open tickets?\" or \"top 5 categories by volume\".",
 

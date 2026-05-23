@@ -1,10 +1,10 @@
-@using AISupportAnalysisPlatform.Services.AI.Copilot.Analysis
+@using ServiceOpsAI.Services.AI.Copilot.Analysis
 @{
     ViewData["Title"] = "Copilot Trace Data Inspection";
     var traces = ViewBag.Traces as List<TraceInspectionResult>;
     var analysis = ViewBag.Analysis as CorrectnessAnalysis;
 
-    var inspectHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var inspectHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Copilot Trace Data Inspection",
         Subtitle = "Real data from CopilotTraceHistories — questions vs answers analysis",

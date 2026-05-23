@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Models;
+using ServiceOpsAI.Models;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     public class CopilotEvaluationViewModel
     {

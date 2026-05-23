@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Constants;
 
-namespace AISupportAnalysisPlatform.Helpers
+namespace ServiceOpsAI.Helpers
 {
     public static class UIExtensions
     {

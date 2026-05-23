@@ -1,7 +1,7 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using System.ComponentModel.DataAnnotations;
 
-namespace AISupportAnalysisPlatform.Models
+namespace ServiceOpsAI.Models
 {
     /// <summary>
     /// Represents the simplified, lightweight AI analysis result for a ticket.

@@ -1,12 +1,12 @@
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI.Common;
-using AISupportAnalysisPlatform.Services.AI.Retrieval;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI.Common;
+using ServiceOpsAI.Services.AI.Retrieval;
 using Microsoft.Extensions.Hosting;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     public class KnowledgeBaseRagService
     {

@@ -1,11 +1,11 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using System.Text;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
 using Microsoft.Extensions.Options;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// AI provider for local OpenAI-compatible engines like LocalAI.
@@ -174,9 +174,9 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
             if (prompt.Length <= maxChars) return prompt;
             return prompt[..maxChars] + "... [TRUNCATED]";
         }
-        public Task<List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
+        public Task<List<ServiceOpsAI.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
         {
-            return Task.FromResult(new List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>());
+            return Task.FromResult(new List<ServiceOpsAI.Models.DTOs.AiModelDto>());
         }
     }
 }

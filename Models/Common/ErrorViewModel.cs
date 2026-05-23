@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Models;
+namespace ServiceOpsAI.Models;
 
 public class ErrorViewModel
 {

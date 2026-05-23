@@ -1,6 +1,6 @@
 namespace SuperAdminCopilot.Abstractions;
 
-using AISupportAnalysisPlatform.Services.AI.Providers;
+using ServiceOpsAI.Services.AI.Providers;
 
 /// <summary>
 /// Per-question metrics scope for LLM calls. The orchestrator opens a scope at the top of

@@ -1,4 +1,4 @@
-@model AISupportAnalysisPlatform.Models.AI.CopilotTraceDetailPageViewModel
+@model ServiceOpsAI.Models.AI.CopilotTraceDetailPageViewModel
 @{
     ViewData["Title"] = Loc.Get("Investigation");
     var queryTab = Context.Request.Query["tab"].ToString();
@@ -18,7 +18,7 @@
         _ => string.Equals(queryView, "tree", StringComparison.OrdinalIgnoreCase) ? "workflow" : "trace"
     };
 
-    var investigationHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var investigationHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = Loc.Get("TraceContextSummary"),
         Subtitle = $"#{Model.Trace.Id} • {Model.Trace.ModelName} • {Model.Trace.TotalElapsedMs} ms",

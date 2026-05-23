@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     // ── Index strategy ─────────────────────────────────────────────────────────────
     // SourceSuite + CreatedAt: assessment grid + suite reports filter by suite name and

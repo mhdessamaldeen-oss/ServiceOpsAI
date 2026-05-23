@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Models.Common
+namespace ServiceOpsAI.Models.Common
 {
     public class ApiResponse
     {

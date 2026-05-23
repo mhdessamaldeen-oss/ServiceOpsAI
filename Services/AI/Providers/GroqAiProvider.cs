@@ -1,13 +1,13 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using System.Text;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Services.AI.Providers.KeyPool;
-using AISupportAnalysisPlatform.Services.AI.Providers.Retry;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Services.AI.Providers.KeyPool;
+using ServiceOpsAI.Services.AI.Providers.Retry;
 using Microsoft.Extensions.Options;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// AI provider for Groq (LPU inference). OpenAI-compatible chat completions API. Captures Groq's
@@ -253,9 +253,9 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
             return db.SystemSettings.FirstOrDefault(s => s.Key == key)?.Value;
         }
 
-        public async Task<List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
+        public async Task<List<ServiceOpsAI.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
         {
-            var results = new List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>();
+            var results = new List<ServiceOpsAI.Models.DTOs.AiModelDto>();
 
             // Find any usable key — pool first, legacy fallback
             var pooled = await _keyPool.AcquireAsync();
@@ -283,7 +283,7 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
                     var active = m.TryGetProperty("active", out var a) ? a.GetBoolean() : true;
                     if (!active) continue;
 
-                    results.Add(new AISupportAnalysisPlatform.Models.DTOs.AiModelDto
+                    results.Add(new ServiceOpsAI.Models.DTOs.AiModelDto
                     {
                         Name = name,
                         Family = owned,

@@ -1,17 +1,17 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Constants;
 using Microsoft.EntityFrameworkCore;
-using AISupportAnalysisPlatform.Services.Infrastructure;
+using ServiceOpsAI.Services.Infrastructure;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Services.AI.Copilot.Diagnostics;
-using AISupportAnalysisPlatform.Services.AI.Common;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Services.AI.Copilot.Diagnostics;
+using ServiceOpsAI.Services.AI.Common;
 using System.Text;
 
-namespace AISupportAnalysisPlatform.Services.AI
+namespace ServiceOpsAI.Services.AI
 {
     public class SemanticSearchService : ISemanticSearchService
     {

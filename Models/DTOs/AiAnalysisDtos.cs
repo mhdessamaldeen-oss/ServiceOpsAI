@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 
-namespace AISupportAnalysisPlatform.Models.DTOs
+namespace ServiceOpsAI.Models.DTOs
 {
     public class AiAnalysisStatusDto
     {

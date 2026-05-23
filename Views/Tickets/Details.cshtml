@@ -1,8 +1,8 @@
-@model AISupportAnalysisPlatform.Models.Ticket
+@model ServiceOpsAI.Models.Ticket
 
 @{
     ViewData["Title"] = Loc.Get("TicketDetails");
-    var ticketDetailsHeader = new AISupportAnalysisPlatform.Models.Common.PageHeaderViewModel
+    var ticketDetailsHeader = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = $"#{Model.TicketNumber}",
         Subtitle = Model.Title,

@@ -1,16 +1,16 @@
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
-using AISupportAnalysisPlatform.Models;
-using AISupportAnalysisPlatform.Models.Common;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
+using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
-using AISupportAnalysisPlatform.Models.DTOs;
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.DTOs;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Controllers.Dashboard
+namespace ServiceOpsAI.Controllers.Dashboard
 {
     [Authorize]
     public class DashboardController : Controller

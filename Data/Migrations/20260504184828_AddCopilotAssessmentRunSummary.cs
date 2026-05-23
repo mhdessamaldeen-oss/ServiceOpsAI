@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AISupportAnalysisPlatform.Data.Migrations
+namespace ServiceOpsAI.Data.Migrations
 {
     /// <inheritdoc />
     public partial class AddCopilotAssessmentRunSummary : Migration

@@ -5,9 +5,9 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Constants;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     public class CopilotAssessmentCorrectAnswer
     {
@@ -221,7 +221,7 @@ namespace AISupportAnalysisPlatform.Models.AI
         public List<CopilotAssessmentCaseGroup> CaseGroups { get; set; } = new();
         public List<CopilotPromptGroup> CopilotSampleGroups { get; set; } = new();
         public CopilotAssessmentRunSummaryDto? LatestRun { get; set; }
-        public AISupportAnalysisPlatform.Models.Common.PagedResult<CopilotAssessmentCaseGridItem> CatalogPage { get; set; } = new();
+        public ServiceOpsAI.Models.Common.PagedResult<CopilotAssessmentCaseGridItem> CatalogPage { get; set; } = new();
         public int TotalCases => CaseGroups.Sum(group => group.Cases.Count);
 
         /// <summary>

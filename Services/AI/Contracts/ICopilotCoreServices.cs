@@ -1,6 +1,6 @@
-using AISupportAnalysisPlatform.Models.AI;
+using ServiceOpsAI.Models.AI;
 
-namespace AISupportAnalysisPlatform.Services.AI.Contracts
+namespace ServiceOpsAI.Services.AI.Contracts
 {
     public interface ICopilotToolIntentResolver
     {

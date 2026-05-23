@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using AISupportAnalysisPlatform.Models.AI;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Models.AI;
+using ServiceOpsAI.Constants;
 
-namespace AISupportAnalysisPlatform.Models.AI
+namespace ServiceOpsAI.Models.AI
 {
     public class CopilotChatSession
     {

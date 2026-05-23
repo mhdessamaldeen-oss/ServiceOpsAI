@@ -1,4 +1,4 @@
-namespace AISupportAnalysisPlatform.Services.AI.Common
+namespace ServiceOpsAI.Services.AI.Common
 {
     /// <summary>
     /// Static lookups + thresholds used by the Investigation layer (SemanticSearchService,

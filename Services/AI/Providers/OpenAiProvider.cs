@@ -1,11 +1,11 @@
-using AISupportAnalysisPlatform.Enums;
+using ServiceOpsAI.Enums;
 using System.Text;
 using System.Text.Json;
-using AISupportAnalysisPlatform.Data;
-using AISupportAnalysisPlatform.Constants;
+using ServiceOpsAI.Data;
+using ServiceOpsAI.Constants;
 using Microsoft.Extensions.Options;
 
-namespace AISupportAnalysisPlatform.Services.AI.Providers
+namespace ServiceOpsAI.Services.AI.Providers
 {
     /// <summary>
     /// AI provider for OpenAI / GPT-style chat completion endpoints.
@@ -320,9 +320,9 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
             return $"OpenAI returned HTTP {statusCode}: {errorBody}";
         }
 
-        public async Task<List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
+        public async Task<List<ServiceOpsAI.Models.DTOs.AiModelDto>> GetInstalledModelsAsync()
         {
-            var results = new List<AISupportAnalysisPlatform.Models.DTOs.AiModelDto>();
+            var results = new List<ServiceOpsAI.Models.DTOs.AiModelDto>();
             var apiKey = GetApiKey();
             if (string.IsNullOrWhiteSpace(apiKey)) return results;
 
@@ -344,7 +344,7 @@ namespace AISupportAnalysisPlatform.Services.AI.Providers
                     if (string.IsNullOrWhiteSpace(name)) continue;
                     var owned = m.TryGetProperty("owned_by", out var o) ? o.GetString() : null;
 
-                    results.Add(new AISupportAnalysisPlatform.Models.DTOs.AiModelDto
+                    results.Add(new ServiceOpsAI.Models.DTOs.AiModelDto
                     {
                         Name = name,
                         Family = owned,
