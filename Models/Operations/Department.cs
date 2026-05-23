@@ -26,6 +26,7 @@ public class Department
     public ServiceType ServiceType { get; set; }
 
     public int? RegionId { get; set; }
+    public Region? Region { get; set; }
 
     [StringLength(450)]
     public string? ManagerUserId { get; set; }
