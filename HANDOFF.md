@@ -84,3 +84,61 @@ Run `git log --oneline -15` — top 10 commits are mine from this overnight sess
 ---
 
 **ETA was 6:30 AM. Finishing ~03:30 AM — three hours under.** Most of that came from skipping the full UI/localization polish (Phase K) and from making the new entity admin pages read-only. Both are explicitly noted above so you can prioritize what to do next.
+
+---
+
+## Final smoke test (verified before handoff)
+
+App launched, all migrations applied to a fresh DB (`dotnet ef database drop --force` then `dotnet run`), ServiceOpsSeeder ran fully.
+
+**24/24 protected routes return HTTP 200** under authenticated session (`admin@tech.local` / `Admin@123`):
+
+```
+/Tickets, /Users, /Reports, /Customers, /Bills, /Departments,
+/Countries, /Regions, /Outages, /MeterReadings, /Tariffs, /Csat,
+/ReferenceData, /Dashboard, /Settings, /Notifications,
+/AiAnalysis/{Hub, Benchmark, Copilot, CopilotAssessment, KnowledgeBase,
+             InvestigationHistory, Evaluation},
+/AiInsights
+```
+
+**Seeded row counts** in `AISupportAnalysisDB`:
+
+| Table | Rows | Notes |
+|---|---:|---|
+| Customers | 200 | 14 governorates, weighted by population |
+| Departments | 60 | 4 placeholder + 56 utility (14 × 4) |
+| Bills | 12,168 | 24 months × ~2.5 services per customer |
+| Tickets | 83 | including the Aleppo internet outage cluster (20) + Homs bill anomaly (3) |
+| Outages | 32 | Story 1 Aleppo internet + Story 2 Damascus water + 30 random |
+| MeterReadings | 4,200 | sampled ~67 customers × 3 services × 24 months |
+| Tariffs | 5 | 4 country-wide baselines + Aleppo electricity +20% (2025-09-01) |
+| CsatResponses | 33 | ~70% of resolved tickets, 1-5 score + EN+AR comment + sentiment |
+| ServiceTypes | 5 | Electricity, Internet, Water, Gas, **GovernmentProcess** (admin-added example) |
+| ComplaintTypes | 7 | ServiceDown, Degraded, BillingDispute, MeterIssue, Disconnection, NewConnection, Other |
+| ResolutionTypes | 6 | Resolved, NoFault, BillAdjusted, Escalated, Cancelled, OutageCleared |
+| TicketCategories | 48 | 8 Primary parents + 14 existing + 26 new Secondary children (the hierarchy) |
+| Regions | 76 | 14 Syrian governorates + 62 districts (bilingual) |
+| Countries | 1 | Syria |
+
+**Bugs found + fixed during the final smoke test** (pre-existing in the migrations — would have bitten anyone trying to recreate from scratch):
+
+1. `20260430040413_ReAddAssessmentCache` had `AddColumn AssessmentDetail` commented out — broke the later `PruneAndRenameTraceHistory.DropColumn` on fresh DB. **Restored** the AddColumn.
+2. `20260523125109_RenameEntityToDepartment` (my Phase A migration) assumed the `EntityId` column existed — but my mass rename earlier had updated older migration files to already use `DepartmentId`. **Rewrote** the column/index/FK drops with `IF EXISTS` SQL guards so the migration is idempotent across both states.
+3. The original `DbSeeder.cs` inserted 4 placeholder Departments without `ServiceTypeId` (required FK after the lookup-table promotion) and without `NameAr` (newly required). **Updated** to set both.
+
+These three fixes are committed individually so you can audit or revert any of them. See `git log --oneline`.
+
+---
+
+## Login
+
+```
+URL:      https://localhost:8899/
+User:     admin@tech.local
+Password: Admin@123
+```
+
+Sidebar should show all the new pages: **Tickets / CSAT** under TICKETING; **Bills / Tariffs / Meter Readings** under BILLING; **Customers / Departments / Regions / Outages / Countries** under OPERATIONS; the existing AI Analysis / Reports / Administration groups. Click around freely — every one of those routes was verified to return 200 in the final sweep.
+
+Have a good night 🌙
