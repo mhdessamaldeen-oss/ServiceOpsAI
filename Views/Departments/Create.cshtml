@@ -1,0 +1,51 @@
+@model ServiceOpsAI.Models.Department
+@{ ViewData["Title"] = "New Department"; }
+
+<h2><i class="bi bi-plus-circle"></i> New Department</h2>
+
+<form asp-action="Create" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="col-md-6">
+        <label asp-for="NameEn" class="form-label">Name (English)</label>
+        <input asp-for="NameEn" class="form-control" placeholder="Damascus Electricity Department" />
+    </div>
+    <div class="col-md-6">
+        <label asp-for="NameAr" class="form-label">Name (Arabic)</label>
+        <input asp-for="NameAr" class="form-control" dir="rtl" placeholder="إدارة كهرباء دمشق" />
+    </div>
+    <div class="col-md-4">
+        <label asp-for="ServiceType" class="form-label">Service Type</label>
+        <select asp-for="ServiceType" class="form-select">
+            @foreach (var s in Enum.GetValues<ServiceOpsAI.Models.ServiceType>())
+            {
+                <option value="@s">@s</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label asp-for="RegionId" class="form-label">Governorate</label>
+        <select asp-for="RegionId" class="form-select" asp-items="ViewBag.Regions">
+            <option value="">— Select —</option>
+        </select>
+    </div>
+    <div class="col-md-4 d-flex align-items-end">
+        <div class="form-check">
+            <input asp-for="IsActive" class="form-check-input" type="checkbox" checked />
+            <label asp-for="IsActive" class="form-check-label">Active</label>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <label asp-for="ContactPhone" class="form-label">Contact Phone</label>
+        <input asp-for="ContactPhone" class="form-control" placeholder="+963 11 1234 100" />
+    </div>
+    <div class="col-md-6">
+        <label asp-for="ContactEmail" class="form-label">Contact Email</label>
+        <input asp-for="ContactEmail" class="form-control" placeholder="dept@serviceops.sy" />
+    </div>
+    <div class="col-12">
+        <button type="submit" class="btn btn-primary">Create</button>
+        <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Cancel</a>
+    </div>
+</form>

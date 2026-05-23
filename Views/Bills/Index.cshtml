@@ -1,0 +1,95 @@
+@model List<ServiceOpsAI.Models.Bill>
+@{
+    ViewData["Title"] = "Bills";
+    var total = (int)ViewBag.Total;
+    var page = (int)ViewBag.Page;
+    var pageSize = (int)ViewBag.PageSize;
+    var status = (string?)ViewBag.Status;
+    var service = (string?)ViewBag.Service;
+    var totalPages = (int)Math.Ceiling(total / (double)pageSize);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-receipt"></i> Bills <small class="text-muted">(@total)</small></h2>
+    <a class="btn btn-primary" href="@Url.Action("Create")"><i class="bi bi-plus-circle"></i> New Bill</a>
+</div>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div>
+}
+
+<form method="get" class="mb-3 d-flex gap-2">
+    <select name="service" class="form-select w-auto">
+        <option value="">All services</option>
+        @foreach (var s in Enum.GetValues<ServiceOpsAI.Models.ServiceType>())
+        {
+            <option value="@s" selected="@(service == s.ToString())">@s</option>
+        }
+    </select>
+    <select name="status" class="form-select w-auto">
+        <option value="">All statuses</option>
+        @foreach (var s in Enum.GetValues<ServiceOpsAI.Models.BillStatus>())
+        {
+            <option value="@s" selected="@(status == s.ToString())">@s</option>
+        }
+    </select>
+    <button type="submit" class="btn btn-secondary">Filter</button>
+    @if (!string.IsNullOrEmpty(status) || !string.IsNullOrEmpty(service))
+    {
+        <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Clear</a>
+    }
+</form>
+
+<table class="table table-hover table-sm align-middle">
+    <thead>
+        <tr>
+            <th>Bill #</th>
+            <th>Customer</th>
+            <th>Service</th>
+            <th>Department</th>
+            <th>Period</th>
+            <th class="text-end">Total (SYP)</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var b in Model)
+        {
+            <tr>
+                <td><code>@b.BillNumber</code></td>
+                <td>@b.Customer?.FullNameEn</td>
+                <td><span class="badge bg-secondary">@b.ServiceType</span></td>
+                <td class="small">@b.Department?.NameEn</td>
+                <td class="small">@b.PeriodStart.ToString("yyyy-MM")</td>
+                <td class="text-end">@b.TotalAmount.ToString("N0")</td>
+                <td>
+                    <span class="badge bg-@(b.Status == ServiceOpsAI.Models.BillStatus.Paid ? "success" : b.Status == ServiceOpsAI.Models.BillStatus.Overdue ? "danger" : b.Status == ServiceOpsAI.Models.BillStatus.Disputed ? "warning" : "secondary")">@b.Status</span>
+                </td>
+                <td class="text-end">
+                    <a class="btn btn-sm btn-outline-info" href="@Url.Action("Details", new { id = b.Id })"><i class="bi bi-eye"></i></a>
+                    <a class="btn btn-sm btn-outline-primary" href="@Url.Action("Edit", new { id = b.Id })"><i class="bi bi-pencil"></i></a>
+                    <form method="post" action="@Url.Action("Delete", new { id = b.Id })" class="d-inline" onsubmit="return confirm('Delete this bill?');">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (totalPages > 1)
+{
+    <nav>
+        <ul class="pagination">
+            @for (var p = Math.Max(1, page - 3); p <= Math.Min(totalPages, page + 3); p++)
+            {
+                <li class="page-item @(p == page ? "active" : "")">
+                    <a class="page-link" href="@Url.Action("Index", new { page = p, pageSize, status, service })">@p</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

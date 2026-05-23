@@ -1,0 +1,24 @@
+@model ServiceOpsAI.Models.Bill
+@{ ViewData["Title"] = $"Bill {Model.BillNumber}"; }
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-receipt"></i> <code>@Model.BillNumber</code></h2>
+    <div>
+        <a class="btn btn-outline-primary" href="@Url.Action("Edit", new { id = Model.Id })"><i class="bi bi-pencil"></i> Edit</a>
+        <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Back</a>
+    </div>
+</div>
+
+<dl class="row">
+    <dt class="col-sm-3">Customer</dt>      <dd class="col-sm-9">@Model.Customer?.FullNameEn (<code>@Model.Customer?.NationalId</code>)</dd>
+    <dt class="col-sm-3">Department</dt>    <dd class="col-sm-9">@Model.Department?.NameEn</dd>
+    <dt class="col-sm-3">Service</dt>       <dd class="col-sm-9"><span class="badge bg-info">@Model.ServiceType</span></dd>
+    <dt class="col-sm-3">Period</dt>        <dd class="col-sm-9">@Model.PeriodStart.ToString("yyyy-MM-dd") → @Model.PeriodEnd.ToString("yyyy-MM-dd")</dd>
+    <dt class="col-sm-3">Status</dt>        <dd class="col-sm-9"><span class="badge bg-@(Model.Status == ServiceOpsAI.Models.BillStatus.Paid ? "success" : Model.Status == ServiceOpsAI.Models.BillStatus.Overdue ? "danger" : "secondary")">@Model.Status</span></dd>
+    <dt class="col-sm-3">Base / Usage / Taxes</dt><dd class="col-sm-9">@Model.BaseAmount.ToString("N0") + @Model.UsageAmount.ToString("N0") + @Model.Taxes.ToString("N0") SYP</dd>
+    <dt class="col-sm-3">Total</dt>         <dd class="col-sm-9"><strong>@Model.TotalAmount.ToString("N0") SYP</strong></dd>
+    <dt class="col-sm-3">Usage</dt>         <dd class="col-sm-9">@Model.UsageQuantity @Model.UsageUnit</dd>
+    <dt class="col-sm-3">Issued / Due / Paid</dt><dd class="col-sm-9">@Model.IssuedAt.ToString("yyyy-MM-dd") / @Model.DueDate.ToString("yyyy-MM-dd") / @(Model.PaidAt?.ToString("yyyy-MM-dd") ?? "—")</dd>
+    <dt class="col-sm-3">Payment Method</dt><dd class="col-sm-9">@(Model.PaymentMethod ?? "—")</dd>
+    <dt class="col-sm-3">Notes</dt>         <dd class="col-sm-9">@(Model.Notes ?? "—")</dd>
+</dl>

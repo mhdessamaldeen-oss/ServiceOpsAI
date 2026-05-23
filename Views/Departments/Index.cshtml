@@ -1,0 +1,49 @@
+@model List<ServiceOpsAI.Models.Department>
+@{ ViewData["Title"] = "Departments"; }
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-diagram-3"></i> Departments <small class="text-muted">(@Model.Count)</small></h2>
+    <a class="btn btn-primary" href="@Url.Action("Create")"><i class="bi bi-plus-circle"></i> New Department</a>
+</div>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div>
+}
+
+<table class="table table-hover table-sm align-middle">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name (EN)</th>
+            <th>Name (AR)</th>
+            <th>Service</th>
+            <th>Region</th>
+            <th>Contact</th>
+            <th>Active</th>
+            <th class="text-end">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var d in Model)
+        {
+            <tr>
+                <td>@d.Id</td>
+                <td>@d.NameEn</td>
+                <td dir="rtl">@d.NameAr</td>
+                <td><span class="badge bg-info">@d.ServiceType</span></td>
+                <td>@(d.Region?.NameEn ?? "—")</td>
+                <td class="small">@d.ContactEmail<br><span class="text-muted">@d.ContactPhone</span></td>
+                <td>@(d.IsActive ? "✓" : "✗")</td>
+                <td class="text-end">
+                    <a class="btn btn-sm btn-outline-info" href="@Url.Action("Details", new { id = d.Id })"><i class="bi bi-eye"></i></a>
+                    <a class="btn btn-sm btn-outline-primary" href="@Url.Action("Edit", new { id = d.Id })"><i class="bi bi-pencil"></i></a>
+                    <form method="post" action="@Url.Action("Delete", new { id = d.Id })" class="d-inline" onsubmit="return confirm('Delete this department?');">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
