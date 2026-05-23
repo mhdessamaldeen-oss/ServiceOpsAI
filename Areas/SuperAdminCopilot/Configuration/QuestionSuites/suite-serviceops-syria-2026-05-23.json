@@ -1,0 +1,117 @@
+{
+  "name": "Suite — ServiceOps Syrian Utility Domain (EN + AR)",
+  "version": "1.0",
+  "description": "Regression net for the multi-domain rebuild. Tests the SuperAdminCopilot's ability to reason across Customer / Bill / Department / Region / Ticket — the core entities a Syrian utility ops platform exposes. Covers: pure billing aggregations, department-level performance comparisons, cross-domain joins (e.g. customers with both open tickets AND unpaid bills), pattern-discovery questions that surface the seeded story patterns (Aleppo internet outage, Homs bill anomaly, bad/star departments), and Arabic variants of all of the above. Pattern-discovery questions omit ExpectedSql since the result set depends on seeded data — they assert via ExpectedMinRows that the seeded story is discoverable.",
+  "Scenarios": [
+
+    { "Code": "SO-BILL-001", "Question": "how many overdue bills are there?",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Bills WHERE Status = 'Overdue'",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-BILL-002", "Question": "total electricity revenue in the last 12 months",
+      "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-BILL-003", "Question": "average internet bill amount across all customers",
+      "Category": "AGG", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": "SELECT AVG(TotalAmount) FROM Bills WHERE ServiceType = 'Internet'",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-BILL-004", "Question": "show overdue electricity bills in Aleppo above 30000 SYP",
+      "Category": "SEL", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-BILL-005", "Question": "which service type generates the most revenue?",
+      "Category": "GRP", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": "SELECT ServiceType, SUM(TotalAmount) AS Revenue FROM Bills GROUP BY ServiceType ORDER BY Revenue DESC",
+      "ExpectedMinRows": 4, "ExpectedMaxRows": 4, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-CUST-001", "Question": "how many customers are active?",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Customers WHERE Status = 'Active'",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-CUST-002", "Question": "list customers in Damascus",
+      "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-CUST-003", "Question": "customers who churned in the last 6 months",
+      "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-DEPT-001", "Question": "list all departments",
+      "Category": "SEL", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Departments",
+      "ExpectedMinRows": 56, "ExpectedMaxRows": 56, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-DEPT-002", "Question": "compare overdue bill rates across all electricity departments",
+      "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-DEPT-003", "Question": "ticket volume per department in the last 90 days",
+      "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-DEPT-004", "Question": "which department has the highest billing-dispute ticket rate?",
+      "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-DEPT-005", "Question": "departments with overdue rate above 20%",
+      "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedMinRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-XD-001", "Question": "customers with overdue bills AND open tickets",
+      "Category": "JOIN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-XD-002", "Question": "how many tickets are about billing disputes? group by department",
+      "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-XD-003", "Question": "customers in Damascus with total billed above 200000 SYP this year",
+      "Category": "JOIN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-XD-004", "Question": "find customers at risk of churn — multiple overdue bills and unresolved tickets",
+      "Category": "JOIN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-XD-005", "Question": "which districts have the most service-down complaints?",
+      "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-PD-001", "Question": "find ticket clusters that suggest an internet outage in the last 90 days",
+      "Category": "PD", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedMinRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-PD-002", "Question": "find customers whose electricity bills spiked 2x for 3 months then returned to normal",
+      "Category": "PD", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedMinRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-PD-003", "Question": "which department appears to be underperforming across multiple metrics?",
+      "Category": "PD", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Departments",
+      "ExpectedMinRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-AR-001", "Question": "كم عدد الفواتير المتأخرة؟",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": "SELECT COUNT(*) AS Count FROM Bills WHERE Status = 'Overdue'",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-AR-002", "Question": "أظهر لي العملاء في دمشق",
+      "Category": "SEL", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-AR-003", "Question": "ما متوسط فاتورة الإنترنت عبر جميع المحافظات؟",
+      "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-AR-004", "Question": "أي إدارة كهرباء لديها أعلى نسبة فواتير متأخرة؟",
+      "Category": "GRP", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "SO-AR-005", "Question": "أوجد العملاء الذين لديهم فواتير متأخرة وتذاكر مفتوحة معاً",
+      "Category": "JOIN", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000 }
+
+  ]
+}
