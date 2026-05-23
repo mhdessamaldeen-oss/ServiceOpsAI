@@ -1,0 +1,79 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.DepartmentDto>
+
+<div class="table-responsive">
+    <table id="departmentsTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Department</th>
+                <th class="py-3">Service</th>
+                <th class="py-3">Region (Governorate)</th>
+                <th class="py-3">Status</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; background: rgba(var(--primary-color-rgb, 16,185,129), 0.1) !important; color: var(--primary-color) !important; border: 1px solid rgba(var(--primary-color-rgb, 16,185,129), 0.2) !important;">
+                                <i class="bi bi-diagram-3-fill"></i>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-main) !important;">@item.NameEn</div>
+                                <div class="small text-muted" dir="rtl">@item.NameAr</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        @{
+                            var (svcBg, svcColor) = item.ServiceType switch
+                            {
+                                "Electricity" => ("rgba(245,158,11,0.10)", "#f59e0b"),
+                                "Internet"    => ("rgba(56,189,248,0.10)", "#38bdf8"),
+                                "Water"       => ("rgba(96,165,250,0.10)", "#60a5fa"),
+                                "Gas"         => ("rgba(248,113,113,0.10)", "#f87171"),
+                                _             => ("rgba(148,163,184,0.10)", "#94a3b8")
+                            };
+                        }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @svcBg !important; color: @svcColor !important; border: 1px solid @svcColor !important;">@item.ServiceType</span>
+                    </td>
+                    <td style="color: var(--text-main) !important;">@(item.RegionName ?? "—")</td>
+                    <td>
+                        @if (item.IsActive)
+                        {
+                            <span class="badge px-3 py-2 rounded-pill" style="background: rgba(var(--primary-color-rgb), 0.1) !important; color: var(--primary-color) !important; border: 1px solid var(--primary-color) !important;">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge px-3 py-2 rounded-pill" style="background: rgba(var(--danger-color-rgb), 0.1) !important; color: var(--danger-color) !important; border: 1px solid var(--danger-color) !important;">Disabled</span>
+                        }
+                    </td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-soft-info shadow-none" title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-soft-primary shadow-none">
+                            <i class="bi bi-pencil-square"></i> Modify
+                        </a>
+                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Delete this department? Bills and tickets must be removed first.');" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-soft-danger shadow-none">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Items.Any())
+    {
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-inbox fs-1 mb-3"></i>
+            <h6>No departments match the current filter.</h6>
+        </div>
+    }
+</div>

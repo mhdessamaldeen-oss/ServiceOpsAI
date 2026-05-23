@@ -3,8 +3,44 @@ namespace ServiceOpsAI.Models.DTOs
     public class DepartmentDto
     {
         public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;       // legacy alias — = NameEn
+        public string NameEn { get; set; } = string.Empty;
+        public string NameAr { get; set; } = string.Empty;
+        public string ServiceType { get; set; } = string.Empty;
+        public string? RegionName { get; set; }
         public bool IsActive { get; set; }
+    }
+
+    public class CustomerDto
+    {
+        public int Id { get; set; }
+        public string FullNameEn { get; set; } = string.Empty;
+        public string FullNameAr { get; set; } = string.Empty;
+        public string NationalId { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public string Phone { get; set; } = string.Empty;
+        public string? RegionName { get; set; }
+        public string? RegionNameAr { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public DateTime SignupAt { get; set; }
+        public DateTime? ChurnedAt { get; set; }
+    }
+
+    public class BillDto
+    {
+        public int Id { get; set; }
+        public string BillNumber { get; set; } = string.Empty;
+        public int CustomerId { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public int DepartmentId { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
+        public string ServiceType { get; set; } = string.Empty;
+        public DateTime PeriodStart { get; set; }
+        public DateTime PeriodEnd { get; set; }
+        public decimal TotalAmount { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public DateTime DueDate { get; set; }
+        public DateTime? PaidAt { get; set; }
     }
 
     public class UserDto

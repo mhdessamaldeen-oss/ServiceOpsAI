@@ -1,3 +1,5 @@
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -5,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using ServiceOpsAI.Constants;
 using ServiceOpsAI.Data;
 using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.Common;
+using ServiceOpsAI.Models.DTOs;
 
 namespace ServiceOpsAI.Controllers.Bills;
 
@@ -12,34 +16,56 @@ namespace ServiceOpsAI.Controllers.Bills;
 public class BillsController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly IMapper _mapper;
 
-    public BillsController(ApplicationDbContext context)
+    public BillsController(ApplicationDbContext context, IMapper mapper)
     {
         _context = context;
+        _mapper = mapper;
     }
 
-    public async Task<IActionResult> Index(int page = 1, int pageSize = 50, string? status = null, string? service = null)
+    public async Task<IActionResult> Index([FromQuery] GridRequestModel request, string? status = null, string? service = null)
     {
+        request.Normalize();
+
         var query = _context.Bills.AsNoTracking()
             .Include(b => b.Customer)
             .Include(b => b.Department)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<BillStatus>(status, true, out var s))
-            query = query.Where(b => b.Status == s);
+        if (!string.IsNullOrWhiteSpace(request.SearchString))
+        {
+            var s = request.SearchString;
+            query = query.Where(b => b.BillNumber.Contains(s)
+                                  || (b.Customer != null && b.Customer.FullNameEn.Contains(s))
+                                  || (b.Customer != null && b.Customer.NationalId.Contains(s)));
+        }
+        if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<BillStatus>(status, true, out var st))
+            query = query.Where(b => b.Status == st);
         if (!string.IsNullOrWhiteSpace(service) && Enum.TryParse<ServiceType>(service, true, out var sv))
             query = query.Where(b => b.ServiceType == sv);
 
-        var total = await query.CountAsync();
-        var rows = await query.OrderByDescending(b => b.PeriodStart)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        query = query.OrderByDescending(b => b.PeriodStart);
 
-        ViewBag.Total = total;
-        ViewBag.Page = page;
-        ViewBag.PageSize = pageSize;
+        var total = await query.CountAsync();
+        var effectivePageSize = request.GetEffectivePageSize(total);
+        var items = await query
+            .Skip((request.PageNumber - 1) * effectivePageSize)
+            .Take(effectivePageSize)
+            .ProjectTo<BillDto>(_mapper.ConfigurationProvider)
+            .ToListAsync();
+
         ViewBag.Status = status;
         ViewBag.Service = service;
-        return View(rows);
+
+        return View(new PagedResult<BillDto>
+        {
+            Items = items,
+            TotalCount = total,
+            PageNumber = request.PageNumber,
+            PageSize = effectivePageSize,
+            Request = request,
+        });
     }
 
     public async Task<IActionResult> Details(int id)
@@ -55,7 +81,13 @@ public class BillsController : Controller
     public async Task<IActionResult> Create()
     {
         await PopulateDropdownsAsync();
-        return View(new Bill { IssuedAt = DateTime.UtcNow, PeriodStart = DateTime.UtcNow.Date, PeriodEnd = DateTime.UtcNow.Date.AddMonths(1), DueDate = DateTime.UtcNow.AddDays(30) });
+        return View(new Bill
+        {
+            IssuedAt = DateTime.UtcNow,
+            PeriodStart = DateTime.UtcNow.Date,
+            PeriodEnd = DateTime.UtcNow.Date.AddMonths(1),
+            DueDate = DateTime.UtcNow.AddDays(30)
+        });
     }
 
     [HttpPost, ValidateAntiForgeryToken]

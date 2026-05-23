@@ -1,3 +1,5 @@
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -5,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using ServiceOpsAI.Constants;
 using ServiceOpsAI.Data;
 using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.Common;
+using ServiceOpsAI.Models.DTOs;
 
 namespace ServiceOpsAI.Controllers.Customers;
 
@@ -12,30 +16,57 @@ namespace ServiceOpsAI.Controllers.Customers;
 public class CustomersController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly IMapper _mapper;
 
-    public CustomersController(ApplicationDbContext context)
+    public CustomersController(ApplicationDbContext context, IMapper mapper)
     {
         _context = context;
+        _mapper = mapper;
     }
 
-    public async Task<IActionResult> Index(int page = 1, int pageSize = 50, string? search = null)
+    public async Task<IActionResult> Index([FromQuery] GridRequestModel request)
     {
-        var query = _context.Customers.AsNoTracking().Include(c => c.Region).AsQueryable();
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            query = query.Where(c => c.FullNameEn.Contains(search)
-                                  || c.FullNameAr.Contains(search)
-                                  || c.NationalId.Contains(search)
-                                  || (c.Phone != null && c.Phone.Contains(search)));
-        }
-        var total = await query.CountAsync();
-        var rows = await query.OrderBy(c => c.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        request.Normalize();
 
-        ViewBag.Total = total;
-        ViewBag.Page = page;
-        ViewBag.PageSize = pageSize;
-        ViewBag.Search = search;
-        return View(rows);
+        var query = _context.Customers.AsNoTracking().Include(c => c.Region).AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(request.SearchString))
+        {
+            var s = request.SearchString;
+            query = query.Where(c => c.FullNameEn.Contains(s)
+                                  || c.FullNameAr.Contains(s)
+                                  || c.NationalId.Contains(s)
+                                  || (c.Phone != null && c.Phone.Contains(s)));
+        }
+
+        query = request.SortOrder switch
+        {
+            "name_desc"    => query.OrderByDescending(c => c.FullNameEn),
+            "region"       => query.OrderBy(c => c.Region != null ? c.Region.NameEn : string.Empty),
+            "region_desc"  => query.OrderByDescending(c => c.Region != null ? c.Region.NameEn : string.Empty),
+            "status"       => query.OrderBy(c => c.Status),
+            "status_desc"  => query.OrderByDescending(c => c.Status),
+            "signup_desc"  => query.OrderByDescending(c => c.SignupAt),
+            "signup"       => query.OrderBy(c => c.SignupAt),
+            _              => query.OrderBy(c => c.FullNameEn),
+        };
+
+        var total = await query.CountAsync();
+        var effectivePageSize = request.GetEffectivePageSize(total);
+        var items = await query
+            .Skip((request.PageNumber - 1) * effectivePageSize)
+            .Take(effectivePageSize)
+            .ProjectTo<CustomerDto>(_mapper.ConfigurationProvider)
+            .ToListAsync();
+
+        return View(new PagedResult<CustomerDto>
+        {
+            Items = items,
+            TotalCount = total,
+            PageNumber = request.PageNumber,
+            PageSize = effectivePageSize,
+            Request = request,
+        });
     }
 
     public async Task<IActionResult> Details(int id)
@@ -80,16 +111,8 @@ public class CustomersController : Controller
         if (id != customer.Id) return NotFound();
         if (ModelState.IsValid)
         {
-            try
-            {
-                _context.Update(customer);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!await CustomerExists(id)) return NotFound();
-                throw;
-            }
+            try { _context.Update(customer); await _context.SaveChangesAsync(); }
+            catch (DbUpdateConcurrencyException) { if (!await CustomerExists(id)) return NotFound(); throw; }
             return RedirectToAction(nameof(Index));
         }
         await PopulateRegionsAsync();
@@ -102,8 +125,6 @@ public class CustomersController : Controller
         var customer = await _context.Customers.FindAsync(id);
         if (customer is not null)
         {
-            // Refuse delete if the customer has any bills or tickets — keeps referential integrity
-            // and reflects how a real utility company handles "delete customer" requests.
             var hasBills = await _context.Bills.AnyAsync(b => b.CustomerId == id);
             var hasTickets = await _context.Tickets.AnyAsync(t => t.CustomerId == id);
             if (hasBills || hasTickets)
@@ -121,7 +142,6 @@ public class CustomersController : Controller
 
     private async Task PopulateRegionsAsync()
     {
-        // Districts are the natural granularity for a customer's address.
         var districts = await _context.Regions
             .Where(r => r.RegionType == RegionType.District)
             .OrderBy(r => r.NameEn)

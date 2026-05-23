@@ -90,7 +90,7 @@ namespace ServiceOpsAI.Controllers.Reports
                 .ToListAsync();
 
             ViewBag.ByEntity = await query
-                .GroupBy(t => t.Department != null ? t.Department.Name : "Unknown")
+                .GroupBy(t => t.Department != null ? t.Department.NameEn : "Unknown")
                 .Select(g => new ReportMetricDto { Label = g.Key, Count = g.Count() })
                 .ToListAsync();
 

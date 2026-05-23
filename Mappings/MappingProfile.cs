@@ -55,9 +55,28 @@ namespace ServiceOpsAI.Mappings
             CreateMap<KnowledgeBaseChunkMatch, KnowledgeMatchDto>();
 
             // Management
-            CreateMap<Department, DepartmentDto>();
+            // NOTE: Department.Name is a [NotMapped] alias for NameEn so EF can't translate it.
+            // Always project from the real DB column (NameEn) when using ProjectTo<>.
+            CreateMap<Department, DepartmentDto>()
+                .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.NameEn))
+                .ForMember(dest => dest.NameEn, opt => opt.MapFrom(src => src.NameEn))
+                .ForMember(dest => dest.NameAr, opt => opt.MapFrom(src => src.NameAr))
+                .ForMember(dest => dest.ServiceType, opt => opt.MapFrom(src => src.ServiceType.ToString()))
+                .ForMember(dest => dest.RegionName, opt => opt.MapFrom(src => src.Region != null ? src.Region.NameEn : null));
             CreateMap<ApplicationUser, UserDto>()
-                .ForMember(dest => dest.EntityName, opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : null));
+                .ForMember(dest => dest.EntityName, opt => opt.MapFrom(src => src.Department != null ? src.Department.NameEn : null));
+
+            // Customer / Bill DTOs for the new Operations + Billing pages.
+            CreateMap<Customer, CustomerDto>()
+                .ForMember(dest => dest.RegionName,   opt => opt.MapFrom(src => src.Region != null ? src.Region.NameEn : null))
+                .ForMember(dest => dest.RegionNameAr, opt => opt.MapFrom(src => src.Region != null ? src.Region.NameAr : null))
+                .ForMember(dest => dest.Status,       opt => opt.MapFrom(src => src.Status.ToString()));
+
+            CreateMap<Bill, BillDto>()
+                .ForMember(dest => dest.CustomerName,   opt => opt.MapFrom(src => src.Customer != null ? src.Customer.FullNameEn : string.Empty))
+                .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.NameEn : string.Empty))
+                .ForMember(dest => dest.ServiceType,    opt => opt.MapFrom(src => src.ServiceType.ToString()))
+                .ForMember(dest => dest.Status,         opt => opt.MapFrom(src => src.Status.ToString()));
 
             CreateMap<Ticket, LookupDisplayDto>()
                 .ForMember(dest => dest.Display, opt => opt.MapFrom(src => src.TicketNumber + " - " + src.Title));
@@ -114,7 +133,7 @@ namespace ServiceOpsAI.Mappings
                 .ForMember(dest => dest.LastRunAt, opt => opt.MapFrom(src => src.UpdatedAt != null ? src.UpdatedAt.Value.ToString("yyyy-MM-dd HH:mm") : null));
 
             CreateMap<Ticket, TicketDto>()
-                .ForMember(dest => dest.EntityName, opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : null))
+                .ForMember(dest => dest.EntityName, opt => opt.MapFrom(src => src.Department != null ? src.Department.NameEn : null))
                 .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : null))
                 .ForMember(dest => dest.PriorityName, opt => opt.MapFrom(src => src.Priority != null ? src.Priority.Name : null))
                 .ForMember(dest => dest.StatusName, opt => opt.MapFrom(src => src.Status != null ? src.Status.Name : null))

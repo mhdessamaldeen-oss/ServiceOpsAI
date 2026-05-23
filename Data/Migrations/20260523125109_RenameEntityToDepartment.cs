@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -7,20 +7,60 @@ namespace ServiceOpsAI.Data.Migrations
     /// <inheritdoc />
     public partial class RenameEntityToDepartment : Migration
     {
+        // NOTE: Hand-edited. The EF auto-generated diff didn't detect the
+        // EntityId -> DepartmentId column rename because the mass C# rename
+        // (Phase 01.B) also touched the model snapshot, so EF saw the
+        // "previous" state as already having DepartmentId. The DB itself
+        // still has EntityId columns + FK_*_Entitys_EntityId constraints,
+        // so we hand-write the proper Up() that:
+        //   1. Drops the real existing FKs (Entitys_EntityId).
+        //   2. Renames the columns and their indexes.
+        //   3. Drops the legacy Entitys table.
+        //   4. Creates Departments with the new schema.
+        //   5. Re-adds the FKs under their new names.
+
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Drop the real existing FKs (EF convention names with the old EntityId column).
             migrationBuilder.DropForeignKey(
-                name: "FK_AspNetUsers_Entitys_DepartmentId",
+                name: "FK_AspNetUsers_Entitys_EntityId",
                 table: "AspNetUsers");
 
             migrationBuilder.DropForeignKey(
-                name: "FK_Tickets_Entitys_DepartmentId",
+                name: "FK_Tickets_Entitys_EntityId",
                 table: "Tickets");
 
+            // Rename the column on both tables — preserves any existing data
+            // (so old ticket/user rows keep their dept reference through the rename).
+            migrationBuilder.RenameColumn(
+                name: "EntityId",
+                table: "AspNetUsers",
+                newName: "DepartmentId");
+
+            migrationBuilder.RenameColumn(
+                name: "EntityId",
+                table: "Tickets",
+                newName: "DepartmentId");
+
+            // Rename the auto-generated indexes that EF creates on FK columns.
+            migrationBuilder.RenameIndex(
+                name: "IX_AspNetUsers_EntityId",
+                table: "AspNetUsers",
+                newName: "IX_AspNetUsers_DepartmentId");
+
+            migrationBuilder.RenameIndex(
+                name: "IX_Tickets_EntityId",
+                table: "Tickets",
+                newName: "IX_Tickets_DepartmentId");
+
+            // Now safe to drop the legacy Entitys table.
             migrationBuilder.DropTable(
                 name: "Entitys");
 
+            // Unrelated columns the EF diff picked up on RetrievalBenchmarkRuns —
+            // these are pre-existing model fields that hadn't been migrated yet.
+            // Adding them here is fine; they're additive and non-breaking.
             migrationBuilder.AddColumn<double>(
                 name: "MeanReciprocalRank",
                 table: "RetrievalBenchmarkRuns",
@@ -63,6 +103,7 @@ namespace ServiceOpsAI.Data.Migrations
                 nullable: false,
                 defaultValue: 0.0);
 
+            // Create the new Departments table with the full schema.
             migrationBuilder.CreateTable(
                 name: "Departments",
                 columns: table => new
@@ -82,6 +123,13 @@ namespace ServiceOpsAI.Data.Migrations
                 {
                     table.PrimaryKey("PK_Departments", x => x.Id);
                 });
+
+            // After the column rename, AspNetUsers.DepartmentId and Tickets.DepartmentId
+            // still point at the now-dropped Entitys table id space. We need to NULL them
+            // out so the new FK to Departments doesn't fail on orphan ids. Any existing
+            // dept references are lost — the seeder will populate fresh ones.
+            migrationBuilder.Sql("UPDATE [AspNetUsers] SET [DepartmentId] = NULL");
+            migrationBuilder.Sql("UPDATE [Tickets] SET [DepartmentId] = NULL");
 
             migrationBuilder.AddForeignKey(
                 name: "FK_AspNetUsers_Departments_DepartmentId",
@@ -114,29 +162,32 @@ namespace ServiceOpsAI.Data.Migrations
             migrationBuilder.DropTable(
                 name: "Departments");
 
-            migrationBuilder.DropColumn(
-                name: "MeanReciprocalRank",
-                table: "RetrievalBenchmarkRuns");
+            migrationBuilder.DropColumn(name: "MeanReciprocalRank", table: "RetrievalBenchmarkRuns");
+            migrationBuilder.DropColumn(name: "Ndcg5",               table: "RetrievalBenchmarkRuns");
+            migrationBuilder.DropColumn(name: "Recall1",             table: "RetrievalBenchmarkRuns");
+            migrationBuilder.DropColumn(name: "Recall10",            table: "RetrievalBenchmarkRuns");
+            migrationBuilder.DropColumn(name: "Recall3",             table: "RetrievalBenchmarkRuns");
+            migrationBuilder.DropColumn(name: "Recall5",             table: "RetrievalBenchmarkRuns");
 
-            migrationBuilder.DropColumn(
-                name: "Ndcg5",
-                table: "RetrievalBenchmarkRuns");
+            migrationBuilder.RenameIndex(
+                name: "IX_AspNetUsers_DepartmentId",
+                table: "AspNetUsers",
+                newName: "IX_AspNetUsers_EntityId");
 
-            migrationBuilder.DropColumn(
-                name: "Recall1",
-                table: "RetrievalBenchmarkRuns");
+            migrationBuilder.RenameIndex(
+                name: "IX_Tickets_DepartmentId",
+                table: "Tickets",
+                newName: "IX_Tickets_EntityId");
 
-            migrationBuilder.DropColumn(
-                name: "Recall10",
-                table: "RetrievalBenchmarkRuns");
+            migrationBuilder.RenameColumn(
+                name: "DepartmentId",
+                table: "AspNetUsers",
+                newName: "EntityId");
 
-            migrationBuilder.DropColumn(
-                name: "Recall3",
-                table: "RetrievalBenchmarkRuns");
-
-            migrationBuilder.DropColumn(
-                name: "Recall5",
-                table: "RetrievalBenchmarkRuns");
+            migrationBuilder.RenameColumn(
+                name: "DepartmentId",
+                table: "Tickets",
+                newName: "EntityId");
 
             migrationBuilder.CreateTable(
                 name: "Entitys",
@@ -153,17 +204,17 @@ namespace ServiceOpsAI.Data.Migrations
                 });
 
             migrationBuilder.AddForeignKey(
-                name: "FK_AspNetUsers_Entitys_DepartmentId",
+                name: "FK_AspNetUsers_Entitys_EntityId",
                 table: "AspNetUsers",
-                column: "DepartmentId",
+                column: "EntityId",
                 principalTable: "Entitys",
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.AddForeignKey(
-                name: "FK_Tickets_Entitys_DepartmentId",
+                name: "FK_Tickets_Entitys_EntityId",
                 table: "Tickets",
-                column: "DepartmentId",
+                column: "EntityId",
                 principalTable: "Entitys",
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Restrict);

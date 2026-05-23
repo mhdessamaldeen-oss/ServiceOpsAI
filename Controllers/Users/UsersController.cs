@@ -67,10 +67,10 @@ namespace ServiceOpsAI.Controllers.Users
                     usersQuery = usersQuery.OrderByDescending(u => u.FirstName ?? string.Empty).ThenByDescending(u => u.LastName ?? string.Empty);
                     break;
                 case "Department":
-                    usersQuery = usersQuery.OrderBy(u => u.Department != null ? u.Department.Name : string.Empty);
+                    usersQuery = usersQuery.OrderBy(u => u.Department != null ? u.Department.NameEn : string.Empty);
                     break;
                 case "entity_desc":
-                    usersQuery = usersQuery.OrderByDescending(u => u.Department != null ? u.Department.Name : string.Empty);
+                    usersQuery = usersQuery.OrderByDescending(u => u.Department != null ? u.Department.NameEn : string.Empty);
                     break;
                 default:
                     usersQuery = usersQuery.OrderBy(u => u.Email ?? string.Empty);

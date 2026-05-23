@@ -33,13 +33,14 @@ namespace ServiceOpsAI.Controllers.Entities
 
             if (!string.IsNullOrEmpty(request.SearchString))
             {
-                entities = entities.Where(e => e.Name.Contains(request.SearchString));
+                // Department.Name is [NotMapped] so EF cannot translate it — use NameEn.
+                entities = entities.Where(e => e.NameEn.Contains(request.SearchString));
             }
 
             switch (request.SortOrder)
             {
                 case "name_desc":
-                    entities = entities.OrderByDescending(e => e.Name);
+                    entities = entities.OrderByDescending(e => e.NameEn);
                     break;
                 case "Status":
                     entities = entities.OrderBy(e => e.IsActive);
@@ -48,7 +49,7 @@ namespace ServiceOpsAI.Controllers.Entities
                     entities = entities.OrderByDescending(e => e.IsActive);
                     break;
                 default:
-                    entities = entities.OrderBy(e => e.Name);
+                    entities = entities.OrderBy(e => e.NameEn);
                     break;
             }
 

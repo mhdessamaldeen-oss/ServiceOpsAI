@@ -1,3 +1,5 @@
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -5,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using ServiceOpsAI.Constants;
 using ServiceOpsAI.Data;
 using ServiceOpsAI.Models;
+using ServiceOpsAI.Models.Common;
+using ServiceOpsAI.Models.DTOs;
 
 namespace ServiceOpsAI.Controllers.Departments;
 
@@ -12,20 +16,49 @@ namespace ServiceOpsAI.Controllers.Departments;
 public class DepartmentsController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly IMapper _mapper;
 
-    public DepartmentsController(ApplicationDbContext context)
+    public DepartmentsController(ApplicationDbContext context, IMapper mapper)
     {
         _context = context;
+        _mapper = mapper;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index([FromQuery] GridRequestModel request)
     {
-        var rows = await _context.Departments.AsNoTracking()
+        request.Normalize();
+
+        var query = _context.Departments.AsNoTracking()
             .Include(d => d.Region)
-            .OrderBy(d => d.Region!.NameEn)
-            .ThenBy(d => d.ServiceType)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(request.SearchString))
+        {
+            var s = request.SearchString;
+            query = query.Where(d => d.NameEn.Contains(s)
+                                  || d.NameAr.Contains(s)
+                                  || (d.Region != null && d.Region.NameEn.Contains(s)));
+        }
+
+        query = query.OrderBy(d => d.Region != null ? d.Region.NameEn : string.Empty)
+                     .ThenBy(d => d.ServiceType);
+
+        var total = await query.CountAsync();
+        var effectivePageSize = request.GetEffectivePageSize(total);
+        var items = await query
+            .Skip((request.PageNumber - 1) * effectivePageSize)
+            .Take(effectivePageSize)
+            .ProjectTo<DepartmentDto>(_mapper.ConfigurationProvider)
             .ToListAsync();
-        return View(rows);
+
+        return View(new PagedResult<DepartmentDto>
+        {
+            Items = items,
+            TotalCount = total,
+            PageNumber = request.PageNumber,
+            PageSize = effectivePageSize,
+            Request = request,
+        });
     }
 
     public async Task<IActionResult> Details(int id)

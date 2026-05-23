@@ -1,0 +1,79 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.CustomerDto>
+
+<div class="table-responsive">
+    <table id="customersTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Customer</th>
+                <th class="py-3">National ID</th>
+                <th class="py-3">Phone</th>
+                <th class="py-3">Region</th>
+                <th class="py-3">Status</th>
+                <th class="py-3">Signed Up</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; background: rgba(var(--primary-color-rgb, 16,185,129), 0.1) !important; color: var(--primary-color) !important; border: 1px solid rgba(var(--primary-color-rgb, 16,185,129), 0.2) !important;">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-main) !important;">@item.FullNameEn</div>
+                                <div class="small text-muted" dir="rtl">@item.FullNameAr</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><code class="text-muted">@item.NationalId</code></td>
+                    <td>@item.Phone</td>
+                    <td>
+                        <span style="color: var(--text-main) !important;">@(item.RegionName ?? "—")</span>
+                        @if (!string.IsNullOrEmpty(item.RegionNameAr))
+                        {
+                            <div class="small text-muted" dir="rtl">@item.RegionNameAr</div>
+                        }
+                    </td>
+                    <td>
+                        @{
+                            var (statusBg, statusColor, statusBorder) = item.Status switch
+                            {
+                                "Active"    => ("rgba(var(--primary-color-rgb), 0.1)", "var(--primary-color)", "var(--primary-color)"),
+                                "Suspended" => ("rgba(var(--warning-color-rgb, 245,158,11), 0.1)", "var(--warning-color, #f59e0b)", "var(--warning-color, #f59e0b)"),
+                                "Churned"   => ("rgba(var(--danger-color-rgb), 0.1)", "var(--danger-color)", "var(--danger-color)"),
+                                _           => ("rgba(var(--info-color-rgb, 56,189,248), 0.1)", "var(--info-color, #38bdf8)", "var(--info-color, #38bdf8)")
+                            };
+                        }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @statusBg !important; color: @statusColor !important; border: 1px solid @statusBorder !important;">@item.Status</span>
+                    </td>
+                    <td class="small text-muted">@item.SignupAt.ToString("yyyy-MM-dd")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-soft-info shadow-none" title="Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-soft-primary shadow-none">
+                            <i class="bi bi-pencil-square"></i> Modify
+                        </a>
+                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Delete this customer? Their bills/tickets must be removed first.');" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-soft-danger shadow-none">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (!Model.Items.Any())
+    {
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-inbox fs-1 mb-3"></i>
+            <h6>No customers match the current filter.</h6>
+        </div>
+    }
+</div>
