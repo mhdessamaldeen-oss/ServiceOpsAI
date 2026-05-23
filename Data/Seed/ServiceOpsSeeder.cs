@@ -16,7 +16,8 @@ namespace ServiceOpsAI.Data.Seed;
 public static class ServiceOpsSeeder
 {
     private const int RandomSeed = 42;
-    private const int CustomerCount = 200;
+    // Bumped from 200 → 400 for richer Copilot analytics surface (Phase J data enrichment).
+    private const int CustomerCount = 400;
     private const int BillHistoryMonths = 24;
 
     private static readonly DateTime SeedReferenceDate = new(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -38,9 +39,292 @@ public static class ServiceOpsSeeder
 
         await SeedTicketCategoriesAsync(db, ct);
         var departments = await SeedDepartmentsAsync(db, svcByCode, ct);
+        await SeedTariffsAsync(db, svcByCode, ct);
         var customers = await SeedCustomersAsync(db, rng, ct);
         var bills = await SeedBillsAsync(db, rng, customers, departments, svcByCode, ct);
-        await SeedTicketsAsync(db, rng, customers, departments, bills, svcByCode, complaintByCode, resolutionByCode, ct);
+        await SeedMeterReadingsAsync(db, rng, customers, svcByCode, ct);
+        var outages = await SeedOutagesAsync(db, rng, departments, svcByCode, ct);
+        await SeedTicketsAsync(db, rng, customers, departments, bills, outages, svcByCode, complaintByCode, resolutionByCode, ct);
+        await SeedCsatResponsesAsync(db, rng, ct);
+    }
+
+    // ─── Tariffs (Phase I): baseline per (ServiceType, no Region) + the Aleppo +20% spike ──
+    private static async Task SeedTariffsAsync(
+        ApplicationDbContext db,
+        Dictionary<string, ServiceType> svcByCode,
+        CancellationToken ct)
+    {
+        var allRegions = await db.Regions.ToListAsync(ct);
+        var aleppo = allRegions.FirstOrDefault(r => r.NameEn == "Aleppo" && r.RegionType == RegionType.Governorate);
+
+        var tariffs = new List<Tariff>();
+
+        // Baseline country-wide tariffs effective from 3 years ago.
+        var baseline = SeedReferenceDate.AddYears(-3);
+        foreach (var (code, baseFee, ratePerUnit) in new[]
+        {
+            (ServiceTypeCodes.Electricity, 2000m, 30m),
+            (ServiceTypeCodes.Internet,    25000m, 100m),
+            (ServiceTypeCodes.Water,       1500m,  120m),
+            (ServiceTypeCodes.Gas,         5000m,  3000m),
+        })
+        {
+            if (!svcByCode.TryGetValue(code, out var svc)) continue;
+            tariffs.Add(new Tariff
+            {
+                ServiceTypeId  = svc.Id,
+                RegionId       = null,                  // country-wide
+                EffectiveFrom  = baseline,
+                EffectiveTo    = null,
+                BaseMonthlyFee = baseFee,
+                RatePerUnit    = ratePerUnit,
+                TaxPercent     = 11m,
+                ChangeReasonEn = "Initial baseline tariff",
+                ChangeReasonAr = "التعرفة الأساسية الأولية",
+            });
+        }
+
+        // Aleppo electricity tariff change on 2025-09-01 (+20% rate)
+        if (aleppo is not null && svcByCode.TryGetValue(ServiceTypeCodes.Electricity, out var elec))
+        {
+            tariffs.Add(new Tariff
+            {
+                ServiceTypeId  = elec.Id,
+                RegionId       = aleppo.Id,
+                EffectiveFrom  = new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc),
+                EffectiveTo    = null,
+                BaseMonthlyFee = 2000m,
+                RatePerUnit    = 36m,                   // 30 + 20%
+                TaxPercent     = 11m,
+                ChangeReasonEn = "Aleppo regional rate adjustment, +20% per kWh effective Sept 2025",
+                ChangeReasonAr = "تعديل تعرفة كهرباء حلب، زيادة 20% لكل ك.و.س اعتباراً من سبتمبر 2025",
+            });
+        }
+
+        db.Tariffs.AddRange(tariffs);
+        await db.SaveChangesAsync(ct);
+    }
+
+    // ─── Outages (Phase F): ~30 historical events, including the Aleppo internet outage ──
+    private static async Task<List<Outage>> SeedOutagesAsync(
+        ApplicationDbContext db, Random rng,
+        List<Department> departments,
+        Dictionary<string, ServiceType> svcByCode,
+        CancellationToken ct)
+    {
+        var allRegions = await db.Regions.ToListAsync(ct);
+        var govs = allRegions.Where(r => r.RegionType == RegionType.Governorate).ToList();
+        var depts = departments.ToDictionary(d => (d.RegionId!.Value, d.ServiceTypeId));
+
+        var outages = new List<Outage>();
+        int seq = 1;
+
+        // Story 1: Aleppo internet outage on 2026-03-14 (referenced by tickets later).
+        var aleppo = govs.FirstOrDefault(g => g.NameEn == "Aleppo");
+        var internetSvc = svcByCode[ServiceTypeCodes.Internet];
+        if (aleppo is not null && depts.TryGetValue((aleppo.Id, internetSvc.Id), out var aleppoInternetDept))
+        {
+            outages.Add(new Outage
+            {
+                OutageNumber          = $"OUT-2026-03-{seq++:000}",
+                RegionId              = aleppo.Id,
+                ServiceTypeId         = internetSvc.Id,
+                DepartmentId          = aleppoInternetDept.Id,
+                StartedAt             = new DateTime(2026, 3, 14, 9, 0, 0, DateTimeKind.Utc),
+                EndedAt               = new DateTime(2026, 3, 14, 18, 0, 0, DateTimeKind.Utc),
+                Severity              = OutageSeverity.Major,
+                Cause                 = OutageCause.FiberCut,
+                IsPlanned             = false,
+                AffectedCustomerCount = 5000,
+                TitleEn               = "Aleppo internet fiber cut",
+                TitleAr               = "انقطاع الإنترنت في حلب — قطع كابل",
+                Description           = "Major fiber line cut during road works in central Aleppo. Backbone restored after 9 hours.",
+            });
+        }
+
+        // Damascus water cut (story 2).
+        var damascus = govs.FirstOrDefault(g => g.NameEn == "Damascus");
+        var waterSvc = svcByCode[ServiceTypeCodes.Water];
+        if (damascus is not null && depts.TryGetValue((damascus.Id, waterSvc.Id), out var dmscWaterDept))
+        {
+            outages.Add(new Outage
+            {
+                OutageNumber          = $"OUT-2026-04-{seq++:000}",
+                RegionId              = damascus.Id,
+                ServiceTypeId         = waterSvc.Id,
+                DepartmentId          = dmscWaterDept.Id,
+                StartedAt             = new DateTime(2026, 4, 3, 6, 0, 0, DateTimeKind.Utc),
+                EndedAt               = new DateTime(2026, 4, 6, 18, 0, 0, DateTimeKind.Utc),
+                Severity              = OutageSeverity.Moderate,
+                Cause                 = OutageCause.PipeBurst,
+                IsPlanned             = false,
+                AffectedCustomerCount = 1200,
+                TitleEn               = "Mezzeh 86 main pipe burst",
+                TitleAr               = "انفجار أنبوب رئيسي في مزة 86",
+                Description           = "Main supply pipe burst affecting two districts. Repair took 3 days.",
+            });
+        }
+
+        // ~30 additional historical outages distributed across govs / services / months.
+        var causes = Enum.GetValues<OutageCause>().Where(c => c != OutageCause.Unknown).ToArray();
+        var serviceCodes = new[] { ServiceTypeCodes.Electricity, ServiceTypeCodes.Internet, ServiceTypeCodes.Water, ServiceTypeCodes.Gas };
+        for (int i = 0; i < 30; i++)
+        {
+            var gov = govs[rng.Next(govs.Count)];
+            var svc = svcByCode[serviceCodes[rng.Next(serviceCodes.Length)]];
+            if (!depts.TryGetValue((gov.Id, svc.Id), out var dept)) continue;
+            var startedDaysAgo = rng.Next(7, 700);
+            var durationHours = rng.Next(1, 72);
+            var startedAt = SeedReferenceDate.AddDays(-startedDaysAgo);
+            outages.Add(new Outage
+            {
+                OutageNumber          = $"OUT-{startedAt:yyyy-MM}-{seq++:000}",
+                RegionId              = gov.Id,
+                ServiceTypeId         = svc.Id,
+                DepartmentId          = dept.Id,
+                StartedAt             = startedAt,
+                EndedAt               = startedAt.AddHours(durationHours),
+                Severity              = (OutageSeverity)(rng.Next(4) + 1),
+                Cause                 = causes[rng.Next(causes.Length)],
+                IsPlanned             = rng.NextDouble() < 0.15,
+                AffectedCustomerCount = rng.Next(20, 4000),
+                TitleEn               = $"{svc.NameEn} disruption in {gov.NameEn}",
+                TitleAr               = $"اضطراب {svc.NameAr} في {gov.NameAr}",
+            });
+        }
+
+        db.Outages.AddRange(outages);
+        await db.SaveChangesAsync(ct);
+        return outages;
+    }
+
+    // ─── MeterReadings (Phase G): one reading per service-month per customer ─────────────
+    // For 400 customers × ~3 services × 24 months = ~28,800 readings (capped at ~10K via
+    // sampling to keep seed time reasonable).
+    private static async Task SeedMeterReadingsAsync(
+        ApplicationDbContext db, Random rng,
+        List<Customer> customers,
+        Dictionary<string, ServiceType> svcByCode,
+        CancellationToken ct)
+    {
+        var readings = new List<MeterReading>();
+
+        // Sample 1/3 of customers for meter readings (~130 customers) to keep volume bounded.
+        var sampled = customers.OrderBy(_ => rng.Next()).Take(customers.Count / 3).ToList();
+        var serviceCodes = new[] { ServiceTypeCodes.Electricity, ServiceTypeCodes.Internet, ServiceTypeCodes.Water, ServiceTypeCodes.Gas };
+
+        foreach (var c in sampled)
+        {
+            foreach (var code in serviceCodes)
+            {
+                if (rng.NextDouble() > 0.7) continue;       // ~70% chance customer has this service
+                if (!svcByCode.TryGetValue(code, out var svc)) continue;
+
+                decimal cumulativeValue = rng.Next(1000, 5000);
+                var meterNumber = $"M{(int)svc.Id:D2}-{c.Id:D6}";
+
+                for (int monthsAgo = BillHistoryMonths; monthsAgo >= 1; monthsAgo--)
+                {
+                    var readDate = SeedReferenceDate.AddMonths(-monthsAgo).AddDays(rng.Next(25, 31));
+                    var consumption = code switch
+                    {
+                        ServiceTypeCodes.Electricity => (decimal)rng.Next(100, 800),
+                        ServiceTypeCodes.Internet    => (decimal)rng.Next(50, 500),
+                        ServiceTypeCodes.Water       => (decimal)rng.Next(10, 50),
+                        ServiceTypeCodes.Gas         => (decimal)rng.Next(1, 8),
+                        _ => 0m
+                    };
+                    cumulativeValue += consumption;
+                    readings.Add(new MeterReading
+                    {
+                        CustomerId    = c.Id,
+                        ServiceTypeId = svc.Id,
+                        ReadingDate   = readDate,
+                        Value         = cumulativeValue,
+                        Consumption   = consumption,
+                        ReaderType    = rng.NextDouble() < 0.85 ? MeterReadingType.Actual : MeterReadingType.Estimated,
+                        MeterNumber   = meterNumber,
+                    });
+                }
+            }
+        }
+
+        const int batchSize = 1000;
+        for (int i = 0; i < readings.Count; i += batchSize)
+        {
+            db.MeterReadings.AddRange(readings.Skip(i).Take(batchSize));
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
+    // ─── CsatResponses (Phase H): one per ~70% of resolved tickets ────────────────────────
+    private static async Task SeedCsatResponsesAsync(ApplicationDbContext db, Random rng, CancellationToken ct)
+    {
+        var resolvedTickets = await db.Tickets
+            .Include(t => t.Status)
+            .Where(t => t.Status != null && t.Status.IsClosedState)
+            .ToListAsync(ct);
+
+        var commentsByScore = new Dictionary<int, (string En, string Ar)[]>
+        {
+            [1] = new[]
+            {
+                ("Very poor service. Took too long and the problem is still there.", "خدمة سيئة جداً. استغرق وقتاً طويلاً والمشكلة لا تزال قائمة."),
+                ("Terrible experience. Will switch providers if this continues.", "تجربة سيئة. سأغير المزود إذا استمر هذا."),
+            },
+            [2] = new[]
+            {
+                ("Below expectations. The technician arrived late.", "أقل من المتوقع. الفني وصل متأخراً."),
+                ("Not great. Communication was unclear throughout.", "ليس جيداً. التواصل لم يكن واضحاً."),
+            },
+            [3] = new[]
+            {
+                ("Acceptable. Problem was resolved but slow.", "مقبول. تم حل المشكلة لكن ببطء."),
+                ("OK service. Could be better.", "خدمة عادية. يمكن أن تكون أفضل."),
+            },
+            [4] = new[]
+            {
+                ("Good service. Issue resolved within expected time.", "خدمة جيدة. تم حل المشكلة في الوقت المتوقع."),
+                ("Happy with how this was handled.", "راضٍ عن طريقة معالجة الأمر."),
+            },
+            [5] = new[]
+            {
+                ("Excellent! Very quick response and friendly team.", "ممتاز! استجابة سريعة جداً وفريق ودود."),
+                ("Best service I've had in years. Highly recommend.", "أفضل خدمة حصلت عليها منذ سنوات. أنصح بها بشدة."),
+            },
+        };
+
+        var channels = new[] { "SMS", "Email", "InApp", "Phone" };
+
+        // ~70% of resolved tickets get a CSAT.
+        var csats = new List<CsatResponse>();
+        foreach (var t in resolvedTickets)
+        {
+            if (rng.NextDouble() > 0.70) continue;
+            // Weighted toward 4 (good) — but include a fair share of low scores for analytics value.
+            var score = rng.NextDouble() switch
+            {
+                < 0.08 => 1,
+                < 0.18 => 2,
+                < 0.33 => 3,
+                < 0.70 => 4,
+                _      => 5,
+            };
+            var comment = commentsByScore[score][rng.Next(commentsByScore[score].Length)];
+            csats.Add(new CsatResponse
+            {
+                TicketId       = t.Id,
+                Score          = score,
+                CommentEn      = comment.En,
+                CommentAr      = comment.Ar,
+                Sentiment      = score <= 2 ? CsatSentiment.Negative : score == 3 ? CsatSentiment.Neutral : CsatSentiment.Positive,
+                RespondedAt    = (t.ResolvedAt ?? t.CreatedAt).AddDays(rng.Next(1, 7)),
+                ResponseChannel = channels[rng.Next(channels.Length)],
+            });
+        }
+
+        db.CsatResponses.AddRange(csats);
+        await db.SaveChangesAsync(ct);
     }
 
     // ─── TicketCategory: 10 utility-realistic bilingual categories (upsert by name) ──────────────
@@ -435,6 +719,7 @@ public static class ServiceOpsSeeder
     private static async Task SeedTicketsAsync(
         ApplicationDbContext db, Random rng,
         List<Customer> customers, List<Department> departments, List<Bill> bills,
+        List<Outage> outages,
         Dictionary<string, ServiceType> svcByCode,
         Dictionary<string, ComplaintType> complaintByCode,
         Dictionary<string, ResolutionType> resolutionByCode,
@@ -480,8 +765,12 @@ public static class ServiceOpsSeeder
 
         if (aleppoInternetDept is not null)
         {
-            var outageStart = new DateTime(2026, 3, 14, 9, 0, 0, DateTimeKind.Utc);
-            var outageEnd   = new DateTime(2026, 3, 14, 18, 0, 0, DateTimeKind.Utc);
+            // Find the Aleppo internet outage we seeded in Phase F, so tickets carry an OutageId.
+            var aleppoOutage = outages.FirstOrDefault(o =>
+                o.RegionId == aleppoGovId && o.ServiceTypeId == internetId
+                && o.StartedAt.Year == 2026 && o.StartedAt.Month == 3 && o.StartedAt.Day == 14);
+            var outageStart = aleppoOutage?.StartedAt ?? new DateTime(2026, 3, 14, 9, 0, 0, DateTimeKind.Utc);
+            var outageEnd   = aleppoOutage?.EndedAt   ?? new DateTime(2026, 3, 14, 18, 0, 0, DateTimeKind.Utc);
             for (int i = 0; i < aleppoCustomers.Count; i++)
             {
                 var c = aleppoCustomers[i];
@@ -504,7 +793,8 @@ public static class ServiceOpsSeeder
                     CustomerId         = c.Id,
                     ComplaintTypeId    = serviceDownId,
                     ResolutionTypeId   = resolved ? outageClearedId : null,
-                    RegionId           = c.RegionId,                   // issue location = where the customer is
+                    RegionId           = c.RegionId,
+                    OutageId           = aleppoOutage?.Id,            // explicit attribution
                     ResolvedAt         = resolved ? outageEnd.AddMinutes(rng.Next(0, 60)) : null,
                 });
             }
