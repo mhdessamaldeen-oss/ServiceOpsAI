@@ -1,0 +1,65 @@
+@model List<ServiceOpsAI.Models.Country>
+@{
+    ViewData["Title"] = "Countries";
+    var header = new ServiceOpsAI.Models.Common.PageHeaderViewModel
+    {
+        Title = "Countries",
+        Subtitle = "Top-level geographic entries — usually a single row for the platform's operating country.",
+        IconClass = "bi bi-globe2",
+        Actions = new()
+        {
+            new() { Text = "New Country", Href = Url.Action("Create") ?? "#", IconClass = "bi bi-plus-circle", CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" }
+        }
+    };
+}
+
+<partial name="_PageHeader" model="header" />
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-warning"><i class="bi bi-exclamation-triangle"></i> @TempData["Error"]</div>
+}
+
+<div class="card border-0 shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0 datatable-premium">
+            <thead>
+                <tr>
+                    <th class="ps-4 py-3">Country</th>
+                    <th class="py-3">ISO</th>
+                    <th class="py-3">Active</th>
+                    <th class="text-end pe-4 py-3 no-sort">Controls</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Model)
+                {
+                    <tr>
+                        <td class="ps-4 fw-bold">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar-sm rounded-circle d-flex align-items-center justify-content-center me-3"
+                                     style="width: 40px; height: 40px; background: rgba(var(--primary-color-rgb, 16,185,129), 0.1) !important; color: var(--primary-color) !important; border: 1px solid rgba(var(--primary-color-rgb, 16,185,129), 0.2) !important;">
+                                    <i class="bi bi-globe2"></i>
+                                </div>
+                                <div>
+                                    <div style="color: var(--text-main) !important;">@c.NameEn</div>
+                                    <div class="small text-muted" dir="rtl">@c.NameAr</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><code>@c.IsoCode</code></td>
+                        <td>@(c.IsActive ? "✓" : "✗")</td>
+                        <td class="text-end pe-4">
+                            <a class="btn btn-sm btn-soft-info" asp-action="Details" asp-route-id="@c.Id"><i class="bi bi-eye"></i></a>
+                            <a class="btn btn-sm btn-soft-primary" asp-action="Edit" asp-route-id="@c.Id"><i class="bi bi-pencil"></i></a>
+                            <form asp-action="Delete" asp-route-id="@c.Id" method="post" class="d-inline" onsubmit="return confirm('Delete this country?');">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-soft-danger"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

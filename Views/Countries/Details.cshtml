@@ -1,0 +1,28 @@
+@model ServiceOpsAI.Models.Country
+@{
+    ViewData["Title"] = Model.NameEn;
+    var header = new ServiceOpsAI.Models.Common.PageHeaderViewModel
+    {
+        Title = Model.NameEn,
+        Subtitle = Model.NameAr,
+        IconClass = "bi bi-globe2",
+        Actions = new()
+        {
+            new() { Text = "Edit", Href = Url.Action("Edit", new { id = Model.Id }) ?? "#", IconClass = "bi bi-pencil", CssClass = "btn btn-sm btn-outline-primary rounded-pill px-3" },
+            new() { Text = "Back", Href = Url.Action("Index") ?? "#", IconClass = "bi bi-arrow-left", CssClass = "btn btn-sm btn-outline-secondary rounded-pill px-3" }
+        }
+    };
+}
+<partial name="_PageHeader" model="header" />
+
+<div class="card border-0 shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body p-4">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Name (EN)</dt> <dd class="col-sm-9">@Model.NameEn</dd>
+            <dt class="col-sm-3">Name (AR)</dt> <dd class="col-sm-9" dir="rtl">@Model.NameAr</dd>
+            <dt class="col-sm-3">ISO Code</dt>  <dd class="col-sm-9"><code>@Model.IsoCode</code></dd>
+            <dt class="col-sm-3">Regions</dt>   <dd class="col-sm-9">@ViewBag.RegionCount</dd>
+            <dt class="col-sm-3">Active</dt>    <dd class="col-sm-9">@(Model.IsActive ? "Yes" : "No")</dd>
+        </dl>
+    </div>
+</div>

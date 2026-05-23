@@ -1,0 +1,42 @@
+@model ServiceOpsAI.Models.Country
+@{
+    ViewData["Title"] = $"Edit {Model.NameEn}";
+    var header = new ServiceOpsAI.Models.Common.PageHeaderViewModel
+    {
+        Title = $"Edit {Model.NameEn}",
+        Subtitle = "Update country details.",
+        IconClass = "bi bi-globe2"
+    };
+}
+<partial name="_PageHeader" model="header" />
+
+<div class="card border-0 shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body p-4">
+        <form asp-action="Edit" method="post" class="row g-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="Id" />
+            <div class="col-md-6">
+                <label asp-for="NameEn" class="form-label small fw-bold text-muted text-uppercase">Name (English)</label>
+                <input asp-for="NameEn" class="form-control bg-transparent shadow-none" style="border-color: var(--border-color); color: var(--text-main);" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="NameAr" class="form-label small fw-bold text-muted text-uppercase">Name (Arabic)</label>
+                <input asp-for="NameAr" class="form-control bg-transparent shadow-none" dir="rtl" style="border-color: var(--border-color); color: var(--text-main);" />
+            </div>
+            <div class="col-md-4">
+                <label asp-for="IsoCode" class="form-label small fw-bold text-muted text-uppercase">ISO Code</label>
+                <input asp-for="IsoCode" class="form-control bg-transparent shadow-none" maxlength="3" style="border-color: var(--border-color); color: var(--text-main);" />
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input asp-for="IsActive" class="form-check-input" type="checkbox" />
+                    <label asp-for="IsActive" class="form-check-label">Active</label>
+                </div>
+            </div>
+            <div class="col-12">
+                <button class="btn btn-primary" type="submit">Save</button>
+                <a class="btn btn-outline-secondary" asp-action="Index">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
