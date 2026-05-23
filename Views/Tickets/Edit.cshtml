@@ -103,6 +103,26 @@
                             </div>
                         </div>
 
+                        <!-- Utility-domain context (optional) -->
+                        <div class="col-md-6">
+                            <label asp-for="CustomerId" class="form-label fw-bold small text-uppercase text-muted">Customer (optional)</label>
+                            <select asp-for="CustomerId" class="form-select border-0 bg-light p-3 shadow-none" asp-items="ViewBag.CustomerId">
+                                <option value="">— None —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ComplaintType" class="form-label fw-bold small text-uppercase text-muted">Complaint Type (optional)</label>
+                            <select asp-for="ComplaintType" class="form-select border-0 bg-light p-3 shadow-none" asp-items="ViewBag.ComplaintType">
+                                <option value="">— None —</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label asp-for="RelatedBillId" class="form-label fw-bold small text-uppercase text-muted">Related Bill (optional — for billing disputes)</label>
+                            <select asp-for="RelatedBillId" class="form-select border-0 bg-light p-3 shadow-none" asp-items="ViewBag.RelatedBillId">
+                                <option value="">— None —</option>
+                            </select>
+                        </div>
+
                         <div class="col-md-6">
                             <label asp-for="ProductArea" class="form-label fw-bold small text-uppercase text-muted">Product Area</label>
                             <input asp-for="ProductArea" class="form-control border-0 bg-light p-3 shadow-none" readonly="@(!isTechnicalRole ? "readonly" : null)" />

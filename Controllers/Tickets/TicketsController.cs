@@ -86,6 +86,31 @@ namespace ServiceOpsAI.Controllers.Tickets
                 .ProjectTo<LookupDisplayDto>(_mapper.ConfigurationProvider)
                 .ToListAsync();
             ViewData["ParentTicketId"] = new SelectList(parentsList, "Id", "Display", ticket?.ParentTicketId);
+
+            // Utility-domain optional context (Phase 09 follow-up):
+            // - Customer: who the complaint is from (separate from CreatedByUserId, the staff who logged it).
+            // - RelatedBillId: present only for billing-dispute style tickets.
+            // - ComplaintType: classifies the issue along the utility-service axis.
+            var customers = await _context.Customers
+                .OrderBy(c => c.FullNameEn)
+                .Select(c => new { c.Id, Display = c.FullNameEn + " (" + c.NationalId + ")" })
+                .Take(500)
+                .ToListAsync();
+            ViewData["CustomerId"] = new SelectList(customers, "Id", "Display", ticket?.CustomerId);
+
+            // Related bills are scoped to the picked customer if one is set; otherwise show recent bills.
+            var recentBillsQuery = _context.Bills.OrderByDescending(b => b.PeriodStart).AsQueryable();
+            if (ticket?.CustomerId is int cid)
+                recentBillsQuery = recentBillsQuery.Where(b => b.CustomerId == cid);
+            var bills = await recentBillsQuery
+                .Select(b => new { b.Id, Display = b.BillNumber + " — " + b.ServiceType + " — " + b.TotalAmount + " SYP" })
+                .Take(200)
+                .ToListAsync();
+            ViewData["RelatedBillId"] = new SelectList(bills, "Id", "Display", ticket?.RelatedBillId);
+
+            var complaintTypes = Enum.GetValues<ComplaintType>()
+                .Select(ct => new { Id = (int)ct, Display = ct.ToString() });
+            ViewData["ComplaintType"] = new SelectList(complaintTypes, "Id", "Display", ticket?.ComplaintType is null ? null : (int?)ticket.ComplaintType);
         }
 
         // GET: Tickets
@@ -271,7 +296,7 @@ namespace ServiceOpsAI.Controllers.Tickets
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,ParentTicketId")] Ticket ticket, List<IFormFile> files)
+        public async Task<IActionResult> Create([Bind("Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,ParentTicketId,CustomerId,RelatedBillId,ComplaintType")] Ticket ticket, List<IFormFile> files)
         {
             ModelState.Remove("TicketNumber");
             ModelState.Remove("CreatedByUserId");
@@ -396,7 +421,7 @@ namespace ServiceOpsAI.Controllers.Tickets
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ResolutionSummary,PendingReason,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,TechnicalAssessment,EscalationLevel,EscalatedToUserId,RootCause,VerificationNotes,ResolutionApprovedByUserId,ParentTicketId")] Ticket ticket, List<IFormFile> files)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ResolutionSummary,PendingReason,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,TechnicalAssessment,EscalationLevel,EscalatedToUserId,RootCause,VerificationNotes,ResolutionApprovedByUserId,ParentTicketId,CustomerId,RelatedBillId,ComplaintType")] Ticket ticket, List<IFormFile> files)
         {
             if (id != ticket.Id) return NotFound();
 

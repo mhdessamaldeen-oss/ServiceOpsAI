@@ -191,19 +191,24 @@
                     <i class="bi bi-grid-1x2-fill @labelMargin"></i><span class="sidebar-link-text">@Loc.Get("Dashboard")</span>
                 </a>
             </li>
+            <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">Ticketing</li>
             <li>
                 <a class="sidebar-link @(currentController == "Tickets" ? "active" : "")" asp-controller="Tickets" asp-action="Index" data-label="@Loc.Get("Tickets")">
                     <i class="bi bi-ticket-detailed-fill @labelMargin"></i><span class="sidebar-link-text">@Loc.Get("Tickets")</span>
                 </a>
             </li>
-            <li>
-                <a class="sidebar-link @(currentController == "Customers" ? "active" : "")" asp-controller="Customers" asp-action="Index" data-label="Customers">
-                    <i class="bi bi-people-fill @labelMargin"></i><span class="sidebar-link-text">Customers</span>
-                </a>
-            </li>
+
+            <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">Billing</li>
             <li>
                 <a class="sidebar-link @(currentController == "Bills" ? "active" : "")" asp-controller="Bills" asp-action="Index" data-label="Bills">
                     <i class="bi bi-receipt @labelMargin"></i><span class="sidebar-link-text">Bills</span>
+                </a>
+            </li>
+
+            <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">Operations</li>
+            <li>
+                <a class="sidebar-link @(currentController == "Customers" ? "active" : "")" asp-controller="Customers" asp-action="Index" data-label="Customers">
+                    <i class="bi bi-people-fill @labelMargin"></i><span class="sidebar-link-text">Customers</span>
                 </a>
             </li>
             <li>
@@ -213,6 +218,7 @@
             </li>
             @if (SignInManager.IsSignedIn(User) && User.IsInRole("Admin"))
             {
+                <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">AI Analysis</li>
                 <li>
                     <a class="sidebar-link @(currentController == "AiAnalysis" && currentAction == "Hub" ? "active" : "")" asp-controller="AiAnalysis" asp-action="Hub" data-label="@Loc.Get("AnalysisHub")">
                         <i class="bi bi-cpu-fill @labelMargin"></i><span class="sidebar-link-text">@Loc.Get("AnalysisHub")</span>
@@ -229,6 +235,8 @@
                     </a>
                 </li>
             }
+
+            <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">Reports</li>
             <li>
                 <a class="sidebar-link @(currentController == "Reports" ? "active" : "")" asp-controller="Reports" asp-action="Index" data-label="@Loc.Get("Reports")">
                     <i class="bi bi-bar-chart-fill @labelMargin"></i><span class="sidebar-link-text">@Loc.Get("Reports")</span>
