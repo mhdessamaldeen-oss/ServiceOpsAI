@@ -1,0 +1,58 @@
+@model List<ServiceOpsAI.Models.CsatResponse>
+@{
+    ViewData["Title"] = "Customer Satisfaction (CSAT)";
+    var header = new ServiceOpsAI.Models.Common.PageHeaderViewModel
+    {
+        Title = "Customer Satisfaction",
+        Subtitle = $"{ViewBag.Total} CSAT responses · Avg score: {((double)ViewBag.AvgScore).ToString("F2")}/5 · Labeled outcomes for Copilot quality measurement.",
+        IconClass = "bi bi-heart-fill"
+    };
+}
+<partial name="_PageHeader" model="header" />
+
+<div class="card border-0 shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0 datatable-premium">
+            <thead>
+                <tr>
+                    <th class="ps-4 py-3">Ticket #</th>
+                    <th class="py-3">Customer</th>
+                    <th class="text-center py-3">Score</th>
+                    <th class="py-3">Sentiment</th>
+                    <th class="py-3">Comment (EN)</th>
+                    <th class="py-3">Channel</th>
+                    <th class="py-3">Responded</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Model)
+                {
+                    <tr>
+                        <td class="ps-4"><code>@c.Ticket?.TicketNumber</code></td>
+                        <td>@c.Ticket?.Customer?.FullNameEn</td>
+                        <td class="text-center">
+                            @{
+                                var color = c.Score switch
+                                {
+                                    >= 4 => "var(--primary-color)",
+                                    3    => "#f59e0b",
+                                    _    => "var(--danger-color)"
+                                };
+                            }
+                            <span class="badge rounded-pill px-3 py-2" style="background: rgba(0,0,0,0.05); color: @color; border: 1px solid @color;">@(new string('★', c.Score))@(new string('☆', 5 - c.Score))</span>
+                        </td>
+                        <td>
+                            @if (c.Sentiment.HasValue)
+                            {
+                                <span class="badge bg-@(c.Sentiment == ServiceOpsAI.Models.CsatSentiment.Positive ? "success" : c.Sentiment == ServiceOpsAI.Models.CsatSentiment.Negative ? "danger" : "secondary")">@c.Sentiment</span>
+                            }
+                        </td>
+                        <td class="small text-muted">@c.CommentEn</td>
+                        <td class="small">@c.ResponseChannel</td>
+                        <td class="small">@c.RespondedAt.ToString("yyyy-MM-dd")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

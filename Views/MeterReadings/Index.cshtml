@@ -1,0 +1,43 @@
+@model List<ServiceOpsAI.Models.MeterReading>
+@{
+    ViewData["Title"] = "Meter Readings";
+    var header = new ServiceOpsAI.Models.Common.PageHeaderViewModel
+    {
+        Title = "Meter Readings",
+        Subtitle = $"Periodic consumption readings (read-only). {ViewBag.Total} total. Used for anomaly detection and bill verification.",
+        IconClass = "bi bi-speedometer2"
+    };
+}
+<partial name="_PageHeader" model="header" />
+
+<div class="card border-0 shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0 datatable-premium">
+            <thead>
+                <tr>
+                    <th class="ps-4 py-3">Date</th>
+                    <th class="py-3">Customer</th>
+                    <th class="py-3">Service</th>
+                    <th class="py-3">Meter #</th>
+                    <th class="text-end py-3">Reading</th>
+                    <th class="text-end py-3">Consumption</th>
+                    <th class="py-3">Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in Model)
+                {
+                    <tr>
+                        <td class="ps-4 small">@m.ReadingDate.ToString("yyyy-MM-dd")</td>
+                        <td>@m.Customer?.FullNameEn</td>
+                        <td><span class="badge bg-secondary">@m.ServiceType?.NameEn</span></td>
+                        <td><code class="small">@m.MeterNumber</code></td>
+                        <td class="text-end">@m.Value.ToString("N2")</td>
+                        <td class="text-end">@(m.Consumption?.ToString("N2") ?? "—")</td>
+                        <td><span class="badge bg-light text-dark">@m.ReaderType</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

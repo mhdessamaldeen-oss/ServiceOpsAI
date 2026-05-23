@@ -197,11 +197,26 @@
                     <i class="bi bi-ticket-detailed-fill @labelMargin"></i><span class="sidebar-link-text">@Loc.Get("Tickets")</span>
                 </a>
             </li>
+            <li>
+                <a class="sidebar-link @(currentController == "Csat" ? "active" : "")" asp-controller="Csat" asp-action="Index" data-label="CSAT">
+                    <i class="bi bi-heart-fill @labelMargin"></i><span class="sidebar-link-text">CSAT</span>
+                </a>
+            </li>
 
             <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">Billing</li>
             <li>
                 <a class="sidebar-link @(currentController == "Bills" ? "active" : "")" asp-controller="Bills" asp-action="Index" data-label="Bills">
                     <i class="bi bi-receipt @labelMargin"></i><span class="sidebar-link-text">Bills</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "Tariffs" ? "active" : "")" asp-controller="Tariffs" asp-action="Index" data-label="Tariffs">
+                    <i class="bi bi-tag-fill @labelMargin"></i><span class="sidebar-link-text">Tariffs</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "MeterReadings" ? "active" : "")" asp-controller="MeterReadings" asp-action="Index" data-label="Meter Readings">
+                    <i class="bi bi-speedometer2 @labelMargin"></i><span class="sidebar-link-text">Meter Readings</span>
                 </a>
             </li>
 
@@ -219,6 +234,11 @@
             <li>
                 <a class="sidebar-link @(currentController == "Regions" ? "active" : "")" asp-controller="Regions" asp-action="Index" data-label="Regions">
                     <i class="bi bi-map @labelMargin"></i><span class="sidebar-link-text">Regions</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "Outages" ? "active" : "")" asp-controller="Outages" asp-action="Index" data-label="Outages">
+                    <i class="bi bi-exclamation-octagon-fill @labelMargin"></i><span class="sidebar-link-text">Outages</span>
                 </a>
             </li>
             <li>
