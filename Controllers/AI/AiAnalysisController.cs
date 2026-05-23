@@ -1873,7 +1873,8 @@ namespace ServiceOpsAI.Controllers.AI
             ViewBag.StatusId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.TicketStatuses.OrderBy(s => s.Name).ToListAsync(), "Id", "Name", request.StatusId);
             ViewBag.PriorityId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.TicketPriorities.OrderBy(p => p.Name).ToListAsync(), "Id", "Name", request.PriorityId);
             ViewBag.CategoryId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.TicketCategories.OrderBy(c => c.Name).ToListAsync(), "Id", "Name", request.CategoryId);
-            ViewBag.EntityFilterId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.Departments.OrderBy(e => e.Name).ToListAsync(), "Id", "Name", request.DepartmentId);
+            // Department.Name is a [NotMapped] alias for NameEn — order by the real column.
+            ViewBag.EntityFilterId = new Microsoft.AspNetCore.Mvc.Rendering.SelectList(await _context.Departments.OrderBy(e => e.NameEn).ToListAsync(), "Id", "Name", request.DepartmentId);
 
             switch (request.SortOrder)
             {
@@ -1882,8 +1883,8 @@ namespace ServiceOpsAI.Controllers.AI
                 case "date_desc": query = query.OrderByDescending(t => t.CreatedAt); break;
                 case "Title": query = query.OrderBy(t => t.Title); break;
                 case "title_desc": query = query.OrderByDescending(t => t.Title); break;
-                case "Department": query = query.OrderBy(t => t.Department!.Name); break;
-                case "entity_desc": query = query.OrderByDescending(t => t.Department!.Name); break;
+                case "Department": query = query.OrderBy(t => t.Department!.NameEn); break;
+                case "entity_desc": query = query.OrderByDescending(t => t.Department!.NameEn); break;
                 case "Status": query = query.OrderBy(t => t.Status!.Name); break;
                 case "status_desc": query = query.OrderByDescending(t => t.Status!.Name); break;
                 default: query = query.OrderByDescending(t => t.CreatedAt); break;

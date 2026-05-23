@@ -182,8 +182,8 @@ namespace ServiceOpsAI.Controllers.Tickets
                 case "date_desc": tickets = tickets.OrderByDescending(t => t.CreatedAt); break;
                 case "Title": tickets = tickets.OrderBy(t => t.Title); break;
                 case "title_desc": tickets = tickets.OrderByDescending(t => t.Title); break;
-                case "Department": tickets = tickets.OrderBy(t => t.Department!.Name); break;
-                case "entity_desc": tickets = tickets.OrderByDescending(t => t.Department!.Name); break;
+                case "Department": tickets = tickets.OrderBy(t => t.Department!.NameEn); break;
+                case "entity_desc": tickets = tickets.OrderByDescending(t => t.Department!.NameEn); break;
                 case "Status": tickets = tickets.OrderBy(t => t.Status!.Name); break;
                 case "status_desc": tickets = tickets.OrderByDescending(t => t.Status!.Name); break;
                 default: tickets = tickets.OrderByDescending(t => t.CreatedAt); break;
