@@ -161,6 +161,80 @@
       "labelColumn": "NameEn",
       "displayColumns": ["Id", "NameEn", "NameAr", "RegionType", "ParentRegionId"],
       "description": "Hierarchical geography: RegionType=Governorate rows (14 of them: Damascus, Aleppo, Homs, ...) sit at the top with ParentRegionId=null. RegionType=District rows (~62) point at their governorate via ParentRegionId. Customers reference a district (RegionId); Departments reference a governorate (RegionId). To get a customer's governorate, join Region → ParentRegion."
+    },
+    {
+      "name": "ServiceType",
+      "table": "ServiceTypes",
+      "synonyms": ["service type", "service kind", "utility type", "service", "نوع الخدمة", "خدمة"],
+      "isLookup": true,
+      "searchableColumns": ["Code", "NameEn", "NameAr"],
+      "naturalKeyColumn": "Code",
+      "labelColumn": "NameEn",
+      "displayColumns": ["Id", "Code", "NameEn", "NameAr", "Unit"],
+      "description": "Lookup of utility service types. Seeded values: Electricity, Internet, Water, Gas, GovernmentProcess. Code is the stable machine identifier; NameEn/NameAr are display labels. Admins add new types via /ReferenceData without a code change. Referenced by Bill, Department, Outage, MeterReading, Tariff, and (optionally) TicketCategory."
+    },
+    {
+      "name": "ComplaintType",
+      "table": "ComplaintTypes",
+      "synonyms": ["complaint type", "complaint kind", "issue category", "نوع الشكوى"],
+      "isLookup": true,
+      "searchableColumns": ["Code", "NameEn", "NameAr"],
+      "naturalKeyColumn": "Code",
+      "labelColumn": "NameEn",
+      "displayColumns": ["Id", "Code", "NameEn", "NameAr"],
+      "description": "Lookup of complaint classifications. Seeded codes: ServiceDown, ServiceDegraded, BillingDispute, MeterIssue, Disconnection, NewConnection, Other. Tickets carry an optional ComplaintTypeId for the dominant complaint nature."
+    },
+    {
+      "name": "ResolutionType",
+      "table": "ResolutionTypes",
+      "synonyms": ["resolution type", "resolution", "closure type", "how resolved", "نوع الحل"],
+      "isLookup": true,
+      "searchableColumns": ["Code", "NameEn", "NameAr"],
+      "naturalKeyColumn": "Code",
+      "labelColumn": "NameEn",
+      "displayColumns": ["Id", "Code", "NameEn", "NameAr"],
+      "description": "Lookup of how a ticket was closed. Codes: Resolved, NoFault, BillAdjusted, Escalated, Cancelled, OutageCleared. Group by this to analyze closure patterns (e.g. tickets cleared as 'NoFault' vs genuine 'Resolved')."
+    },
+    {
+      "name": "Outage",
+      "table": "Outages",
+      "synonyms": ["outage", "outages", "incident", "service interruption", "blackout", "انقطاع", "انقطاعات", "حادث"],
+      "searchableColumns": ["OutageNumber", "TitleEn", "TitleAr", "Description"],
+      "naturalKeyColumn": "OutageNumber",
+      "naturalKeyFormat": "^OUT-\\d{4}-\\d{2}-\\d{3}$",
+      "labelColumn": "TitleEn",
+      "displayColumns": ["Id", "OutageNumber", "RegionId", "ServiceTypeId", "StartedAt", "EndedAt", "Severity", "AffectedCustomerCount"],
+      "dateRoles": {"started": "StartedAt", "ended": "EndedAt", "default": "StartedAt"},
+      "description": "Explicit service outage events (electricity blackouts, internet fiber cuts, water pipe bursts, etc.). Tickets can attribute to a specific OutageId. Use Severity (Minor/Moderate/Major/Critical), Cause (FiberCut/PipeBurst/Equipment/Weather/...), and DATEDIFF(hour, StartedAt, EndedAt) for MTTR analysis. Group by RegionId/ServiceTypeId for hot-spot analysis."
+    },
+    {
+      "name": "MeterReading",
+      "table": "MeterReadings",
+      "synonyms": ["meter reading", "meter", "consumption", "usage reading", "قراءة عداد", "استهلاك"],
+      "searchableColumns": ["MeterNumber", "Notes"],
+      "labelColumn": "MeterNumber",
+      "displayColumns": ["Id", "CustomerId", "ServiceTypeId", "ReadingDate", "Value", "Consumption", "ReaderType"],
+      "dateRoles": {"read": "ReadingDate", "default": "ReadingDate"},
+      "description": "Periodic consumption readings per (Customer, ServiceType). Value is cumulative; Consumption is the computed delta from the previous reading. ReaderType: Actual (physical/smart-meter), Estimated (computed), Customer (self-reported), Audit (verification). Use for anomaly detection ('customers whose consumption spiked 3x') and to validate Bills against actual usage."
+    },
+    {
+      "name": "CsatResponse",
+      "table": "CsatResponses",
+      "synonyms": ["csat", "satisfaction", "survey", "feedback", "rating", "score", "رضا العملاء", "تقييم"],
+      "searchableColumns": ["CommentEn", "CommentAr"],
+      "labelColumn": "CommentEn",
+      "displayColumns": ["Id", "TicketId", "Score", "Sentiment", "RespondedAt", "ResponseChannel"],
+      "dateRoles": {"responded": "RespondedAt", "default": "RespondedAt"},
+      "description": "Customer satisfaction survey response attached to a resolved Ticket. Score 1-5 (1=very dissatisfied, 5=very satisfied). Sentiment: Negative/Neutral/Positive. One CSAT per Ticket maximum. Used to measure Copilot answer quality and ticket-resolution effectiveness. Average Score by Department, by ComplaintType, by Region for breakdown analysis."
+    },
+    {
+      "name": "Tariff",
+      "table": "Tariffs",
+      "synonyms": ["tariff", "tariffs", "rate", "rates", "pricing", "price", "تعرفة", "سعر"],
+      "labelColumn": "ChangeReasonEn",
+      "displayColumns": ["Id", "ServiceTypeId", "RegionId", "EffectiveFrom", "EffectiveTo", "BaseMonthlyFee", "RatePerUnit", "TaxPercent"],
+      "dateRoles": {"effective": "EffectiveFrom", "default": "EffectiveFrom"},
+      "description": "Historical pricing per (ServiceType, Region). RegionId=null means a country-wide tariff. EffectiveFrom/EffectiveTo windows tell you which tariff applied during a bill's period. Use to EXPLAIN bill changes — when Bill.TotalAmount jumped, find the Tariff with EffectiveFrom near that date and surface its ChangeReasonEn."
     }
   ],
 
