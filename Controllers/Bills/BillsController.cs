@@ -42,8 +42,21 @@ public class BillsController : Controller
         }
         if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<BillStatus>(status, true, out var st))
             query = query.Where(b => b.Status == st);
-        if (!string.IsNullOrWhiteSpace(service) && Enum.TryParse<ServiceType>(service, true, out var sv))
-            query = query.Where(b => b.ServiceType == sv);
+        if (!string.IsNullOrWhiteSpace(service))
+        {
+            // service is now a ServiceType.Code (string) — filter by joining to the lookup row.
+            var svcId = await _context.ServiceTypes
+                .Where(s => s.Code == service)
+                .Select(s => (int?)s.Id)
+                .FirstOrDefaultAsync();
+            if (svcId.HasValue) query = query.Where(b => b.ServiceTypeId == svcId.Value);
+        }
+
+        // Pass active service types to the view so the filter dropdown can render Code values.
+        ViewBag.ServiceTypes = await _context.ServiceTypes
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.SortOrder).ThenBy(s => s.NameEn)
+            .ToListAsync();
 
         query = query.OrderByDescending(b => b.PeriodStart);
 
@@ -91,7 +104,7 @@ public class BillsController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create([Bind("BillNumber,CustomerId,DepartmentId,ServiceType,PeriodStart,PeriodEnd,BaseAmount,UsageAmount,Taxes,TotalAmount,UsageQuantity,UsageUnit,Status,IssuedAt,DueDate,PaidAt,PaymentMethod,Notes")] Bill bill)
+    public async Task<IActionResult> Create([Bind("BillNumber,CustomerId,DepartmentId,ServiceTypeId,PeriodStart,PeriodEnd,BaseAmount,UsageAmount,Taxes,TotalAmount,UsageQuantity,UsageUnit,Status,IssuedAt,DueDate,PaidAt,PaymentMethod,Notes")] Bill bill)
     {
         if (ModelState.IsValid)
         {
@@ -112,7 +125,7 @@ public class BillsController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, [Bind("Id,BillNumber,CustomerId,DepartmentId,ServiceType,PeriodStart,PeriodEnd,BaseAmount,UsageAmount,Taxes,TotalAmount,UsageQuantity,UsageUnit,Status,IssuedAt,DueDate,PaidAt,PaymentMethod,Notes")] Bill bill)
+    public async Task<IActionResult> Edit(int id, [Bind("Id,BillNumber,CustomerId,DepartmentId,ServiceTypeId,PeriodStart,PeriodEnd,BaseAmount,UsageAmount,Taxes,TotalAmount,UsageQuantity,UsageUnit,Status,IssuedAt,DueDate,PaidAt,PaymentMethod,Notes")] Bill bill)
     {
         if (id != bill.Id) return NotFound();
         if (ModelState.IsValid)
@@ -151,7 +164,11 @@ public class BillsController : Controller
             .Select(c => new { c.Id, Display = c.FullNameEn + " (" + c.NationalId + ")" }).ToListAsync();
         var depts = await _context.Departments.Include(d => d.Region).OrderBy(d => d.NameEn)
             .Select(d => new { d.Id, Display = d.NameEn }).ToListAsync();
+        var serviceTypes = await _context.ServiceTypes.Where(s => s.IsActive)
+            .OrderBy(s => s.SortOrder).ThenBy(s => s.NameEn)
+            .Select(s => new { s.Id, Display = s.NameEn + " / " + s.NameAr }).ToListAsync();
         ViewBag.Customers = new SelectList(customers, "Id", "Display");
         ViewBag.Departments = new SelectList(depts, "Id", "Display");
+        ViewBag.ServiceTypes = new SelectList(serviceTypes, "Id", "Display");
     }
 }

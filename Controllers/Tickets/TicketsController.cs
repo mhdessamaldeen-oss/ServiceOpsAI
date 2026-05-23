@@ -99,18 +99,43 @@ namespace ServiceOpsAI.Controllers.Tickets
             ViewData["CustomerId"] = new SelectList(customers, "Id", "Display", ticket?.CustomerId);
 
             // Related bills are scoped to the picked customer if one is set; otherwise show recent bills.
-            var recentBillsQuery = _context.Bills.OrderByDescending(b => b.PeriodStart).AsQueryable();
+            // Include ServiceType nav prop so the display can name it.
+            var recentBillsQuery = _context.Bills
+                .Include(b => b.ServiceType)
+                .OrderByDescending(b => b.PeriodStart)
+                .AsQueryable();
             if (ticket?.CustomerId is int cid)
                 recentBillsQuery = recentBillsQuery.Where(b => b.CustomerId == cid);
             var bills = await recentBillsQuery
-                .Select(b => new { b.Id, Display = b.BillNumber + " — " + b.ServiceType + " — " + b.TotalAmount + " SYP" })
+                .Select(b => new { b.Id, Display = b.BillNumber + " — " + (b.ServiceType != null ? b.ServiceType.NameEn : "?") + " — " + b.TotalAmount + " SYP" })
                 .Take(200)
                 .ToListAsync();
             ViewData["RelatedBillId"] = new SelectList(bills, "Id", "Display", ticket?.RelatedBillId);
 
-            var complaintTypes = Enum.GetValues<ComplaintType>()
-                .Select(ct => new { Id = (int)ct, Display = ct.ToString() });
-            ViewData["ComplaintType"] = new SelectList(complaintTypes, "Id", "Display", ticket?.ComplaintType is null ? null : (int?)ticket.ComplaintType);
+            // ComplaintType is now a lookup table (was enum) — source from DB so admins can add types.
+            var complaintTypes = await _context.ComplaintTypes
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.SortOrder).ThenBy(c => c.NameEn)
+                .Select(c => new { c.Id, Display = c.NameEn + " / " + c.NameAr })
+                .ToListAsync();
+            ViewData["ComplaintTypeId"] = new SelectList(complaintTypes, "Id", "Display", ticket?.ComplaintTypeId);
+
+            // ResolutionType lookup (new) — for closed tickets.
+            var resolutionTypes = await _context.ResolutionTypes
+                .Where(r => r.IsActive)
+                .OrderBy(r => r.SortOrder).ThenBy(r => r.NameEn)
+                .Select(r => new { r.Id, Display = r.NameEn + " / " + r.NameAr })
+                .ToListAsync();
+            ViewData["ResolutionTypeId"] = new SelectList(resolutionTypes, "Id", "Display", ticket?.ResolutionTypeId);
+
+            // Region (for "where the issue is" link).
+            var regions = await _context.Regions
+                .Include(r => r.ParentRegion)
+                .Where(r => r.RegionType == RegionType.District && r.IsActive)
+                .OrderBy(r => r.ParentRegion!.NameEn).ThenBy(r => r.NameEn)
+                .Select(r => new { r.Id, Display = (r.ParentRegion != null ? r.ParentRegion.NameEn + " / " : "") + r.NameEn })
+                .ToListAsync();
+            ViewData["RegionId"] = new SelectList(regions, "Id", "Display", ticket?.RegionId);
         }
 
         // GET: Tickets
@@ -296,7 +321,7 @@ namespace ServiceOpsAI.Controllers.Tickets
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,ParentTicketId,CustomerId,RelatedBillId,ComplaintType")] Ticket ticket, List<IFormFile> files)
+        public async Task<IActionResult> Create([Bind("Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,ParentTicketId,CustomerId,RelatedBillId,ComplaintTypeId,ResolutionTypeId,RegionId")] Ticket ticket, List<IFormFile> files)
         {
             ModelState.Remove("TicketNumber");
             ModelState.Remove("CreatedByUserId");
@@ -421,7 +446,7 @@ namespace ServiceOpsAI.Controllers.Tickets
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ResolutionSummary,PendingReason,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,TechnicalAssessment,EscalationLevel,EscalatedToUserId,RootCause,VerificationNotes,ResolutionApprovedByUserId,ParentTicketId,CustomerId,RelatedBillId,ComplaintType")] Ticket ticket, List<IFormFile> files)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Title,Description,CategoryId,PriorityId,SourceId,DepartmentId,StatusId,AssignedToUserId,DueDate,ResolutionSummary,PendingReason,ProductArea,EnvironmentName,BrowserName,OperatingSystem,ExternalReferenceId,ExternalSystemName,ImpactScope,AffectedUsersCount,TechnicalAssessment,EscalationLevel,EscalatedToUserId,RootCause,VerificationNotes,ResolutionApprovedByUserId,ParentTicketId,CustomerId,RelatedBillId,ComplaintTypeId,ResolutionTypeId,RegionId")] Ticket ticket, List<IFormFile> files)
         {
             if (id != ticket.Id) return NotFound();
 

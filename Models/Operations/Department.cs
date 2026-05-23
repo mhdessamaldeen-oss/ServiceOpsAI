@@ -23,7 +23,8 @@ public class Department
         set => NameEn = value;
     }
 
-    public ServiceType ServiceType { get; set; }
+    public int ServiceTypeId { get; set; }
+    public ServiceType? ServiceType { get; set; }
 
     public int? RegionId { get; set; }
     public Region? Region { get; set; }

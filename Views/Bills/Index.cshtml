@@ -60,9 +60,15 @@
                 <label class="form-label small fw-bold text-muted text-uppercase ls-1">Service Type</label>
                 <select name="service" class="form-select bg-transparent shadow-none" style="border-color: var(--border-color) !important; color: var(--text-main) !important;">
                     <option value="">All services</option>
-                    @foreach (var s in Enum.GetValues<ServiceOpsAI.Models.ServiceType>())
-                    {
-                        <option value="@s" selected="@(service == s.ToString())">@s</option>
+                    @{
+                        var svcTypes = ViewBag.ServiceTypes as IEnumerable<ServiceOpsAI.Models.ServiceType>;
+                        if (svcTypes != null)
+                        {
+                            foreach (var s in svcTypes)
+                            {
+                                <option value="@s.Code" selected="@(service == s.Code)">@s.NameEn</option>
+                            }
+                        }
                     }
                 </select>
             </div>

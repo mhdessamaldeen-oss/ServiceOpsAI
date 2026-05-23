@@ -156,3 +156,132 @@
         </div>
     </div>
 </div>
+
+<!-- ─── Utility-domain lookups (Phase B) ──────────────────────────────────────────── -->
+
+<h5 class="fw-bold mt-5 mb-3" style="color: var(--text-main) !important;">
+    <i class="bi bi-collection-fill me-2 text-primary"></i> Utility-Domain Vocabularies
+</h5>
+<p class="text-muted mb-4">
+    These were C# enums before — promoted to lookup tables so admins can add new
+    types (e.g. a new <code>Government Process</code> service or
+    <code>OutageCleared</code> resolution) without a code change. Each row has a
+    machine <code>Code</code> (stable identifier the seeder + Copilot use) and
+    bilingual display names.
+</p>
+
+<div class="row g-4 mb-5">
+
+    <!-- Service Types -->
+    <div class="col-xl-4 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+            <div class="card-header border-0 pb-0 bg-transparent d-flex align-items-center gap-3">
+                <div class="kpi-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+                <h6 class="fw-bold mb-0" style="color: var(--text-main) !important;">Service Types</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush mb-3">
+                    @foreach (var s in (IEnumerable<ServiceOpsAI.Models.ServiceType>)ViewBag.ServiceTypes)
+                    {
+                        <div class="p-3 rounded-3 d-flex justify-content-between align-items-center mb-2" style="background: var(--bg-main) !important; border: 1px solid var(--border-color) !important;">
+                            <div>
+                                <span class="fw-bold d-block" style="color: var(--text-main) !important;">
+                                    @if (!string.IsNullOrEmpty(s.IconClass)) { <i class="@s.IconClass me-2"></i> }
+                                    @s.NameEn <span class="text-muted small" dir="rtl">@s.NameAr</span>
+                                </span>
+                                <span class="text-muted small"><code>@s.Code</code>@(string.IsNullOrEmpty(s.Unit) ? "" : $" · unit: {s.Unit}")</span>
+                            </div>
+                            <form asp-action="ToggleStatus" method="post" class="m-0">
+                                <input type="hidden" name="type" value="servicetype" />
+                                <input type="hidden" name="id" value="@s.Id" />
+                                <button type="submit" class="btn btn-sm btn-pill @(s.IsActive ? "btn-soft-primary" : "btn-soft-danger") opacity-75">
+                                    @(s.IsActive ? "Active" : "Disabled")
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+                <form asp-action="AddServiceType" method="post" class="row g-2">
+                    <div class="col-12"><input type="text" name="code" class="form-control bg-transparent shadow-none" style="color: var(--text-main); border-color: var(--border-color);" placeholder="Code (e.g. Telephone)" required /></div>
+                    <div class="col-6"><input type="text" name="nameEn" class="form-control bg-transparent shadow-none" style="color: var(--text-main); border-color: var(--border-color);" placeholder="Name (EN)" required /></div>
+                    <div class="col-6"><input type="text" name="nameAr" class="form-control bg-transparent shadow-none" dir="rtl" style="color: var(--text-main); border-color: var(--border-color);" placeholder="الاسم (AR)" /></div>
+                    <div class="col-6"><input type="text" name="unit" class="form-control bg-transparent shadow-none" style="color: var(--text-main); border-color: var(--border-color);" placeholder="Unit (kWh, min...)" /></div>
+                    <div class="col-6 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-plus-lg"></i> Add Service Type</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complaint Types -->
+    <div class="col-xl-4 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+            <div class="card-header border-0 pb-0 bg-transparent d-flex align-items-center gap-3">
+                <div class="kpi-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                <h6 class="fw-bold mb-0" style="color: var(--text-main) !important;">Complaint Types</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush mb-3">
+                    @foreach (var c in (IEnumerable<ServiceOpsAI.Models.ComplaintType>)ViewBag.ComplaintTypes)
+                    {
+                        <div class="p-3 rounded-3 d-flex justify-content-between align-items-center mb-2" style="background: var(--bg-main) !important; border: 1px solid var(--border-color) !important;">
+                            <div>
+                                <span class="fw-bold d-block" style="color: var(--text-main) !important;">@c.NameEn <span class="text-muted small" dir="rtl">@c.NameAr</span></span>
+                                <span class="text-muted small"><code>@c.Code</code></span>
+                            </div>
+                            <form asp-action="ToggleStatus" method="post" class="m-0">
+                                <input type="hidden" name="type" value="complainttype" />
+                                <input type="hidden" name="id" value="@c.Id" />
+                                <button type="submit" class="btn btn-sm btn-pill @(c.IsActive ? "btn-soft-primary" : "btn-soft-danger") opacity-75">
+                                    @(c.IsActive ? "Active" : "Disabled")
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+                <form asp-action="AddComplaintType" method="post" class="row g-2">
+                    <div class="col-12"><input type="text" name="code" class="form-control bg-transparent shadow-none" style="color: var(--text-main); border-color: var(--border-color);" placeholder="Code (e.g. RoutingIssue)" required /></div>
+                    <div class="col-6"><input type="text" name="nameEn" class="form-control bg-transparent shadow-none" style="color: var(--text-main); border-color: var(--border-color);" placeholder="Name (EN)" required /></div>
+                    <div class="col-6"><input type="text" name="nameAr" class="form-control bg-transparent shadow-none" dir="rtl" style="color: var(--text-main); border-color: var(--border-color);" placeholder="الاسم (AR)" /></div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-plus-lg"></i> Add Complaint Type</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resolution Types -->
+    <div class="col-xl-4 col-md-6">
+        <div class="card border-0 shadow-sm h-100" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+            <div class="card-header border-0 pb-0 bg-transparent d-flex align-items-center gap-3">
+                <div class="kpi-icon"><i class="bi bi-check-circle-fill"></i></div>
+                <h6 class="fw-bold mb-0" style="color: var(--text-main) !important;">Resolution Types</h6>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush mb-3">
+                    @foreach (var r in (IEnumerable<ServiceOpsAI.Models.ResolutionType>)ViewBag.ResolutionTypes)
+                    {
+                        <div class="p-3 rounded-3 d-flex justify-content-between align-items-center mb-2" style="background: var(--bg-main) !important; border: 1px solid var(--border-color) !important;">
+                            <div>
+                                <span class="fw-bold d-block" style="color: var(--text-main) !important;">@r.NameEn <span class="text-muted small" dir="rtl">@r.NameAr</span></span>
+                                <span class="text-muted small"><code>@r.Code</code></span>
+                            </div>
+                            <form asp-action="ToggleStatus" method="post" class="m-0">
+                                <input type="hidden" name="type" value="resolutiontype" />
+                                <input type="hidden" name="id" value="@r.Id" />
+                                <button type="submit" class="btn btn-sm btn-pill @(r.IsActive ? "btn-soft-primary" : "btn-soft-danger") opacity-75">
+                                    @(r.IsActive ? "Active" : "Disabled")
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+                <form asp-action="AddResolutionType" method="post" class="row g-2">
+                    <div class="col-12"><input type="text" name="code" class="form-control bg-transparent shadow-none" style="color: var(--text-main); border-color: var(--border-color);" placeholder="Code (e.g. RoutedToVendor)" required /></div>
+                    <div class="col-6"><input type="text" name="nameEn" class="form-control bg-transparent shadow-none" style="color: var(--text-main); border-color: var(--border-color);" placeholder="Name (EN)" required /></div>
+                    <div class="col-6"><input type="text" name="nameAr" class="form-control bg-transparent shadow-none" dir="rtl" style="color: var(--text-main); border-color: var(--border-color);" placeholder="الاسم (AR)" /></div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-plus-lg"></i> Add Resolution Type</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</div>

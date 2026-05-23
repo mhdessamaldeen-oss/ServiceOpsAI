@@ -20,10 +20,8 @@
         <select asp-for="DepartmentId" class="form-select" asp-items="ViewBag.Departments"></select>
     </div>
     <div class="col-md-3">
-        <label asp-for="ServiceType" class="form-label">Service</label>
-        <select asp-for="ServiceType" class="form-select">
-            @foreach (var s in Enum.GetValues<ServiceOpsAI.Models.ServiceType>()) { <option value="@s" selected="@(s == Model.ServiceType)">@s</option> }
-        </select>
+        <label asp-for="ServiceTypeId" class="form-label">Service</label>
+        <select asp-for="ServiceTypeId" class="form-select" asp-items="ViewBag.ServiceTypes"></select>
     </div>
     <div class="col-md-3">
         <label asp-for="PeriodStart" class="form-label">Period Start</label>

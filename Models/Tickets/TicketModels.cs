@@ -128,7 +128,19 @@ namespace ServiceOpsAI.Models
         public int? RelatedBillId { get; set; }
         public Bill? RelatedBill { get; set; }
 
+        // ComplaintType is now a lookup-table FK (was enum).
+        public int? ComplaintTypeId { get; set; }
         public ComplaintType? ComplaintType { get; set; }
+
+        // How the ticket was closed — queryable counterpart to free-text ResolutionSummary.
+        public int? ResolutionTypeId { get; set; }
+        public ResolutionType? ResolutionType { get; set; }
+
+        // Where the issue physically is (independent of the customer's home district —
+        // e.g. an outage in Mezzeh affects a customer whose registered address is Aleppo).
+        // Nullable: legacy / non-geographic tickets don't carry it.
+        public int? RegionId { get; set; }
+        public Region? Region { get; set; }
     }
 
     public class TicketComment

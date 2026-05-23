@@ -24,9 +24,9 @@
         </select>
     </div>
     <div class="col-md-3">
-        <label asp-for="ServiceType" class="form-label">Service Type</label>
-        <select asp-for="ServiceType" class="form-select">
-            @foreach (var s in Enum.GetValues<ServiceOpsAI.Models.ServiceType>()) { <option value="@s">@s</option> }
+        <label asp-for="ServiceTypeId" class="form-label">Service Type</label>
+        <select asp-for="ServiceTypeId" class="form-select" asp-items="ViewBag.ServiceTypes">
+            <option value="">— Select —</option>
         </select>
     </div>
     <div class="col-md-3">

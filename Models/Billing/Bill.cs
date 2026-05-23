@@ -15,7 +15,10 @@ public class Bill
     public int DepartmentId { get; set; }
     public Department? Department { get; set; }
 
-    public ServiceType ServiceType { get; set; }
+    // ServiceType is now a lookup table FK (was enum). Code switching uses
+    // ServiceTypeCodes constants matched against ServiceType.Code.
+    public int ServiceTypeId { get; set; }
+    public ServiceType? ServiceType { get; set; }
 
     public DateTime PeriodStart { get; set; }
     public DateTime PeriodEnd { get; set; }

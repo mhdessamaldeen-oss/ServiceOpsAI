@@ -10,7 +10,8 @@ namespace ServiceOpsAI.Data.Seed;
 /// churn signals, VIP customers, an underperforming department).
 ///
 /// Idempotent: detects existing Customers and no-ops. Deterministic: fixed Random seed.
-/// Country + Region data is seeded by the migration (Phase 02) — this class assumes those exist.
+/// Lookup tables (ServiceType / ComplaintType / ResolutionType / Region / Country / TicketCategory)
+/// are populated by their migrations; this seeder reads them by Code at runtime.
 /// </summary>
 public static class ServiceOpsSeeder
 {
@@ -18,7 +19,6 @@ public static class ServiceOpsSeeder
     private const int CustomerCount = 200;
     private const int BillHistoryMonths = 24;
 
-    // Reference date: bills go backwards from the start of this month.
     private static readonly DateTime SeedReferenceDate = new(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc);
 
     public static async Task SeedAsync(ApplicationDbContext db, CancellationToken ct = default)
@@ -26,21 +26,26 @@ public static class ServiceOpsSeeder
         if (await db.Customers.AnyAsync(ct)) return; // idempotent
         if (!await db.Regions.AnyAsync(ct))
             throw new InvalidOperationException("Region data is missing. Apply the AddCountryAndRegion migration first.");
+        if (!await db.ServiceTypes.AnyAsync(ct))
+            throw new InvalidOperationException("ServiceType lookup is missing. Apply the PromoteEnumsToLookupTables migration first.");
 
         var rng = new Random(RandomSeed);
 
+        // Load lookups once (Code -> row) so the seeder can build FKs without hard-coding ids.
+        var svcByCode = await db.ServiceTypes.AsNoTracking().ToDictionaryAsync(s => s.Code, ct);
+        var complaintByCode = await db.ComplaintTypes.AsNoTracking().ToDictionaryAsync(c => c.Code, ct);
+        var resolutionByCode = await db.ResolutionTypes.AsNoTracking().ToDictionaryAsync(r => r.Code, ct);
+
         await SeedTicketCategoriesAsync(db, ct);
-        var departments = await SeedDepartmentsAsync(db, ct);
+        var departments = await SeedDepartmentsAsync(db, svcByCode, ct);
         var customers = await SeedCustomersAsync(db, rng, ct);
-        var bills = await SeedBillsAsync(db, rng, customers, departments, ct);
-        await SeedTicketsAsync(db, rng, customers, departments, bills, ct);
+        var bills = await SeedBillsAsync(db, rng, customers, departments, svcByCode, ct);
+        await SeedTicketsAsync(db, rng, customers, departments, bills, svcByCode, complaintByCode, resolutionByCode, ct);
     }
 
     // ─── TicketCategory: 10 utility-realistic bilingual categories (upsert by name) ──────────────
     private static async Task SeedTicketCategoriesAsync(ApplicationDbContext db, CancellationToken ct)
     {
-        // Upsert by Name match so existing tickets that reference older categories keep their FK,
-        // and we don't trigger an FK violation by deleting categories in use.
         var desired = new (string Name, string NameAr)[]
         {
             ("Internet outage",                 "انقطاع الإنترنت"),
@@ -72,28 +77,40 @@ public static class ServiceOpsSeeder
         await db.SaveChangesAsync(ct);
     }
 
-    // ─── Departments: 14 governorates × 4 service types = 56 departments ────────────────────────
-    private static async Task<List<Department>> SeedDepartmentsAsync(ApplicationDbContext db, CancellationToken ct)
+    // ─── Departments: governorates × seeded utility services ───────────────────────────────────
+    private static async Task<List<Department>> SeedDepartmentsAsync(
+        ApplicationDbContext db,
+        Dictionary<string, ServiceType> svcByCode,
+        CancellationToken ct)
     {
-        // Load governorates (RegionType=Governorate) — they have ParentRegionId = null.
         var governorates = await db.Regions
             .Where(r => r.RegionType == RegionType.Governorate)
             .OrderBy(r => r.Id)
             .ToListAsync(ct);
 
+        // Generate one Department per (governorate, utility-service-type) for the standard 4 codes.
+        var serviceCodes = new[]
+        {
+            ServiceTypeCodes.Electricity,
+            ServiceTypeCodes.Internet,
+            ServiceTypeCodes.Water,
+            ServiceTypeCodes.Gas,
+        };
+
         var depts = new List<Department>();
         foreach (var gov in governorates)
         {
-            foreach (var svc in new[] { ServiceType.Electricity, ServiceType.Internet, ServiceType.Water, ServiceType.Gas })
+            foreach (var code in serviceCodes)
             {
+                if (!svcByCode.TryGetValue(code, out var svc)) continue;
                 depts.Add(new Department
                 {
-                    NameEn = $"{gov.NameEn} {ServiceLabelEn(svc)} Department",
-                    NameAr = $"إدارة {ServiceLabelAr(svc)} {gov.NameAr}",
-                    ServiceType = svc,
+                    NameEn = $"{gov.NameEn} {svc.NameEn} Department",
+                    NameAr = $"إدارة {svc.NameAr} {gov.NameAr}",
+                    ServiceTypeId = svc.Id,
                     RegionId = gov.Id,
-                    ContactPhone = $"+963 {rng_phone(gov.Id, (int)svc)}",
-                    ContactEmail = $"{svc.ToString().ToLower()}.{TransliterateGov(gov.NameEn)}@serviceops.sy",
+                    ContactPhone = $"+963 {DeptPhone(gov.Id, svc.Id)}",
+                    ContactEmail = $"{code.ToLower()}.{TransliterateGov(gov.NameEn)}@serviceops.sy",
                     IsActive = true,
                 });
             }
@@ -103,38 +120,18 @@ public static class ServiceOpsSeeder
         return depts;
     }
 
-    private static string ServiceLabelEn(ServiceType svc) => svc switch
-    {
-        ServiceType.Electricity => "Electricity",
-        ServiceType.Internet    => "Internet",
-        ServiceType.Water       => "Water",
-        ServiceType.Gas         => "Gas",
-        _ => svc.ToString(),
-    };
-
-    private static string ServiceLabelAr(ServiceType svc) => svc switch
-    {
-        ServiceType.Electricity => "كهرباء",
-        ServiceType.Internet    => "إنترنت",
-        ServiceType.Water       => "مياه",
-        ServiceType.Gas         => "غاز",
-        _ => svc.ToString(),
-    };
-
     private static string TransliterateGov(string nameEn) =>
         nameEn.ToLower().Replace(" ", "").Replace("-", "");
 
-    private static string rng_phone(int govId, int svc)
+    private static string DeptPhone(int govId, int svcId)
     {
-        // Department contact: deterministic synthetic number per (gov, svc) pair.
-        var n = (govId * 100 + svc * 7) % 10000;
+        var n = (govId * 100 + svcId * 7) % 10000;
         return $"11 {n:0000} 100";
     }
 
     // ─── Customers: 200 distributed across districts, weighted by governorate population ─────────
     private static async Task<List<Customer>> SeedCustomersAsync(ApplicationDbContext db, Random rng, CancellationToken ct)
     {
-        // Weighted distribution per Phase 03 plan (sums to 200).
         var distribution = new Dictionary<string, int>
         {
             ["Damascus"]    = 30,
@@ -153,7 +150,6 @@ public static class ServiceOpsSeeder
             ["Al-Hasakah"]  = 12,
         };
 
-        // Load all districts grouped by parent governorate name.
         var allRegions = await db.Regions.ToListAsync(ct);
         var govByName  = allRegions.Where(r => r.RegionType == RegionType.Governorate)
                                    .ToDictionary(r => r.NameEn, r => r);
@@ -224,7 +220,6 @@ public static class ServiceOpsSeeder
 
     private static string GenerateNationalId(Random rng)
     {
-        // Fake but format-realistic: 11 digits, first digit 1 or 2.
         var first = rng.Next(2) + 1;
         var rest = rng.NextInt64(1_000_000_000L, 10_000_000_000L);
         return $"{first}{rest}";
@@ -234,77 +229,76 @@ public static class ServiceOpsSeeder
     private static async Task<List<Bill>> SeedBillsAsync(
         ApplicationDbContext db, Random rng,
         List<Customer> customers, List<Department> departments,
+        Dictionary<string, ServiceType> svcByCode,
         CancellationToken ct)
     {
-        // Service subscription probabilities per customer
         var subscribesElectricity = 0.90;
         var subscribesInternet    = 0.75;
         var subscribesWater       = 0.60;
         var subscribesGas         = 0.30;
 
-        // Department lookup by (RegionId, ServiceType)
-        var deptByGovSvc = departments.ToDictionary(d => (d.RegionId!.Value, d.ServiceType));
+        // Department lookup by (RegionId, ServiceTypeId) — now FK-based instead of enum.
+        var deptByGovSvc = departments.ToDictionary(d => (d.RegionId!.Value, d.ServiceTypeId));
 
-        // Helper: load customer governorate (district -> parent governorate)
         var allRegions = await db.Regions.ToListAsync(ct);
         var govById = allRegions.Where(r => r.RegionType == RegionType.Governorate).ToDictionary(r => r.Id, r => r);
         var districtToGov = allRegions.Where(r => r.RegionType == RegionType.District)
                                       .ToDictionary(r => r.Id, r => r.ParentRegionId!.Value);
 
         var bills = new List<Bill>();
-        var billNumberSeq = new Dictionary<(int year, int month, ServiceType svc), int>();
+        var billNumberSeq = new Dictionary<(int year, int month, int svcId), int>();
 
-        // Story 7: pick one "bad department" for elevated overdue rates.
+        // Stories 7 / 8 — bad and star departments.
         var badDeptId = departments[rng.Next(departments.Count)].Id;
-        // Story 8: pick one "star department" for excellent metrics (must differ from bad).
         Department starDept;
         do { starDept = departments[rng.Next(departments.Count)]; } while (starDept.Id == badDeptId);
         var starDeptId = starDept.Id;
 
-        // Story 3: pick 5 Homs electricity customers for the bill-anomaly story (Nov 2025 - Jan 2026 spike).
+        // Story 3 prep — Homs electricity customers that get the bill spike.
         var homsGov = govById.Values.FirstOrDefault(g => g.NameEn == "Homs");
         var homsElectricityCustomers = new HashSet<int>();
         if (homsGov is not null)
         {
             var candidates = customers
                 .Where(c => c.RegionId.HasValue && districtToGov.TryGetValue(c.RegionId.Value, out var gov) && gov == homsGov.Id)
-                .OrderBy(c => c.NationalId) // deterministic order
+                .OrderBy(c => c.NationalId)
                 .Take(5)
                 .Select(c => c.Id)
                 .ToList();
             foreach (var id in candidates) homsElectricityCustomers.Add(id);
         }
 
+        var electricityId = svcByCode[ServiceTypeCodes.Electricity].Id;
+
         foreach (var customer in customers)
         {
-            // Resolve customer's governorate (each customer's RegionId is a district).
             if (!customer.RegionId.HasValue) continue;
             if (!districtToGov.TryGetValue(customer.RegionId.Value, out var govId)) continue;
 
+            // Build list of subscribed services by Code, then resolve to (Code, ServiceType row).
             var services = new List<ServiceType>();
-            if (rng.NextDouble() < subscribesElectricity) services.Add(ServiceType.Electricity);
-            if (rng.NextDouble() < subscribesInternet)    services.Add(ServiceType.Internet);
-            if (rng.NextDouble() < subscribesWater)       services.Add(ServiceType.Water);
-            if (rng.NextDouble() < subscribesGas)         services.Add(ServiceType.Gas);
+            if (rng.NextDouble() < subscribesElectricity) services.Add(svcByCode[ServiceTypeCodes.Electricity]);
+            if (rng.NextDouble() < subscribesInternet)    services.Add(svcByCode[ServiceTypeCodes.Internet]);
+            if (rng.NextDouble() < subscribesWater)       services.Add(svcByCode[ServiceTypeCodes.Water]);
+            if (rng.NextDouble() < subscribesGas)         services.Add(svcByCode[ServiceTypeCodes.Gas]);
 
             foreach (var svc in services)
             {
-                if (!deptByGovSvc.TryGetValue((govId, svc), out var dept)) continue;
+                if (!deptByGovSvc.TryGetValue((govId, svc.Id), out var dept)) continue;
                 var isBadDept = dept.Id == badDeptId;
                 var isStarDept = dept.Id == starDeptId;
 
-                // Generate 24 months of bills, ending at SeedReferenceDate (exclusive).
                 for (int monthsAgo = BillHistoryMonths; monthsAgo >= 1; monthsAgo--)
                 {
                     var periodStart = SeedReferenceDate.AddMonths(-monthsAgo);
                     var periodEnd   = periodStart.AddMonths(1).AddDays(-1);
                     var month = periodStart.Month;
 
-                    var seasonal = SeasonalMultiplier(svc, month);
-                    var (baseAmt, usageAmt, qty, unit) = GenerateAmounts(rng, svc, seasonal);
+                    var seasonal = SeasonalMultiplier(svc.Code, month);
+                    var (baseAmt, usageAmt, qty, unit) = GenerateAmounts(rng, svc.Code, seasonal);
 
-                    // Story 3: Homs electricity customers — spike 2x in Nov 2025, Dec 2025, Jan 2026.
-                    var isHomsSpikeBill = svc == ServiceType.Electricity
+                    // Story 3 spike: Homs + electricity + Nov 2025 / Dec 2025 / Jan 2026.
+                    var isHomsSpikeBill = svc.Id == electricityId
                         && homsElectricityCustomers.Contains(customer.Id)
                         && ((periodStart.Year == 2025 && (periodStart.Month == 11 || periodStart.Month == 12))
                             || (periodStart.Year == 2026 && periodStart.Month == 1));
@@ -313,15 +307,13 @@ public static class ServiceOpsSeeder
                     var taxes = Math.Round((baseAmt + usageAmt) * 0.11m / 100m) * 100m;
                     var total = baseAmt + usageAmt + taxes;
 
-                    var seqKey = (periodStart.Year, periodStart.Month, svc);
+                    var seqKey = (periodStart.Year, periodStart.Month, svc.Id);
                     billNumberSeq.TryGetValue(seqKey, out var seq);
                     billNumberSeq[seqKey] = ++seq;
 
-                    var billNumber = $"{ServicePrefix(svc)}-{periodStart:yyyy-MM}-{seq:000000}";
-
+                    var billNumber = $"{ServicePrefix(svc.Code)}-{periodStart:yyyy-MM}-{seq:000000}";
                     var dueDate = periodEnd.AddDays(15);
 
-                    // Status distribution + story modifications
                     var statusRoll = rng.NextDouble();
                     var overdueThreshold = isBadDept ? 0.30 : (isStarDept ? 0.04 : 0.12);
                     var paidThreshold    = isStarDept ? 0.95 : 0.70;
@@ -331,7 +323,6 @@ public static class ServiceOpsSeeder
                     string? paymentMethod = null;
                     if (monthsAgo == 1 && statusRoll < 0.15)
                     {
-                        // Current month — some still in "Issued" state, not yet paid
                         status = BillStatus.Issued;
                     }
                     else if (statusRoll < overdueThreshold && monthsAgo <= 6)
@@ -354,7 +345,7 @@ public static class ServiceOpsSeeder
                         BillNumber     = billNumber,
                         CustomerId     = customer.Id,
                         DepartmentId   = dept.Id,
-                        ServiceType    = svc,
+                        ServiceTypeId  = svc.Id,
                         PeriodStart    = periodStart,
                         PeriodEnd      = periodEnd,
                         BaseAmount     = baseAmt,
@@ -373,7 +364,6 @@ public static class ServiceOpsSeeder
             }
         }
 
-        // Save in batches to avoid huge SaveChanges payloads.
         const int batchSize = 1000;
         for (int i = 0; i < bills.Count; i += batchSize)
         {
@@ -383,87 +373,104 @@ public static class ServiceOpsSeeder
         return bills;
     }
 
-    private static double SeasonalMultiplier(ServiceType svc, int month) => svc switch
+    private static double SeasonalMultiplier(string svcCode, int month) => svcCode switch
     {
-        ServiceType.Electricity => (month >= 6 && month <= 9) ? 1.30 : (month == 12 || month <= 2) ? 1.15 : 1.0,
-        ServiceType.Water       => (month >= 6 && month <= 9) ? 1.20 : 1.0,
-        ServiceType.Gas         => (month == 12 || month <= 2) ? 1.40 : 1.0,
+        ServiceTypeCodes.Electricity => (month >= 6 && month <= 9) ? 1.30 : (month == 12 || month <= 2) ? 1.15 : 1.0,
+        ServiceTypeCodes.Water       => (month >= 6 && month <= 9) ? 1.20 : 1.0,
+        ServiceTypeCodes.Gas         => (month == 12 || month <= 2) ? 1.40 : 1.0,
         _ => 1.0,
     };
 
-    private static (decimal baseAmt, decimal usageAmt, decimal qty, string unit) GenerateAmounts(Random rng, ServiceType svc, double seasonal)
+    private static (decimal baseAmt, decimal usageAmt, decimal qty, string unit) GenerateAmounts(Random rng, string svcCode, double seasonal)
     {
-        return svc switch
+        return svcCode switch
         {
-            ServiceType.Electricity => (
+            ServiceTypeCodes.Electricity => (
                 2_000m,
                 Round100((decimal)(rng.Next(3_000, 48_000) * seasonal)),
                 (decimal)(rng.Next(100, 800) * seasonal),
                 "kWh"
             ),
-            ServiceType.Internet => (
+            ServiceTypeCodes.Internet => (
                 25_000m,
                 Round100((decimal)rng.Next(5_000, 55_000)),
                 rng.Next(50, 500),
                 "GB"
             ),
-            ServiceType.Water => (
+            ServiceTypeCodes.Water => (
                 1_500m,
                 Round100((decimal)(rng.Next(1_500, 13_500) * seasonal)),
                 (decimal)(rng.Next(10, 50) * seasonal),
                 "m³"
             ),
-            ServiceType.Gas => (
+            ServiceTypeCodes.Gas => (
                 5_000m,
                 Round100((decimal)(rng.Next(5_000, 25_000) * seasonal)),
                 (decimal)(rng.Next(1, 8) * seasonal),
                 "cyl"
             ),
-            _ => (0m, 0m, 0m, "")
+            // For ad-hoc service types added by an admin (e.g. "Government process"), fall back to a
+            // generic moderate-bill shape so the seeder still produces data.
+            _ => (
+                1_500m,
+                Round100((decimal)rng.Next(2_000, 20_000)),
+                rng.Next(1, 50),
+                ""
+            )
         };
     }
 
     private static decimal Round100(decimal amount) => Math.Round(amount / 100m) * 100m;
 
-    private static string ServicePrefix(ServiceType svc) => svc switch
+    private static string ServicePrefix(string svcCode) => svcCode switch
     {
-        ServiceType.Electricity => "ELEC",
-        ServiceType.Internet    => "INT",
-        ServiceType.Water       => "WTR",
-        ServiceType.Gas         => "GAS",
-        _ => "OTH",
+        ServiceTypeCodes.Electricity => "ELEC",
+        ServiceTypeCodes.Internet    => "INT",
+        ServiceTypeCodes.Water       => "WTR",
+        ServiceTypeCodes.Gas         => "GAS",
+        _ => svcCode.Substring(0, Math.Min(4, svcCode.Length)).ToUpper(),
     };
 
     // ─── Tickets: ~80 base + story patterns ─────────────────────────────────────────────────────
     private static async Task SeedTicketsAsync(
         ApplicationDbContext db, Random rng,
         List<Customer> customers, List<Department> departments, List<Bill> bills,
+        Dictionary<string, ServiceType> svcByCode,
+        Dictionary<string, ComplaintType> complaintByCode,
+        Dictionary<string, ResolutionType> resolutionByCode,
         CancellationToken ct)
     {
-        // Required lookups for FK fields
         var categories = await db.TicketCategories.ToListAsync(ct);
         var priorities = await db.TicketPriorities.ToListAsync(ct);
         var statuses   = await db.TicketStatuses.ToListAsync(ct);
         var sources    = await db.TicketSources.ToListAsync(ct);
 
         if (categories.Count == 0 || priorities.Count == 0 || statuses.Count == 0 || sources.Count == 0)
-            return; // Existing TicketPriority/Status/Source seed hasn't run yet — skip.
+            return;
 
-        // Need an internal staff user as CreatedByUserId.
         var staffUserId = await db.Users.Select(u => u.Id).FirstOrDefaultAsync(ct);
         if (staffUserId is null) return;
 
         var allRegions = await db.Regions.ToListAsync(ct);
         var districtToGov = allRegions.Where(r => r.RegionType == RegionType.District)
                                       .ToDictionary(r => r.Id, r => r.ParentRegionId!.Value);
-        var deptByGovSvc = departments.ToDictionary(d => (d.RegionId!.Value, d.ServiceType));
+        var deptByGovSvc = departments.ToDictionary(d => (d.RegionId!.Value, d.ServiceTypeId));
 
         var tickets = new List<Ticket>();
         int ticketSeq = 1;
 
-        // Story 1: Aleppo internet outage on 2026-03-14 — 20 tickets.
-        var aleppoInternetDept = departments.FirstOrDefault(d => d.ServiceType == ServiceType.Internet
-            && allRegions.First(r => r.Id == d.RegionId).NameEn == "Aleppo");
+        var electricityId = svcByCode[ServiceTypeCodes.Electricity].Id;
+        var internetId    = svcByCode[ServiceTypeCodes.Internet].Id;
+        var serviceDownId = complaintByCode[ComplaintTypeCodes.ServiceDown].Id;
+        var billingDisputeId = complaintByCode[ComplaintTypeCodes.BillingDispute].Id;
+        var outageClearedId  = resolutionByCode.TryGetValue(ResolutionTypeCodes.OutageCleared, out var oc) ? (int?)oc.Id : null;
+        var resolvedId       = resolutionByCode.TryGetValue(ResolutionTypeCodes.Resolved, out var rv) ? (int?)rv.Id : null;
+
+        // Story 1: Aleppo internet outage.
+        var aleppoGovId = allRegions.FirstOrDefault(r => r.NameEn == "Aleppo" && r.RegionType == RegionType.Governorate)?.Id;
+        var aleppoInternetDept = aleppoGovId.HasValue
+            ? departments.FirstOrDefault(d => d.RegionId == aleppoGovId && d.ServiceTypeId == internetId)
+            : null;
         var aleppoCustomers = customers
             .Where(c => c.RegionId.HasValue && districtToGov.TryGetValue(c.RegionId.Value, out var g)
                 && allRegions.First(r => r.Id == g).NameEn == "Aleppo")
@@ -478,105 +485,131 @@ public static class ServiceOpsSeeder
             for (int i = 0; i < aleppoCustomers.Count; i++)
             {
                 var c = aleppoCustomers[i];
-                var resolved = i < 16; // 80% auto-resolve when outage clears
-                var status = resolved ? FindStatus(statuses, "Resolved", "Closed", "Completed") : FindStatus(statuses, "Open", "InProgress");
+                var resolved = i < 16; // 80% cleared by outage end
+                var status = resolved
+                    ? FindStatus(statuses, "Resolved", "Closed", "Completed")
+                    : FindStatus(statuses, "Open", "InProgress");
                 tickets.Add(new Ticket
                 {
-                    TicketNumber          = $"TKT-{ticketSeq++:00000}",
-                    Title                 = $"No internet at {c.AddressLineEn}",
-                    Description           = "Internet completely down since this morning. Please restore service urgently.",
-                    CategoryId            = FindCategory(categories, "Internet outage").Id,
-                    PriorityId            = priorities[Math.Min(2, priorities.Count - 1)].Id,
-                    StatusId              = status.Id,
-                    SourceId              = sources[0].Id,
-                    DepartmentId          = aleppoInternetDept.Id,
-                    CreatedByUserId       = staffUserId,
-                    CreatedAt             = outageStart.AddMinutes(rng.Next(0, 360)),
-                    CustomerId            = c.Id,
-                    ComplaintType         = ComplaintType.ServiceDown,
-                    ResolvedAt            = resolved ? outageEnd.AddMinutes(rng.Next(0, 60)) : null,
+                    TicketNumber       = $"TKT-{ticketSeq++:00000}",
+                    Title              = $"No internet at {c.AddressLineEn}",
+                    Description        = "Internet completely down since this morning. Please restore service urgently.",
+                    CategoryId         = FindCategory(categories, "Internet outage").Id,
+                    PriorityId         = priorities[Math.Min(2, priorities.Count - 1)].Id,
+                    StatusId           = status.Id,
+                    SourceId           = sources[0].Id,
+                    DepartmentId       = aleppoInternetDept.Id,
+                    CreatedByUserId    = staffUserId,
+                    CreatedAt          = outageStart.AddMinutes(rng.Next(0, 360)),
+                    CustomerId         = c.Id,
+                    ComplaintTypeId    = serviceDownId,
+                    ResolutionTypeId   = resolved ? outageClearedId : null,
+                    RegionId           = c.RegionId,                   // issue location = where the customer is
+                    ResolvedAt         = resolved ? outageEnd.AddMinutes(rng.Next(0, 60)) : null,
                 });
             }
         }
 
-        // Story 3 follow-up: Homs electricity bill-anomaly customers — 3 of 5 file BillingDispute tickets.
+        // Story 3: Homs electricity bill-anomaly customers → BillingDispute tickets.
         var homsGovId = allRegions.FirstOrDefault(r => r.NameEn == "Homs")?.Id;
         if (homsGovId.HasValue)
         {
             var homsElectricityBills = bills
-                .Where(b => b.ServiceType == ServiceType.Electricity
-                    && b.UsageAmount > 30_000m // the spiked ones
+                .Where(b => b.ServiceTypeId == electricityId
+                    && b.UsageAmount > 30_000m
                     && customers.Any(c => c.Id == b.CustomerId
                         && c.RegionId.HasValue && districtToGov.TryGetValue(c.RegionId.Value, out var g) && g == homsGovId))
                 .Take(3)
                 .ToList();
 
-            var homsElectricityDept = deptByGovSvc[(homsGovId.Value, ServiceType.Electricity)];
-            foreach (var bill in homsElectricityBills)
+            if (deptByGovSvc.TryGetValue((homsGovId.Value, electricityId), out var homsElectricityDept))
             {
-                tickets.Add(new Ticket
+                foreach (var bill in homsElectricityBills)
                 {
-                    TicketNumber    = $"TKT-{ticketSeq++:00000}",
-                    Title           = $"Bill for {bill.PeriodStart:yyyy-MM} is much higher than usual",
-                    Description     = $"My electricity bill went up to {bill.TotalAmount:N0} SYP from a normal {bill.TotalAmount / 2:N0}. Please review.",
-                    CategoryId      = FindCategory(categories, "Billing dispute - amount").Id,
-                    PriorityId      = priorities[Math.Min(1, priorities.Count - 1)].Id,
-                    StatusId        = FindStatus(statuses, "InProgress", "Open").Id,
-                    SourceId        = sources[0].Id,
-                    DepartmentId    = homsElectricityDept.Id,
-                    CreatedByUserId = staffUserId,
-                    CreatedAt       = bill.PeriodEnd.AddDays(rng.Next(3, 20)),
-                    CustomerId      = bill.CustomerId,
-                    RelatedBillId   = bill.Id,
-                    ComplaintType   = ComplaintType.BillingDispute,
-                });
+                    var owner = customers.First(c => c.Id == bill.CustomerId);
+                    tickets.Add(new Ticket
+                    {
+                        TicketNumber       = $"TKT-{ticketSeq++:00000}",
+                        Title              = $"Bill for {bill.PeriodStart:yyyy-MM} is much higher than usual",
+                        Description        = $"My electricity bill went up to {bill.TotalAmount:N0} SYP from a normal {bill.TotalAmount / 2:N0}. Please review.",
+                        CategoryId         = FindCategory(categories, "Billing dispute - amount").Id,
+                        PriorityId         = priorities[Math.Min(1, priorities.Count - 1)].Id,
+                        StatusId           = FindStatus(statuses, "InProgress", "Open").Id,
+                        SourceId           = sources[0].Id,
+                        DepartmentId       = homsElectricityDept.Id,
+                        CreatedByUserId    = staffUserId,
+                        CreatedAt          = bill.PeriodEnd.AddDays(rng.Next(3, 20)),
+                        CustomerId         = bill.CustomerId,
+                        RelatedBillId      = bill.Id,
+                        ComplaintTypeId    = billingDisputeId,
+                        RegionId           = owner.RegionId,
+                    });
+                }
             }
         }
 
-        // Base random tickets — ~60 more, mixed across customers and complaint types.
-        var complaintTypes = Enum.GetValues<ComplaintType>();
+        // Base random tickets — ~60 more, mixed.
+        var serviceList = new[]
+        {
+            (Id: electricityId, Code: ServiceTypeCodes.Electricity),
+            (Id: internetId,    Code: ServiceTypeCodes.Internet),
+            (Id: svcByCode[ServiceTypeCodes.Water].Id, Code: ServiceTypeCodes.Water),
+            (Id: svcByCode[ServiceTypeCodes.Gas].Id,   Code: ServiceTypeCodes.Gas),
+        };
+        var complaintList = complaintByCode.Values.ToList();
+
         for (int i = 0; i < 60; i++)
         {
             var c = customers[rng.Next(customers.Count)];
             if (!c.RegionId.HasValue) continue;
             if (!districtToGov.TryGetValue(c.RegionId.Value, out var govId)) continue;
 
-            var svc = (ServiceType)(rng.Next(4) + 1);
-            if (!deptByGovSvc.TryGetValue((govId, svc), out var dept)) continue;
+            var svc = serviceList[rng.Next(serviceList.Length)];
+            if (!deptByGovSvc.TryGetValue((govId, svc.Id), out var dept)) continue;
 
-            var ct2 = complaintTypes[rng.Next(complaintTypes.Length)];
+            var complaint = complaintList[rng.Next(complaintList.Count)];
             var statusName = rng.NextDouble() < 0.60 ? "Resolved" : (rng.NextDouble() < 0.62 ? "InProgress" : "Open");
             var status = FindStatus(statuses, statusName, "Open");
-            var category = FindCategoryForComplaint(categories, ct2, svc);
+            var category = FindCategoryForComplaint(categories, complaint.Code, svc.Code);
 
-            // Pick a recent bill of this customer/service for BillingDispute tickets.
             int? relatedBillId = null;
-            if (ct2 == ComplaintType.BillingDispute)
+            if (complaint.Code == ComplaintTypeCodes.BillingDispute)
             {
-                var candidate = bills.Where(b => b.CustomerId == c.Id && b.ServiceType == svc).LastOrDefault();
+                var candidate = bills.Where(b => b.CustomerId == c.Id && b.ServiceTypeId == svc.Id).LastOrDefault();
                 relatedBillId = candidate?.Id;
+            }
+
+            int? resolutionId = null;
+            if (status.IsClosedState)
+            {
+                // Most closed tickets are simply Resolved; a few NoFault / BillAdjusted.
+                var roll = rng.NextDouble();
+                if (roll < 0.10 && resolutionByCode.TryGetValue(ResolutionTypeCodes.NoFault, out var nf)) resolutionId = nf.Id;
+                else if (roll < 0.18 && complaint.Code == ComplaintTypeCodes.BillingDispute && resolutionByCode.TryGetValue(ResolutionTypeCodes.BillAdjusted, out var ba)) resolutionId = ba.Id;
+                else resolutionId = resolvedId;
             }
 
             tickets.Add(new Ticket
             {
-                TicketNumber    = $"TKT-{ticketSeq++:00000}",
-                Title           = TitleForComplaint(ct2, svc, c.AddressLineEn ?? "the area"),
-                Description     = DescriptionForComplaint(ct2, svc),
-                CategoryId      = category.Id,
-                PriorityId      = priorities[rng.Next(priorities.Count)].Id,
-                StatusId        = status.Id,
-                SourceId        = sources[rng.Next(sources.Count)].Id,
-                DepartmentId    = dept.Id,
-                CreatedByUserId = staffUserId,
-                CreatedAt       = SeedReferenceDate.AddDays(-rng.Next(1, 180)),
-                CustomerId      = c.Id,
-                RelatedBillId   = relatedBillId,
-                ComplaintType   = ct2,
-                ResolvedAt      = status.IsClosedState ? SeedReferenceDate.AddDays(-rng.Next(1, 90)) : null,
+                TicketNumber       = $"TKT-{ticketSeq++:00000}",
+                Title              = TitleForComplaint(complaint.Code, svc.Code, c.AddressLineEn ?? "the area"),
+                Description        = DescriptionForComplaint(complaint.Code, svc.Code),
+                CategoryId         = category.Id,
+                PriorityId         = priorities[rng.Next(priorities.Count)].Id,
+                StatusId           = status.Id,
+                SourceId           = sources[rng.Next(sources.Count)].Id,
+                DepartmentId       = dept.Id,
+                CreatedByUserId    = staffUserId,
+                CreatedAt          = SeedReferenceDate.AddDays(-rng.Next(1, 180)),
+                CustomerId         = c.Id,
+                RelatedBillId      = relatedBillId,
+                ComplaintTypeId    = complaint.Id,
+                ResolutionTypeId   = resolutionId,
+                RegionId           = c.RegionId,
+                ResolvedAt         = status.IsClosedState ? SeedReferenceDate.AddDays(-rng.Next(1, 90)) : null,
             });
         }
 
-        // Save tickets in batches.
         const int batchSize = 200;
         for (int i = 0; i < tickets.Count; i += batchSize)
         {
@@ -598,41 +631,50 @@ public static class ServiceOpsSeeder
     private static TicketCategory FindCategory(List<TicketCategory> all, string name) =>
         all.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) ?? all.First();
 
-    private static TicketCategory FindCategoryForComplaint(List<TicketCategory> all, ComplaintType ct, ServiceType svc) =>
-        ct switch
+    private static TicketCategory FindCategoryForComplaint(List<TicketCategory> all, string complaintCode, string serviceCode) =>
+        (complaintCode, serviceCode) switch
         {
-            ComplaintType.ServiceDown when svc == ServiceType.Internet    => FindCategory(all, "Internet outage"),
-            ComplaintType.ServiceDown when svc == ServiceType.Electricity => FindCategory(all, "Electricity outage"),
-            ComplaintType.ServiceDown when svc == ServiceType.Water       => FindCategory(all, "Water cut"),
-            ComplaintType.ServiceDown when svc == ServiceType.Gas         => FindCategory(all, "Gas service issue"),
-            ComplaintType.ServiceDegraded when svc == ServiceType.Internet => FindCategory(all, "Internet slow speed"),
-            ComplaintType.BillingDispute  => FindCategory(all, "Billing dispute - amount"),
-            ComplaintType.MeterIssue      => FindCategory(all, "Billing dispute - meter reading"),
-            ComplaintType.NewConnection   => FindCategory(all, "New service request"),
-            ComplaintType.Disconnection   => FindCategory(all, "Service disconnection issue"),
-            _                              => FindCategory(all, "Technician visit needed"),
+            (ComplaintTypeCodes.ServiceDown, ServiceTypeCodes.Internet)    => FindCategory(all, "Internet outage"),
+            (ComplaintTypeCodes.ServiceDown, ServiceTypeCodes.Electricity) => FindCategory(all, "Electricity outage"),
+            (ComplaintTypeCodes.ServiceDown, ServiceTypeCodes.Water)       => FindCategory(all, "Water cut"),
+            (ComplaintTypeCodes.ServiceDown, ServiceTypeCodes.Gas)         => FindCategory(all, "Gas service issue"),
+            (ComplaintTypeCodes.ServiceDegraded, ServiceTypeCodes.Internet) => FindCategory(all, "Internet slow speed"),
+            (ComplaintTypeCodes.BillingDispute, _)  => FindCategory(all, "Billing dispute - amount"),
+            (ComplaintTypeCodes.MeterIssue, _)      => FindCategory(all, "Billing dispute - meter reading"),
+            (ComplaintTypeCodes.NewConnection, _)   => FindCategory(all, "New service request"),
+            (ComplaintTypeCodes.Disconnection, _)   => FindCategory(all, "Service disconnection issue"),
+            _                                       => FindCategory(all, "Technician visit needed"),
         };
 
-    private static string TitleForComplaint(ComplaintType ct, ServiceType svc, string addr) => ct switch
+    private static string TitleForComplaint(string complaintCode, string serviceCode, string addr) => complaintCode switch
     {
-        ComplaintType.ServiceDown        => $"{ServiceLabelEn(svc)} service is completely down at {addr}",
-        ComplaintType.ServiceDegraded    => $"{ServiceLabelEn(svc)} service is very slow",
-        ComplaintType.BillingDispute     => "Bill amount is incorrect — please review",
-        ComplaintType.MeterIssue         => "Meter reading appears wrong",
-        ComplaintType.NewConnection      => $"Request new {ServiceLabelEn(svc)} connection",
-        ComplaintType.Disconnection      => $"{ServiceLabelEn(svc)} was disconnected without notice",
-        _                                 => $"{ServiceLabelEn(svc)} issue",
+        ComplaintTypeCodes.ServiceDown        => $"{ServiceLabelEn(serviceCode)} service is completely down at {addr}",
+        ComplaintTypeCodes.ServiceDegraded    => $"{ServiceLabelEn(serviceCode)} service is very slow",
+        ComplaintTypeCodes.BillingDispute     => "Bill amount is incorrect — please review",
+        ComplaintTypeCodes.MeterIssue         => "Meter reading appears wrong",
+        ComplaintTypeCodes.NewConnection      => $"Request new {ServiceLabelEn(serviceCode)} connection",
+        ComplaintTypeCodes.Disconnection      => $"{ServiceLabelEn(serviceCode)} was disconnected without notice",
+        _                                      => $"{ServiceLabelEn(serviceCode)} issue",
     };
 
-    private static string DescriptionForComplaint(ComplaintType ct, ServiceType svc) => ct switch
+    private static string DescriptionForComplaint(string complaintCode, string serviceCode) => complaintCode switch
     {
-        ComplaintType.ServiceDown        => $"The {ServiceLabelEn(svc).ToLower()} service stopped working. Need urgent restoration.",
-        ComplaintType.ServiceDegraded    => $"{ServiceLabelEn(svc)} is functional but performance is unacceptably degraded.",
-        ComplaintType.BillingDispute     => "My recent bill is significantly higher than my usual amount. Please review the calculation.",
-        ComplaintType.MeterIssue         => "I believe the meter reading on my last bill does not match my actual usage. Please send a technician to verify.",
-        ComplaintType.NewConnection      => $"I would like to subscribe to {ServiceLabelEn(svc).ToLower()} service at my address.",
-        ComplaintType.Disconnection      => $"{ServiceLabelEn(svc)} was cut off without prior notification. Please restore.",
-        _                                 => $"I need assistance with my {ServiceLabelEn(svc).ToLower()} service.",
+        ComplaintTypeCodes.ServiceDown        => $"The {ServiceLabelEn(serviceCode).ToLower()} service stopped working. Need urgent restoration.",
+        ComplaintTypeCodes.ServiceDegraded    => $"{ServiceLabelEn(serviceCode)} is functional but performance is unacceptably degraded.",
+        ComplaintTypeCodes.BillingDispute     => "My recent bill is significantly higher than my usual amount. Please review the calculation.",
+        ComplaintTypeCodes.MeterIssue         => "I believe the meter reading on my last bill does not match my actual usage. Please send a technician to verify.",
+        ComplaintTypeCodes.NewConnection      => $"I would like to subscribe to {ServiceLabelEn(serviceCode).ToLower()} service at my address.",
+        ComplaintTypeCodes.Disconnection      => $"{ServiceLabelEn(serviceCode)} was cut off without prior notification. Please restore.",
+        _                                      => $"I need assistance with my {ServiceLabelEn(serviceCode).ToLower()} service.",
+    };
+
+    private static string ServiceLabelEn(string svcCode) => svcCode switch
+    {
+        ServiceTypeCodes.Electricity => "Electricity",
+        ServiceTypeCodes.Internet    => "Internet",
+        ServiceTypeCodes.Water       => "Water",
+        ServiceTypeCodes.Gas         => "Gas",
+        _                            => svcCode,
     };
 
     // ─── Name pools ────────────────────────────────────────────────────────────────────────────

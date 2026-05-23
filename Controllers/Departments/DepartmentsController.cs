@@ -77,7 +77,7 @@ public class DepartmentsController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create([Bind("NameEn,NameAr,ServiceType,RegionId,ManagerUserId,ContactPhone,ContactEmail,IsActive")] Department department)
+    public async Task<IActionResult> Create([Bind("NameEn,NameAr,ServiceTypeId,RegionId,ManagerUserId,ContactPhone,ContactEmail,IsActive")] Department department)
     {
         if (ModelState.IsValid)
         {
@@ -98,7 +98,7 @@ public class DepartmentsController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, [Bind("Id,NameEn,NameAr,ServiceType,RegionId,ManagerUserId,ContactPhone,ContactEmail,IsActive")] Department department)
+    public async Task<IActionResult> Edit(int id, [Bind("Id,NameEn,NameAr,ServiceTypeId,RegionId,ManagerUserId,ContactPhone,ContactEmail,IsActive")] Department department)
     {
         if (id != department.Id) return NotFound();
         if (ModelState.IsValid)
@@ -140,5 +140,14 @@ public class DepartmentsController : Controller
             .Select(r => new { r.Id, Display = r.NameEn + " / " + r.NameAr })
             .ToListAsync();
         ViewBag.Regions = new SelectList(govs, "Id", "Display");
+
+        // ServiceType is now a lookup table — source from DB so adding "Government process"
+        // in /ReferenceData makes it immediately available here without a recompile.
+        var serviceTypes = await _context.ServiceTypes
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.SortOrder).ThenBy(s => s.NameEn)
+            .Select(s => new { s.Id, Display = s.NameEn + " / " + s.NameAr })
+            .ToListAsync();
+        ViewBag.ServiceTypes = new SelectList(serviceTypes, "Id", "Display");
     }
 }

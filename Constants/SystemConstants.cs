@@ -43,6 +43,9 @@ namespace ServiceOpsAI.Constants
         public const string Priority = "priority";
         public const string Status = "status";
         public const string Source = "source";
+        public const string ServiceType = "servicetype";
+        public const string ComplaintType = "complainttype";
+        public const string ResolutionType = "resolutiontype";
     }
 
     public static class SettingKeys

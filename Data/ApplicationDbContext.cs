@@ -12,6 +12,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Region> Regions { get; set; }
     public DbSet<Customer> Customers { get; set; }
     public DbSet<Bill> Bills { get; set; }
+    public DbSet<ServiceType> ServiceTypes { get; set; }
+    public DbSet<ComplaintType> ComplaintTypes { get; set; }
+    public DbSet<ResolutionType> ResolutionTypes { get; set; }
     public DbSet<TicketCategory> TicketCategories { get; set; }
     public DbSet<TicketPriority> TicketPriorities { get; set; }
     public DbSet<TicketStatus> TicketStatuses { get; set; }
@@ -43,7 +46,17 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     {
         base.OnModelCreating(builder);
 
-        builder.Entity<Department>().Property(d => d.ServiceType).HasConversion<string>();
+        // Lookup tables — Code is the stable machine identifier, must be unique.
+        builder.Entity<ServiceType>().HasIndex(s => s.Code).IsUnique();
+        builder.Entity<ComplaintType>().HasIndex(c => c.Code).IsUnique();
+        builder.Entity<ResolutionType>().HasIndex(r => r.Code).IsUnique();
+
+        // Department.ServiceType: was enum string, now FK to ServiceTypes.
+        builder.Entity<Department>()
+            .HasOne(d => d.ServiceType)
+            .WithMany()
+            .HasForeignKey(d => d.ServiceTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<Region>().Property(r => r.RegionType).HasConversion<string>();
         builder.Entity<Region>()
@@ -64,7 +77,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .IsUnique();
 
         builder.Entity<Bill>().Property(b => b.Status).HasConversion<string>();
-        builder.Entity<Bill>().Property(b => b.ServiceType).HasConversion<string>();
+        // Bill.ServiceType: FK to ServiceTypes.
+        builder.Entity<Bill>()
+            .HasOne(b => b.ServiceType)
+            .WithMany()
+            .HasForeignKey(b => b.ServiceTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder.Entity<Bill>().Property(b => b.BaseAmount).HasPrecision(12, 2);
         builder.Entity<Bill>().Property(b => b.UsageAmount).HasPrecision(12, 2);
         builder.Entity<Bill>().Property(b => b.Taxes).HasPrecision(12, 2);
@@ -80,7 +98,24 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasIndex(b => b.BillNumber)
             .IsUnique();
 
-        builder.Entity<Ticket>().Property(t => t.ComplaintType).HasConversion<string>();
+        // Ticket.ComplaintType: FK to ComplaintTypes (was enum).
+        builder.Entity<Ticket>()
+            .HasOne(t => t.ComplaintType)
+            .WithMany()
+            .HasForeignKey(t => t.ComplaintTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        // Ticket.ResolutionType: FK to ResolutionTypes (new).
+        builder.Entity<Ticket>()
+            .HasOne(t => t.ResolutionType)
+            .WithMany()
+            .HasForeignKey(t => t.ResolutionTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        // Ticket.Region: FK to Regions — issue location, distinct from customer's home.
+        builder.Entity<Ticket>()
+            .HasOne(t => t.Region)
+            .WithMany()
+            .HasForeignKey(t => t.RegionId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder.Entity<Ticket>()
             .HasOne(t => t.Customer)
             .WithMany()
