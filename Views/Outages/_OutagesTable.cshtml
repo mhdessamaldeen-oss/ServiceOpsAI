@@ -1,0 +1,82 @@
+@model List<ServiceOpsAI.Models.Outage>
+
+<div class="table-responsive">
+    <table id="outagesTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Outage #</th>
+                <th class="py-3">Service</th>
+                <th class="py-3">Region</th>
+                <th class="py-3">Started</th>
+                <th class="py-3">Duration</th>
+                <th class="py-3">Severity</th>
+                <th class="py-3">Cause</th>
+                <th class="text-end py-3">Affected</th>
+                <th class="py-3 no-sort">Planned?</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var o in Model)
+            {
+                var duration = o.EndedAt.HasValue
+                    ? (o.EndedAt.Value - o.StartedAt).TotalHours.ToString("F1") + "h"
+                    : "ongoing";
+                <tr>
+                    <td class="ps-4 fw-bold">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm rounded-circle d-flex align-items-center justify-content-center me-3"
+                                 style="width: 40px; height: 40px; background: rgba(var(--danger-color-rgb), 0.1) !important; color: var(--danger-color) !important; border: 1px solid rgba(var(--danger-color-rgb), 0.2) !important;">
+                                <i class="bi bi-exclamation-octagon-fill"></i>
+                            </div>
+                            <div>
+                                <code style="color: var(--text-main) !important;">@o.OutageNumber</code>
+                                @if (!string.IsNullOrEmpty(o.TitleEn))
+                                {
+                                    <div class="small text-muted">@o.TitleEn</div>
+                                }
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        @{
+                            var (svcBg, svcColor) = (o.ServiceType?.NameEn ?? "") switch
+                            {
+                                "Electricity" => ("rgba(245,158,11,0.10)", "#f59e0b"),
+                                "Internet"    => ("rgba(56,189,248,0.10)", "#38bdf8"),
+                                "Water"       => ("rgba(96,165,250,0.10)", "#60a5fa"),
+                                "Gas"         => ("rgba(248,113,113,0.10)", "#f87171"),
+                                _             => ("rgba(148,163,184,0.10)", "#94a3b8")
+                            };
+                        }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @svcBg !important; color: @svcColor !important; border: 1px solid @svcColor !important;">@o.ServiceType?.NameEn</span>
+                    </td>
+                    <td>@(o.Region?.NameEn ?? "—")</td>
+                    <td class="small">@o.StartedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="small">@duration</td>
+                    <td>
+                        @{
+                            var (sevBg, sevColor) = o.Severity switch
+                            {
+                                ServiceOpsAI.Models.OutageSeverity.Critical => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"),
+                                ServiceOpsAI.Models.OutageSeverity.Major    => ("rgba(245,158,11,0.1)", "#f59e0b"),
+                                ServiceOpsAI.Models.OutageSeverity.Moderate => ("rgba(56,189,248,0.1)", "#38bdf8"),
+                                _                                           => ("rgba(148,163,184,0.1)", "#94a3b8")
+                            };
+                        }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @sevBg !important; color: @sevColor !important; border: 1px solid @sevColor !important;">@o.Severity</span>
+                    </td>
+                    <td class="small">@o.Cause</td>
+                    <td class="text-end fw-bold">@(o.AffectedCustomerCount?.ToString("N0") ?? "—")</td>
+                    <td>@(o.IsPlanned ? "✓" : "✗")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Any())
+    {
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-inbox fs-1 mb-3"></i>
+            <h6>No outages recorded.</h6>
+        </div>
+    }
+</div>

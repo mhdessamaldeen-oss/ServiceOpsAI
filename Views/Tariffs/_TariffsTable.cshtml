@@ -1,0 +1,61 @@
+@model List<ServiceOpsAI.Models.Tariff>
+
+<div class="table-responsive">
+    <table id="tariffsTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Service</th>
+                <th class="py-3">Region</th>
+                <th class="py-3">Effective From</th>
+                <th class="py-3">Effective To</th>
+                <th class="text-end py-3">Base Fee (SYP)</th>
+                <th class="text-end py-3">Rate / Unit</th>
+                <th class="text-end py-3">Tax %</th>
+                <th class="py-3 no-sort">Reason</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in Model)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold">
+                        @{
+                            var (svcBg, svcColor) = (t.ServiceType?.NameEn ?? "") switch
+                            {
+                                "Electricity" => ("rgba(245,158,11,0.10)", "#f59e0b"),
+                                "Internet"    => ("rgba(56,189,248,0.10)", "#38bdf8"),
+                                "Water"       => ("rgba(96,165,250,0.10)", "#60a5fa"),
+                                "Gas"         => ("rgba(248,113,113,0.10)", "#f87171"),
+                                _             => ("rgba(148,163,184,0.10)", "#94a3b8")
+                            };
+                        }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @svcBg !important; color: @svcColor !important; border: 1px solid @svcColor !important;">@t.ServiceType?.NameEn</span>
+                    </td>
+                    <td>@(t.Region?.NameEn ?? "Country-wide")</td>
+                    <td class="small">@t.EffectiveFrom.ToString("yyyy-MM-dd")</td>
+                    <td class="small">
+                        @if (t.EffectiveTo.HasValue)
+                        {
+                            @t.EffectiveTo.Value.ToString("yyyy-MM-dd")
+                        }
+                        else
+                        {
+                            <span class="badge px-3 py-2 rounded-pill" style="background: rgba(var(--primary-color-rgb), 0.1) !important; color: var(--primary-color) !important; border: 1px solid var(--primary-color) !important;">Active</span>
+                        }
+                    </td>
+                    <td class="text-end fw-bold">@t.BaseMonthlyFee.ToString("N0")</td>
+                    <td class="text-end">@t.RatePerUnit.ToString("N2")</td>
+                    <td class="text-end">@t.TaxPercent.ToString("N1")%</td>
+                    <td class="small text-muted">@t.ChangeReasonEn</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Any())
+    {
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-inbox fs-1 mb-3"></i>
+            <h6>No tariffs configured.</h6>
+        </div>
+    }
+</div>

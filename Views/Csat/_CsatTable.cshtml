@@ -1,0 +1,73 @@
+@model List<ServiceOpsAI.Models.CsatResponse>
+
+<div class="table-responsive">
+    <table id="csatTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Ticket #</th>
+                <th class="py-3">Customer</th>
+                <th class="text-center py-3">Score</th>
+                <th class="py-3">Sentiment</th>
+                <th class="py-3">Comment (EN)</th>
+                <th class="py-3">Channel</th>
+                <th class="py-3 no-sort">Responded</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@c.Ticket?.TicketNumber</code></td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-sm rounded-circle d-flex align-items-center justify-content-center me-2"
+                                 style="width: 30px; height: 30px; background: rgba(var(--primary-color-rgb, 16,185,129), 0.1) !important; color: var(--primary-color) !important; border: 1px solid rgba(var(--primary-color-rgb), 0.2) !important;">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <span style="color: var(--text-main) !important;">@c.Ticket?.Customer?.FullNameEn</span>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        @{
+                            var color = c.Score switch
+                            {
+                                >= 4 => "var(--primary-color)",
+                                3    => "#f59e0b",
+                                _    => "var(--danger-color)"
+                            };
+                            var bgColor = c.Score switch
+                            {
+                                >= 4 => "rgba(var(--primary-color-rgb), 0.1)",
+                                3    => "rgba(245,158,11,0.1)",
+                                _    => "rgba(var(--danger-color-rgb), 0.1)"
+                            };
+                        }
+                        <span class="badge rounded-pill px-3 py-2" style="background: @bgColor !important; color: @color !important; border: 1px solid @color !important;">@(new string('★', c.Score))@(new string('☆', 5 - c.Score))</span>
+                    </td>
+                    <td>
+                        @if (c.Sentiment.HasValue)
+                        {
+                            var (sBg, sColor) = c.Sentiment.Value switch
+                            {
+                                ServiceOpsAI.Models.CsatSentiment.Positive => ("rgba(var(--primary-color-rgb), 0.1)", "var(--primary-color)"),
+                                ServiceOpsAI.Models.CsatSentiment.Negative => ("rgba(var(--danger-color-rgb), 0.1)", "var(--danger-color)"),
+                                _ => ("rgba(148,163,184,0.1)", "#94a3b8")
+                            };
+                            <span class="badge px-3 py-2 rounded-pill" style="background: @sBg !important; color: @sColor !important; border: 1px solid @sColor !important;">@c.Sentiment</span>
+                        }
+                    </td>
+                    <td class="small text-muted">@c.CommentEn</td>
+                    <td class="small">@c.ResponseChannel</td>
+                    <td class="small">@c.RespondedAt.ToString("yyyy-MM-dd")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Any())
+    {
+        <div class="text-center p-5 text-muted">
+            <i class="bi bi-inbox fs-1 mb-3"></i>
+            <h6>No CSAT responses recorded yet.</h6>
+        </div>
+    }
+</div>

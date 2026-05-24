@@ -4,58 +4,20 @@
     var header = new ServiceOpsAI.Models.Common.PageHeaderViewModel
     {
         Title = "Outages",
-        Subtitle = $"Service outage events (read-only). {ViewBag.Total} total. Tickets can attribute to an outage via OutageId for cluster analysis.",
+        Subtitle = $"Service outage events (read-only). {ViewBag.Total} total. Tickets attribute to an outage via OutageId for cluster analysis.",
         IconClass = "bi bi-exclamation-octagon-fill"
     };
+    var shell = new ServiceOpsAI.Models.Common.FeatureTableShellViewModel
+    {
+        Title = "Outage Registry",
+        Subtitle = "Explicit outage events with severity, cause, MTTR, and affected-customer counts.",
+        ShowColumnSearchToggle = true,
+        ColumnSearchLabel = "In-Depth Column Filters",
+        TableSelector = "#outagesTable",
+        TablePartialName = "~/Views/Outages/_OutagesTable.cshtml",
+        TableModel = Model
+    };
 }
-<partial name="_PageHeader" model="header" />
 
-<div class="card border-0 shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
-    <div class="card-body p-0">
-        <table class="table table-hover align-middle mb-0 datatable-premium">
-            <thead>
-                <tr>
-                    <th class="ps-4 py-3">Outage #</th>
-                    <th class="py-3">Service</th>
-                    <th class="py-3">Region</th>
-                    <th class="py-3">Started</th>
-                    <th class="py-3">Duration</th>
-                    <th class="py-3">Severity</th>
-                    <th class="py-3">Cause</th>
-                    <th class="py-3 text-end">Affected</th>
-                    <th class="py-3">Planned?</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var o in Model)
-                {
-                    var duration = o.EndedAt.HasValue
-                        ? (o.EndedAt.Value - o.StartedAt).TotalHours.ToString("F1") + "h"
-                        : "ongoing";
-                    <tr>
-                        <td class="ps-4 fw-bold"><code>@o.OutageNumber</code></td>
-                        <td><span class="badge bg-info">@o.ServiceType?.NameEn</span></td>
-                        <td>@(o.Region?.NameEn ?? "—")</td>
-                        <td class="small">@o.StartedAt.ToString("yyyy-MM-dd HH:mm")</td>
-                        <td class="small">@duration</td>
-                        <td>
-                            @{
-                                var (sevBg, sevColor) = o.Severity switch
-                                {
-                                    ServiceOpsAI.Models.OutageSeverity.Critical => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"),
-                                    ServiceOpsAI.Models.OutageSeverity.Major    => ("rgba(245,158,11,0.1)", "#f59e0b"),
-                                    ServiceOpsAI.Models.OutageSeverity.Moderate => ("rgba(56,189,248,0.1)", "#38bdf8"),
-                                    _                                           => ("rgba(148,163,184,0.1)", "#94a3b8")
-                                };
-                            }
-                            <span class="badge rounded-pill px-3 py-2" style="background: @sevBg !important; color: @sevColor !important; border: 1px solid @sevColor !important;">@o.Severity</span>
-                        </td>
-                        <td class="small">@o.Cause</td>
-                        <td class="text-end">@(o.AffectedCustomerCount?.ToString("N0") ?? "—")</td>
-                        <td>@(o.IsPlanned ? "✓" : "✗")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
+<partial name="_PageHeader" model="header" />
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="shell" />

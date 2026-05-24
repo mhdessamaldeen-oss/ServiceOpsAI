@@ -7,39 +7,17 @@
         Subtitle = "Historical pricing per (ServiceType, Region). Tariff changes are what the Copilot uses to explain bill jumps.",
         IconClass = "bi bi-tag-fill"
     };
+    var shell = new ServiceOpsAI.Models.Common.FeatureTableShellViewModel
+    {
+        Title = "Tariff Registry",
+        Subtitle = "Effective-from windows decide which tariff applies to a Bill's period.",
+        ShowColumnSearchToggle = true,
+        ColumnSearchLabel = "In-Depth Column Filters",
+        TableSelector = "#tariffsTable",
+        TablePartialName = "~/Views/Tariffs/_TariffsTable.cshtml",
+        TableModel = Model
+    };
 }
-<partial name="_PageHeader" model="header" />
 
-<div class="card border-0 shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
-    <div class="card-body p-0">
-        <table class="table table-hover align-middle mb-0 datatable-premium">
-            <thead>
-                <tr>
-                    <th class="ps-4 py-3">Service</th>
-                    <th class="py-3">Region</th>
-                    <th class="py-3">Effective From</th>
-                    <th class="py-3">Effective To</th>
-                    <th class="text-end py-3">Base Fee (SYP)</th>
-                    <th class="text-end py-3">Rate/Unit</th>
-                    <th class="text-end py-3">Tax %</th>
-                    <th class="py-3">Reason</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var t in Model)
-                {
-                    <tr>
-                        <td class="ps-4 fw-bold"><span class="badge bg-info">@t.ServiceType?.NameEn</span></td>
-                        <td>@(t.Region?.NameEn ?? "Country-wide")</td>
-                        <td class="small">@t.EffectiveFrom.ToString("yyyy-MM-dd")</td>
-                        <td class="small">@(t.EffectiveTo?.ToString("yyyy-MM-dd") ?? "(active)")</td>
-                        <td class="text-end">@t.BaseMonthlyFee.ToString("N0")</td>
-                        <td class="text-end">@t.RatePerUnit.ToString("N2")</td>
-                        <td class="text-end">@t.TaxPercent.ToString("N1")%</td>
-                        <td class="small text-muted">@t.ChangeReasonEn</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
+<partial name="_PageHeader" model="header" />
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="shell" />
