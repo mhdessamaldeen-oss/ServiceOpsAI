@@ -1,0 +1,27 @@
+{
+  "name": "Shape: JOIN (explicit multi-entity result)",
+  "version": "1.0",
+  "description": "Multi-table joins. Tests JoinResolver, DetectOverJoinPhase, ForceCountDistinctOnFanOutJoinPhase, anti-join inference, FK-role disambiguation when multiple FKs exist.",
+  "Scenarios": [
+    { "Code": "JOIN-SIMPLE-1", "Question": "tickets with their region", "Category": "shape:JOIN/2-table", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "LIST", "ExpectedFields": ["Tickets.TicketNumber", "Regions.NameEn"], "MaxLatencyMs": 180000 },
+    { "Code": "JOIN-SIMPLE-2", "Question": "bills with customer name", "Category": "shape:JOIN/2-table", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "LIST", "ExpectedFields": ["Bills.BillNumber", "Customers.FullNameEn"], "MaxLatencyMs": 180000 },
+    { "Code": "JOIN-SIMPLE-3", "Question": "outages with affected region", "Category": "shape:JOIN/2-table", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Outages", "ExpectedOperation": "LIST", "ExpectedFields": ["Outages.OutageNumber", "Regions.NameEn"], "MaxLatencyMs": 180000 },
+
+    { "Code": "JOIN-MEDIUM-1", "Question": "tickets with priority and status names", "Category": "shape:JOIN/3-table", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "LIST", "ExpectedFields": ["Tickets.TicketNumber", "TicketPriorities.Name", "TicketStatuses.Name"], "MaxLatencyMs": 180000 },
+    { "Code": "JOIN-MEDIUM-2", "Question": "bills with customer name and service type", "Category": "shape:JOIN/3-table", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "LIST", "MaxLatencyMs": 180000 },
+    { "Code": "JOIN-MEDIUM-3", "Question": "outages with region and service type", "Category": "shape:JOIN/3-table", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Outages", "ExpectedOperation": "LIST", "MaxLatencyMs": 180000 },
+    { "Code": "JOIN-MEDIUM-4", "Question": "tickets and the bill they reference", "Category": "shape:JOIN/fk-with-label", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "LIST", "MaxLatencyMs": 180000 },
+
+    { "Code": "JOIN-HARD-1", "Question": "tickets with priority status source assignee and region", "Category": "shape:JOIN/multi-relation-5tab", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "LIST", "MaxLatencyMs": 180000 },
+    { "Code": "JOIN-HARD-2", "Question": "bills with customer region service type for unpaid bills", "Category": "shape:JOIN/multi-relation+filter", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "LIST", "ExpectedFilters": [{ "Column": "Bills.Status", "Op": "in", "Value": ["Issued", "Overdue"] }], "MaxLatencyMs": 180000 },
+    { "Code": "JOIN-HARD-3", "Question": "open tickets with customer national ID and region", "Category": "shape:JOIN/multi-relation+lookup-filter", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "LIST", "ExpectedFilters": [{ "Column": "TicketStatuses.Name", "Op": "eq", "Value": "Open" }], "MaxLatencyMs": 180000 },
+
+    { "Code": "JOIN-ANTI-1", "Question": "customers without any bills", "Category": "shape:JOIN/anti-join", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "LIST", "MaxLatencyMs": 180000 },
+    { "Code": "JOIN-ANTI-2", "Question": "tickets with no comments yet", "Category": "shape:JOIN/anti-join", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "LIST", "MaxLatencyMs": 180000 },
+    { "Code": "JOIN-ANTI-3", "Question": "regions with no outages", "Category": "shape:JOIN/anti-join", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Regions", "ExpectedOperation": "LIST", "MaxLatencyMs": 180000 },
+
+    { "Code": "JOIN-TEMPORAL-1", "Question": "customers with their latest meter reading", "Category": "shape:JOIN/temporal-window-each-customer", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "LIST", "MaxLatencyMs": 180000 },
+
+    { "Code": "JOIN-AR-1", "Question": "التذاكر مع المنطقة", "Category": "shape:JOIN/arabic-2table", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "LIST", "MaxLatencyMs": 180000 }
+  ]
+}

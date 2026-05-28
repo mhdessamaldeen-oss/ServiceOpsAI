@@ -1,0 +1,17 @@
+{
+  "name": "Shape: RECURSIVE CTE (parent/child traversal)",
+  "version": "1.0",
+  "description": "Recursive CTE traversal of parent-child relationships (parent ticket, ticket children, hierarchy walk). Routes through escape valve with WITH RECURSIVE gold example.",
+  "Scenarios": [
+    { "Code": "REC-CHILD-1", "Question": "all child tickets under parent TKT-00010", "Category": "shape:RECURSIVE/children-of", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "RECURSIVE", "ExpectedFilters": [{ "Column": "Tickets.TicketNumber", "Op": "eq", "Value": "TKT-00010" }], "MaxLatencyMs": 180000 },
+    { "Code": "REC-CHILD-2", "Question": "all descendants of ticket TKT-00050", "Category": "shape:RECURSIVE/descendants", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "RECURSIVE", "MaxLatencyMs": 180000 },
+
+    { "Code": "REC-PARENT-1", "Question": "the parent chain of ticket TKT-00050", "Category": "shape:RECURSIVE/ancestors", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "RECURSIVE", "ExpectedFilters": [{ "Column": "Tickets.TicketNumber", "Op": "eq", "Value": "TKT-00050" }], "MaxLatencyMs": 180000 },
+    { "Code": "REC-PARENT-2", "Question": "all ancestors of TKT-00099", "Category": "shape:RECURSIVE/ancestors-bare", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "RECURSIVE", "MaxLatencyMs": 180000 },
+
+    { "Code": "REC-HIER-1", "Question": "the full ticket hierarchy under TKT-00001", "Category": "shape:RECURSIVE/full-hierarchy", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "RECURSIVE", "MaxLatencyMs": 180000 },
+    { "Code": "REC-HIER-2", "Question": "all the way up from TKT-00099", "Category": "shape:RECURSIVE/idiomatic", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "RECURSIVE", "MaxLatencyMs": 180000 },
+
+    { "Code": "REC-AR-1", "Question": "كل التذاكر الفرعية للأب TKT-00010", "Category": "shape:RECURSIVE/arabic-children", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "RECURSIVE", "MaxLatencyMs": 180000 }
+  ]
+}

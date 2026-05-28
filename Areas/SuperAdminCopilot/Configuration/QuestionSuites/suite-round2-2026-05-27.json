@@ -1,0 +1,40 @@
+{
+  "name": "Suite — Round 2 (TIMESERIES bucketing + AGGREGATE intent + natural-key)",
+  "version": "1.0",
+  "description": "Round 2: focused on the structural fixes from Round 1. Tests (a) TIMESERIES auto-bucketing for 'by month'/'weekly'/'trend' questions, (b) AGGREGATE-intent guard replacing wrong COUNT(*) with AVG/SUM/MAX, and (c) natural-key regex fix for TKT-NNNNN format. 10 questions, mix EN/AR.",
+  "Scenarios": [
+    { "Code": "R2-TS-01", "Question": "tickets by month",
+      "Category": "TIMESERIES", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R2-TS-02", "Question": "weekly trend of outages",
+      "Category": "TIMESERIES", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Outages",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R2-TS-03", "Question": "bills issued per month",
+      "Category": "TIMESERIES", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R2-TS-04-AR", "Question": "التذاكر شهريا",
+      "Category": "TIMESERIES", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R2-AGG-01", "Question": "average resolution time for tickets in hours",
+      "Category": "AGGREGATE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R2-AGG-02", "Question": "sum of all bill amounts",
+      "Category": "AGGREGATE", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R2-AGG-03", "Question": "maximum meter reading value",
+      "Category": "AGGREGATE", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "MeterReadings",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R2-AGG-04-AR", "Question": "متوسط قيمة الفاتورة لخدمة الكهرباء",
+      "Category": "AGGREGATE", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R2-LKP-01", "Question": "show me ticket TKT-00030",
+      "Category": "LOOKUP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R2-WARN", "Question": "tickets where mascotName is fluffy",
+      "Category": "WARNING", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "ExpectedWarning": "UnknownColumn", "MaxLatencyMs": 180000 }
+  ]
+}

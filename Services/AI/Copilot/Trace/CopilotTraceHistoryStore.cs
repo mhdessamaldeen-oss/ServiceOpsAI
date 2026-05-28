@@ -116,20 +116,14 @@ namespace ServiceOpsAI.Services.AI.Copilot.Trace
 
             using var context = await _contextFactory.CreateDbContextAsync(cancellationToken);
 
-            // B5 fix: Lightweight existence check instead of full entity fetch + update.
-            // Previously loaded the entire CopilotChatSession just to validate existence and
-            // update LastInteractionAt — an unnecessary roundtrip on every trace save.
-            int? validSessionId = null;
-            if (sessionId.HasValue)
-            {
-                var exists = await context.CopilotChatSessions
-                    .AnyAsync(s => s.Id == sessionId.Value && !s.IsDeleted, cancellationToken);
-
-                if (exists)
-                    validSessionId = sessionId.Value;
-                else
-                    _logger.LogWarning("Session {SessionId} not found, saving trace history without session reference", sessionId.Value);
-            }
+            // Persist the SessionId as-is — do NOT silently drop it on validation failure.
+            // The previous behaviour ("session not found → save without reference") was hiding
+            // legitimate references because the validation race-loses against the new session
+            // being created in a sibling DbContext scope (assessment handler fires Task.Run with
+            // its own scope; the trace write may land before that scope's Commit is visible).
+            // If the SessionId is truly invalid the FK constraint will catch it on Save —
+            // surfaced as an error rather than silently losing observability.
+            int? validSessionId = sessionId;
 
             // Cap GeneratedScript to prevent unbounded nvarchar(MAX) growth from pathological
             // planner retries. 50K chars covers any reasonable SQL; larger payloads are truncated.

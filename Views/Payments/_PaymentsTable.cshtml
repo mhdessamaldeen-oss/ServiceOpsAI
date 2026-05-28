@@ -1,0 +1,43 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.PaymentDto>
+
+<div class="table-responsive">
+    <table id="paymentsTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Payment #</th>
+                <th class="py-3">Bill</th>
+                <th class="py-3">Method</th>
+                <th class="text-end py-3">Amount</th>
+                <th class="text-end py-3">In SYP</th>
+                <th class="py-3">Status</th>
+                <th class="py-3">Paid At</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@p.PaymentReference</code></td>
+                    <td><code class="text-muted">@p.BillNumber</code></td>
+                    <td>@p.PaymentMethodName</td>
+                    <td class="text-end fw-bold">@p.CurrencySymbol @p.Amount.ToString("N2")</td>
+                    <td class="text-end fw-bold" style="color: var(--text-main) !important;">@p.AmountInBase.ToString("N0")</td>
+                    <td>
+                        @{ var (bg, fg) = p.Status switch { "Posted" => ("rgba(var(--primary-color-rgb),0.1)", "var(--primary-color)"), "Pending" => ("rgba(245,158,11,0.1)", "#f59e0b"), "Refunded" => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"), "Reversed" => ("rgba(248,113,113,0.1)", "#f87171"), _ => ("rgba(148,163,184,0.1)", "#94a3b8") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @bg; color: @fg; border: 1px solid @fg;">@p.Status</span>
+                    </td>
+                    <td class="small text-muted">@p.PaidAt.ToString("yyyy-MM-dd")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@p.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@p.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@p.Id" method="post" onsubmit="return confirm('Delete this payment?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No payments match the current filter.</h6></div> }
+</div>

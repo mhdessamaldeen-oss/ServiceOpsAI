@@ -14,6 +14,8 @@
           { "Pattern": "\\bmodify\\s+(?:[\\w-]+\\s+){1,5}(to|set|with)\\b", "Verb": "modify" },
           { "Pattern": "\\bremove\\s+(?:[\\w-]+\\s+){1,5}(from|where|with)\\b", "Verb": "remove" },
           { "Pattern": "\\bset\\s+(?:[\\w-]+\\s+){0,2}[\\w-]+\\s*=\\s*\\S", "Verb": "set" },
+          { "Pattern": "\\bmark\\s+(?:[\\w-]+\\s+){0,5}(as|=|to)\\b", "Verb": "mark" },
+          { "Pattern": "\\bassign\\s+(?:[\\w-]+\\s+){0,5}(to|=|as)\\b", "Verb": "assign" },
           { "Pattern": "\\b(get\\s+rid\\s+of|wipe\\s+out|wiped\\s+out|wiping\\s+out|clean\\s+out|cleaning\\s+out|purge|purges|purging|purged|eradicate|eradicating|nuke|nuked|nuking|clear\\s+out|zap|zapped)\\b", "Verb": "destroy" }
         ]
       },
@@ -25,7 +27,7 @@
           { "Pattern": "أنشئ|انشاء|انشئي", "Verb": "create" },
           { "Pattern": "عدّل|عدل|تعديل", "Verb": "update" },
           { "Pattern": "أدخل|أدخلي|إدخال|ادخال", "Verb": "insert" },
-          { "Pattern": "غيّر|غير|تغيير", "Verb": "change" },
+          { "Pattern": "غيّر|تغيير", "Verb": "change" },
           { "Pattern": "أضف|اضف|أضيفي|إضافة|اضافة", "Verb": "add" },
           { "Pattern": "أزل|ازل|إزالة|ازالة", "Verb": "remove" }
         ]

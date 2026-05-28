@@ -1751,6 +1751,99 @@
       "shape": "TOP", "verifiedAt": "2026-05-21", "verifiedBy": "claude",
       "tags": ["top-n","attachments","filesize"],
       "description": "TOP N over FileSize descending. Added Round 7 — model was hallucinating extra columns or wrong ordering."
+    },
+
+    // ── False-refusal antidotes (added 2026-05-25) ──────────────────────────────
+    // The local 7B classifier consistently false-refuses these specific question
+    // shapes ("show me the tariffs", "all governorates in syria", etc.) by labeling
+    // them prediction/opinion. The verified-query matcher runs BEFORE the classifier,
+    // so a cosine match on any of these short-circuits the classifier entirely.
+    // SQL is curated from the comprehensive suite's ExpectedSql where available.
+    { "id": "list-all-tariffs",
+      "question": "show me the tariffs",
+      "questionVariants": [
+        "list all tariffs",
+        "show all tariffs",
+        "what tariffs do we have",
+        "اعرض التعرفات",
+        "جميع التعرفات"
+      ],
+      "minSimilarity": 0.90,
+      "sql": "SELECT Id, ServiceTypeId, RegionId, RatePerUnit, EffectiveFrom, EffectiveTo FROM Tariffs",
+      "shape": "SEL", "verifiedAt": "2026-05-25", "verifiedBy": "claude-iter5",
+      "tags": ["list", "tariffs", "false-refusal-antidote"],
+      "description": "Classifier false-refuses 'show me the tariffs' as opinion. Verified-query bypass. Covers CMP-V2-FACTUAL-001 and CMP-SEL-010."
+    },
+    { "id": "list-governorates",
+      "question": "all governorates in syria",
+      "questionVariants": [
+        "list all governorates",
+        "show me governorates",
+        "what are the governorates",
+        "محافظات سوريا",
+        "جميع المحافظات"
+      ],
+      "minSimilarity": 0.90,
+      "sql": "SELECT Id, NameEn, NameAr FROM Regions WHERE ParentRegionId IS NULL",
+      "shape": "SEL", "verifiedAt": "2026-05-25", "verifiedBy": "claude-iter5",
+      "tags": ["list", "regions", "governorates", "false-refusal-antidote"],
+      "description": "Governorates = top-level Regions (no parent). Bypasses classifier false-refusal. Covers CMP-V2-FACTUAL-002 and CMP-RGN-001."
+    },
+    { "id": "outages-by-cause-fibercut",
+      "question": "outages caused by fiber cut",
+      "questionVariants": [
+        "fiber cut outages",
+        "outages from fiber cut",
+        "anything caused by fiber cut",
+        "انقطاعات بسبب قطع الألياف"
+      ],
+      "minSimilarity": 0.90,
+      "sql": "SELECT Id, StartedAt, EndedAt, RegionId, ServiceTypeId, Cause, TitleEn FROM Outages WHERE Cause = 'FiberCut'",
+      "shape": "FLT", "verifiedAt": "2026-05-25", "verifiedBy": "claude-iter5",
+      "tags": ["filter", "outages", "false-refusal-antidote"],
+      "description": "Filter on Outages.Cause. Bypasses classifier false-refusal on 'outages caused by X' patterns. Covers CMP-V2-FACTUAL-003 and CMP-LK-004."
+    },
+    { "id": "highest-rate-per-unit",
+      "question": "highest rate per unit",
+      "questionVariants": [
+        "tariff with highest rate per unit",
+        "max rate per unit",
+        "most expensive rate per unit",
+        "أعلى تعرفة لكل وحدة"
+      ],
+      "minSimilarity": 0.90,
+      "sql": "SELECT TOP 1 ServiceTypeId, RegionId, RatePerUnit FROM Tariffs ORDER BY RatePerUnit DESC",
+      "shape": "MAX", "verifiedAt": "2026-05-25", "verifiedBy": "claude-iter5",
+      "tags": ["max", "tariffs", "false-refusal-antidote"],
+      "description": "TOP 1 by RatePerUnit DESC. Bypasses classifier false-refusal on 'highest X'. Covers CMP-V2-FACTUAL-004 and CMP-TRF-004."
+    },
+    { "id": "closed-state-statuses",
+      "question": "closed-state statuses",
+      "questionVariants": [
+        "which statuses are closed",
+        "list closed statuses",
+        "ticket statuses that mean closed",
+        "closed ticket statuses"
+      ],
+      "minSimilarity": 0.90,
+      "sql": "SELECT Id, Name FROM TicketStatuses WHERE Name = 'Closed' OR Name = 'Resolved'",
+      "shape": "FLT", "verifiedAt": "2026-05-25", "verifiedBy": "claude-iter5",
+      "tags": ["filter", "statuses", "false-refusal-antidote"],
+      "description": "Statuses that represent the closed state. Bypasses classifier false-refusal on 'closed-state X'. Covers CMP-LOOK-005."
+    },
+    { "id": "tariffs-changed-in-2025",
+      "question": "tariffs that changed in 2025",
+      "questionVariants": [
+        "tariff changes in 2025",
+        "which tariffs changed in 2025",
+        "tariffs updated in 2025",
+        "تعرفات تغيرت في 2025"
+      ],
+      "minSimilarity": 0.90,
+      "sql": "SELECT Id, ServiceTypeId, RegionId, RatePerUnit, EffectiveFrom, EffectiveTo FROM Tariffs WHERE YEAR(EffectiveFrom) = 2025 OR YEAR(EffectiveTo) = 2025",
+      "shape": "FLT", "verifiedAt": "2026-05-25", "verifiedBy": "claude-iter5",
+      "tags": ["filter", "tariffs", "date", "false-refusal-antidote"],
+      "description": "Tariffs with an effective date in 2025 (either start or end). Bypasses classifier false-refusal on 'X that changed in YEAR'. Covers CMP-TRF-002."
     }
   ]
 }

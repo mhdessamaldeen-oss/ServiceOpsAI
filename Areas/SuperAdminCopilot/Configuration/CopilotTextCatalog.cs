@@ -30,14 +30,64 @@ public sealed class CopilotTextCatalog
     // NO hardcoded fallback in code — this catalog field is the single source of truth.
     public List<string> QuestionShapeComplexHints { get; set; } = new()
     {
-        "running total", "running sum", "cumulative",
-        "rank ", "ranked ", "ranking",
+        // ── Window functions (B-WIN: rank / running / lag) ──────────────────────────────
+        "running total", "running sum", "cumulative", "cumulative count", "cumulative sum",
+        "rank ", "ranked ", "ranking", "ranks ",
         "percentile", "median", "p50", "p95", "p99",
         "row_number", "over (",
         "year over year", "month over month", "quarter over quarter",
         "rolling average", "moving average",
         "lag ", "lead ",
-        "recursive", "with cte"
+        "compared to the previous", "vs previous", "change from previous", "change vs",
+
+        // ── Recursive CTEs (B-REC: parent chain / children / ancestor) ──────────────────
+        "recursive", "with cte",
+        "all child", "all children", "child tickets", "children of",
+        "parent chain", "parent of", "ancestor", "ancestors of",
+        "descendant", "descendants of",
+        "the hierarchy", "down to", "all the way up",
+
+        // ── Self-join (B-SELF: other X from same Y as Z) ────────────────────────────────
+        "other tickets from the same",
+        "other bills from the same",
+        "other customers in the same",
+        "same customer as",
+        "same region as",
+        "same department as",
+        "same service type as",
+
+        // ── EXISTS / NOT EXISTS (B-EX) ──────────────────────────────────────────────────
+        "have at least one",
+        "have at least",
+        "with at least one",
+        "who have any",
+        "where the customer also has",
+        "where the ticket also has",
+        "have ever had",
+        "ever filed",
+        "ever issued",
+        "never filed",
+        "never had",
+        "without any",                       // "customers without any bills" — anti-join shape
+
+        // ── UNION (B-UNION: everything across multiple tables) ──────────────────────────
+        "everything created today",
+        "everything from today",
+        "combined activity",
+        "all activity from",
+        "tickets and bills and outages",
+        "across tickets bills outages",
+
+        // ── HAVING multi-aggregate (B-HAV: regions with >5 tickets AND >3 outages) ──────
+        "with more than",                    // ambiguous — also fires for numeric range; benign overlap
+        "with at least",                     // same
+        "with fewer than",
+        "with less than",
+        " and more than ",                   // "regions with more than 5 tickets AND more than 3 outages"
+        " and at least ",
+        " and fewer than ",
+
+        // ── Median / percentile (already above, kept for stability) ─────────────────────
     };
 
     // ── SpecExtractor prompt fragments ────────────────────────────────────
@@ -51,9 +101,11 @@ public sealed class CopilotTextCatalog
     /// <summary>System prompt for the QuerySpec form-filling planner. Universal NL2SQL framing —
     /// no schema-specific table/column names. Override per deployment via copilot-text.json.</summary>
     public string SpecExtractorSystemPrompt { get; set; } =
-        "You generate a structured QuerySpec JSON from a natural-language data question against an SQL Server database. " +
+        "You are a careful SQL Server analyst. Given a natural-language data question and a small schema slice, generate a structured QuerySpec JSON the compiler will turn into safe T-SQL. " +
+        "Always answer — never refuse. When the question is unclear, produce your best-guess data_query spec; never emit intent=clarification. " +
         "Return ONLY valid JSON matching the requested shape — no prose, no markdown, no commentary. " +
-        "Use full Table.Column qualifiers everywhere. If you cannot answer without clarifying, set intent to \"clarification\".";
+        "Use full Table.Column qualifiers everywhere. Prefer JOIN + filter on a lookup/target table's label column over filtering on a raw FK Id with a name value. " +
+        "Tolerate noisy input: brackets, dashes, commas, typos, extra words — interpret intent, ignore notation noise.";
 
     /// <summary>Top-of-prompt warning spliced in when the question is detected as a period-comparison
     /// (e.g. "this month vs last month"). Tells the LLM to emit per-bucket SUM(CASE WHEN) aggregations
@@ -86,19 +138,155 @@ public sealed class CopilotTextCatalog
     /// than specific names.</summary>
     public string SpecExtractorReminders { get; set; } =
         "IMPORTANT REMINDERS:\n" +
+        "- FK→NAME REDIRECT: when the user names a related entity (e.g. \"tickets for customer Houri\", \"bills for region Damascus\"), NEVER emit a filter like CustomerId='Houri'. Add the target table to joins[] (kind:\"inner\") and filter on its label column with op:\"like\" value:\"%Name%\". Same rule for ServiceTypes, Regions, TicketCategories, Departments.\n" +
+        "- CROSS-FACT-TABLE NAVIGATION: queries like \"meter readings for customer X\" or \"complaints from customer Y\" span Customer + a fact table. Root is the fact table (MeterReadings, Tickets, Bills, CsatResponses, Outages); add Customers to joins[] with the label-column LIKE filter. Project both fact + customer label columns.\n" +
+        "- NOTATION NOISE TOLERANCE: users sometimes type SQL-like syntax — brackets [Bills].[Status], dashes Bills-Status, commas \"Bills, Status, Paid\", or quoted column lists \"users(name, email)\". Strip the notation, interpret the intent. Brackets / dashes / commas are NEVER part of a real value; they delimit columns or table names. Treat \"[Tables].[Column] = 'Value'\" as \"Tables.Column = 'Value'\".\n" +
         "- The \"Values:\" line under a lookup table is REFERENCE ONLY — a vocabulary of valid names. NEVER add a filter for those values unless the user's question explicitly mentions one or more of them. \"count tickets per status\" → groupBy only, NO filter. \"count tickets per status, open ones\" → groupBy + filter for \"Open\".\n" +
         "- Status / priority / category VALUES (lookup-row names) are NAMES, not IDs. Filter on the LOOKUP TABLE's label column, NOT on the FK Id column.\n" +
         "- For \"X and their Y\" through a bridge: just SELECT columns from both X and Y — the compiler resolves joins via FK graph.\n" +
-        "- NEVER write SQL subqueries or SQL expressions (DATEADD, GETDATE, etc.) inside filter `value`. Use LITERAL values only.\n" +
-        "- For \"in the last N days\" → op:\"gte\" with value:\"last_N_days\". For \"older than N days\" → op:\"lt\" with value:\"last_N_days\".\n" +
+        "- NEVER write SQL subqueries or SQL expressions (DATEADD, GETDATE, etc.) inside filter `value`. Use LITERAL values only. For FK filters with a name (e.g. \"bills for service Electricity\"), do NOT emit value:\"(SELECT Id FROM ServiceTypes WHERE Code='ELEC')\" — emit a JOIN to ServiceTypes and filter on ServiceTypes.NameEn = 'Electricity'.\n" +
+        "- DATE TOKENS for relative time: use one of the supported @-tokens as the filter value, NEVER a phrase like \"this month\" or \"current year\". Supported tokens: @today, @yesterday, @tomorrow, @week_start, @month_start, @year_start, @quarter_start, @last_week_start, @last_month_start, @last_year_start, @last_quarter_start. Span tokens: @days:-N, @months:-N, @years:-N (negative N for past).\n" +
+        "- DATE RANGE EXAMPLES: \"this month\" → [{op:\"gte\",value:\"@month_start\"}]. \"this year\" → [{op:\"gte\",value:\"@year_start\"}]. \"last 7 days\" → [{op:\"gte\",value:\"@days:-7\"}]. \"last month\" → [{op:\"gte\",value:\"@last_month_start\"},{op:\"lt\",value:\"@month_start\"}]. NEVER emit absolute literal dates from your own knowledge — use tokens.\n" +
+        "- For \"in the last N days\" → op:\"gte\" with value:\"@days:-N\". For \"older than N days\" → op:\"lt\" with value:\"@days:-N\".\n" +
         "- NEVER invent column names. Only reference columns that appear in the schema slice above.\n" +
         "- \"with no\" / \"without\" / \"having no\" / \"who don't have\" → always joins:[{table:\"<other>\",kind:\"anti\"}], no filter on a synthetic column.\n" +
-        "- Use intent:\"clarification\" SPARINGLY. Only when the question has TWO+ equally-valid interpretations that would produce DIFFERENT SQL. \"how many X\" / \"list X\" / \"open X\" are NOT ambiguous — answer them directly. Genuine ambiguity examples: \"top X\" (by what?), \"recent stuff\" (which entity?), \"the best ones\" (by which dimension?).";
+        "- NULL-SEMANTICS RULE: when filtering by a STATE such as \"paid\", \"churned\", \"resolved\", \"closed\", \"active\", \"missing\", \"empty\", \"has none\", check the canonical Status/lookup column with op:\"eq\" (e.g., Bills.Status='Paid', Customers.Status='Churned', TicketStatuses.Name='Closed'). NEVER use a completion-timestamp column (PaidAt, ChurnedAt, ResolvedAt, ClosedAt, EndedAt, EffectiveTo) with op:\"eq\" against a value — those columns are completion markers. If you must use them, use op:\"is_not_null\" for \"has occurred\" / \"completed\" semantics, op:\"is_null\" for \"not yet\" / \"still active\" semantics.\n" +
+        "- HIERARCHY NULL-CHECK: \"primary\" / \"top-level\" / \"governorate\" / \"parent\" → ParentXId op:\"is_null\". \"secondary\" / \"child\" / \"district\" / \"subcategory\" → ParentXId op:\"is_not_null\". Never compare ParentXId to a literal value unless filtering under a SPECIFIC named parent.\n" +
+        "- MISSING-FIELD PATTERN: \"with no email\", \"missing phone\", \"no address\" → filter that column with op:\"is_null\". NEVER op:\"eq\" with empty string or a parameter value.\n" +
+        "- TOP-N PROJECTION RULE: when the user asks \"top N <entity> by <metric>\", the projection MUST include (a) the entity's identifying label column (e.g., Customers.FullNameEn, Departments.NameEn, Outages.OutageNumber), AND (b) the metric being ranked (the aggregation alias or the raw column). Never project Id only — IDs are unreadable to the user.\n" +
+        "- IMPLICIT-COLUMN PROJECTION: when the user asks for an entity, project at least one human-readable label column even if they didn't name one explicitly. \"5 oldest tickets\" → at minimum TicketNumber + Title + CreatedAt, not just CreatedAt.\n" +
+        "- Use intent:\"clarification\" SPARINGLY. Only when the question has TWO+ equally-valid interpretations that would produce DIFFERENT SQL. \"how many X\" / \"list X\" / \"open X\" are NOT ambiguous — answer them directly. Genuine ambiguity examples: \"top X\" (by what?), \"recent stuff\" (which entity?), \"the best ones\" (by which dimension?).\n" +
+        "- HAVING TRIGGERS: \"with more than N\", \"with at least N\", \"with fewer than N\", \"having more/less than N\", \"that have N+ <items>\" → ALWAYS emit a having clause AND group by the grouping dimension. NEVER express this as a filter on a raw count column. Root entity is the THING BEING COUNTED (\"categories with more than 15 tickets\" → root:Tickets, groupBy:TicketCategories.Name, having:COUNT(*)>15), NOT the related dimension table.\n" +
+        "- DISTINCT TRIGGERS: \"distinct\", \"unique\", \"different\" applied to a projection (\"distinct categories\", \"unique customer names\") → emit distinct:true, NO aggregations, NO groupBy. Use this when the user wants the deduplicated VALUES themselves, not a count of them.\n" +
+        "- PAGINATION TRIGGERS: \"page N of size P\", \"page N\", \"rows X to Y\", \"skip N\", \"next/previous N after first M\" → emit BOTH limit (page size) AND offset (rows to skip). Page N at size P means offset=(N-1)*P. Always include an orderBy so paging is stable. Plain \"top N\" / \"first N\" / \"last N\" (no \"page\", no \"skip\") is limit:N with offset omitted — TOP not OFFSET.";
 
-    /// <summary>Final-check block spliced in at the END of the prompt for comparison questions.
-    /// Models attend more to recent tokens — repeating the comparison rule here (after examples
-    /// and reminders, right before the JSON trigger) significantly improves rule adherence on
-    /// small local models.</summary>
+    /// <summary>Canonical worked examples shown to the planner LLM. Hot-reloadable via copilot-text.json.</summary>
+    public string SpecExtractorWorkedExamples { get; set; } =
+        "Worked examples (mimic the SHAPE; column names will differ for your schema):\n\n" +
+        "Q: \"how many tickets\"   <-- pure COUNT — empty select, aggregations only\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"how many open tickets\"   <-- COUNT + lookup filter. CRITICAL: keep select EMPTY even when adding a filter.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[{\"column\":\"TicketStatuses.Name\",\"op\":\"eq\",\"value\":\"Open\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"how many rejected tickets\"   <-- same shape; the value is the LOOKUP NAME, not an ID\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[{\"column\":\"TicketStatuses.Name\",\"op\":\"eq\",\"value\":\"Rejected\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"users with no tickets\"   <-- ANTI-JOIN: \"with no / without / having no\" → kind:\"anti\", NO subquery, NO filter\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\",\"AspNetUsers.Email\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"Tickets\",\"kind\":\"anti\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"tickets without any comments\"   <-- another anti-join example\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"TicketComments\",\"kind\":\"anti\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"open tickets\"   <-- lookup VALUE \"Open\" → filter on lookup table's NAME column\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"TicketStatuses.Name\",\"op\":\"eq\",\"value\":\"Open\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"closed tickets\"\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"TicketStatuses.Name\",\"op\":\"eq\",\"value\":\"Closed\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"top 5 users by ticket count\"\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.Id\",\"alias\":\"TicketCount\"}],\"filters\":[],\"groupBy\":[\"AspNetUsers.UserName\"],\"orderBy\":[{\"column\":\"TicketCount\",\"direction\":\"desc\"}],\"limit\":5,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"show users and their roles\"   <-- many-to-many through a bridge; the compiler walks the FK graph\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\",\"AspNetRoles.Name\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"running total of tickets created over time\"   <-- WINDOW FUNCTION — use computed expression\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.CreatedAt\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"Tickets.CreatedAt\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"RunningCount\",\"expression\":\"COUNT(*) OVER (ORDER BY Tickets.CreatedAt)\"}],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"rank users by ticket count\"   <-- ROW_NUMBER / RANK via window function\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.Id\",\"alias\":\"TicketCount\"}],\"filters\":[],\"groupBy\":[\"AspNetUsers.UserName\"],\"orderBy\":[{\"column\":\"TicketCount\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"Rank\",\"expression\":\"ROW_NUMBER() OVER (ORDER BY COUNT(Tickets.Id) DESC)\"}],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"monthly ticket volume for the last 3 months\"   <-- DATE BUCKETING — use computed alias + raw expression in groupBy\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"TicketCount\"}],\"filters\":[{\"column\":\"Tickets.CreatedAt\",\"op\":\"gte\",\"value\":\"last_90_days\"}],\"groupBy\":[\"FORMAT(Tickets.CreatedAt, 'yyyy-MM')\"],\"orderBy\":[{\"column\":\"Month\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"Month\",\"expression\":\"FORMAT(Tickets.CreatedAt, 'yyyy-MM')\"}],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"tickets per priority and status\"   <-- MULTI-DIMENSION GROUP BY — both dimensions must appear in groupBy\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketPriorities.Name\",\"TicketStatuses.Name\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[],\"groupBy\":[\"TicketPriorities.Name\",\"TicketStatuses.Name\"],\"orderBy\":[{\"column\":\"Count\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"ticket count by category and source\"   <-- same shape, different dimensions — \"by X and Y\" and \"per X and Y\" both mean two groupBy entries\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketCategories.Name\",\"TicketSources.Name\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[],\"groupBy\":[\"TicketCategories.Name\",\"TicketSources.Name\"],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"daily ticket count for the last 14 days\"   <-- DAILY BUCKETING\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"TicketCount\"}],\"filters\":[{\"column\":\"Tickets.CreatedAt\",\"op\":\"gte\",\"value\":\"last_14_days\"}],\"groupBy\":[\"CAST(Tickets.CreatedAt AS DATE)\"],\"orderBy\":[{\"column\":\"Day\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"Day\",\"expression\":\"CAST(Tickets.CreatedAt AS DATE)\"}],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"average resolution time in hours\"   <-- DATEDIFF AS A METRIC — use aggregation with column as expression\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"AVG\",\"column\":\"DATEDIFF(hour, Tickets.CreatedAt, Tickets.ResolvedAt)\",\"alias\":\"AvgResolutionHours\"}],\"filters\":[{\"column\":\"Tickets.ResolvedAt\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"average resolution time in hours by priority\"   <-- DATEDIFF + GROUP BY LOOKUP\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketPriorities.Name\"],\"aggregations\":[{\"function\":\"AVG\",\"column\":\"DATEDIFF(hour, Tickets.CreatedAt, Tickets.ResolvedAt)\",\"alias\":\"AvgResolutionHours\"}],\"filters\":[{\"column\":\"Tickets.ResolvedAt\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[\"TicketPriorities.Name\"],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"average time to first response in hours, by priority\"   <-- AVG of DATEDIFF + GROUP BY — exact same shape as above\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketPriorities.Name\"],\"aggregations\":[{\"function\":\"AVG\",\"column\":\"DATEDIFF(hour, Tickets.CreatedAt, Tickets.FirstRespondedAt)\",\"alias\":\"AvgFirstResponseHours\"}],\"filters\":[{\"column\":\"Tickets.FirstRespondedAt\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[\"TicketPriorities.Name\"],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"latest ticket creation date\" / \"most recent ticket\"   <-- MAX on a date column — single-row aggregate, empty select\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"MAX\",\"column\":\"Tickets.CreatedAt\",\"alias\":\"LatestCreated\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"earliest ticket creation date\" / \"oldest ticket created\"   <-- MIN on a date column — single-row aggregate, empty select\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"MIN\",\"column\":\"Tickets.CreatedAt\",\"alias\":\"EarliestCreated\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"highest priority value\" / \"top priority weight\"   <-- MAX on a numeric column from a lookup table — single-row aggregate\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"TicketPriorities\",\"select\":[],\"aggregations\":[{\"function\":\"MAX\",\"column\":\"TicketPriorities.SortOrder\",\"alias\":\"MaxPriorityWeight\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"total amount across all bills\" / \"sum of bill amounts\" / \"total revenue\"   <-- SUM on a numeric column — single-row aggregate, empty select. CRITICAL: 'total X' / 'sum of X' / 'overall X' where X is a money / numeric column means SUM(X), NOT a projection of column X. Empty select is REQUIRED.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Bills\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"Bills.TotalAmount\",\"alias\":\"TotalAmount\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"total amount of overdue bills\" / \"sum of unpaid bill values\"   <-- SUM + filter on the same single-row aggregate. CRITICAL: keep select EMPTY even with the filter.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Bills\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"Bills.TotalAmount\",\"alias\":\"TotalAmount\"}],\"filters\":[{\"column\":\"Bills.Status\",\"op\":\"eq\",\"value\":\"Overdue\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"average bill amount\" / \"mean bill value\"   <-- AVG on a numeric column — single-row aggregate, empty select\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Bills\",\"select\":[],\"aggregations\":[{\"function\":\"AVG\",\"column\":\"Bills.TotalAmount\",\"alias\":\"AverageAmount\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"how many distinct users created tickets\" / \"number of unique creators\"   <-- COUNT DISTINCT — Distinct:true on the column, NOT *\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.CreatedByUserId\",\"alias\":\"DistinctCreators\",\"distinct\":true}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"how many different categories have tickets\"   <-- COUNT DISTINCT through a join\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.CategoryId\",\"alias\":\"DistinctCategories\",\"distinct\":true}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"show me all ticket information\" / \"show full details of ticket TCK-001\" / \"everything we know about this user\"   <-- ALL-COLUMNS — use the sentinel select:[\"*\"] and the enricher expands it to the entity's full content columns\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"*\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"show ticket age in days\"   <-- DATEDIFF COMPUTED COLUMN (per-row, not aggregate)\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"AgeInDays\",\"expression\":\"DATEDIFF(day, Tickets.CreatedAt, GETDATE())\"}],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"compare tickets this month vs last month\"   <-- PERIOD COMPARISON via conditional aggregation\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN Tickets.CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END\",\"alias\":\"ThisMonth\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN Tickets.CreatedAt >= DATEFROMPARTS(YEAR(DATEADD(month,-1,GETDATE())),MONTH(DATEADD(month,-1,GETDATE())),1) AND Tickets.CreatedAt < DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END\",\"alias\":\"LastMonth\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"tickets created today vs yesterday\"   <-- TODAY/YESTERDAY via conditional aggregation\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN CAST(Tickets.CreatedAt AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END\",\"alias\":\"Today\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN CAST(Tickets.CreatedAt AS DATE) = CAST(DATEADD(day,-1,GETDATE()) AS DATE) THEN 1 ELSE 0 END\",\"alias\":\"Yesterday\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"tickets resolved this year vs last year\"   <-- YEAR-OVER-YEAR via conditional aggregation\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN YEAR(Tickets.ResolvedAt) = YEAR(GETDATE()) THEN 1 ELSE 0 END\",\"alias\":\"ThisYear\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN YEAR(Tickets.ResolvedAt) = YEAR(GETDATE()) - 1 THEN 1 ELSE 0 END\",\"alias\":\"LastYear\"}],\"filters\":[{\"column\":\"Tickets.ResolvedAt\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"tickets created in 2025 vs 2024\"   <-- EXPLICIT YEARS via conditional aggregation\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN YEAR(Tickets.CreatedAt) = 2025 THEN 1 ELSE 0 END\",\"alias\":\"Y2025\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN YEAR(Tickets.CreatedAt) = 2024 THEN 1 ELSE 0 END\",\"alias\":\"Y2024\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"last 7 days vs the previous 7 days\"   <-- ROLLING-WINDOW COMPARISON via conditional aggregation\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN Tickets.CreatedAt >= DATEADD(day,-7,GETDATE()) THEN 1 ELSE 0 END\",\"alias\":\"Last7Days\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN Tickets.CreatedAt >= DATEADD(day,-14,GETDATE()) AND Tickets.CreatedAt < DATEADD(day,-7,GETDATE()) THEN 1 ELSE 0 END\",\"alias\":\"Previous7Days\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"what percentage of tickets are resolved or closed\"   <-- RATIO / PERCENTAGE via SUM(CASE) / COUNT(*)\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Total\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN TicketStatuses.Name IN ('Resolved','Closed') THEN 1 ELSE 0 END\",\"alias\":\"ResolvedOrClosed\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"PercentResolved\",\"expression\":\"100.0 * SUM(CASE WHEN TicketStatuses.Name IN ('Resolved','Closed') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0)\"}],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"tickets created in April 2026\"   <-- SPECIFIC MONTH — use ISO date range filter\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"Tickets.CreatedAt\",\"op\":\"gte\",\"value\":\"2026-04-01\"},{\"column\":\"Tickets.CreatedAt\",\"op\":\"lt\",\"value\":\"2026-05-01\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"categories with more than 15 tickets\"   <-- HAVING — post-aggregation filter on a COUNT/SUM\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketCategories.Name\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"TicketCount\"}],\"filters\":[],\"groupBy\":[\"TicketCategories.Name\"],\"having\":[{\"function\":\"COUNT\",\"column\":\"*\",\"op\":\"gt\",\"value\":15}],\"orderBy\":[{\"column\":\"TicketCount\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"agents with more than 5 unresolved tickets\"   <-- HAVING combined with a filter\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.Id\",\"alias\":\"Unresolved\"}],\"filters\":[{\"column\":\"Tickets.ResolvedAt\",\"op\":\"is_null\",\"value\":null}],\"groupBy\":[\"AspNetUsers.UserName\"],\"having\":[{\"function\":\"COUNT\",\"column\":\"Tickets.Id\",\"op\":\"gt\",\"value\":5}],\"orderBy\":[{\"column\":\"Unresolved\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"distinct categories that have tickets\"   <-- DISTINCT — use distinct:true, omit aggregations\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketCategories.Name\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"TicketCategories.Name\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"distinct\":true,\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"page 3 of tickets, 20 per page\" / \"rows 21 to 40 of tickets\" / \"skip 20 then show 20\"   <-- PAGINATION — set both limit (page size) and offset (rows to skip). Offset = (page - 1) * pageSize. Always also set orderBy so pages are stable.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"Tickets.CreatedAt\",\"direction\":\"desc\"}],\"limit\":20,\"offset\":40,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"unassigned tickets\" / \"tickets without an owner\" / \"items with no assignee\"   <-- ABSENCE on an FK column → filter op:\"is_null\" on the FK column itself, no anti-join needed\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"Tickets.AssignedToUserId\",\"op\":\"is_null\",\"value\":null}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"child tickets with their parent ticket number\"   <-- SELF-REFERENCE: filter where ParentTicketId IS NOT NULL and SELECT both the child's TicketNumber AND the parent FK column. Full parent details (TicketNumber, Title) via self-join aren't supported yet — the user can resolve the parent in a follow-up question.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\",\"Tickets.ParentTicketId\"],\"aggregations\":[],\"filters\":[{\"column\":\"Tickets.ParentTicketId\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"tickets matching 'login' in title or description\"   <-- CROSS-COLUMN TEXT SEARCH — use op:\"text_search\" so the compiler ORs over the entity's searchable columns\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"Tickets\",\"op\":\"text_search\",\"value\":\"login\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"top tickets\"   <-- AMBIGUOUS: top by what? Ask before guessing.\n" +
+        "→ {\"intent\":\"clarification\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"Top tickets by what? Options: created date (newest), priority, status, or assignee load.\"}\n\n" +
+        "Q: \"recent stuff\"   <-- AMBIGUOUS: which entity? Ask.\n" +
+        "→ {\"intent\":\"clarification\",\"root\":\"\",\"select\":[],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"Which data? Recent tickets, users, comments, or something else?\"}\n\n" +
+        "Q: \"tickets with their customer name\" / \"tickets with the customer's name\" / \"show tickets and their customer\"   <-- NAVIGATION: project root's label + joined entity's label. Never ask for clarification on this shape — the user clearly wants both entities' display columns.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\",\"Customers.FullNameEn\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"tickets with customer name and region\" / \"show me tickets, their customer and the region\"   <-- THREE-TABLE NAVIGATION: project root + two joined label columns. The compiler walks Tickets → Customers → Regions via FKs.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\",\"Customers.FullNameEn\",\"Regions.NameEn\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"top 10 highest-value invoices\" / \"top 10 bills by amount\" / \"largest 10 bills\"   <-- TOP-N BY METRIC: NOT an aggregation. SELECT the row columns, ORDER BY metric DESC, LIMIT 10. NEVER emit SUM/MAX as the result — the user wants a LIST of 10 rows.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Bills\",\"select\":[\"Bills.BillNumber\",\"Bills.TotalAmount\",\"Bills.IssuedAt\",\"Customers.FullNameEn\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"Bills.TotalAmount\",\"direction\":\"desc\"}],\"limit\":10,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"customers with more than 3 overdue bills\" / \"users with > 5 unresolved tickets\"   <-- HAVING ON THE GROUPED-BY-ENTITY (NOT the related table): root is the OUTER entity (Customers), GROUP BY the outer entity's key, COUNT the related rows, HAVING COUNT > N. Result = list of customers, NOT list of bills.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Customers\",\"select\":[\"Customers.FullNameEn\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Bills.Id\",\"alias\":\"OverdueCount\"}],\"filters\":[{\"column\":\"Bills.Status\",\"op\":\"eq\",\"value\":\"Overdue\"}],\"groupBy\":[\"Customers.FullNameEn\"],\"having\":[{\"function\":\"COUNT\",\"column\":\"Bills.Id\",\"op\":\"gt\",\"value\":3}],\"orderBy\":[{\"column\":\"OverdueCount\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"how many customers have unpaid bills\" / \"count customers with overdue invoices\"   <-- COUNT DISTINCT OUTER ENTITY via EXISTS / IN: when the question asks 'how many X have Y', root is X, count is COUNT(DISTINCT X.Id) via an INNER JOIN to Y with the Y filter applied. Result = ONE number = how many distinct outer entities qualify.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Customers\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Customers.Id\",\"alias\":\"CustomerCount\",\"distinct\":true}],\"filters\":[{\"column\":\"Bills.Status\",\"op\":\"in\",\"value\":[\"Issued\",\"Overdue\"]}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"tickets for customer Houri\" / \"complaints from customer named Ahmad\"   <-- FK→NAME REDIRECT: user names the related entity. NEVER filter on the FK Id with a name value. JOIN the target table + filter on its label column with LIKE %name%.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\",\"Customers.FullNameEn\"],\"aggregations\":[],\"filters\":[{\"column\":\"Customers.FullNameEn\",\"op\":\"like\",\"value\":\"%Houri%\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"Customers\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"meter readings for customer Houri\" / \"bills for customer Ahmad\"   <-- CROSS-FACT-TABLE SEARCH BY NAME: same pattern as above on a different root.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"MeterReadings\",\"select\":[\"MeterReadings.MeterNumber\",\"MeterReadings.ReadingDate\",\"MeterReadings.Value\",\"Customers.FullNameEn\"],\"aggregations\":[],\"filters\":[{\"column\":\"Customers.FullNameEn\",\"op\":\"like\",\"value\":\"%Houri%\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"Customers\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"customers in Aleppo\" / \"customers from Damascus region\"   <-- REGION FILTER VIA JOIN ON LABEL: user names a region, not its Id. JOIN Regions, filter on the label column.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Customers\",\"select\":[\"Customers.FullNameEn\",\"Customers.Phone\",\"Regions.NameEn\"],\"aggregations\":[],\"filters\":[{\"column\":\"Regions.NameEn\",\"op\":\"like\",\"value\":\"%Aleppo%\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"Regions\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"electricity outages\" / \"outages for electricity service\"   <-- SERVICE-TYPE FILTER VIA JOIN: ServiceTypes is a lookup; filter on its NameEn, not on the FK.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Outages\",\"select\":[\"Outages.OutageNumber\",\"Outages.TitleEn\",\"Outages.StartedAt\",\"Outages.AffectedCustomerCount\"],\"aggregations\":[],\"filters\":[{\"column\":\"ServiceTypes.NameEn\",\"op\":\"eq\",\"value\":\"Electricity\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"ServiceTypes\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"total amount per region\" / \"bill revenue grouped by region\"   <-- AGGREGATE + GROUP BY ACROSS A JOIN\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Bills\",\"select\":[\"Regions.NameEn\"],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"Bills.TotalAmount\",\"alias\":\"TotalAmount\"}],\"filters\":[],\"groupBy\":[\"Regions.NameEn\"],\"orderBy\":[{\"column\":\"TotalAmount\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[{\"table\":\"Regions\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"overdue amount per region this month\"   <-- AGG + FILTER + GROUP across multi-hop join + date window\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Bills\",\"select\":[\"Regions.NameEn\"],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"Bills.TotalAmount\",\"alias\":\"OverdueAmount\"}],\"filters\":[{\"column\":\"Bills.Status\",\"op\":\"eq\",\"value\":\"Overdue\"},{\"column\":\"Bills.IssuedAt\",\"op\":\"gte\",\"value\":\"@month_start\"}],\"groupBy\":[\"Regions.NameEn\"],\"orderBy\":[{\"column\":\"OverdueAmount\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[{\"table\":\"Regions\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"average satisfaction score per category\"   <-- CSAT AVG GROUPED BY LOOKUP\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"CsatResponses\",\"select\":[\"TicketCategories.NameEn\"],\"aggregations\":[{\"function\":\"AVG\",\"column\":\"CsatResponses.Score\",\"alias\":\"AvgScore\"}],\"filters\":[],\"groupBy\":[\"TicketCategories.NameEn\"],\"orderBy\":[{\"column\":\"AvgScore\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[{\"table\":\"TicketCategories\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"departments per service type\" / \"how many departments per service\"   <-- ROOT IS DEPARTMENTS, GROUP BY SERVICE TYPE\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Departments\",\"select\":[\"ServiceTypes.NameEn\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"DeptCount\"}],\"filters\":[],\"groupBy\":[\"ServiceTypes.NameEn\"],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"ServiceTypes\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"customers with more than 5 bills\" / \"customers with > 5 bills\"   <-- HAVING ON OUTER ENTITY: root=Customers, count Bills, HAVING > 5.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Customers\",\"select\":[\"Customers.FullNameEn\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Bills.Id\",\"alias\":\"BillCount\"}],\"filters\":[],\"groupBy\":[\"Customers.FullNameEn\"],\"having\":[{\"function\":\"COUNT\",\"column\":\"Bills.Id\",\"op\":\"gt\",\"value\":5}],\"orderBy\":[{\"column\":\"BillCount\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"departments with no tickets\"   <-- ANTI-JOIN on outer entity Departments\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Departments\",\"select\":[\"Departments.NameEn\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"Tickets\",\"kind\":\"anti\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"low satisfaction responses\" / \"satisfaction responses with score 1 or 2\"   <-- IN-FILTER on a numeric range\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"CsatResponses\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"LowScoreCount\"}],\"filters\":[{\"column\":\"CsatResponses.Score\",\"op\":\"in\",\"value\":[1,2]}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"governorates\" / \"how many governorates\"   <-- RegionType lookup value: emit eq filter on the canonical value.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"Regions\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[{\"column\":\"Regions.RegionType\",\"op\":\"eq\",\"value\":\"Governorate\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}";
+
+    /// <summary>Final-check block spliced in at the END of the prompt for comparison questions.</summary>
     public string SpecExtractorComparisonFinalCheck { get; set; } =
         "══════════════════════════════════════════════════════════════════════\n" +
         "FINAL CHECK — THIS IS A COMPARISON QUESTION (contains 'vs' / 'compared' / 'versus' / 'X vs Y' / 'YoY' / 'MoM').\n" +
@@ -171,7 +359,7 @@ public sealed class CopilotTextCatalog
     // ── Misc ──────────────────────────────────────────────────────────────
     public string EmptyQuestion { get; set; } = "Please send a question in the body.";
 
-    // ── SimpleCopilotOrchestrator user-facing replies ─────────────────────
+    // ── CopilotOrchestrator user-facing replies ─────────────────────
     // Used when stages fail in the new pipeline. Override in copilot-text.json / appsettings.json
     // to localize or rebrand. {0}/{1} placeholders are passed through string.Format at use site.
     public string SpecExtractorFailed { get; set; } =

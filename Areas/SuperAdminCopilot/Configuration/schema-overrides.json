@@ -38,19 +38,125 @@
       ]
     },
     {
-      "_note": "Example 2 — mark a column as PII that name-pattern heuristic missed. The auto-inferred file flags Email/Phone/Password/etc but not custom names like 'OwnerAddress'.",
-      "Name": "ExternalApiSettings",
-      "Columns": [
-        {
-          "Name": "ApiKey",
-          "IsPii": true
-        }
-      ]
-    },
-    {
       "_note": "Example 3 — give the LLM a richer description so retrieval / spec extraction picks the right table.",
       "Name": "CopilotTraceHistories",
       "Description": "Per-question trace records — one row per copilot answer with question, SQL, rows, timing, errors. Useful for debugging or analytics on copilot usage."
+    },
+    {
+      "_note": "Bills — clarify that PaidAt is a completion marker, not a filter target. Use Status='Paid' to find paid bills.",
+      "Name": "Bills",
+      "Description": "Utility bill. Status is the canonical filter for payment state: 'Issued' (current), 'Paid' (PaidAt then carries the timestamp), 'Overdue' (past DueDate, unpaid), 'Disputed' (a Ticket of ComplaintType=BillingDispute exists), 'Cancelled'. NEVER filter as 'PaidAt = something' — use Status='Paid' or 'PaidAt IS NOT NULL'.",
+      "Columns": [
+        { "Name": "PaidAt", "Role": "date", "DateRole": "completed" },
+        { "Name": "IssuedAt", "Role": "date", "DateRole": "created" },
+        { "Name": "DueDate", "Role": "date", "DateRole": "due" }
+      ]
+    },
+    {
+      "_note": "Customers — Status is the canonical churn filter, NOT ChurnedAt=something.",
+      "Name": "Customers",
+      "Description": "External utility subscriber. Status is the canonical lifecycle filter: 'Active', 'Suspended', 'Churned'. ChurnedAt timestamp is set only when Status='Churned'. NEVER filter as 'ChurnedAt = something' — use Status='Churned' or 'ChurnedAt IS NOT NULL'. Soft-deleted customers use IsDeleted=1.",
+      "Columns": [
+        { "Name": "ChurnedAt", "Role": "date", "DateRole": "completed" },
+        { "Name": "SignupAt", "Role": "date", "DateRole": "created" },
+        { "Name": "Email", "Role": "label", "IsPii": true }
+      ]
+    },
+    {
+      "_note": "Tariffs — EffectiveTo NULL means active (no end date).",
+      "Name": "Tariffs",
+      "Description": "Historical pricing per (ServiceType, Region). EffectiveTo IS NULL means the tariff is currently active. To find 'active tariffs' use 'EffectiveTo IS NULL'. To find 'tariffs that changed in 2025' use 'EffectiveFrom BETWEEN ...'.",
+      "Columns": [
+        { "Name": "EffectiveFrom", "Role": "date", "DateRole": "started" },
+        { "Name": "EffectiveTo", "Role": "date", "DateRole": "completed" }
+      ]
+    },
+    {
+      "_note": "TicketCategories — hierarchical. ParentCategoryId NULL means Primary, NOT NULL means Secondary.",
+      "Name": "TicketCategories",
+      "Description": "Hierarchical taxonomy of complaint types. ParentCategoryId IS NULL means the row is a Primary (top-level) category; ParentCategoryId IS NOT NULL means it is a Secondary (child of a Primary). Tier column also encodes this enum-wise. To list 'primary categories' use ParentCategoryId IS NULL. To count 'secondary categories' use ParentCategoryId IS NOT NULL.",
+      "Columns": [
+        { "Name": "ParentCategoryId", "Role": "foreign_key", "References": "TicketCategories.Id" }
+      ]
+    },
+    {
+      "_note": "Outages — EndedAt NULL means still ongoing. Filter on Cause/Severity for typical analyst questions.",
+      "Name": "Outages",
+      "Description": "Service outage events. EndedAt IS NULL means the outage is ongoing (still active). Use DATEDIFF(hour, StartedAt, EndedAt) for duration (only for resolved outages). Cause is an enum: Equipment, Weather, PipeBurst, FiberCut, etc. Severity: Minor, Moderate, Major, Critical.",
+      "Columns": [
+        { "Name": "StartedAt", "Role": "date", "DateRole": "started" },
+        { "Name": "EndedAt", "Role": "date", "DateRole": "completed" }
+      ]
+    },
+    {
+      "_note": "Regions — hierarchical (Governorate vs District) via ParentRegionId.",
+      "Name": "Regions",
+      "Description": "Hierarchical geography. ParentRegionId IS NULL means the row is a Governorate (top-level, 14 of them). ParentRegionId IS NOT NULL means the row is a District (child of a Governorate). To list 'all governorates in Syria' use ParentRegionId IS NULL. RegionType column also encodes this enum-wise.",
+      "Columns": [
+        { "Name": "ParentRegionId", "Role": "foreign_key", "References": "Regions.Id" }
+      ]
+    },
+
+    {
+      "_note": "Phase 06 Arabic synonyms. The blocks below add Arabic forms for the 15 new entities. Synonyms are MERGED with the auto-generated English ones (additive, not replacing). The English forms come from SchemaInferenceGenerator's TableSynonymDictionary; Arabic comes from here.",
+      "Name": "Currencies",
+      "Synonyms": ["العملة", "العملات", "النقد", "عملة", "عملات"]
+    },
+    {
+      "Name": "PaymentMethods",
+      "Synonyms": ["طريقة الدفع", "طرق الدفع", "وسيلة الدفع", "وسائل الدفع", "قناة الدفع"]
+    },
+    {
+      "Name": "CustomerSegments",
+      "Synonyms": ["شريحة العميل", "شرائح العملاء", "فئة العميل", "فئات العملاء", "تصنيف العميل"]
+    },
+    {
+      "Name": "ServicePoints",
+      "Synonyms": ["نقطة الخدمة", "نقاط الخدمة", "موقع العداد", "موقع الاشتراك", "العنوان", "العنوان الفيزيائي"]
+    },
+    {
+      "Name": "ServiceAccounts",
+      "Synonyms": ["عقد الخدمة", "عقود الخدمة", "الاشتراك", "الاشتراكات", "العقد", "العقود", "حساب الخدمة", "حسابات الخدمة"]
+    },
+    {
+      "Name": "Payments",
+      "Synonyms": ["الدفعة", "الدفعات", "دفعة", "دفعات", "تسديد", "تسديدات", "السداد", "المعاملة", "المعاملات", "تحويل", "تحويلات"]
+    },
+    {
+      "Name": "TariffTiers",
+      "Synonyms": ["شريحة التعرفة", "شرائح التعرفة", "شريحة سعرية", "الشرائح السعرية", "الشريحة", "الشرائح"]
+    },
+    {
+      "Name": "Subsidies",
+      "Synonyms": ["الدعم", "الإعانة", "الإعانات", "المعونة", "المعونات", "إعانة", "خصم حكومي", "خصم اجتماعي", "دعم حكومي"]
+    },
+    {
+      "Name": "Assets",
+      "Synonyms": ["الأصل", "الأصول", "البنية التحتية", "المعدات", "معدة", "المعدة", "محطة", "المحطة", "محوّل", "المحوّل", "العداد"]
+    },
+    {
+      "Name": "Technicians",
+      "Synonyms": ["الفني", "الفنيون", "الفنيين", "فني", "فنيون", "الكهربائي", "كهربائي", "السباك", "سباك", "الفريق الفني", "العامل الميداني"]
+    },
+    {
+      "Name": "WorkOrders",
+      "Synonyms": ["أمر عمل", "أوامر العمل", "أمر صيانة", "أوامر الصيانة", "تكليف ميداني", "مهمة ميدانية", "مهام ميدانية", "بلاغ صيانة", "تذكرة صيانة"]
+    },
+    {
+      "Name": "MaintenanceSchedules",
+      "Synonyms": ["جدولة الصيانة", "جداول الصيانة", "صيانة مجدولة", "موعد الصيانة", "نافذة الصيانة", "الصيانة الوقائية", "صيانة دورية"]
+    },
+    {
+      "Name": "CallLogs",
+      "Synonyms": ["سجل المكالمات", "سجلات المكالمات", "المكالمة", "المكالمات", "اتصال", "الاتصالات", "تواصل", "التواصل", "محادثة الواتساب", "رسالة قصيرة"]
+    },
+    {
+      "Name": "OutageNotifications",
+      "Synonyms": ["إشعار الانقطاع", "إشعارات الانقطاع", "تنبيه الانقطاع", "تنبيهات الانقطاع", "رسالة الانقطاع", "إشعار صيانة"]
+    },
+    {
+      "Name": "SlaPolicies",
+      "Synonyms": ["اتفاقية مستوى الخدمة", "اتفاقيات مستوى الخدمة", "اتفاقية الخدمة", "سياسة الاستجابة", "سياسة المستوى", "مستوى الخدمة", "SLA"]
     }
   ]
 }

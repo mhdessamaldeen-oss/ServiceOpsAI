@@ -114,6 +114,7 @@ public static class SpecConstants
     // ── InferredColumn.DateRole (when Role = "date") ───────────────────
     public static class DateRoles
     {
+        // Core lifecycle (pre-Phase 06)
         public const string Created   = "created";
         public const string Modified  = "modified";
         public const string Deleted   = "deleted";
@@ -121,6 +122,30 @@ public static class SpecConstants
         public const string Resolved  = "resolved";
         public const string Started   = "started";
         public const string Due       = "due";
+
+        // Phase 06 utility-domain vocabulary (Activated, Issued, Paid, …) — added so the
+        // date-role detector recognises bill / payment / contract / field-ops lifecycle
+        // columns without per-table config.
+        public const string Activated    = "activated";    // ServiceAccount.ActivatedAt
+        public const string Deactivated  = "deactivated";  // ServiceAccount.DeactivatedAt
+        public const string Issued       = "issued";       // Bill.IssuedAt, Subsidy.IssuedAt
+        public const string Paid         = "paid";         // Payment.PaidAt, Bill.PaidAt
+        public const string Hired        = "hired";        // Technician.HiredAt
+        public const string Installed    = "installed";    // ServicePoint.InstalledAt
+        public const string Dispatched   = "dispatched";   // WorkOrder.DispatchedAt
+        public const string Arrived      = "arrived";      // WorkOrder.ArrivedOnSiteAt
+        public const string Sent         = "sent";         // OutageNotification.SentAt
+        public const string Delivered    = "delivered";    // OutageNotification.DeliveredAt
+        public const string Read         = "read";         // OutageNotification.ReadAt
+        public const string Commissioned = "commissioned"; // Asset.CommissionedAt
+        public const string Decommissioned = "decommissioned"; // Asset.DecommissionedAt
+        public const string Effective    = "effective";    // Tariff.EffectiveFrom / EffectiveTo
+        public const string Scheduled    = "scheduled";    // MaintenanceSchedule.ScheduledStart
+        public const string Signup       = "signup";       // Customer.SignupAt
+        public const string Churned      = "churned";      // Customer.ChurnedAt
+        public const string Responded    = "responded";    // CsatResponse.RespondedAt, Ticket.FirstRespondedAt
+        public const string Escalated    = "escalated";    // Ticket.EscalatedAt
+        public const string Approved     = "approved";     // ResolutionApprovedAt
     }
 
     // ── InferredTable.Source ─────────────────────────────────────────────

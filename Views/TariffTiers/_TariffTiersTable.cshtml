@@ -1,0 +1,38 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.TariffTierDto>
+
+<div class="table-responsive">
+    <table id="tariffTiersTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Tariff</th>
+                <th class="py-3">Region</th>
+                <th class="text-end py-3">Tier</th>
+                <th class="py-3">Range</th>
+                <th class="text-end py-3">Rate / Unit</th>
+                <th class="py-3">Label</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold" style="color: var(--text-main) !important;">@t.TariffServiceType</td>
+                    <td>@(t.TariffRegion ?? "Country-wide")</td>
+                    <td class="text-end"><span class="badge rounded-pill px-3 py-2" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid var(--primary-color);">T@t.TierNumber</span></td>
+                    <td>@t.FromUnit.ToString("N0") – @(t.ToUnit?.ToString("N0") ?? "∞")</td>
+                    <td class="text-end fw-bold">@t.RatePerUnit.ToString("N4")</td>
+                    <td><div style="color: var(--text-main) !important;">@t.LabelEn</div><div class="small text-muted" dir="rtl">@t.LabelAr</div></td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@t.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@t.Id" method="post" onsubmit="return confirm('Delete this tier?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No tariff tiers match the current filter.</h6></div> }
+</div>

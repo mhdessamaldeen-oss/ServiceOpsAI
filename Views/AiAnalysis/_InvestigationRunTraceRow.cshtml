@@ -1,5 +1,35 @@
 @model ServiceOpsAI.Models.AI.CopilotExecutionStep
 @using ServiceOpsAI.Models.AI
+@functions {
+    // ── StepPayload v1 parser — shared by the parent-row expand panel and the
+    // sub-step rendering so an LLM-call sub-step (e.g. "LLM call (Explainer)") gets
+    // the same labeled Reason / Input / Output / Details sections as the top-level
+    // step, not just a raw JSON dump. Returns all-nulls on legacy / non-v1 payloads.
+    private static (string? Kind, string? Input, string? Output, string? Reason, string? DetailsJson)
+        TryParsePayload(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return (null, null, null, null, null);
+        var trimmed = raw!.TrimStart();
+        if (!trimmed.StartsWith("{")) return (null, null, null, null, null);
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("_payload", out var ver) || ver.GetString() != "v1")
+                return (null, null, null, null, null);
+            string? Get(string n) => root.TryGetProperty(n, out var el) && el.ValueKind == System.Text.Json.JsonValueKind.String
+                ? el.GetString() : null;
+            string? detailsJson = null;
+            if (root.TryGetProperty("details", out var det) && det.ValueKind != System.Text.Json.JsonValueKind.Null)
+            {
+                detailsJson = System.Text.Json.JsonSerializer.Serialize(det,
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            }
+            return (Get("kind"), Get("input"), Get("output"), Get("reason"), detailsJson);
+        }
+        catch { return (null, null, null, null, null); }
+    }
+}
 @{
     static string ClassifyStep(string action)
     {
@@ -175,29 +205,11 @@
             @* ── Structured payload (StepPayload v1) ──────────────────────────
                  The orchestrator writes a JSON envelope (kind / input / output / reason / details)
                  into TechnicalData. We render labeled sections from it. Legacy plain-text
-                 TechnicalData isn't shown (per the approved "hide legacy" plan). *@
+                 TechnicalData isn't shown (per the approved "hide legacy" plan).
+                 Shared with the sub-step block below so an LLM-call sub-step (e.g. inside
+                 Explainer) surfaces the same Reason / Input / Output / Details sections —
+                 not just a raw JSON dump. *@
             @{
-                string? payloadKind = null, payloadInput = null, payloadOutput = null, payloadReason = null, payloadDetailsJson = null;
-                if (!string.IsNullOrWhiteSpace(Model.TechnicalData) && Model.TechnicalData.TrimStart().StartsWith("{"))
-                {
-                    try
-                    {
-                        using var doc = System.Text.Json.JsonDocument.Parse(Model.TechnicalData);
-                        if (doc.RootElement.TryGetProperty("_payload", out var ver) && ver.GetString() == "v1")
-                        {
-                            payloadKind = doc.RootElement.TryGetProperty("kind", out var k) ? k.GetString() : null;
-                            payloadInput = doc.RootElement.TryGetProperty("input", out var i) ? i.GetString() : null;
-                            payloadOutput = doc.RootElement.TryGetProperty("output", out var o) ? o.GetString() : null;
-                            payloadReason = doc.RootElement.TryGetProperty("reason", out var r) ? r.GetString() : null;
-                            if (doc.RootElement.TryGetProperty("details", out var det) && det.ValueKind != System.Text.Json.JsonValueKind.Null)
-                            {
-                                payloadDetailsJson = System.Text.Json.JsonSerializer.Serialize(det,
-                                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-                            }
-                        }
-                    }
-                    catch { /* legacy / invalid JSON — hidden per plan */ }
-                }
                 const int RowBlobCap = 2048;
                 Func<string, string> renderRowBlob = raw =>
                 {
@@ -213,40 +225,45 @@
                     sb.Append("</div>");
                     return sb.ToString();
                 };
+                var payload = TryParsePayload(Model.TechnicalData);
             }
-            @if (payloadKind is not null)
+            @if (payload.Kind is not null)
             {
-                @if (!string.IsNullOrEmpty(payloadReason))
+                @if (!string.IsNullOrEmpty(payload.Reason))
                 {
                     <div class="runtrace-section">
                         <div class="runtrace-section-label"><i class="bi bi-signpost-split"></i> Decision rationale</div>
-                        <div class="runtrace-desc">@payloadReason</div>
+                        <div class="runtrace-desc">@payload.Reason</div>
                     </div>
                 }
-                @if (!string.IsNullOrEmpty(payloadInput))
+                @if (!string.IsNullOrEmpty(payload.Input))
                 {
                     <div class="runtrace-section">
                         <div class="runtrace-section-label"><i class="bi bi-box-arrow-in-right"></i> Input</div>
-                        @Html.Raw(renderRowBlob(payloadInput))
+                        @Html.Raw(renderRowBlob(payload.Input))
                     </div>
                 }
-                @if (!string.IsNullOrEmpty(payloadOutput))
+                @if (!string.IsNullOrEmpty(payload.Output))
                 {
                     <div class="runtrace-section">
                         <div class="runtrace-section-label"><i class="bi bi-box-arrow-right"></i> Output</div>
-                        @Html.Raw(renderRowBlob(payloadOutput))
+                        @Html.Raw(renderRowBlob(payload.Output))
                     </div>
                 }
-                @if (!string.IsNullOrEmpty(payloadDetailsJson))
+                @if (!string.IsNullOrEmpty(payload.DetailsJson))
                 {
                     <div class="runtrace-section">
                         <div class="runtrace-section-label"><i class="bi bi-braces"></i> Details</div>
-                        @Html.Raw(renderRowBlob(payloadDetailsJson))
+                        @Html.Raw(renderRowBlob(payload.DetailsJson))
                     </div>
                 }
             }
 
             @* ── Sub-steps (recursive: each can have its own tech) ─────────── *@
+            @* When the sub-step is the actual LLM call (e.g. "LLM call (Explainer)") it carries
+                 model / tokens / cost / StepPayload-v1 prompt+response. Surface ALL of that here,
+                 not just tokens — the user shouldn't have to expand the parent to find what
+                 model was used or what the prompt looked like. *@
             @if (hasSubsteps)
             {
                 <div class="runtrace-section">
@@ -256,6 +273,8 @@
                         {
                             var subOk = sub.Status == CopilotStepStatus.Ok;
                             var subTokens = (sub.PromptTokens ?? 0) + (sub.CompletionTokens ?? 0);
+                            var subIsLlm = subTokens > 0 || !string.IsNullOrEmpty(sub.LlmModelUsed);
+                            var subPayload = TryParsePayload(sub.TechnicalData);
                             <li class="runtrace-substep @(subOk ? "ok" : "err")">
                                 <div class="runtrace-substep-row">
                                     <i class="bi @StatusIcon(sub.Status).Split(' ')[0]"></i>
@@ -263,6 +282,10 @@
                                     @if (!string.IsNullOrWhiteSpace(sub.Detail))
                                     {
                                         <span class="runtrace-substep-detail">— @sub.Detail</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(sub.LlmModelUsed))
+                                    {
+                                        <span class="runtrace-meta-chip small muted" title="model used">@sub.LlmModelUsed</span>
                                     }
                                     @if (subTokens > 0)
                                     {
@@ -274,8 +297,54 @@
                                     }
                                     <span class="runtrace-substep-time">@FormatMs(sub.ElapsedMs)</span>
                                 </div>
-                                @if (!string.IsNullOrWhiteSpace(sub.TechnicalData))
+
+                                @if (subIsLlm && (subTokens > 0 || !string.IsNullOrEmpty(sub.LlmModelUsed)))
                                 {
+                                    <div class="runtrace-llm-grid runtrace-substep-llm">
+                                        <div><span class="runtrace-k">Model</span><span class="runtrace-v">@(sub.LlmModelUsed ?? "—")</span></div>
+                                        <div><span class="runtrace-k">Prompt</span><span class="runtrace-v">@($"{(sub.PromptTokens ?? 0):N0}") tok</span></div>
+                                        <div><span class="runtrace-k">Completion</span><span class="runtrace-v">@($"{(sub.CompletionTokens ?? 0):N0}") tok</span></div>
+                                        <div><span class="runtrace-k">Total tokens</span><span class="runtrace-v">@($"{subTokens:N0}")</span></div>
+                                        <div><span class="runtrace-k">Cost</span><span class="runtrace-v">@CostString(sub.EstimatedCostUsd)</span></div>
+                                        <div><span class="runtrace-k">Elapsed</span><span class="runtrace-v">@FormatMs(sub.ElapsedMs)</span></div>
+                                    </div>
+                                }
+
+                                @if (subPayload.Kind is not null)
+                                {
+                                    @if (!string.IsNullOrEmpty(subPayload.Reason))
+                                    {
+                                        <div class="runtrace-section runtrace-substep-section">
+                                            <div class="runtrace-section-label"><i class="bi bi-signpost-split"></i> Decision rationale</div>
+                                            <div class="runtrace-desc">@subPayload.Reason</div>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(subPayload.Input))
+                                    {
+                                        <div class="runtrace-section runtrace-substep-section">
+                                            <div class="runtrace-section-label"><i class="bi bi-box-arrow-in-right"></i> Input</div>
+                                            @Html.Raw(renderRowBlob(subPayload.Input))
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(subPayload.Output))
+                                    {
+                                        <div class="runtrace-section runtrace-substep-section">
+                                            <div class="runtrace-section-label"><i class="bi bi-box-arrow-right"></i> Output</div>
+                                            @Html.Raw(renderRowBlob(subPayload.Output))
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(subPayload.DetailsJson))
+                                    {
+                                        <div class="runtrace-section runtrace-substep-section">
+                                            <div class="runtrace-section-label"><i class="bi bi-braces"></i> Details</div>
+                                            @Html.Raw(renderRowBlob(subPayload.DetailsJson))
+                                        </div>
+                                    }
+                                }
+                                else if (!string.IsNullOrWhiteSpace(sub.TechnicalData))
+                                {
+                                    @* Legacy / non-v1 payload — preserve the raw dump fallback so older
+                                         traces aren't blanked out. *@
                                     <pre class="runtrace-row-tech-pre runtrace-substep-tech">@sub.TechnicalData</pre>
                                 }
                             </li>

@@ -8,6 +8,7 @@ using SuperAdminCopilot.Abstractions;
 using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 using SuperAdminCopilot.Schema;
+using SuperAdminCopilot.Semantic;
 
 /// <summary>
 /// §2 stage 2 of the abstraction guide — semantic retrieval. Embeds the question and ranks
@@ -32,6 +33,7 @@ internal sealed class VectorRetriever : IRetriever
     private readonly ICopilotSchemaAccessPolicy _schemaPolicy;
     private readonly ITextEmbedder _embedder;
     private readonly KeywordRetriever _fallback;
+    private readonly ISemanticLayer _semanticLayer;
     private readonly CopilotOptions _options;
     private readonly ILogger<VectorRetriever> _logger;
 
@@ -48,6 +50,7 @@ internal sealed class VectorRetriever : IRetriever
         ICopilotSchemaAccessPolicy schemaPolicy,
         ITextEmbedder embedder,
         KeywordRetriever fallback,
+        ISemanticLayer semanticLayer,
         IOptions<CopilotOptions> options,
         ILogger<VectorRetriever> logger)
     {
@@ -55,6 +58,7 @@ internal sealed class VectorRetriever : IRetriever
         _schemaPolicy = schemaPolicy;
         _embedder = embedder;
         _fallback = fallback;
+        _semanticLayer = semanticLayer;
         _options = options.Value;
         _logger = logger;
     }
@@ -95,6 +99,32 @@ internal sealed class VectorRetriever : IRetriever
                     scored[i] = (scored[i].Name, Math.Max(scored[i].Score, 1.0) + 1.0);
                     break;
                 }
+            }
+        }
+
+        // ── Exact-synonym boost ──────────────────────────────────────────
+        // Embeddings are fuzzy; when the user types a whole word that EXACTLY matches
+        // an entity's declared synonym in semantic-layer.json, that's a strong signal —
+        // boost that table's cosine score by +0.5 so it wins over "denser" tables
+        // (e.g. "users" → AspNetUsers must beat Customers even though Customers has a
+        // richer description). Schema-agnostic: drives entirely off semantic-layer synonyms.
+        var qLower = question.ToLowerInvariant();
+        var qWords = System.Text.RegularExpressions.Regex.Matches(qLower, @"\b[a-z؀-ۿ]+\b")
+            .Select(m => m.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (qWords.Count > 0)
+        {
+            for (int i = 0; i < scored.Count; i++)
+            {
+                var entity = _semanticLayer.GetEntityForTable(scored[i].Name);
+                if (entity is null || entity.Synonyms is null || entity.Synonyms.Count == 0) continue;
+                bool matched = false;
+                foreach (var syn in entity.Synonyms)
+                {
+                    if (string.IsNullOrEmpty(syn)) continue;
+                    if (qWords.Contains(syn)) { matched = true; break; }
+                }
+                if (matched) scored[i] = (scored[i].Name, scored[i].Score + 0.5);
             }
         }
 

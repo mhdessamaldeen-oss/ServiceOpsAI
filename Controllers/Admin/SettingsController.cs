@@ -163,6 +163,19 @@ namespace ServiceOpsAI.Controllers.Admin
             var dbRagModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.RagWorkloadModel);
             var dbCopilotModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.CopilotWorkloadModel);
             var dbClassifierModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.ClassifierWorkloadModel);
+            // Per-role provider + model overrides (each stage of the SuperAdminCopilot pipeline
+            // can pick its own provider + model — see RoleBoundLlmClientFactory). Empty = inherit
+            // CopilotProvider / CopilotWorkloadModel pair.
+            var dbDecomposerProvider = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.DecomposerRoleProvider);
+            var dbDecomposerModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.DecomposerRoleModel);
+            var dbSchemaLinkerProvider = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.SchemaLinkerRoleProvider);
+            var dbSchemaLinkerModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.SchemaLinkerRoleModel);
+            var dbStructuralCueParserProvider = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.StructuralCueParserRoleProvider);
+            var dbStructuralCueParserModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.StructuralCueParserRoleModel);
+            var dbSelfCorrectorProvider = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.SelfCorrectorRoleProvider);
+            var dbSelfCorrectorModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.SelfCorrectorRoleModel);
+            var dbExplainerProvider = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.ExplainerRoleProvider);
+            var dbExplainerModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.ExplainerRoleModel);
 
             // Ollama Config
             var dbOllamaBaseUrl = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.OllamaBaseUrl);
@@ -181,6 +194,16 @@ namespace ServiceOpsAI.Controllers.Admin
             ViewBag.DbRagModel = dbRagModel?.Value ?? "";
             ViewBag.DbCopilotModel = dbCopilotModel?.Value ?? "";
             ViewBag.DbClassifierModel = dbClassifierModel?.Value ?? "";
+            ViewBag.DbDecomposerProvider = dbDecomposerProvider?.Value ?? "";
+            ViewBag.DbDecomposerModel = dbDecomposerModel?.Value ?? "";
+            ViewBag.DbSchemaLinkerProvider = dbSchemaLinkerProvider?.Value ?? "";
+            ViewBag.DbSchemaLinkerModel = dbSchemaLinkerModel?.Value ?? "";
+            ViewBag.DbStructuralCueParserProvider = dbStructuralCueParserProvider?.Value ?? "";
+            ViewBag.DbStructuralCueParserModel = dbStructuralCueParserModel?.Value ?? "";
+            ViewBag.DbSelfCorrectorProvider = dbSelfCorrectorProvider?.Value ?? "";
+            ViewBag.DbSelfCorrectorModel = dbSelfCorrectorModel?.Value ?? "";
+            ViewBag.DbExplainerProvider = dbExplainerProvider?.Value ?? "";
+            ViewBag.DbExplainerModel = dbExplainerModel?.Value ?? "";
 
             ViewBag.DbOllamaBaseUrl = dbOllamaBaseUrl?.Value ?? _providerSettings.Ollama.BaseUrl;
             ViewBag.DbOllamaModel = dbOllamaModel?.Value ?? _providerSettings.Ollama.Model;
@@ -713,7 +736,7 @@ namespace ServiceOpsAI.Controllers.Admin
             await UpsertSystemSettingAsync(SettingKeys.CopilotResolverMinConfidence, Text(form, "resolverMinConfidence", _copilotOptions.ResolverMinConfidence.ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
             // Bust the IOptionsMonitor cache so singletons (HostAiProviderLlmClient,
-            // SimpleCopilotOrchestrator, etc.) see the new DB-stored values on their next
+            // CopilotOrchestrator, etc.) see the new DB-stored values on their next
             // CurrentValue access. Without this clear, the values stay cached until restart;
             // with it, hot-path consumers that read IOptionsMonitor pick them up immediately.
             // Components that captured a struct copy of CopilotOptions at construction
@@ -832,7 +855,14 @@ namespace ServiceOpsAI.Controllers.Admin
             string analysisProvider, string? analysisModel,
             string ragProvider, string? ragModel,
             string copilotProvider, string? copilotModel,
-            string? classifierProvider, string? classifierModel)
+            string? classifierProvider, string? classifierModel,
+            // Per-role provider + model overrides — empty = inherit from
+            // CopilotProvider / CopilotWorkloadModel. Same cascading shape as the workload slots.
+            string? decomposerProvider = null, string? decomposerModel = null,
+            string? schemaLinkerProvider = null, string? schemaLinkerModel = null,
+            string? structuralCueParserProvider = null, string? structuralCueParserModel = null,
+            string? selfCorrectorProvider = null, string? selfCorrectorModel = null,
+            string? explainerProvider = null, string? explainerModel = null)
         {
             await UpsertSystemSettingAsync(SettingKeys.AiActiveProvider, activeProvider ?? "");
             await UpsertSystemSettingAsync(SettingKeys.AiAnalysisProvider, analysisProvider ?? "");
@@ -844,6 +874,19 @@ namespace ServiceOpsAI.Controllers.Admin
             await UpsertSystemSettingAsync(SettingKeys.RagWorkloadModel, ragModel ?? "");
             await UpsertSystemSettingAsync(SettingKeys.CopilotWorkloadModel, copilotModel ?? "");
             await UpsertSystemSettingAsync(SettingKeys.ClassifierWorkloadModel, classifierModel ?? "");
+            // Per-ROLE provider + model overrides — finer granularity than the 4 workloads above.
+            // Each is OPTIONAL; the RoleBoundLlmClientFactory falls back to the
+            // CopilotProvider/CopilotWorkloadModel pair when a slot is empty.
+            await UpsertSystemSettingAsync(SettingKeys.DecomposerRoleProvider, decomposerProvider ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.DecomposerRoleModel, decomposerModel ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.SchemaLinkerRoleProvider, schemaLinkerProvider ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.SchemaLinkerRoleModel, schemaLinkerModel ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.StructuralCueParserRoleProvider, structuralCueParserProvider ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.StructuralCueParserRoleModel, structuralCueParserModel ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.SelfCorrectorRoleProvider, selfCorrectorProvider ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.SelfCorrectorRoleModel, selfCorrectorModel ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.ExplainerRoleProvider, explainerProvider ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.ExplainerRoleModel, explainerModel ?? "");
 
             TempData["Success"] = "AI Workload routing saved to the database.";
             return RedirectToAction(nameof(Index), new { tab = "ai" });

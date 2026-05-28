@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ServiceOpsAI.Services.AI.Providers.Roles;
 using SuperAdminCopilot.Abstractions;
 using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
@@ -28,14 +29,14 @@ internal sealed class LlmExplainer : IExplainer
         RegexOptions.Compiled);
 
     public LlmExplainer(
-        ILlmClient llm,
+        IRoleBoundLlmClientFactory llmFactory,
         TemplatedExplainer fallback,
         Pipeline.IRetryBudget budget,
         IOptions<CopilotOptions> options,
         IOptionsMonitor<CopilotTextCatalog> textCatalog,
         ILogger<LlmExplainer> logger)
     {
-        _llm = llm;
+        _llm = llmFactory.For(AiRole.Explainer);
         _fallback = fallback;
         _budget = budget;
         _options = options.Value;

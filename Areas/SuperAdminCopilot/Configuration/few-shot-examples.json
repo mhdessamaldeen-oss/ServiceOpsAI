@@ -1283,6 +1283,193 @@
       "aggregations": [{ "function": "COUNT", "column": "Tickets.CreatedByUserId", "alias": "DistinctCreators", "distinct": true }],
       "filters": [], "joins": [], "groupBy": [], "orderBy": [], "limit": null
     }
+  },
+  {
+    "tags": ["paid-bills", "status-filter", "agg", "revenue"],
+    "question": "total revenue from paid bills",
+    "spec": {
+      "intent": "data_query",
+      "root": "Bills",
+      "select": [],
+      "aggregations": [{ "function": "SUM", "column": "Bills.TotalAmount", "alias": "TotalRevenue" }],
+      "filters": [{ "column": "Bills.Status", "op": "eq", "value": "Paid" }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["paid-bills", "status-filter", "count"],
+    "question": "how many bills are paid",
+    "spec": {
+      "intent": "data_query",
+      "root": "Bills",
+      "aggregations": [{ "function": "COUNT", "column": "*", "alias": "Count" }],
+      "filters": [{ "column": "Bills.Status", "op": "eq", "value": "Paid" }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["churned", "status-filter", "customers"],
+    "question": "count churned customers",
+    "spec": {
+      "intent": "data_query",
+      "root": "Customers",
+      "aggregations": [{ "function": "COUNT", "column": "*", "alias": "Count" }],
+      "filters": [{ "column": "Customers.Status", "op": "eq", "value": "Churned" }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["null-check", "missing-data", "is-null"],
+    "question": "customers with no email",
+    "spec": {
+      "intent": "data_query",
+      "root": "Customers",
+      "select": ["Customers.Id", "Customers.FullNameEn", "Customers.Phone"],
+      "filters": [{ "column": "Customers.Email", "op": "is_null" }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["active-tariffs", "is-null", "effective-window"],
+    "question": "active tariffs only",
+    "spec": {
+      "intent": "data_query",
+      "root": "Tariffs",
+      "select": ["Tariffs.Id", "Tariffs.ServiceTypeId", "Tariffs.RegionId", "Tariffs.EffectiveFrom", "Tariffs.BaseMonthlyFee"],
+      "filters": [{ "column": "Tariffs.EffectiveTo", "op": "is_null" }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["hierarchy", "primary-category", "is-null"],
+    "question": "primary ticket categories",
+    "spec": {
+      "intent": "data_query",
+      "root": "TicketCategories",
+      "select": ["TicketCategories.Id", "TicketCategories.Name", "TicketCategories.Tier"],
+      "filters": [{ "column": "TicketCategories.ParentCategoryId", "op": "is_null" }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["hierarchy", "secondary-category", "is-not-null", "count"],
+    "question": "how many secondary categories",
+    "spec": {
+      "intent": "data_query",
+      "root": "TicketCategories",
+      "aggregations": [{ "function": "COUNT", "column": "*", "alias": "Count" }],
+      "filters": [{ "column": "TicketCategories.ParentCategoryId", "op": "is_not_null" }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["anti-join", "not-exists", "without"],
+    "question": "customers without any ticket",
+    "spec": {
+      "intent": "data_query",
+      "root": "Customers",
+      "select": ["Customers.Id", "Customers.FullNameEn"],
+      "joins": [{ "table": "Tickets", "on": "Tickets.CustomerId = Customers.Id", "type": "left" }],
+      "filters": [{ "column": "Tickets.Id", "op": "is_null" }],
+      "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["anti-join", "departments", "without", "bills"],
+    "question": "departments that issued no bills",
+    "spec": {
+      "intent": "data_query",
+      "root": "Departments",
+      "select": ["Departments.Id", "Departments.NameEn"],
+      "joins": [{ "table": "Bills", "on": "Bills.DepartmentId = Departments.Id", "type": "left" }],
+      "filters": [{ "column": "Bills.Id", "op": "is_null" }],
+      "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["topn", "ranking", "explicit-projection", "implicit-columns"],
+    "question": "top 10 customers by total billed",
+    "spec": {
+      "intent": "data_query",
+      "root": "Customers",
+      "select": ["Customers.Id", "Customers.FullNameEn"],
+      "aggregations": [{ "function": "SUM", "column": "Bills.TotalAmount", "alias": "TotalBilled" }],
+      "joins": [{ "table": "Bills", "on": "Bills.CustomerId = Customers.Id", "type": "inner" }],
+      "groupBy": ["Customers.Id", "Customers.FullNameEn"],
+      "orderBy": [{ "column": "TotalBilled", "direction": "desc" }],
+      "limit": 10
+    }
+  },
+  {
+    "tags": ["topn", "departments", "ticket-volume", "explicit-projection"],
+    "question": "top 3 departments by ticket volume",
+    "spec": {
+      "intent": "data_query",
+      "root": "Departments",
+      "select": ["Departments.NameEn"],
+      "aggregations": [{ "function": "COUNT", "column": "*", "alias": "TicketCount" }],
+      "joins": [{ "table": "Tickets", "on": "Tickets.DepartmentId = Departments.Id", "type": "inner" }],
+      "groupBy": ["Departments.NameEn"],
+      "orderBy": [{ "column": "TicketCount", "direction": "desc" }],
+      "limit": 3
+    }
+  },
+  {
+    "tags": ["longest-outages", "duration", "topn", "datediff"],
+    "question": "5 longest outages",
+    "spec": {
+      "intent": "data_query",
+      "root": "Outages",
+      "select": ["Outages.OutageNumber", "Outages.RegionId", "Outages.StartedAt", "Outages.EndedAt"],
+      "aggregations": [{ "function": "DATEDIFF_HOUR", "column": "Outages.StartedAt,Outages.EndedAt", "alias": "DurationHours" }],
+      "filters": [{ "column": "Outages.EndedAt", "op": "is_not_null" }],
+      "joins": [], "groupBy": [],
+      "orderBy": [{ "column": "DurationHours", "direction": "desc" }],
+      "limit": 5
+    }
+  },
+  {
+    "tags": ["factual-lookup", "list", "tariffs"],
+    "question": "show me the tariffs",
+    "spec": {
+      "intent": "data_query",
+      "root": "Tariffs",
+      "select": ["Tariffs.Id", "Tariffs.ServiceTypeId", "Tariffs.RegionId", "Tariffs.EffectiveFrom", "Tariffs.EffectiveTo", "Tariffs.BaseMonthlyFee", "Tariffs.RatePerUnit"],
+      "filters": [], "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["factual-lookup", "list", "regions", "governorates"],
+    "question": "all governorates in syria",
+    "spec": {
+      "intent": "data_query",
+      "root": "Regions",
+      "select": ["Regions.Id", "Regions.NameEn", "Regions.NameAr"],
+      "filters": [{ "column": "Regions.ParentRegionId", "op": "is_null" }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["factual-lookup", "list", "outages", "cause-filter"],
+    "question": "outages caused by fiber cut",
+    "spec": {
+      "intent": "data_query",
+      "root": "Outages",
+      "select": ["Outages.OutageNumber", "Outages.RegionId", "Outages.StartedAt", "Outages.EndedAt", "Outages.AffectedCustomerCount"],
+      "filters": [{ "column": "Outages.Cause", "op": "eq", "value": "FiberCut" }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
+  },
+  {
+    "tags": ["factual-lookup", "lookup-table", "ticket-statuses", "closed"],
+    "question": "closed-state statuses",
+    "spec": {
+      "intent": "data_query",
+      "root": "TicketStatuses",
+      "select": ["TicketStatuses.Id", "TicketStatuses.Name"],
+      "filters": [{ "column": "TicketStatuses.IsClosedState", "op": "eq", "value": true }],
+      "joins": [], "groupBy": [], "orderBy": [], "limit": null
+    }
   }
 ]
 

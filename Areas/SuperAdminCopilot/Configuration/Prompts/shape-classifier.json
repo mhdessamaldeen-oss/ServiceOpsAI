@@ -1,0 +1,96 @@
+{
+  // Prompt-shape classifier patterns.
+  //
+  // Each question is matched against these patterns in order. The FIRST shape whose any
+  // keyword/regex matches the (lowercased) question is the classification. If nothing
+  // matches, "default" wins.
+  //
+  // Patterns are deterministic — no LLM call. Operators tune via this file alone.
+  //
+  // The 8 shapes:
+  //   • COUNT       — "how many", "count of"
+  //   • TOPN        — "top N", "highest/lowest/biggest/smallest", "ranked"
+  //   • AGGREGATE   — "average", "sum", "total", "max", "min" (without grouping by time)
+  //   • TIMESERIES  — "by month", "over time", "trend", "monthly", "weekly"
+  //   • COMPARE     — "vs", "versus", "compared to", "this X vs last X"
+  //   • LOOKUP      — single-row retrieval: "details of TICK-2026-001", "what is the status of …"
+  //   • JOIN        — explicit multi-entity: "customers with their bills"
+  //   • FILTER      — list-with-conditions (default for "list", "show", "find" + conditions)
+
+  "default": "FILTER",
+
+  "patterns": [
+    // Order: most-specific to least-specific. The first matching shape wins.
+    {
+      "shape": "COMPARE",
+      "keywords": [
+        "compared to", "compare to", "compare with", "vs", "versus", "compare ",
+        "year over year", "yoy", "month over month", "mom", "this month vs", "last month vs",
+        "مقارنة", "مقابل", "نسبة"
+      ]
+    },
+    {
+      "shape": "TIMESERIES",
+      "keywords": [
+        "by month", "by week", "by day", "by year", "by quarter",
+        "per month", "per week", "per day", "per year", "per quarter",
+        "over time", "trend", "trends", "monthly", "weekly", "daily", "quarterly",
+        "month over month", "time series", "history",
+        "شهريا", "اسبوعيا", "يوميا", "ربع سنوي", "بمرور الوقت"
+      ]
+    },
+    {
+      "shape": "TOPN",
+      "keywords": [
+        "top ", "bottom ", "highest", "lowest", "biggest", "smallest",
+        "most ", "least ", "best ", "worst ",
+        "ranked", "ranking", "rank by", "ordered by",
+        "أعلى", "أقل", "أكثر", "أكبر", "ترتيب"
+      ],
+      "regex": [
+        "\\btop\\s+\\d+",
+        "\\bbottom\\s+\\d+"
+      ]
+    },
+    {
+      "shape": "COUNT",
+      "keywords": [
+        "how many", "count of", "number of ", "total number",
+        "كم عدد", "العدد"
+      ]
+    },
+    {
+      "shape": "AGGREGATE",
+      "keywords": [
+        "average ", "avg ", "mean ",
+        "sum of", "total of", "total amount",
+        "max ", "min ", "maximum", "minimum",
+        "median ",
+        "متوسط", "مجموع", "إجمالي", "اعلى قيمة", "ادنى قيمة"
+      ]
+    },
+    {
+      "shape": "LOOKUP",
+      "keywords": [
+        "details of", "info about", "information about", "tell me about",
+        "what is the status of", "what's the status of",
+        "تفاصيل", "معلومات عن"
+      ],
+      "regex": [
+        // Natural-key style: alphabetic prefix + digits (TCK-2026-001, INC-001-2026).
+        "\\b[a-z]{2,6}-\\d{2,4}-\\d{2,7}\\b",
+        "\\b[a-z]{2,6}-\\d{3,10}\\b"
+      ]
+    },
+    {
+      "shape": "JOIN",
+      "keywords": [
+        "with their ", "with the ", "along with ",
+        "and their ", "and the related ",
+        "joined with", "linked to", "مع"
+      ]
+    }
+    // FILTER is the default — applies when nothing else matched. "list X", "show X",
+    // "find X where Y" all fall through here.
+  ]
+}

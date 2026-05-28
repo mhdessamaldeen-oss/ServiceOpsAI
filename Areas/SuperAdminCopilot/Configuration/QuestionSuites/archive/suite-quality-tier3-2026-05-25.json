@@ -1,0 +1,67 @@
+{
+  "name": "Quality Tier 3 — 2-table FK joins",
+  "version": "1.0.0",
+  "description": "Two-table inner joins via foreign key. Each scenario carries the expected row count (or first-row scalar) so the run can be graded semantically. Tests join graph resolution + FK label projection + filter on a joined table.",
+  "Scenarios": [
+    {
+      "Code": "QT3-LIST-TICK-PRIO",
+      "Question": "list every ticket with its priority name",
+      "Category": "T3-JOIN-LIST",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedScalar": 83,
+      "ExpectedShape": "SELECT Tickets.TicketNumber + Tickets.Title + TicketPriorities.Name, INNER JOIN TicketPriorities, soft-delete filter on Tickets",
+      "Notes": "FK label-projection check. Every ticket should appear with its priority name.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT3-LIST-OUTAGE-ST",
+      "Question": "list outages along with the service type name",
+      "Category": "T3-JOIN-LIST",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Outages",
+      "ExpectedScalar": 32,
+      "ExpectedShape": "SELECT Outages.* + ServiceTypes.NameEn/Name, INNER JOIN ServiceTypes",
+      "Notes": "Different root, same shape as QT3-LIST-TICK-PRIO. Validates the FK-walk is schema-driven not table-specific.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT3-LIST-TARIFF-ST",
+      "Question": "show all tariffs with the service type they apply to",
+      "Category": "T3-JOIN-LIST",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tariffs",
+      "ExpectedScalar": 5,
+      "ExpectedShape": "SELECT Tariffs.* + ServiceTypes.NameEn, INNER JOIN ServiceTypes",
+      "Notes": "Smallest 2-table join (5 rows). Easy to eyeball.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT3-CNT-TICKET-CRITICAL",
+      "Question": "how many tickets are critical priority",
+      "Category": "T3-JOIN-COUNT-FILTER",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedScalar": 16,
+      "ExpectedShape": "COUNT(*) over Tickets JOIN TicketPriorities WHERE TicketPriorities.Name='Critical' — single-row aggregate, empty select",
+      "Notes": "Filter is on a JOINED LOOKUP table's Name column (exact match). The classic 'X by lookup-value' shape that should route through the FK-target's label column.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT3-CNT-OUTAGE-ELECTRIC",
+      "Question": "how many outages affected electricity",
+      "Category": "T3-JOIN-COUNT-FILTER",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Outages",
+      "ExpectedScalar": 11,
+      "ExpectedShape": "COUNT(*) over Outages JOIN ServiceTypes WHERE ServiceTypes.NameEn LIKE/eq 'Electricity'",
+      "Notes": "Different root + different lookup table than QT3-CNT-TICKET-CRITICAL. Validates the shape is universal not table-specific.",
+      "MaxLatencyMs": 60000
+    }
+  ]
+}

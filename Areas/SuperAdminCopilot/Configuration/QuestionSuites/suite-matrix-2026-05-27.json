@@ -1,0 +1,93 @@
+{
+  "name": "Coverage Matrix v3 — comprehensive: 11 tables × shapes × variety",
+  "version": "3.0.0",
+  "description": "Replaces all prior suites. ~74 scenarios spanning every populated table (Users, Roles, Customers, Bills, Tickets, Outages, MeterReadings, Departments, Regions, TicketCategories, CsatResponses, ServiceTypes, Tariffs, Countries) across all shape archetypes (COUNT / COUNT+FILTER / LIST / AGG / GROUP-BY / NAV / SRCH / ANTI / RANK). Real DB names (Houri/Aleppo/Damascus/Electricity). Phrasings intentionally varied. All expected scalars SQL-verified 2026-05-27.",
+  "Scenarios": [
+    { "Code": "M-USR-Count", "Question": "how many users do we have", "Category": "USR", "ExpectedScalar": 13 },
+    { "Code": "M-USR-ActiveCount", "Question": "count of active users", "Category": "USR", "ExpectedScalar": 13 },
+    { "Code": "M-USR-CountPerRole", "Question": "user count per role", "Category": "USR-GRP", "ExpectedScalar": 3 },
+    { "Code": "M-USR-ListWithEmail", "Question": "list users with their email", "Category": "USR-NAV", "ExpectedScalar": 13 },
+    { "Code": "M-ROL-Count", "Question": "how many roles", "Category": "ROL", "ExpectedScalar": 4 },
+    { "Code": "M-ROL-UsersPerRole", "Question": "users per role", "Category": "ROL-GRP", "ExpectedScalar": 3 },
+
+    { "Code": "M-CUST-Count", "Question": "total number of customers", "Category": "CUST", "ExpectedScalar": 200 },
+    { "Code": "M-CUST-ActiveCount", "Question": "how many active customers", "Category": "CUST-FILT", "ExpectedScalar": 177 },
+    { "Code": "M-CUST-PerRegion", "Question": "customer count per region", "Category": "CUST-GRP", "ExpectedScalar": 60 },
+    { "Code": "M-CUST-WithBillsCount", "Question": "how many customers have at least one bill", "Category": "CUST-WF", "ExpectedScalar": 200 },
+    { "Code": "M-CUST-AvgBillCount", "Question": "average number of bills per customer", "Category": "CUST-AGG", "ExpectedScalar": 60 },
+    { "Code": "M-CUST-NamedHouri", "Question": "find customers named Houri", "Category": "CUST-SRCH", "ExpectedScalar": 8 },
+
+    { "Code": "M-BILL-Count", "Question": "how many bills", "Category": "BILL", "ExpectedScalar": 12168 },
+    { "Code": "M-BILL-TotalSum", "Question": "total amount across all bills", "Category": "BILL-AGG", "ExpectedScalar": 435620800 },
+    { "Code": "M-BILL-AvgAmount", "Question": "average bill amount", "Category": "BILL-AGG", "ExpectedScalar": 35800 },
+    { "Code": "M-BILL-MaxAmount", "Question": "largest bill amount", "Category": "BILL-AGG", "ExpectedScalar": 114800 },
+    { "Code": "M-BILL-MinAmount", "Question": "smallest bill amount", "Category": "BILL-AGG", "ExpectedScalar": 3300 },
+    { "Code": "M-BILL-PaidCount", "Question": "how many bills are paid", "Category": "BILL-FILT", "ExpectedScalar": 10862 },
+    { "Code": "M-BILL-OverdueCount", "Question": "count of overdue bills", "Category": "BILL-FILT", "ExpectedScalar": 325 },
+    { "Code": "M-BILL-IssuedCount", "Question": "how many bills are pending payment", "Category": "BILL-FILT", "ExpectedScalar": 981 },
+    { "Code": "M-BILL-PerStatus", "Question": "bill counts per status", "Category": "BILL-GRP", "ExpectedScalar": 3 },
+    { "Code": "M-BILL-PerService", "Question": "bills grouped by service type", "Category": "BILL-GRP", "ExpectedScalar": 4 },
+    { "Code": "M-BILL-Top10ByAmount", "Question": "top 10 highest-value invoices", "Category": "BILL-RANK", "ExpectedScalar": 10 },
+    { "Code": "M-BILL-OverdueSum", "Question": "total amount of overdue bills", "Category": "BILL-AGG-FILT", "ExpectedScalar": 10952100 },
+    { "Code": "M-BILL-PaidSum", "Question": "total revenue from paid bills", "Category": "BILL-AGG-FILT", "ExpectedScalar": 389400900 },
+
+    { "Code": "M-TIX-Count", "Question": "how many tickets do we have", "Category": "TIX", "ExpectedScalar": 83 },
+    { "Code": "M-TIX-OpenCount", "Question": "open ticket count", "Category": "TIX-FILT", "ExpectedScalar": 33 },
+    { "Code": "M-TIX-CriticalCount", "Question": "how many critical priority tickets", "Category": "TIX-FILT", "ExpectedScalar": 16 },
+    { "Code": "M-TIX-HighCount", "Question": "count of high priority tickets", "Category": "TIX-FILT", "ExpectedScalar": 28 },
+    { "Code": "M-TIX-ResolvedCount", "Question": "tickets resolved or closed", "Category": "TIX-FILT", "ExpectedScalar": 50 },
+    { "Code": "M-TIX-PerPriority", "Question": "ticket count per priority", "Category": "TIX-GRP", "ExpectedScalar": 4 },
+    { "Code": "M-TIX-PerStatus", "Question": "tickets grouped by status", "Category": "TIX-GRP", "ExpectedScalar": 2 },
+    { "Code": "M-TIX-PerCategory", "Question": "tickets per category", "Category": "TIX-GRP", "ExpectedScalar": 9 },
+    { "Code": "M-TIX-PerDept", "Question": "tickets per department", "Category": "TIX-GRP", "ExpectedScalar": 36 },
+    { "Code": "M-TIX-AvgResolveDays", "Question": "average resolution time across tickets", "Category": "TIX-AGG", "ExpectedScalar": 50 },
+    { "Code": "M-TIX-WithCustomer", "Question": "list tickets with their customer name", "Category": "TIX-NAV", "ExpectedScalar": 83 },
+    { "Code": "M-TIX-ForHouri", "Question": "tickets for customer Houri", "Category": "TIX-SRCH", "ExpectedScalar": 2 },
+
+    { "Code": "M-OUT-Count", "Question": "how many outages logged", "Category": "OUT", "ExpectedScalar": 32 },
+    { "Code": "M-OUT-ElectricityCount", "Question": "electricity outage count", "Category": "OUT-FILT", "ExpectedScalar": 11 },
+    { "Code": "M-OUT-PerService", "Question": "outages per service type", "Category": "OUT-GRP", "ExpectedScalar": 4 },
+    { "Code": "M-OUT-PerSeverity", "Question": "outages grouped by severity", "Category": "OUT-GRP", "ExpectedScalar": 4 },
+    { "Code": "M-OUT-AleppoCount", "Question": "outages in Aleppo", "Category": "OUT-SRCH", "ExpectedScalar": 3 },
+    { "Code": "M-OUT-AvgAffected", "Question": "average affected customer count per outage", "Category": "OUT-AGG", "ExpectedScalar": 2056 },
+    { "Code": "M-OUT-MaxAffected", "Question": "largest outage by affected customers", "Category": "OUT-AGG", "ExpectedScalar": 5000 },
+
+    { "Code": "M-MR-Count", "Question": "how many meter readings on file", "Category": "MR", "ExpectedScalar": 4200 },
+    { "Code": "M-MR-AvgValue", "Question": "average meter reading", "Category": "MR-AGG", "ExpectedScalar": 5431 },
+    { "Code": "M-MR-MaxValue", "Question": "peak meter reading", "Category": "MR-AGG", "ExpectedScalar": 17513 },
+    { "Code": "M-MR-MinValue", "Question": "lowest meter reading", "Category": "MR-AGG", "ExpectedScalar": 1029 },
+    { "Code": "M-MR-PerService", "Question": "meter readings per service", "Category": "MR-GRP", "ExpectedScalar": 4 },
+    { "Code": "M-MR-ElecCount", "Question": "electricity meter readings count", "Category": "MR-FILT", "ExpectedScalar": 1128 },
+    { "Code": "M-MR-ForHouri", "Question": "meter readings for customer Houri", "Category": "MR-SRCH", "ExpectedScalar": 216 },
+
+    { "Code": "M-DEPT-Count", "Question": "department count", "Category": "DEPT", "ExpectedScalar": 60 },
+    { "Code": "M-DEPT-NoTickets", "Question": "departments without any ticket", "Category": "DEPT-ANTI", "ExpectedScalar": 24 },
+    { "Code": "M-DEPT-PerService", "Question": "departments per service type", "Category": "DEPT-GRP", "ExpectedScalar": 4 },
+    { "Code": "M-DEPT-NameHomsWater", "Question": "find the Homs Water department", "Category": "DEPT-SRCH", "ExpectedScalar": 1 },
+
+    { "Code": "M-REG-Count", "Question": "how many regions", "Category": "REG", "ExpectedScalar": 76 },
+    { "Code": "M-REG-GovCount", "Question": "number of governorates", "Category": "REG-FILT", "ExpectedScalar": 14 },
+    { "Code": "M-REG-DistCount", "Question": "how many districts", "Category": "REG-FILT", "ExpectedScalar": 62 },
+    { "Code": "M-REG-PerType", "Question": "regions grouped by type", "Category": "REG-GRP", "ExpectedScalar": 2 },
+
+    { "Code": "M-CAT-Count", "Question": "how many ticket categories", "Category": "CAT", "ExpectedScalar": 48 },
+    { "Code": "M-CAT-PerService", "Question": "ticket categories per service", "Category": "CAT-GRP", "ExpectedScalar": 5 },
+    { "Code": "M-CAT-Primary", "Question": "count of primary ticket categories", "Category": "CAT-FILT", "ExpectedScalar": 34 },
+
+    { "Code": "M-CSAT-Count", "Question": "satisfaction survey response count", "Category": "CSAT", "ExpectedScalar": 33 },
+    { "Code": "M-CSAT-AvgScore", "Question": "average satisfaction score", "Category": "CSAT-AGG", "ExpectedScalar": 3 },
+    { "Code": "M-CSAT-MaxScore", "Question": "best satisfaction score recorded", "Category": "CSAT-AGG", "ExpectedScalar": 5 },
+    { "Code": "M-CSAT-MinScore", "Question": "worst satisfaction score", "Category": "CSAT-AGG", "ExpectedScalar": 1 },
+    { "Code": "M-CSAT-LowScoreCount", "Question": "count of low satisfaction responses (score 1 or 2)", "Category": "CSAT-FILT", "ExpectedScalar": 7 },
+    { "Code": "M-CSAT-PerScore", "Question": "satisfaction responses grouped by score", "Category": "CSAT-GRP", "ExpectedScalar": 5 },
+
+    { "Code": "M-SVC-Count", "Question": "how many service types", "Category": "SVC", "ExpectedScalar": 5 },
+    { "Code": "M-SVC-WithTariff", "Question": "service types that have tariffs", "Category": "SVC-WF", "ExpectedScalar": 4 },
+
+    { "Code": "M-TARIFF-Count", "Question": "tariff count", "Category": "TARIFF", "ExpectedScalar": 5 },
+    { "Code": "M-TARIFF-PerService", "Question": "tariffs per service", "Category": "TARIFF-GRP", "ExpectedScalar": 4 },
+    { "Code": "M-TARIFF-PerRegion", "Question": "tariffs per region", "Category": "TARIFF-GRP", "ExpectedScalar": 1 },
+
+    { "Code": "M-COUNTRY-Count", "Question": "how many countries", "Category": "COUNTRY", "ExpectedScalar": 1 }
+  ]
+}

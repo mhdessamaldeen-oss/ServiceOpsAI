@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "_comment": "Declarative linguistic cues. Locale-keyed. Replaces hardcoded regex previously in C# phases. Adding a new language = a new locale block. Adding a new synonym = a new array entry. NO code change needed for either.",
+
+  "locales": {
+
+    "en": {
+
+      "temporal": [
+        { "pattern": "\\b(?:in\\s+the\\s+|over\\s+the\\s+)?(?:last|past)\\s+(\\d+)\\s+hours?\\b",  "start": "@hours:-{0}",  "label": "Last {0} hours" },
+        { "pattern": "\\b(?:in\\s+the\\s+|over\\s+the\\s+)?(?:last|past)\\s+(\\d+)\\s+days?\\b",   "start": "@days:-{0}",   "label": "Last {0} days" },
+        { "pattern": "\\b(?:in\\s+the\\s+|over\\s+the\\s+)?(?:last|past)\\s+(\\d+)\\s+weeks?\\b",  "start": "@weeks:-{0}",  "label": "Last {0} weeks" },
+        { "pattern": "\\b(?:in\\s+the\\s+|over\\s+the\\s+)?(?:last|past)\\s+(\\d+)\\s+months?\\b", "start": "@months:-{0}", "label": "Last {0} months" },
+        { "pattern": "\\b(?:in\\s+the\\s+|over\\s+the\\s+)?(?:last|past)\\s+(\\d+)\\s+years?\\b",  "start": "@years:-{0}",  "label": "Last {0} years" },
+
+        { "pattern": "\\b(?:q1|first\\s+quarter)\\b",  "start": "@q1_start", "end": "@q1_end", "label": "Q1" },
+        { "pattern": "\\b(?:q2|second\\s+quarter)\\b", "start": "@q2_start", "end": "@q2_end", "label": "Q2" },
+        { "pattern": "\\b(?:q3|third\\s+quarter)\\b",  "start": "@q3_start", "end": "@q3_end", "label": "Q3" },
+        { "pattern": "\\b(?:q4|fourth\\s+quarter)\\b", "start": "@q4_start", "end": "@q4_end", "label": "Q4" },
+
+        { "pattern": "\\btoday\\b",     "start": "@today",     "end": "@tomorrow", "label": "Today" },
+        { "pattern": "\\byesterday\\b", "start": "@yesterday", "end": "@today",    "label": "Yesterday" },
+
+        { "pattern": "\\bthis\\s+week\\b",    "start": "@week_start",        "end": "@weeks:1",       "label": "This week" },
+        { "pattern": "\\blast\\s+week\\b",    "start": "@last_week_start",   "end": "@week_start",    "label": "Last week" },
+        { "pattern": "\\bthis\\s+month\\b",   "start": "@month_start",       "end": "@months:1",      "label": "This month" },
+        { "pattern": "\\blast\\s+month\\b",   "start": "@last_month_start",  "end": "@month_start",   "label": "Last month" },
+        { "pattern": "\\bthis\\s+quarter\\b", "start": "@quarter_start",     "end": "@quarters:1",    "label": "This quarter" },
+        { "pattern": "\\blast\\s+quarter\\b", "start": "@last_quarter_start","end": "@quarter_start", "label": "Last quarter" },
+        { "pattern": "\\bthis\\s+year\\b",    "start": "@year_start",        "end": "@years:1",       "label": "This year" },
+        { "pattern": "\\blast\\s+year\\b",    "start": "@last_year_start",   "end": "@year_start",    "label": "Last year" }
+      ],
+
+      "absence": [
+        "no", "without", "missing", "lacks", "lacking",
+        "has no", "have no", "do not have", "don't have"
+      ],
+
+      "allTime": [
+        "ever", "of all time", "all time", "in history",
+        "since the beginning", "since inception", "since ever", "at any time"
+      ],
+
+      "distinct": [
+        "how many distinct", "how many unique", "how many different",
+        "number of distinct", "number of unique", "number of different",
+        "count of distinct", "count of unique", "count of different",
+        "distinct customers", "distinct users", "distinct tickets",
+        "distinct bills", "distinct outages", "distinct regions",
+        "unique customers", "unique users", "unique tickets",
+        "unique bills", "unique outages", "unique regions"
+      ],
+
+      "negation": [
+        "not in", "not from", "except", "except for",
+        "excluding", "other than", "apart from", "outside of", "aside from"
+      ],
+
+      "recency": {
+        "desc": ["most recent", "newest", "latest", "recent", "recently"],
+        "asc":  ["oldest", "earliest", "first"]
+      },
+
+      "superlative": {
+        "max":    ["largest", "biggest", "highest", "longest", "maximum", "peak", "max"],
+        "min":    ["smallest", "lowest", "shortest", "minimum", "min"],
+        "top":    ["top", "best", "highest", "leading"],
+        "bottom": ["bottom", "worst", "least", "fewest", "lowest"]
+      },
+
+      "range": {
+        "between": [
+          "\\b(?:between|from)\\s+([\\d,]+(?:\\.\\d+)?)\\s+(?:and|to|-)\\s+([\\d,]+(?:\\.\\d+)?)\\b"
+        ],
+        "gt":  [ "\\b(?:greater\\s+than|more\\s+than|over|above|exceeds?|exceeding|>)\\s+([\\d,]+(?:\\.\\d+)?)" ],
+        "gte": [ "\\b(?:greater\\s+than\\s+or\\s+equal\\s+to|at\\s+least|minimum\\s+of?|no\\s+less\\s+than|>=)\\s+([\\d,]+(?:\\.\\d+)?)" ],
+        "lt":  [ "\\b(?:less\\s+than|fewer\\s+than|under|below|<)\\s+([\\d,]+(?:\\.\\d+)?)" ],
+        "lte": [ "\\b(?:less\\s+than\\s+or\\s+equal\\s+to|at\\s+most|maximum\\s+of?|no\\s+more\\s+than|<=)\\s+([\\d,]+(?:\\.\\d+)?)" ],
+        "eq":  [ "\\b(?:exactly|equals?|equal\\s+to)\\s+([\\d,]+(?:\\.\\d+)?)" ]
+      }
+    },
+
+    "ar": {
+
+      "temporal": [
+        { "pattern": "اليوم",  "start": "@today",     "end": "@tomorrow", "label": "اليوم" },
+        { "pattern": "أمس",    "start": "@yesterday", "end": "@today",    "label": "أمس" },
+        { "pattern": "امس",    "start": "@yesterday", "end": "@today",    "label": "أمس" },
+        { "pattern": "هذا\\s*الأسبوع", "start": "@week_start",  "end": "@weeks:1",  "label": "هذا الأسبوع" },
+        { "pattern": "هذا\\s*الاسبوع", "start": "@week_start",  "end": "@weeks:1",  "label": "هذا الأسبوع" },
+        { "pattern": "هذا\\s*الشهر",   "start": "@month_start", "end": "@months:1", "label": "هذا الشهر" },
+        { "pattern": "هذا\\s*العام",   "start": "@year_start",  "end": "@years:1",  "label": "هذا العام" },
+        { "pattern": "هذه\\s*السنة",   "start": "@year_start",  "end": "@years:1",  "label": "هذا العام" }
+      ],
+
+      "absence": [ "بدون", "ما عنده", "بلا", "من غير" ],
+
+      "allTime": [ "على الإطلاق", "في التاريخ", "منذ البداية", "في أي وقت" ],
+
+      "distinct": [ "كم عدد المختلفين", "كم عدد المختلفة", "كم عدد المتفردين" ],
+
+      "negation": [ "ليس في", "باستثناء", "ما عدا", "بخلاف", "غير" ],
+
+      "recency": {
+        "desc": ["أحدث", "الأخير"],
+        "asc":  ["أقدم", "الأول"]
+      },
+
+      "superlative": {
+        "max":    ["الأكبر", "الأعلى", "الأطول"],
+        "min":    ["الأصغر", "الأقل", "الأقصر"],
+        "top":    ["أعلى", "أفضل"],
+        "bottom": ["أدنى", "أسوأ"]
+      },
+
+      "range": {
+        "between": [],
+        "gt":  [ "\\bأكثر\\s+من\\s+([\\d,]+(?:\\.\\d+)?)" ],
+        "gte": [ "\\bعلى\\s+الأقل\\s+([\\d,]+(?:\\.\\d+)?)" ],
+        "lt":  [ "\\bأقل\\s+من\\s+([\\d,]+(?:\\.\\d+)?)" ],
+        "lte": [],
+        "eq":  []
+      }
+    }
+
+  }
+}

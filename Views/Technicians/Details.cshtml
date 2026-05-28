@@ -1,0 +1,25 @@
+@model ServiceOpsAI.Models.Technician
+@{ ViewData["Title"] = "Technician Details"; }
+
+<h2><i class="bi bi-person-vcard-fill"></i> @Model.FullNameEn</h2>
+
+<div class="card shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Employee Code</dt><dd class="col-sm-9"><code>@Model.EmployeeCode</code></dd>
+            <dt class="col-sm-3">Name (EN/AR)</dt><dd class="col-sm-9">@Model.FullNameEn / <span dir="rtl">@Model.FullNameAr</span></dd>
+            <dt class="col-sm-3">Phone</dt><dd class="col-sm-9">@Model.Phone</dd>
+            <dt class="col-sm-3">Department</dt><dd class="col-sm-9">@Model.Department?.NameEn</dd>
+            <dt class="col-sm-3">Primary Region</dt><dd class="col-sm-9">@Model.PrimaryRegion?.NameEn</dd>
+            <dt class="col-sm-3">Specialty</dt><dd class="col-sm-9">@Model.Specialty</dd>
+            <dt class="col-sm-3">Years of Experience</dt><dd class="col-sm-9">@Model.YearsOfExperience</dd>
+            <dt class="col-sm-3">Hired</dt><dd class="col-sm-9">@Model.HiredAt.ToString("yyyy-MM-dd")</dd>
+            <dt class="col-sm-3">Active?</dt><dd class="col-sm-9">@(Model.IsActive ? "Yes" : "No")</dd>
+            <dt class="col-sm-3">Linked User Id</dt><dd class="col-sm-9"><code>@Model.UserId</code></dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>

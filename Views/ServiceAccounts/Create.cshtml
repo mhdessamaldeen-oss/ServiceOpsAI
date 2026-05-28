@@ -1,0 +1,22 @@
+@model ServiceOpsAI.Models.ServiceAccount
+@{ ViewData["Title"] = "New Service Account"; }
+
+<h2><i class="bi bi-plus-circle"></i> New Service Account</h2>
+
+<form asp-action="Create" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="col-md-4"><label asp-for="AccountNumber" class="form-label">Account #</label><input asp-for="AccountNumber" class="form-control" placeholder="ACC-2026-000123" /></div>
+    <div class="col-md-4"><label asp-for="CustomerId" class="form-label">Customer</label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers"><option value="">— Select —</option></select></div>
+    <div class="col-md-4"><label asp-for="ServiceTypeId" class="form-label">Service Type</label><select asp-for="ServiceTypeId" class="form-select" asp-items="ViewBag.ServiceTypes"><option value="">— Select —</option></select></div>
+    <div class="col-md-4"><label asp-for="ServicePointId" class="form-label">Service Point</label><select asp-for="ServicePointId" class="form-select" asp-items="ViewBag.ServicePoints"><option value="">— Select —</option></select></div>
+    <div class="col-md-4"><label asp-for="CustomerSegmentId" class="form-label">Segment</label><select asp-for="CustomerSegmentId" class="form-select" asp-items="ViewBag.CustomerSegments"><option value="">— Select —</option></select></div>
+    <div class="col-md-4"><label asp-for="DepartmentId" class="form-label">Department</label><select asp-for="DepartmentId" class="form-select" asp-items="ViewBag.Departments"><option value="">— Select —</option></select></div>
+    <div class="col-md-3"><label asp-for="ActivatedAt" class="form-label">Activated</label><input asp-for="ActivatedAt" type="date" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="DeactivatedAt" class="form-label">Deactivated</label><input asp-for="DeactivatedAt" type="date" class="form-control" /></div>
+    <div class="col-md-2"><label asp-for="Status" class="form-label">Status</label><select asp-for="Status" class="form-select">@foreach (var s in Enum.GetValues<ServiceOpsAI.Models.ServiceAccountStatus>()){<option value="@s">@s</option>}</select></div>
+    <div class="col-md-2"><label asp-for="ContractedCapacity" class="form-label">Capacity</label><input asp-for="ContractedCapacity" type="number" step="0.01" class="form-control" /></div>
+    <div class="col-md-2"><label asp-for="CapacityUnit" class="form-label">Unit</label><input asp-for="CapacityUnit" class="form-control" placeholder="kW / Mbps / m³/day" /></div>
+    <div class="col-12"><label asp-for="Notes" class="form-label">Notes</label><textarea asp-for="Notes" class="form-control" rows="3"></textarea></div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Create</button> <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Cancel</a></div>
+</form>

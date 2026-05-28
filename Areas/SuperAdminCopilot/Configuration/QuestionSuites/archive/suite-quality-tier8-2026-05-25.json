@@ -1,0 +1,43 @@
+{
+  "name": "Quality Tier 8 — anti-joins / EXISTS / NULL semantics",
+  "version": "1.0.0",
+  "description": "Absence checks: 'X with no Y' / 'X without any Y' (anti-join) and 'X with NULL field' (is_null filter). Tests the orchestrator's anti-join routing and the FK is-null vs anti-join distinction.",
+  "Scenarios": [
+    {
+      "Code": "QT8-SVC-NO-OUTAGE",
+      "Question": "service types that have not had any outage",
+      "Category": "T8-ANTI",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "ServiceTypes",
+      "ExpectedScalar": 1,
+      "ExpectedShape": "SELECT ServiceTypes.NameEn ANTI JOIN Outages — 1 row (only 1 service type has 0 outages)",
+      "Notes": "Classic anti-join. 5 service types total, 4 with outages, so result is 1 row.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT8-DEPT-NO-TICKET",
+      "Question": "departments that have never received a ticket",
+      "Category": "T8-ANTI",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Departments",
+      "ExpectedScalar": 24,
+      "ExpectedShape": "SELECT Departments.NameEn ANTI JOIN Tickets — 24 of 60 depts have 0 tickets",
+      "Notes": "Larger anti-join result. Tests that the anti-join correctly produces non-matching rows.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT8-TIX-UNASSIGNED",
+      "Question": "tickets that have no assignee",
+      "Category": "T8-NULL-FK",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedScalar": 83,
+      "ExpectedShape": "SELECT Tickets.TicketNumber WHERE AssignedToUserId IS NULL — 83 rows (all tickets are unassigned in this DB)",
+      "Notes": "is_null on an FK column (NOT an anti-join — the worked example explicitly disambiguates).",
+      "MaxLatencyMs": 60000
+    }
+  ]
+}

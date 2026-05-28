@@ -1,0 +1,14 @@
+{
+  "name": "Shape: UNION (heterogeneous tables combined)",
+  "version": "1.0",
+  "description": "UNION ALL across heterogeneous tables — \"everything created today across X / Y / Z\". Routes through escape valve with UNION ALL gold example.",
+  "Scenarios": [
+    { "Code": "UNION-1", "Question": "everything created today: tickets bills and outages", "Category": "shape:UNION/cross-entity", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedOperation": "UNION", "MaxLatencyMs": 180000 },
+    { "Code": "UNION-2", "Question": "combined activity from this week across tickets bills and outages", "Category": "shape:UNION/cross-entity+temporal", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedOperation": "UNION", "MaxLatencyMs": 180000 },
+    { "Code": "UNION-3", "Question": "all events in Damascus today", "Category": "shape:UNION/cross-entity+region", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedOperation": "UNION", "MaxLatencyMs": 180000 },
+    { "Code": "UNION-4", "Question": "tickets and bills and outages combined for this month", "Category": "shape:UNION/explicit-three-table", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedOperation": "UNION", "MaxLatencyMs": 180000 },
+    { "Code": "UNION-5", "Question": "all activity for ticket TKT-00050 including bills and outages", "Category": "shape:UNION/around-entity", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedOperation": "UNION", "ExpectedFilters": [{ "Column": "Tickets.TicketNumber", "Op": "eq", "Value": "TKT-00050" }], "MaxLatencyMs": 180000 },
+
+    { "Code": "UNION-AR-1", "Question": "كل النشاط اليوم: التذاكر والفواتير والانقطاعات", "Category": "shape:UNION/arabic", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedOperation": "UNION", "MaxLatencyMs": 180000 }
+  ]
+}

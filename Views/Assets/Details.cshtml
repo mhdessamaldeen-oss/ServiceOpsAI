@@ -1,0 +1,26 @@
+@model ServiceOpsAI.Models.Asset
+@{ ViewData["Title"] = "Asset Details"; }
+
+<h2><i class="bi bi-hdd-stack-fill"></i> @Model.NameEn</h2>
+
+<div class="card shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Code</dt><dd class="col-sm-9"><code>@Model.AssetCode</code></dd>
+            <dt class="col-sm-3">Name (EN/AR)</dt><dd class="col-sm-9">@Model.NameEn / <span dir="rtl">@Model.NameAr</span></dd>
+            <dt class="col-sm-3">Service</dt><dd class="col-sm-9">@Model.ServiceType?.NameEn</dd>
+            <dt class="col-sm-3">Region</dt><dd class="col-sm-9">@Model.Region?.NameEn</dd>
+            <dt class="col-sm-3">Department</dt><dd class="col-sm-9">@Model.Department?.NameEn</dd>
+            <dt class="col-sm-3">Parent Asset</dt><dd class="col-sm-9">@Model.ParentAsset?.NameEn</dd>
+            <dt class="col-sm-3">Type / Status</dt><dd class="col-sm-9">@Model.AssetType / @Model.Status</dd>
+            <dt class="col-sm-3">Commissioned</dt><dd class="col-sm-9">@Model.CommissionedAt.ToString("yyyy-MM-dd")</dd>
+            <dt class="col-sm-3">Decommissioned</dt><dd class="col-sm-9">@(Model.DecommissionedAt?.ToString("yyyy-MM-dd") ?? "—")</dd>
+            <dt class="col-sm-3">Coordinates</dt><dd class="col-sm-9">@Model.Latitude?.ToString("N6") , @Model.Longitude?.ToString("N6")</dd>
+            <dt class="col-sm-3">Specification</dt><dd class="col-sm-9">@Model.Specification</dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>

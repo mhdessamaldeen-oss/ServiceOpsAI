@@ -1,0 +1,21 @@
+@model ServiceOpsAI.Models.Payment
+@{ ViewData["Title"] = "Edit Payment"; }
+
+<h2><i class="bi bi-pencil-square"></i> Edit @Model.PaymentReference</h2>
+
+<form asp-action="Edit" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="Id" />
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="col-md-4"><label asp-for="PaymentReference" class="form-label">Reference</label><input asp-for="PaymentReference" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="BillId" class="form-label">Bill</label><select asp-for="BillId" class="form-select" asp-items="ViewBag.Bills"></select></div>
+    <div class="col-md-4"><label asp-for="PaymentMethodId" class="form-label">Method</label><select asp-for="PaymentMethodId" class="form-select" asp-items="ViewBag.PaymentMethods"></select></div>
+    <div class="col-md-3"><label asp-for="CurrencyId" class="form-label">Currency</label><select asp-for="CurrencyId" class="form-select" asp-items="ViewBag.Currencies"></select></div>
+    <div class="col-md-3"><label asp-for="Amount" class="form-label">Amount</label><input asp-for="Amount" type="number" step="0.01" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="ExchangeRateToBase" class="form-label">Exchange Rate (to SYP)</label><input asp-for="ExchangeRateToBase" type="number" step="0.000001" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="Status" class="form-label">Status</label><select asp-for="Status" class="form-select">@foreach (var v in Enum.GetValues<ServiceOpsAI.Models.PaymentStatus>()){<option value="@v">@v</option>}</select></div>
+    <div class="col-md-4"><label asp-for="PaidAt" class="form-label">Paid At</label><input asp-for="PaidAt" type="datetime-local" class="form-control" /></div>
+    <div class="col-md-8"><label asp-for="ExternalTransactionId" class="form-label">External Transaction ID</label><input asp-for="ExternalTransactionId" class="form-control" /></div>
+    <div class="col-12"><label asp-for="Notes" class="form-label">Notes</label><textarea asp-for="Notes" class="form-control" rows="2"></textarea></div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Save</button> <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Cancel</a></div>
+</form>

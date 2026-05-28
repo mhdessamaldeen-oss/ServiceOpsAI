@@ -37,6 +37,19 @@ internal sealed class QuerySpecAccessPolicyValidator : IQuerySpecAccessPolicyVal
         "SUBSTRING", "CHARINDEX", "PATINDEX", "REPLACE", "CONCAT", "CONCAT_WS",
         // List / set operators that look like function calls to the regex
         "IN", "NOT_IN",
+        // Numeric type-spec functions appearing inside CAST/CONVERT — these tokens come from
+        // expressions like "CAST(x AS DECIMAL(18,2))" where the regex picks DECIMAL/INT/etc.
+        // as a "function call". They're not real function calls; whitelist them so we don't
+        // false-reject. Session 120 case WIN-LAG-2 failed on this.
+        "DECIMAL", "NUMERIC", "INT", "BIGINT", "SMALLINT", "TINYINT", "FLOAT", "REAL",
+        "BIT", "MONEY", "SMALLMONEY", "NVARCHAR", "VARCHAR", "NCHAR", "CHAR",
+        "DATE", "DATETIME", "DATETIME2", "DATETIMEOFFSET", "TIME", "UNIQUEIDENTIFIER",
+        "VARBINARY", "BINARY", "SYSDATETIME", "SYSUTCDATETIME",
+        // Math functions also commonly used in computed expressions
+        "ROUND", "CEILING", "FLOOR", "POWER", "SQRT", "EXP", "LOG", "SIGN",
+        // Percentile / statistical window functions
+        "PERCENTILE_CONT", "PERCENTILE_DISC", "WITHIN", "GROUP",
+        "STDEV", "STDEVP", "VAR", "VARP", "CUME_DIST", "PERCENT_RANK",
     };
 
     private readonly ICopilotSchemaAccessPolicy _policy;

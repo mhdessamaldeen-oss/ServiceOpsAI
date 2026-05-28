@@ -1,0 +1,45 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.SubsidyDto>
+
+<div class="table-responsive">
+    <table id="subsidiesTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Program</th>
+                <th class="py-3">Customer</th>
+                <th class="py-3">Segment</th>
+                <th class="py-3">Bill</th>
+                <th class="text-end py-3">Amount (SYP)</th>
+                <th class="text-end py-3">%</th>
+                <th class="py-3">Status</th>
+                <th class="py-3">Issued</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@s.ProgramCode</code><div class="small text-muted">@s.ProgramNameEn</div></td>
+                    <td style="color: var(--text-main) !important;">@s.CustomerName</td>
+                    <td class="small">@s.Segment</td>
+                    <td><code class="text-muted">@s.BillNumber</code></td>
+                    <td class="text-end fw-bold">@s.Amount.ToString("N0")</td>
+                    <td class="text-end">@(s.AppliedPercent?.ToString("N1") ?? "—")%</td>
+                    <td>
+                        @{ var (bg, fg) = s.Status switch { "Applied" => ("rgba(var(--primary-color-rgb),0.1)", "var(--primary-color)"), "Pending" => ("rgba(245,158,11,0.1)", "#f59e0b"), "Revoked" => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"), _ => ("rgba(148,163,184,0.1)", "#94a3b8") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @bg; color: @fg; border: 1px solid @fg;">@s.Status</span>
+                    </td>
+                    <td class="small text-muted">@s.IssuedAt.ToString("yyyy-MM-dd")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@s.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@s.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@s.Id" method="post" onsubmit="return confirm('Delete this subsidy?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No subsidies match the current filter.</h6></div> }
+</div>

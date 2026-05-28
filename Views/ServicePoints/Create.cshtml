@@ -1,0 +1,20 @@
+@model ServiceOpsAI.Models.ServicePoint
+@{ ViewData["Title"] = "New Service Point"; }
+
+<h2><i class="bi bi-plus-circle"></i> New Service Point</h2>
+
+<form asp-action="Create" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="col-md-4"><label asp-for="PointCode" class="form-label">Point Code</label><input asp-for="PointCode" class="form-control" placeholder="SP-DMSCN-0042-117" /></div>
+    <div class="col-md-4"><label asp-for="RegionId" class="form-label">Region (district)</label><select asp-for="RegionId" class="form-select" asp-items="ViewBag.Regions"><option value="">— Select —</option></select></div>
+    <div class="col-md-4"><label asp-for="MeterNumber" class="form-label">Meter Number</label><input asp-for="MeterNumber" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="AddressLineEn" class="form-label">Address (EN)</label><input asp-for="AddressLineEn" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="AddressLineAr" class="form-label">Address (AR)</label><input asp-for="AddressLineAr" class="form-control" dir="rtl" /></div>
+    <div class="col-md-3"><label asp-for="Latitude" class="form-label">Latitude</label><input asp-for="Latitude" type="number" step="0.000001" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="Longitude" class="form-label">Longitude</label><input asp-for="Longitude" type="number" step="0.000001" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="PointType" class="form-label">Type</label><select asp-for="PointType" class="form-select">@foreach (var v in Enum.GetValues<ServiceOpsAI.Models.ServicePointType>()){<option value="@v">@v</option>}</select></div>
+    <div class="col-md-3"><label asp-for="InstalledAt" class="form-label">Installed</label><input asp-for="InstalledAt" type="date" class="form-control" /></div>
+    <div class="col-12 form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label">Active</label></div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Create</button> <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Cancel</a></div>
+</form>

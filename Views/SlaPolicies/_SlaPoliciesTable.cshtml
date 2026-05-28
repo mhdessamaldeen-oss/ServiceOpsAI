@@ -1,0 +1,44 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.SlaPolicyDto>
+
+<div class="table-responsive">
+    <table id="slaTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Code</th>
+                <th class="py-3">Policy</th>
+                <th class="py-3">Segment</th>
+                <th class="py-3">Service</th>
+                <th class="py-3">Priority</th>
+                <th class="text-end py-3">First-Resp (min)</th>
+                <th class="text-end py-3">Resolution (min)</th>
+                <th class="py-3">BH Only?</th>
+                <th class="py-3">Active</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@p.PolicyCode</code></td>
+                    <td><div style="color: var(--text-main) !important;">@p.NameEn</div><div class="small text-muted" dir="rtl">@p.NameAr</div></td>
+                    <td class="small">@p.CustomerSegment</td>
+                    <td>@p.ServiceType</td>
+                    <td><span class="badge rounded-pill px-3 py-2" style="background: rgba(168,85,247,0.1); color: #a855f7; border: 1px solid #a855f7;">@p.Priority</span></td>
+                    <td class="text-end fw-bold">@p.FirstResponseMinutes</td>
+                    <td class="text-end fw-bold">@p.ResolutionMinutes</td>
+                    <td>@(p.BusinessHoursOnly ? "Yes" : "No")</td>
+                    <td>@(p.IsActive ? "Yes" : "No")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@p.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@p.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@p.Id" method="post" onsubmit="return confirm('Delete policy @p.PolicyCode?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No SLA policies match the current filter.</h6></div> }
+</div>

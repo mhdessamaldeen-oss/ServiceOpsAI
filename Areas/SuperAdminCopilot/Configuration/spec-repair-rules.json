@@ -1,0 +1,31 @@
+{
+  "_comment": "Data-only configuration for SpecRepair phases. NO logic, NO conditional rules — just pattern strings and lists that the C# phases consume. Hot-reloads via IOptionsMonitor<SpecRepairOptions>.",
+  "SpecRepair": {
+    "AggregationIntentPattern": "^\\s*(how\\s+many|count\\s+of|number\\s+of|total\\s+|sum\\s+of|sum\\s+|average\\s+|avg\\s+|mean\\s+|highest\\s+|lowest\\s+|maximum\\s+|minimum\\s+|max\\s+|min\\s+|what\\s+is\\s+the\\s+(total|sum|average|highest|lowest|max|min))",
+    "AggregationSqlPattern": "\\b(COUNT|SUM|AVG|MIN|MAX|COUNT_BIG)\\s*\\(",
+    "AntiJoinIntentPatterns": [
+      "\\bwith\\s+no\\b",
+      "\\bwithout\\s+(any|a|an)?\\s",
+      "\\bthat\\s+have\\s+(no|not|never)\\b",
+      "\\bnever\\s+(received|had|got|sent|been)\\b",
+      "\\bhas\\s+(no|not|never)\\b"
+    ],
+    "SqlComparisonOperatorMap": {
+      "=": "eq",
+      "==": "eq",
+      "!=": "neq",
+      "<>": "neq",
+      ">": "gt",
+      ">=": "gte",
+      "<": "lt",
+      "<=": "lte"
+    },
+    "QuotedValueDelimiters": [ "'", "\"" ],
+    "AggregationFunctionAliases": {
+      "COUNT(DISTINCT)": "COUNT",
+      "COUNT_DISTINCT": "COUNT",
+      "COUNTDISTINCT": "COUNT",
+      "COUNT DISTINCT": "COUNT"
+    }
+  }
+}

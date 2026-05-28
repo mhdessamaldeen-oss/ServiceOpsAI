@@ -1,0 +1,23 @@
+{
+  "$comment": "Externalized prompts for the Phase-2 decomposed stages. Hot-loaded — edit and re-run, no recompile. Placeholders: {{question}}, {{schemaSlice}}, {{schemaLinkJson}}, {{structuralJson}}.",
+
+  "structuralCueParser": {
+    "$comment-on-prompt-design": "INTENTIONALLY SHORT. Do not enumerate separator characters or add worked examples — that turns NLU into pattern-matching against a finite list and fails on the long tail. Trust the model to understand language. If a model can't do this from the abstract instruction, the answer is a stronger model (Phase 7 escalation) or fine-tuning — not more examples in this prompt.",
+
+    "systemPrompt": "Read the user's question and extract two things, in JSON: (a) the ORDERED LIST of column-like nouns the user named for display, and (b) any grouping cues. The user may use any separator — punctuation, symbols, connector words, whitespace, brackets — or none. Separators are noise; the column list is the signal. You are not resolving against a schema; you only echo back the surface tokens you read. Return STRICT JSON, no prose.",
+
+    "userPromptTemplate": "Question: {{question}}\n\nReturn JSON: { \"displayColumns\": [{ \"name\": \"...\", \"order\": <1-based>, \"source\": \"<short free-text tag describing how this column appeared — bracket, symbol, word, etc.>\" }], \"groupingHints\": [\"...\"], \"hasExplicitColumnRequest\": true|false }\n\nIf the user did not name any columns at all, displayColumns is empty and hasExplicitColumnRequest is false. Otherwise list every column in the order it appeared, regardless of how it was separated from its neighbours."
+  },
+
+  "schemaLinker": {
+    "systemPrompt": "You identify which database tables and columns a natural-language question requires. You receive the question plus a SCHEMA SLICE (a list of candidate tables already retrieved by similarity). Pick the MINIMAL set of tables and columns needed to answer the question — do not include extras 'just in case'. Return STRICT JSON only.",
+
+    "userPromptTemplate": "Question: {{question}}\n\nSchema slice (candidate tables with columns):\n{{schemaSlice}}\n\nIdentify:\n1. requiredTables: minimal table names needed (subset of the candidates).\n2. requiredColumns: per-table columns the question references. Each entry: { \"table\": \"...\", \"column\": \"...\", \"reason\": \"why this column is needed\" }.\n3. joinHints: how tables connect, if more than one table is required. Each entry: { \"from\": \"TableA\", \"to\": \"TableB\", \"via\": \"FK or junction-table description\" }.\n\nReturn JSON EXACTLY this shape: { \"requiredTables\": [...], \"requiredColumns\": [...], \"joinHints\": [...] }"
+  },
+
+  "querySpecComposer": {
+    "systemPrompt": "You produce a typed QuerySpec from a natural-language question given PRE-RESOLVED schema and structural cues. The schema linker has told you which tables/columns. The structural-cue parser has told you which display columns the user wants and in what order. Your job is to combine them into a QuerySpec the SQL compiler will turn into safe SQL. Return STRICT JSON only.",
+
+    "userPromptTemplate": "Question: {{question}}\n\nResolved schema:\n{{schemaLinkJson}}\n\nStructural cues:\n{{structuralJson}}\n\nProduce a QuerySpec with these fields:\n  - root: primary table name\n  - displayColumns: array of column references in the order the user requested (from structural cues; fall back to schema-link reasoning if no explicit request)\n  - filters: array of { column, op, value } from the question's filter words\n  - aggregations: array of { function, column, alias } if the question asks for a count/sum/avg/etc.\n  - groupBy: array of column names from structural groupingHints\n  - orderBy: array of { column, direction } when the question implies ordering\n  - limit: integer if the question caps results (top N)\n\nReturn JSON EXACTLY this shape. Do not invent columns not in the resolved schema."
+  }
+}

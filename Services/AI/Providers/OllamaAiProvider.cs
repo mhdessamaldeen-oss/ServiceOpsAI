@@ -164,17 +164,11 @@ namespace ServiceOpsAI.Services.AI.Providers
                     {
                         temperature = GetTemperature(),
                         num_ctx = ContextCapacity,
-                        // DETERMINISM: pin the sampler seed so identical (model, prompt) inputs
-                        // produce identical outputs. Without this Ollama uses a random seed per
-                        // call, which makes the SAME question produce slightly different SQL
-                        // run-to-run — observed as ±3 case variance on the suite-10 benchmark.
-                        // Value is arbitrary but stable; choose any int.
+                        // Cap response length explicitly. Ollama defaults to 128 which truncates JSON outputs mid-field; configurable via OllamaProviderOptions.MaxOutputTokens (default 2048).
+                        num_predict = _configOptions.MaxOutputTokens,
                         seed = 42,
-                        // Disable nucleus sampling so we always take the highest-probability
-                        // token. With temperature=0 this is already implicit, but setting
-                        // top_p=1 makes the determinism contract explicit at the protocol level.
                         top_p = 1.0,
-                        keep_alive = -1 // Keep model in VRAM indefinitely
+                        keep_alive = -1
                     }
                 };
                 if (expectJson)

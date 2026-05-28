@@ -17,9 +17,54 @@ internal sealed class SqlAstValidator : IValidator
         _schemaPolicy = schemaPolicy;
     }
 
+    // Pre-parse rejection: the LLM sometimes emits template placeholders inside generated
+    // SQL — e.g. `WHERE RegionId = '<RegionId for Damascus>'` or `WHERE Status = '{ "query": ... }'`.
+    // These slip past T-SQL parsing because they're well-formed quoted strings, then explode at
+    // execution time with "Conversion failed when converting nvarchar value '<...>' to data type int".
+    // Catching them here gives a clean rejection with an actionable message and skips the doomed
+    // parse + execute cycle. Patterns chosen by SHAPE (not content) so this never enumerates
+    // domain vocabulary:
+    //   - <word> or <words with spaces>  ← universal placeholder syntax
+    //   - JSON-fragment leakage: { "key": "..." } appearing inside a literal
+    // Real domain values never look like either.
+    private static readonly Regex AngleBracketPlaceholder = new(
+        @"<[A-Za-z][A-Za-z0-9_\s]{0,80}>",
+        RegexOptions.Compiled);
+
+    private static readonly Regex JsonFragmentLeak = new(
+        @"\{\s*""[A-Za-z_][A-Za-z0-9_]*""\s*:",
+        RegexOptions.Compiled);
+
     public ValidationResult Validate(CompiledSql compiled)
     {
         var errors = new List<string>();
+
+        // Reject template/placeholder leakage BEFORE parsing — these would parse cleanly as
+        // string literals and fail only at execution. Surfacing them here gives a clean
+        // diagnostic and avoids burning a DB round-trip on doomed SQL. The patterns are
+        // shape-based, not vocabulary-based — won't false-fire on legitimate domain text.
+        if (AngleBracketPlaceholder.IsMatch(compiled.Sql))
+        {
+            errors.Add("SQL contains a template placeholder of the form <…>. The LLM produced an unfilled template instead of a real value; entity resolution upstream is missing or failed.");
+            return new ValidationResult(false, errors);
+        }
+        if (JsonFragmentLeak.IsMatch(compiled.Sql))
+        {
+            errors.Add("SQL contains a JSON fragment as a literal value. The LLM leaked its own structured-output envelope into the generated SQL; treat as a malformed generation.");
+            return new ValidationResult(false, errors);
+        }
+        // Parameter values too — the compiler may have parameterized a JSON-string filter value.
+        // The above checks only see SQL text; without this, JSON-as-parameter slips past validation
+        // and SQL Server fails with "Conversion failed when converting nvarchar value '{...}' to int".
+        foreach (var kv in compiled.Parameters)
+        {
+            if (kv.Value is string sv && sv.Length > 2 && (sv[0] == '{' || sv[0] == '[')
+                && JsonFragmentLeak.IsMatch(sv))
+            {
+                errors.Add($"Parameter {kv.Key} carries a JSON envelope value. The LLM leaked structured output into a filter value; treat as a malformed generation.");
+                return new ValidationResult(false, errors);
+            }
+        }
 
         var parser = new TSql170Parser(initialQuotedIdentifiers: true);
         TSqlFragment? fragment;
@@ -84,9 +129,64 @@ internal sealed class SqlAstValidator : IValidator
             }
         }
 
+        // GROUP BY semantic check — catch the "SELECT col not in GROUP BY and not aggregated" violation BEFORE it reaches SQL Server. Triggered by LlmDirectSqlEmitter output that bypasses the compiler's GROUP BY safety.
+        var gbVisitor = new GroupBySanityVisitor();
+        fragment.Accept(gbVisitor);
+        if (gbVisitor.Violations.Count > 0)
+        {
+            errors.AddRange(gbVisitor.Violations);
+        }
+
         return errors.Count == 0
             ? new ValidationResult(true, Array.Empty<string>())
             : new ValidationResult(false, errors);
+    }
+
+    // GROUP BY column-reference sanity check using the parsed AST. False-positive-averse: only flags SelectScalarExpression with a bare ColumnReferenceExpression (the common LLM-emitted form) that doesn't appear in GROUP BY and isn't wrapped in an aggregate. Complex expressions (CASE, CAST, arithmetic) are not flagged — SQL Server will reject them itself if invalid.
+    private sealed class GroupBySanityVisitor : TSqlFragmentVisitor
+    {
+        public List<string> Violations { get; } = new();
+
+        public override void ExplicitVisit(QuerySpecification node)
+        {
+            // Only enforce SELECT/GROUP-BY consistency when GROUP BY has at least one real grouping key.
+            // ScriptDom may parse a stub GroupByClause even for SQL without an actual GROUP BY clause —
+            // checking for non-empty GroupingSpecifications avoids false-flagging plain SELECTs.
+            var groupingSpecs = node.GroupByClause?.GroupingSpecifications;
+            if (groupingSpecs is not null && groupingSpecs.Count > 0)
+            {
+                var groupKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var spec in groupingSpecs)
+                {
+                    if (spec is ExpressionGroupingSpecification eg
+                        && eg.Expression is ColumnReferenceExpression cre)
+                    {
+                        groupKeys.Add(ColumnText(cre));
+                    }
+                }
+                // Only check when we extracted at least one column-reference grouping key — otherwise the GROUP BY is by computed expressions and we can't reliably compare SELECT columns to it.
+                if (groupKeys.Count > 0)
+                {
+                    foreach (var elem in node.SelectElements)
+                    {
+                        if (elem is not SelectScalarExpression sse) continue;
+                        if (sse.Expression is not ColumnReferenceExpression colRef) continue;
+                        var key = ColumnText(colRef);
+                        if (!groupKeys.Contains(key))
+                        {
+                            Violations.Add($"column '{key}' is in the SELECT list but not in GROUP BY and not wrapped in an aggregate function — SQL Server will reject this query.");
+                        }
+                    }
+                }
+            }
+            base.ExplicitVisit(node);
+        }
+
+        private static string ColumnText(ColumnReferenceExpression c)
+        {
+            if (c.MultiPartIdentifier is null) return "";
+            return string.Join(".", c.MultiPartIdentifier.Identifiers.Select(i => i.Value));
+        }
     }
 
     private static bool SqlReferencesColumn(string sql, string table, string column)

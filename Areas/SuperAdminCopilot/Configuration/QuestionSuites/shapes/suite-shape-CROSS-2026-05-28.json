@@ -1,0 +1,121 @@
+{
+  "name": "Shape: CROSS (multi-shape combinations)",
+  "version": "1.0",
+  "description": "Questions whose correct SQL composes two or three shape primitives (TIMESERIES + GROUPBY + COMPARE, JOIN + WINDOW + HAVING, etc.). The 16 single-shape suites validate each shape in isolation; this suite stresses the combinatorial space the planner has to navigate when a real utility-ops question hits multiple primitives at once. Curated by the Data-Analyst lens — questions a real Syrian-utility ops person would actually ask, phrased without shape labels so the planner has to recognise the composition on its own.",
+  "Scenarios": [
+    { "Code": "CROSS-TG-1", "Question": "open tickets per region per week this quarter",
+      "Category": "shape:CROSS/timeseries+groupby",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "GROUPBY",
+      "ExpectedAggregations": [{ "function": "COUNT", "column": "*" }],
+      "ExpectedFilters": [
+        { "Column": "TicketStatuses.Name", "Op": "eq",  "Value": "Open" },
+        { "Column": "Tickets.CreatedAt",   "Op": "gte", "Value": "@quarter_start" }
+      ],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-TGC-1", "Question": "ticket counts per service type this month vs last month",
+      "Category": "shape:CROSS/timeseries+groupby+compare",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "GROUPBY",
+      "ExpectedAggregations": [{ "function": "COUNT", "column": "*" }],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-JGT-1", "Question": "top 5 regions by ticket count this year",
+      "Category": "shape:CROSS/join+groupby+topn",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "TOPN",
+      "ExpectedAggregations": [{ "function": "COUNT", "column": "*" }],
+      "ExpectedFilters": [{ "Column": "Tickets.CreatedAt", "Op": "gte", "Value": "@year_start" }],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-JGH-1", "Question": "regions with more than 50 tickets",
+      "Category": "shape:CROSS/join+groupby+having",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "GROUPBY",
+      "ExpectedAggregations": [{ "function": "COUNT", "column": "*" }],
+      "ExpectedHaving": [{ "Function": "COUNT", "Column": "*", "Op": "gt", "Value": 50 }],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-JAG-1", "Question": "average resolution time per service type",
+      "Category": "shape:CROSS/join+aggregate+groupby",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "GROUPBY",
+      "ExpectedAggregations": [{ "function": "AVG" }],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-JTF-1", "Question": "top 10 customers by total bill amount in Damascus",
+      "Category": "shape:CROSS/join+topn+filter",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "TOPN",
+      "ExpectedAggregations": [{ "function": "SUM", "column": "Bills.TotalAmount" }],
+      "ExpectedFilters": [{ "Column": "Regions.NameEn", "Op": "eq", "Value": "Damascus" }],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-EFC-1", "Question": "how many customers have both an unpaid bill and an open ticket",
+      "Category": "shape:CROSS/exists+filter+count",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "COUNT",
+      "ExpectedAggregations": [{ "function": "COUNT", "column": "*" }],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-WGF-1", "Question": "rank service types by total outage hours this month",
+      "Category": "shape:CROSS/window+groupby+filter",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Outages", "ExpectedOperation": "GROUPBY",
+      "ExpectedFilters": [{ "Column": "Outages.StartedAt", "Op": "gte", "Value": "@month_start" }],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-TCH-1", "Question": "months where ticket count exceeded last year same month",
+      "Category": "shape:CROSS/timeseries+compare+having",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "GROUPBY",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-GJF-1", "Question": "critical tickets per region in Damascus governorate this week",
+      "Category": "shape:CROSS/groupby+join+filter",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "GROUPBY",
+      "ExpectedAggregations": [{ "function": "COUNT", "column": "*" }],
+      "ExpectedFilters": [
+        { "Column": "TicketPriorities.Name", "Op": "eq",  "Value": "Critical" },
+        { "Column": "Tickets.CreatedAt",      "Op": "gte", "Value": "@week_start" }
+      ],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-SF-1", "Question": "tickets created within one hour of their parent ticket",
+      "Category": "shape:CROSS/selfjoin+filter",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "FILTER",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-UG-1", "Question": "combined ticket and bill counts per region this quarter",
+      "Category": "shape:CROSS/union+groupby",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "GROUPBY",
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-RG-1", "Question": "ticket count per department branch including sub-departments",
+      "Category": "shape:CROSS/recursive+groupby",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "GROUPBY",
+      "ExpectedAggregations": [{ "function": "COUNT", "column": "*" }],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-AGH-1", "Question": "service types whose average bill amount exceeds 5000",
+      "Category": "shape:CROSS/aggregate+groupby+having",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "GROUPBY",
+      "ExpectedAggregations": [{ "function": "AVG", "column": "Bills.TotalAmount" }],
+      "ExpectedHaving": [{ "Function": "AVG", "Column": "Bills.TotalAmount", "Op": "gt", "Value": 5000 }],
+      "MaxLatencyMs": 180000 },
+
+    { "Code": "CROSS-AR-1", "Question": "أعلى ٥ مناطق من حيث عدد التذاكر هذا الربع",
+      "Category": "shape:CROSS/arabic/join+groupby+topn",
+      "Difficulty": "Hard", "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "TOPN",
+      "ExpectedAggregations": [{ "function": "COUNT", "column": "*" }],
+      "ExpectedFilters": [{ "Column": "Tickets.CreatedAt", "Op": "gte", "Value": "@quarter_start" }],
+      "MaxLatencyMs": 180000 }
+  ]
+}

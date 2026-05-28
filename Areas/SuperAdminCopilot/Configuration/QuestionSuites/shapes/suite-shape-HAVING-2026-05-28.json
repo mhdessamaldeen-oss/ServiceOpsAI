@@ -1,0 +1,15 @@
+{
+  "name": "Shape: HAVING multi-aggregate (groups filtered by multiple aggregate thresholds)",
+  "version": "1.0",
+  "description": "Groups filtered by MULTIPLE post-aggregation conditions. Routes through escape valve with HAVING multi-agg gold example.",
+  "Scenarios": [
+    { "Code": "HAV-1", "Question": "regions with more than 5 tickets and more than 3 outages", "Category": "shape:HAVING/multi-agg", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Regions", "ExpectedOperation": "HAVING", "ExpectedHavingFilters": [{ "function": "COUNT", "column": "Tickets.Id", "op": "gt", "value": 5 }, { "function": "COUNT", "column": "Outages.Id", "op": "gt", "value": 3 }], "MaxLatencyMs": 180000 },
+    { "Code": "HAV-2", "Question": "customers with at least 3 bills where the average exceeds 50000", "Category": "shape:HAVING/count+avg", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "HAVING", "ExpectedHavingFilters": [{ "function": "COUNT", "column": "Bills.Id", "op": "gte", "value": 3 }, { "function": "AVG", "column": "Bills.TotalAmount", "op": "gt", "value": 50000 }], "MaxLatencyMs": 180000 },
+    { "Code": "HAV-3", "Question": "departments with more than 10 tickets and average resolution under 24 hours", "Category": "shape:HAVING/count+avg-derived", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Departments", "ExpectedOperation": "HAVING", "MaxLatencyMs": 180000 },
+    { "Code": "HAV-4", "Question": "service types with more than 20 outages and average duration over 60 minutes", "Category": "shape:HAVING/count+duration", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "ServiceTypes", "ExpectedOperation": "HAVING", "MaxLatencyMs": 180000 },
+    { "Code": "HAV-5", "Question": "regions with fewer than 5 customers but more than 10 tickets", "Category": "shape:HAVING/lt+gt-mixed", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Regions", "ExpectedOperation": "HAVING", "MaxLatencyMs": 180000 },
+    { "Code": "HAV-6", "Question": "customers with 5 or more unpaid bills", "Category": "shape:HAVING/single-agg+filter", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "HAVING", "ExpectedHavingFilters": [{ "function": "COUNT", "column": "Bills.Id", "op": "gte", "value": 5 }], "ExpectedFilters": [{ "Column": "Bills.Status", "Op": "in", "Value": ["Issued", "Overdue"] }], "MaxLatencyMs": 180000 },
+
+    { "Code": "HAV-AR-1", "Question": "المناطق التي لديها أكثر من 5 تذاكر وأكثر من 3 انقطاعات", "Category": "shape:HAVING/arabic", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Regions", "ExpectedOperation": "HAVING", "MaxLatencyMs": 180000 }
+  ]
+}

@@ -236,9 +236,29 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
 
             using var context = await _contextFactory.CreateDbContextAsync(ct);
 
-            // The controller already creates and persists the session before this runs.
-            // We just need to resolve the session ID for message tracking.
-            int sessionId;
+            // Materialise + order once so we can group by SourceSuite below.
+            var orderedCases = suite
+                .OrderBy(item => item.LoadOrder)
+                .ThenBy(item => item.SortOrder)
+                .ThenBy(item => item.Question)
+                .ToList();
+
+            // Per user direction 2026-05-25: ONE CopilotChatSession PER SUITE FILE. A
+            // multi-suite run that picks suites A + B + C creates three sessions titled
+            // "A", "B", "C" — the session selector dropdown lists each separately, and
+            // every trace / chat message FKs back to its owning suite-session. Cases
+            // missing SourceSuite (legacy master catalog fallback) bucket under a single
+            // "super-admin-copilot" session so they still get a non-null SessionId.
+            var suiteGroups = orderedCases
+                .GroupBy(c => string.IsNullOrWhiteSpace(c.SourceSuite) ? "super-admin-copilot" : c.SourceSuite)
+                .OrderBy(g => g.Min(c => c.LoadOrder))
+                .ToList();
+
+            // PRIMARY session = the one the client already joined for SignalR progress
+            // updates (the controller created and returned it before this method ran).
+            // We reuse it as the FIRST suite's session so the client doesn't need to
+            // re-join SignalR groups mid-run; sessions 2..N are freshly created.
+            int primarySessionId;
             if (existingSessionId.HasValue)
             {
                 var existingSession = await context.CopilotChatSessions.FirstOrDefaultAsync(s => s.Id == existingSessionId.Value && !s.IsDeleted, ct);
@@ -246,15 +266,14 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                 {
                     existingSession.LastInteractionAt = DateTime.UtcNow;
                     await context.SaveChangesAsync(ct);
-                    sessionId = existingSession.Id;
+                    primarySessionId = existingSession.Id;
                 }
                 else
                 {
-                    // Fallback: create a new session if the passed one was somehow deleted
                     var session = CreateNewAssessmentSession(userId);
                     context.CopilotChatSessions.Add(session);
                     await context.SaveChangesAsync(ct);
-                    sessionId = session.Id;
+                    primarySessionId = session.Id;
                 }
             }
             else
@@ -262,22 +281,10 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                 var session = CreateNewAssessmentSession(userId);
                 context.CopilotChatSessions.Add(session);
                 await context.SaveChangesAsync(ct);
-                sessionId = session.Id;
+                primarySessionId = session.Id;
             }
 
-            report.SessionId = sessionId;
-
-            // Title = suite filename (without .json) so the Copilot UI dropdown shows exactly
-            // the suite the user picked. Per user direction 2026-05-19: just the suite name,
-            // no "Assessment Run" prefix, no timestamp — LastInteractionAt distinguishes reruns.
-            var primarySuiteFile = _activeSuiteFiles.FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(primarySuiteFile))
-            {
-                var suiteLabel = Path.GetFileNameWithoutExtension(primarySuiteFile);
-                await context.CopilotChatSessions
-                    .Where(s => s.Id == sessionId)
-                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.Title, suiteLabel), ct);
-            }
+            report.SessionId = primarySessionId;
 
             // Apply per-deployment default latency budget. Cases that set MaxLatencyMs explicitly
             // still win; this only changes the fallback applied to cases that leave it null. Setting
@@ -285,40 +292,54 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
             var defaultLatency = await GetDefaultAssessmentLatencyMsAsync(context, ct);
             CopilotAssessmentResult.DefaultMaxLatencyMs = defaultLatency;
 
-            var totalInSuite = suite.Count();
+            var totalInSuite = orderedCases.Count;
             var processedInSuite = 0;
 
-            // Initial progress notification
-            await _hubContext.Clients.Group(sessionId.ToString()).SendAsync("ProgressUpdate", processedInSuite, totalInSuite, runId);
+            // Initial progress notification — always targets the primary session group so the
+            // client's single SignalR subscription receives the entire multi-suite run's events.
+            await _hubContext.Clients.Group(primarySessionId.ToString()).SendAsync("ProgressUpdate", processedInSuite, totalInSuite, runId);
 
+            // Outer loop = one iteration per distinct suite file. Inner loop = the cases of
+            // that suite. Each suite opens its own session (the first reuses primarySessionId)
+            // and every chat message / trace inside that suite is FK'd to that suite's session.
+            // suiteSessionIds collects every session opened by this run so the empty-cleanup
+            // pass at the end can soft-delete suites whose cases all failed before persisting
+            // any user message — otherwise the Copilot session list ends up cluttered with
+            // empty "suite-baseline-…" rows that show no questions when clicked.
+            var suiteSessionIds = new List<int>();
+            var suiteIndex = 0;
+            foreach (var suiteGroup in suiteGroups)
+            {
+                var suiteLabel = suiteGroup.Key;
+                int suiteSessionId;
+                if (suiteIndex == 0)
+                {
+                    suiteSessionId = primarySessionId;
+                    await context.CopilotChatSessions
+                        .Where(s => s.Id == primarySessionId)
+                        .ExecuteUpdateAsync(s => s.SetProperty(x => x.Title, suiteLabel), ct);
+                }
+                else
+                {
+                    var nextSession = CreateNewAssessmentSession(userId);
+                    nextSession.Title = suiteLabel;
+                    context.CopilotChatSessions.Add(nextSession);
+                    await context.SaveChangesAsync(ct);
+                    suiteSessionId = nextSession.Id;
+                }
+                suiteSessionIds.Add(suiteSessionId);
+                suiteIndex++;
 
-            // Multi-suite contract: process every scenario from the first picked suite to
-            // completion before touching the next suite — LoadOrder is monotonic across suites
-            // in the order the user selected them. Single-suite runs leave LoadOrder = 0, so
-            // the existing SortOrder / Question tiebreakers still control order.
-            foreach (var testCase in suite
-                .OrderBy(item => item.LoadOrder)
-                .ThenBy(item => item.SortOrder)
-                .ThenBy(item => item.Question))
+            foreach (var testCase in suiteGroup)
             {
                 ct.ThrowIfCancellationRequested();
 
-                // ── One session per suite-run (UI grouping) ───────────────────────
-                // Per user instruction 2026-05-19: all cases of a single suite-run share ONE
-                // CopilotChatSessions row so the Copilot UI's "open this session" view shows the
-                // whole assessment as a single conversation. Trade-off: the orchestrator's
-                // _specMemory + _refinementDetector (keyed by ConversationId, which the bridge
-                // derives from SessionId) will see case N's spec when case N+1 starts — which
-                // could cause case N+1 to be detected as a refinement. The user explicitly
-                // accepts that trade-off: UI consistency over per-case isolation.
-                //
-                // Multi-turn cases (those with SeedHistory) still work correctly because the
-                // refinement detector compares the question text against the seed-turn, not
-                // against arbitrary prior cases.
-                //
-                // (Previous design — per-case session for SpecMemory isolation — was reverted
-                // here; older runs' data is consolidated via Tests/consolidate-sessions.sql.)
-                var caseSessionId = sessionId;
+                // Every case in this suite-group FKs to suiteSessionId (one session per
+                // suite file). Multi-turn refinement cases still work because each case's
+                // SeedHistory is replayed against the same suiteSessionId before the test
+                // question fires — the _specMemory / _refinementDetector both key off
+                // ConversationId (= sessionId.ToString()) and see the seeded prior spec.
+                var caseSessionId = suiteSessionId;
 
                 try
                 {
@@ -356,10 +377,15 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                         }
                     }
 
-                    // Queue both the user message and (later) the assistant message in the same
-                    // change-tracker batch — they get flushed together after the pipeline runs.
-                    // Previously two separate SaveChangesAsync per case meant 2 × N round-trips
-                    // for an N-case suite (200 RTs for a 100-case run); now it's N.
+                    // Save the user message EAGERLY (one round-trip) before the bridge call.
+                    // Pre-2026-05-25 this was batched with the assistant message into one save
+                    // after AskAsync returned — but if AskAsync threw (Ollama timeout, bridge
+                    // exception, etc.) the userMsg was discarded with the change tracker, and
+                    // the suite-session ended up with zero messages even though the assessment
+                    // "ran" the case. With per-suite sessions a suite whose cases all fail
+                    // looked completely empty in the Copilot session list. Trade-off: 2× the
+                    // round-trips per case (200 instead of 100 for a 100-case run); acceptable
+                    // given how rare 100+ case suites are and how confusing empty sessions are.
                     var userMsg = new CopilotChatMessageEntity
                     {
                         SessionId = caseSessionId,
@@ -368,6 +394,7 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                         CreatedAt = DateTime.UtcNow
                     };
                     context.CopilotChatMessages.Add(userMsg);
+                    await context.SaveChangesAsync(ct);
 
                     var request = new CopilotChatRequest
                     {
@@ -396,9 +423,6 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                     var response = await _superAdminCopilotChatBridge.AskAsync(request, ct);
                     var endTime = DateTime.UtcNow;
 
-                    // Save both messages in one SaveChanges — user message was queued before the
-                    // bridge call (tracker only, no DB write), assistant message added here, then
-                    // a single round-trip persists the pair. Halves the per-case write count.
                     var assistantMsg = new CopilotChatMessageEntity
                     {
                         SessionId = caseSessionId,
@@ -478,10 +502,10 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
 
                     await CacheTraceAssessmentAsync(context, result, ct);
                     report.Results.Add(result);
-                    
+
                     processedInSuite++;
-                    await _hubContext.Clients.Group(sessionId.ToString()).SendAsync("ProgressUpdate", processedInSuite, totalInSuite, runId);
-                    await _hubContext.Clients.Group(sessionId.ToString()).SendAsync("CaseCompleted", new {
+                    await _hubContext.Clients.Group(primarySessionId.ToString()).SendAsync("ProgressUpdate", processedInSuite, totalInSuite, runId);
+                    await _hubContext.Clients.Group(primarySessionId.ToString()).SendAsync("CaseCompleted", new {
                         Id = result.Case.Id,
                         IsSuccess = result.IsSuccess,
                         LatencyMs = result.LatencyMs,
@@ -497,6 +521,23 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
 
 
                 }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    // Caller explicitly canceled — honor it, stop the loop.
+                    throw;
+                }
+                catch (OperationCanceledException ocEx)
+                {
+                    // Inner cancellation (HttpClient timeout, internal token) bubbled up but
+                    // OUR caller's token is still active. Treat as per-case failure and continue.
+                    // Without this catch, a single Ollama timeout kills the whole assessment loop.
+                    _logger.LogWarning(ocEx, "Inner cancellation in case {Code} — recording failure and continuing", testCase.Code);
+                    report.Results.Add(new CopilotAssessmentResult
+                    {
+                        Case = testCase,
+                        FailureReason = "inner cancellation (likely LLM call timeout): " + ocEx.GetBaseException().Message
+                    });
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to run assessment case: {Question}", testCase.Question);
@@ -510,11 +551,46 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                 // Throttle between cases to stay under provider rate limits (Gemini free tier = 10 RPM).
                 // Reads from the GeminiAssessmentDelayMs system setting; default 7000ms (≈8.5 RPM with margin).
                 // Skips the delay after the last case so we don't pad the total run time.
+                // Task.Delay uses ct, but we catch any cancellation so the loop continues — only
+                // an EXPLICIT caller-token cancellation aborts the suite.
                 if (processedInSuite < totalInSuite)
                 {
-                    var delayMs = await GetAssessmentDelayMsAsync(context, ct);
-                    if (delayMs > 0) await Task.Delay(delayMs, ct);
+                    try
+                    {
+                        var delayMs = await GetAssessmentDelayMsAsync(context, ct);
+                        if (delayMs > 0) await Task.Delay(delayMs, ct);
+                    }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                    catch (OperationCanceledException) { /* inner CT canceled — continue loop */ }
                 }
+            } // end: foreach testCase in suiteGroup
+            } // end: foreach suiteGroup in suiteGroups
+
+            // Soft-delete any suite-session that finished with zero chat messages — a suite
+            // whose every case failed before its userMsg saved would otherwise leave a stale
+            // empty row in the Copilot session list. The primary session is excluded so the
+            // controller / SignalR group reference stays valid even when nothing landed in it.
+            try
+            {
+                var cleanupCandidates = suiteSessionIds.Where(id => id != primarySessionId).ToList();
+                if (cleanupCandidates.Count > 0)
+                {
+                    var emptyIds = await context.CopilotChatSessions
+                        .Where(s => cleanupCandidates.Contains(s.Id) && !s.IsDeleted && !s.Messages.Any())
+                        .Select(s => s.Id)
+                        .ToListAsync(ct);
+                    if (emptyIds.Count > 0)
+                    {
+                        await context.CopilotChatSessions
+                            .Where(s => emptyIds.Contains(s.Id))
+                            .ExecuteUpdateAsync(s => s.SetProperty(x => x.IsDeleted, true), ct);
+                        _logger.LogInformation("[Assessment] soft-deleted {Count} empty suite session(s): {Ids}", emptyIds.Count, string.Join(",", emptyIds));
+                    }
+                }
+            }
+            catch (Exception cleanupEx)
+            {
+                _logger.LogWarning(cleanupEx, "[Assessment] empty-session cleanup failed — non-fatal");
             }
 
             report.TotalCases = report.Results.Count;

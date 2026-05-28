@@ -132,11 +132,15 @@ internal sealed class SchemaInferenceGenerator : ISchemaInferenceGenerator
             fk => $"{fk.ReferencedTable}.{fk.ReferencedColumn}",
             StringComparer.OrdinalIgnoreCase);
 
-        var labelColumn = DetectLabelColumn(columns);
         var softDeleteColumn = DetectSoftDeleteColumn(columns);
         var naturalKey = DetectNaturalKey(columns, keys, pkSet);
         var dateRoles = DetectDateRoles(columns);
         var piiSet = DetectPiiColumns(columns);
+        // LabelColumn: prefer a display-friendly column (Name/Title/FullName/…); fall back
+        // to the NaturalKey when nothing display-friendly exists. This catches transactional
+        // entities like Payments / ServiceAccounts / ServicePoints / CallLogs whose only
+        // user-visible identifier IS the natural key (PaymentReference, AccountNumber, …).
+        var labelColumn = DetectLabelColumn(columns) ?? naturalKey;
 
         var enriched = columns.Select(c => BuildColumn(c, pkSet, fkColumnRefs, labelColumn, softDeleteColumn, naturalKey, dateRoles, piiSet)).ToList();
 
@@ -160,6 +164,9 @@ internal sealed class SchemaInferenceGenerator : ISchemaInferenceGenerator
             Columns = enriched,
             ForeignKeysOut = fksOut.Select(fk => new ForeignKeyRef(fk.ParentColumn, fk.ReferencedTable, fk.ReferencedColumn)).ToList(),
             ReferencedBy = fksIn.Select(fk => new ReferencedByRef(fk.ParentTable, fk.ParentColumn)).ToList(),
+            // English synonyms: singular + plural of the table name, plus a small
+            // utility-domain dictionary. Arabic comes from overrides.
+            Synonyms = GenerateTableSynonyms(table.Name),
             Source = SpecConstants.InferenceSources.Heuristic,
         };
     }
@@ -193,7 +200,206 @@ internal sealed class SchemaInferenceGenerator : ISchemaInferenceGenerator
             FkRole = role == SpecConstants.ColumnRoles.ForeignKey ? InferFkRole(c.ColumnName) : null,
             References = fkColumnRefs.TryGetValue(c.ColumnName, out var fr) ? fr : null,
             IsPii = piiSet.Contains(c.ColumnName),
+            // Column synonyms: camelCase → space-separated form so the planner matches user phrasing
+            // "account number" against `AccountNumber`. Skips PKs, FKs, audit cols, and bilingual
+            // duplicates (NameAr is covered by overrides, not auto). Returns null when nothing useful.
+            Synonyms = GenerateColumnSynonyms(c.ColumnName, role),
         };
+    }
+
+    // ── Synonym generation (English-only; Arabic comes from overrides) ───────────────
+
+    /// <summary>Small domain dictionary mapping a canonical entity to alternate English forms.
+    /// Keys are the entity SINGULAR (Customer, not Customers). Order in the value list
+    /// is significant — most-common-first improves planner ranking.</summary>
+    private static readonly Dictionary<string, string[]> TableSynonymDictionary = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // People / parties
+        ["Customer"]            = new[] { "client", "subscriber", "account holder", "consumer" },
+        ["ApplicationUser"]     = new[] { "user", "agent", "staff", "employee" },
+        ["Technician"]          = new[] { "field engineer", "engineer", "field worker", "fitter", "lineman" },
+        // Money
+        ["Bill"]                = new[] { "invoice", "charge", "statement" },
+        ["Payment"]             = new[] { "transaction", "settlement", "remittance" },
+        ["Tariff"]              = new[] { "price plan", "rate plan", "pricing" },
+        ["TariffTier"]          = new[] { "price bracket", "rate bracket", "block", "slab" },
+        ["Subsidy"]             = new[] { "discount", "rebate", "credit", "relief" },
+        ["Currency"]            = new[] { "money", "fx" },
+        ["PaymentMethod"]       = new[] { "payment channel", "payment mode" },
+        // Service / contract
+        ["ServiceAccount"]      = new[] { "contract", "subscription", "account" },
+        ["ServicePoint"]        = new[] { "meter location", "premises", "site", "address" },
+        ["CustomerSegment"]     = new[] { "segment", "customer class", "tariff class", "category" },
+        ["ServiceType"]         = new[] { "service", "utility", "service kind" },
+        // Operations
+        ["Outage"]              = new[] { "blackout", "disconnection", "service disruption", "interruption" },
+        ["WorkOrder"]           = new[] { "field job", "dispatch", "job ticket", "task" },
+        ["Asset"]               = new[] { "equipment", "infrastructure", "facility", "asset" },
+        ["MaintenanceSchedule"] = new[] { "planned maintenance", "maintenance window", "planned outage", "service window" },
+        ["MeterReading"]        = new[] { "reading", "consumption record", "meter snapshot" },
+        // Customer voice
+        ["CallLog"]             = new[] { "contact", "call record", "interaction" },
+        ["OutageNotification"]  = new[] { "alert", "sms notification", "outage alert" },
+        ["SlaPolicy"]           = new[] { "sla", "service level", "response policy" },
+        ["CsatResponse"]        = new[] { "csat", "satisfaction survey", "feedback", "rating" },
+        // Tickets
+        ["Ticket"]              = new[] { "issue", "case", "complaint", "report", "problem" },
+        ["TicketComment"]       = new[] { "comment", "note", "remark" },
+        // Geo
+        ["Country"]             = new[] { "nation" },
+        ["Region"]              = new[] { "district", "governorate", "area", "zone" },
+        ["Department"]          = new[] { "team", "unit", "division" },
+    };
+
+    /// <summary>
+    /// Produce an English synonym set for an entity. Strategy:
+    ///   1. Canonical lowercase form of the table name → singular and plural (best-effort).
+    ///   2. Splits CamelCase into a space-separated form (ServiceAccount → "service account").
+    ///   3. Looks up the singular form in the domain dictionary and adds those entries.
+    /// Returns the deduplicated lowercase list. Arabic synonyms are NOT generated here —
+    /// they belong in schema-overrides.json where humans can add them after schema changes.
+    /// </summary>
+    private static List<string> GenerateTableSynonyms(string tableName)
+    {
+        if (string.IsNullOrEmpty(tableName)) return new List<string>();
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var singular = Singularize(tableName);                   // Tickets → Ticket; Bills → Bill
+        var plural = Pluralize(singular);                        // Ticket → Tickets
+
+        // 1. canonical lower
+        result.Add(singular.ToLowerInvariant());
+        result.Add(plural.ToLowerInvariant());
+
+        // 2. camelCase split (ServiceAccount → "service account") for both singular and plural
+        var singularSplit = SplitCamelCase(singular).ToLowerInvariant();
+        if (singularSplit != singular.ToLowerInvariant()) result.Add(singularSplit);
+        var pluralSplit = SplitCamelCase(plural).ToLowerInvariant();
+        if (pluralSplit != plural.ToLowerInvariant()) result.Add(pluralSplit);
+
+        // 3. domain dictionary
+        if (TableSynonymDictionary.TryGetValue(singular, out var domain))
+        {
+            foreach (var d in domain)
+            {
+                result.Add(d.ToLowerInvariant());
+                // also add a plural form of multi-word domain entries when it's a single word
+                if (!d.Contains(' ')) result.Add(Pluralize(d).ToLowerInvariant());
+            }
+        }
+
+        // Skip listing the original singular twice in the output ordering — preserve
+        // singular → plural → splits → domain.
+        return result.ToList();
+    }
+
+    /// <summary>
+    /// Per-column English synonyms. Today this is just a camelCase split with stop-word
+    /// removal, surfaced only for columns the planner is likely to reference in a question
+    /// (Label, NaturalKey, Date, or non-system text columns). PKs / FKs / audit cols return
+    /// null so the synonym list stays meaningful.
+    /// </summary>
+    private static List<string>? GenerateColumnSynonyms(string columnName, string? role)
+    {
+        if (string.IsNullOrEmpty(columnName)) return null;
+        if (role == SpecConstants.ColumnRoles.PrimaryKey
+            || role == SpecConstants.ColumnRoles.ForeignKey
+            || role == SpecConstants.ColumnRoles.Audit
+            || role == SpecConstants.ColumnRoles.SoftDelete)
+        {
+            return null;
+        }
+
+        var split = SplitCamelCase(columnName).ToLowerInvariant();
+        // The column name already exists as the canonical reference — only emit a synonym
+        // when the split form differs (which is the user-friendlier phrasing).
+        if (split == columnName.ToLowerInvariant()) return null;
+
+        var result = new List<string> { split };
+        // Common abbreviations: "number" → "no" / "#"
+        if (split.EndsWith(" number"))
+        {
+            var stem = split[..^7];
+            result.Add(stem + " no");
+            result.Add(stem + " #");
+        }
+        return result;
+    }
+
+    /// <summary>Split CamelCase / PascalCase into space-separated lowercase words.
+    /// "ServiceAccount" → "service account"; "WorkOrderId" → "work order id".</summary>
+    private static string SplitCamelCase(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return s;
+        var sb = new StringBuilder(s.Length + 4);
+        for (int i = 0; i < s.Length; i++)
+        {
+            var ch = s[i];
+            if (i > 0 && char.IsUpper(ch) && (char.IsLower(s[i - 1]) || (i + 1 < s.Length && char.IsLower(s[i + 1]))))
+                sb.Append(' ');
+            sb.Append(ch);
+        }
+        return sb.ToString();
+    }
+
+    // Irregular plurals + nouns that are unchanged in the plural. Checked before the regular
+    // rules so "lineman" → "linemen" (not "linemans"), "fx" / "money" / "premises" stay as-is.
+    private static readonly Dictionary<string, string> IrregularPlurals = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["lineman"]  = "linemen",
+        ["man"]      = "men",
+        ["woman"]    = "women",
+        ["child"]    = "children",
+        ["foot"]     = "feet",
+        ["tooth"]    = "teeth",
+        ["person"]   = "people",
+        ["mouse"]    = "mice",
+        ["datum"]    = "data",
+    };
+
+    // Words that are the SAME singular and plural (or where applying English plural rules
+    // would produce something silly). Returning the input unchanged is correct.
+    private static readonly HashSet<string> UncountableOrInvariant = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "money", "fx", "premises", "series", "species", "fish", "sheep",
+        "equipment", "infrastructure", "feedback", "information", "evidence",
+        "software", "hardware", "data",
+    };
+
+    /// <summary>Best-effort pluralization. Handles irregulars + invariants first, then common
+    /// rules (s, es, ies).</summary>
+    private static string Pluralize(string word)
+    {
+        if (string.IsNullOrEmpty(word)) return word;
+        if (UncountableOrInvariant.Contains(word)) return word;
+        if (IrregularPlurals.TryGetValue(word, out var irreg)) return irreg;
+        if (word.EndsWith("s", StringComparison.OrdinalIgnoreCase)) return word;     // already plural
+        if (word.EndsWith("y", StringComparison.OrdinalIgnoreCase) && word.Length > 1
+            && !"aeiou".Contains(char.ToLowerInvariant(word[^2])))
+            return word[..^1] + "ies";                                                // Currency → Currencies
+        if (word.EndsWith("ch", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("sh", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("x",  StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("z",  StringComparison.OrdinalIgnoreCase))
+            return word + "es";
+        return word + "s";
+    }
+
+    /// <summary>Inverse of Pluralize — drops s/es/ies. Used to canonicalise table names.</summary>
+    private static string Singularize(string word)
+    {
+        if (string.IsNullOrEmpty(word)) return word;
+        if (word.EndsWith("ies", StringComparison.OrdinalIgnoreCase) && word.Length > 3)
+            return word[..^3] + "y";                                                  // Currencies → Currency
+        if (word.EndsWith("ses", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("xes", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("ches", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("shes", StringComparison.OrdinalIgnoreCase))
+            return word[..^2];                                                        // Boxes → Box
+        if (word.EndsWith("s", StringComparison.OrdinalIgnoreCase) && word.Length > 1
+            && !word.EndsWith("ss", StringComparison.OrdinalIgnoreCase))
+            return word[..^1];                                                        // Tickets → Ticket
+        return word;
     }
 
     /// <summary>
@@ -258,8 +464,28 @@ internal sealed class SchemaInferenceGenerator : ISchemaInferenceGenerator
 
     // ── Heuristic rules ───────────────────────────────────────────────────────────────
 
+    // Ordered most-display-friendly first. Bilingual `*En` variants come AFTER plain
+    // `Name`/`Title` so legacy tables that have BOTH (e.g. Departments has Name + NameEn)
+    // keep their existing label choice for compat. `Description` falls late since it's
+    // long-form prose, not a label. `Code` is last because the NaturalKey detector
+    // already captures codes — using one as a label too would be a duplicate.
     private static readonly string[] LabelPriority =
-        { "Name", "Title", "DisplayName", "Description", "Label", "Code" };
+    {
+        // Generic English display names (with bilingual fallback)
+        "Name", "NameEn",
+        "Title", "TitleEn",
+        "FullName", "FullNameEn",
+        "DisplayName", "DisplayNameEn",
+        "Label", "LabelEn",
+        // Domain-specific names (Phase 06)
+        "ProgramName", "ProgramNameEn",
+        // Person FirstName as last-resort person label
+        "FirstName",
+        // Long-form prose (avoid unless nothing else)
+        "Description",
+        // Codes (NaturalKey covers the same role)
+        "Code",
+    };
 
     private static string? DetectLabelColumn(List<ColumnInfo> cols)
     {
@@ -351,16 +577,53 @@ internal sealed class SchemaInferenceGenerator : ISchemaInferenceGenerator
         return result;
     }
 
+    // Order matters: more-specific phrases first so e.g. "DeactivatedAt" matches
+    // "deactivat" before the generic "activat". Each rule's substring is checked against
+    // a lower-cased column name. The list is utility-domain enriched (Phase 06) — every
+    // new `*At` column from the new Billing / Field-Ops / Customer Voice tables maps to
+    // a role here without any per-table config.
     private static string? DateRoleFor(string columnName)
     {
         var lower = columnName.ToLowerInvariant();
+
+        // — Lifecycle reversals (must precede their forward counterparts) —
+        if (lower.Contains("deactivat") || lower.Contains("terminat") || lower.Contains("decommiss"))
+            return lower.Contains("decommiss") ? SpecConstants.DateRoles.Decommissioned : SpecConstants.DateRoles.Deactivated;
+        if (lower.Contains("churned")) return SpecConstants.DateRoles.Churned;
+
+        // — Core lifecycle —
         if (lower.Contains("create") || lower.Contains("added") || lower.Contains("inserted")) return SpecConstants.DateRoles.Created;
-        if (lower.Contains("update") || lower.Contains("modified") || lower.Contains("changed")) return SpecConstants.DateRoles.Modified;
+        if (lower.Contains("update") || lower.Contains("modified") || lower.Contains("changed") || lower.Contains("edited")) return SpecConstants.DateRoles.Modified;
         if (lower.Contains("delete") || lower.Contains("removed")) return SpecConstants.DateRoles.Deleted;
         if (lower.Contains("complete") || lower.Contains("finished") || lower.Contains("closed")) return SpecConstants.DateRoles.Completed;
         if (lower.Contains("resolved")) return SpecConstants.DateRoles.Resolved;
-        if (lower.Contains("started") || lower.Contains("opened")) return SpecConstants.DateRoles.Started;
-        if (lower.Contains("scheduled") || lower.Contains("planned") || lower.Contains("due")) return SpecConstants.DateRoles.Due;
+        if (lower.Contains("approv")) return SpecConstants.DateRoles.Approved;
+        if (lower.Contains("escalat")) return SpecConstants.DateRoles.Escalated;
+        if (lower.Contains("respond")) return SpecConstants.DateRoles.Responded;
+
+        // — Billing / contract —
+        if (lower.Contains("paid") || lower.Contains("payment") || lower.Contains("settled")) return SpecConstants.DateRoles.Paid;
+        if (lower.Contains("issued") || lower.Contains("invoiced")) return SpecConstants.DateRoles.Issued;
+        if (lower.Contains("effective")) return SpecConstants.DateRoles.Effective;
+        if (lower.Contains("activated") || lower.Contains("activatedat") || lower.Contains("signup") || lower.Contains("signed")) return lower.Contains("signup") || lower.Contains("signed") ? SpecConstants.DateRoles.Signup : SpecConstants.DateRoles.Activated;
+
+        // — Field ops —
+        if (lower.Contains("dispatch")) return SpecConstants.DateRoles.Dispatched;
+        if (lower.Contains("arrived") || lower.Contains("onsite")) return SpecConstants.DateRoles.Arrived;
+        if (lower.Contains("commiss")) return SpecConstants.DateRoles.Commissioned;
+        if (lower.Contains("installed") || lower.Contains("install")) return SpecConstants.DateRoles.Installed;
+        if (lower.Contains("hired")) return SpecConstants.DateRoles.Hired;
+
+        // — Notifications —
+        if (lower.Contains("sent")) return SpecConstants.DateRoles.Sent;
+        if (lower.Contains("delivered")) return SpecConstants.DateRoles.Delivered;
+        if (lower.EndsWith("readat") || lower == "read" || lower.Contains("readat")) return SpecConstants.DateRoles.Read;
+
+        // — Generic schedule / start / due (must come last; broad matches) —
+        if (lower.Contains("scheduled") || lower.Contains("planned")) return SpecConstants.DateRoles.Scheduled;
+        if (lower.Contains("started") || lower.Contains("opened") || lower.Contains("begin")) return SpecConstants.DateRoles.Started;
+        if (lower.Contains("due")) return SpecConstants.DateRoles.Due;
+
         return null;
     }
 

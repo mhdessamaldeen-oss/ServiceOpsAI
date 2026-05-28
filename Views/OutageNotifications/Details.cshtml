@@ -1,0 +1,26 @@
+@model ServiceOpsAI.Models.OutageNotification
+@{ ViewData["Title"] = "Notification Details"; }
+
+<h2><i class="bi bi-bell-fill"></i> Notification</h2>
+
+<div class="card shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Outage</dt><dd class="col-sm-9"><code>@Model.Outage?.OutageNumber</code></dd>
+            <dt class="col-sm-3">Maintenance</dt><dd class="col-sm-9"><code>@Model.MaintenanceSchedule?.ScheduleNumber</code></dd>
+            <dt class="col-sm-3">Customer</dt><dd class="col-sm-9">@Model.Customer?.FullNameEn / <span dir="rtl">@Model.Customer?.FullNameAr</span></dd>
+            <dt class="col-sm-3">Service Account</dt><dd class="col-sm-9"><code>@Model.ServiceAccount?.AccountNumber</code></dd>
+            <dt class="col-sm-3">Channel / Status</dt><dd class="col-sm-9">@Model.Channel / @Model.Status</dd>
+            <dt class="col-sm-3">Sent To Phone / Email</dt><dd class="col-sm-9">@Model.SentToPhone @(string.IsNullOrEmpty(Model.SentToEmail) ? "" : "/ " + Model.SentToEmail)</dd>
+            <dt class="col-sm-3">Sent</dt><dd class="col-sm-9">@Model.SentAt.ToString("yyyy-MM-dd HH:mm")</dd>
+            <dt class="col-sm-3">Delivered</dt><dd class="col-sm-9">@(Model.DeliveredAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</dd>
+            <dt class="col-sm-3">Read</dt><dd class="col-sm-9">@(Model.ReadAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</dd>
+            <dt class="col-sm-3">Message (EN)</dt><dd class="col-sm-9">@Model.MessageEn</dd>
+            <dt class="col-sm-3">Message (AR)</dt><dd class="col-sm-9" dir="rtl">@Model.MessageAr</dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>

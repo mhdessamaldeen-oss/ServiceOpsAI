@@ -1,0 +1,14 @@
+{
+  "name": "Shape: SELF-JOIN (other X from same Y as Z)",
+  "version": "1.0",
+  "description": "Self-join shapes — relate one row to other rows of the same table sharing an attribute. Routes through escape valve with self-join gold example.",
+  "Scenarios": [
+    { "Code": "SELF-1", "Question": "other tickets from the same customer as TKT-00020", "Category": "shape:SELFJOIN/same-customer", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "SELF_JOIN", "ExpectedFilters": [{ "Column": "Tickets.TicketNumber", "Op": "eq", "Value": "TKT-00020" }], "MaxLatencyMs": 180000 },
+    { "Code": "SELF-2", "Question": "other bills from the same customer as ELEC-2024-05-000001", "Category": "shape:SELFJOIN/same-customer-bills", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "SELF_JOIN", "MaxLatencyMs": 180000 },
+    { "Code": "SELF-3", "Question": "other customers in the same region as customer with national ID 123456", "Category": "shape:SELFJOIN/same-region", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "SELF_JOIN", "MaxLatencyMs": 180000 },
+    { "Code": "SELF-4", "Question": "tickets created by the same agent as TKT-00010", "Category": "shape:SELFJOIN/same-agent", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "SELF_JOIN", "MaxLatencyMs": 180000 },
+    { "Code": "SELF-5", "Question": "outages affecting the same region as outage OUT-2024-06-005", "Category": "shape:SELFJOIN/same-region-outage", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Outages", "ExpectedOperation": "SELF_JOIN", "MaxLatencyMs": 180000 },
+
+    { "Code": "SELF-AR-1", "Question": "تذاكر أخرى من نفس العميل كـ TKT-00050", "Category": "shape:SELFJOIN/arabic", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "SELF_JOIN", "MaxLatencyMs": 180000 }
+  ]
+}

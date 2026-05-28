@@ -316,7 +316,10 @@
             }
         }
 
-        // Sub-steps (nested events recorded inside this stage).
+        // Sub-steps (nested events recorded inside this stage). For an LLM-call sub-step
+        // (e.g. "LLM call (Explainer)") surface the same structured payload — model + tokens
+        // + cost + Input/Output/Reason/Details — as the parent step. The old layout dumped
+        // sub.TechnicalData as raw JSON, which hid the prompt/response from the user.
         if (step.SubSteps is { Count: > 0 })
         {
             det.Append($@"
@@ -327,6 +330,7 @@
             {
                 var subOk = sub.Status == CopilotStepStatus.Ok;
                 var subTokens = (sub.PromptTokens ?? 0) + (sub.CompletionTokens ?? 0);
+                var subIsLlm = subTokens > 0 || !string.IsNullOrEmpty(sub.LlmModelUsed);
                 det.Append($@"<li class='wfdetail-substep {(subOk ? "ok" : "err")}'>
                     <div class='wfdetail-substep-row'>
                         <i class='bi {(subOk ? "bi-check-circle text-success" : "bi-x-circle text-danger")}'></i>
@@ -335,13 +339,81 @@
                 {
                     det.Append($@"<span class='wfdetail-substep-detail'>— {System.Net.WebUtility.HtmlEncode(sub.Detail)}</span>");
                 }
+                if (!string.IsNullOrEmpty(sub.LlmModelUsed))
+                {
+                    det.Append($@"<span class='wfdetail-chip small' title='model used'><i class='bi bi-box'></i> {System.Net.WebUtility.HtmlEncode(sub.LlmModelUsed)}</span>");
+                }
                 if (subTokens > 0)
                 {
                     det.Append($@"<span class='wfdetail-chip tokens small'><i class='bi bi-hash'></i> {subTokens:N0} tok</span>");
                 }
+                if (sub.EstimatedCostUsd.HasValue)
+                {
+                    var sc = sub.EstimatedCostUsd.Value;
+                    var scStr = sc == 0 ? "free" : (sc >= 0.01m ? $"${sc:F4}" : $"${sc:F6}");
+                    det.Append($@"<span class='wfdetail-chip cost small {(sc == 0 ? "free" : "")}'><i class='bi bi-currency-dollar'></i> {scStr}</span>");
+                }
                 det.Append($@"<span class='wfdetail-substep-time'>{formatMs(sub.ElapsedMs)}</span>
                     </div>");
-                if (!string.IsNullOrWhiteSpace(sub.TechnicalData))
+
+                // LLM-call grid (model + tokens + cost + elapsed) when the sub-step is an LLM call.
+                if (subIsLlm)
+                {
+                    var subCostStr = sub.EstimatedCostUsd.HasValue
+                        ? (sub.EstimatedCostUsd.Value == 0
+                            ? "free"
+                            : (sub.EstimatedCostUsd.Value >= 0.01m ? $"${sub.EstimatedCostUsd.Value:F4}" : $"${sub.EstimatedCostUsd.Value:F6}"))
+                        : "—";
+                    det.Append($@"
+                        <div class='wfdetail-llm-grid wfdetail-substep-llm'>
+                            <div><span class='wfdetail-k'>Model</span><span class='wfdetail-v'>{System.Net.WebUtility.HtmlEncode(sub.LlmModelUsed ?? "—")}</span></div>
+                            <div><span class='wfdetail-k'>Prompt</span><span class='wfdetail-v'>{(sub.PromptTokens ?? 0):N0} tok</span></div>
+                            <div><span class='wfdetail-k'>Completion</span><span class='wfdetail-v'>{(sub.CompletionTokens ?? 0):N0} tok</span></div>
+                            <div><span class='wfdetail-k'>Total tokens</span><span class='wfdetail-v'>{subTokens:N0}</span></div>
+                            <div><span class='wfdetail-k'>Cost</span><span class='wfdetail-v'>{subCostStr}</span></div>
+                            <div><span class='wfdetail-k'>Elapsed</span><span class='wfdetail-v'>{formatMs(sub.ElapsedMs)}</span></div>
+                        </div>");
+                }
+
+                // Structured payload sections — same as the parent step. Legacy / non-v1
+                // payloads fall through to the raw pre-block so older traces aren't blanked.
+                var subPayload = parsePayload(sub.TechnicalData);
+                if (subPayload.Kind is not null)
+                {
+                    if (!string.IsNullOrEmpty(subPayload.Reason))
+                    {
+                        det.Append($@"
+                            <div class='wfdetail-section wfdetail-substep-section'>
+                                <div class='wfdetail-section-label'><i class='bi bi-signpost-split'></i> Decision rationale</div>
+                                <div class='wfdetail-desc'>{System.Net.WebUtility.HtmlEncode(subPayload.Reason)}</div>
+                            </div>");
+                    }
+                    if (!string.IsNullOrEmpty(subPayload.Input))
+                    {
+                        det.Append($@"
+                            <div class='wfdetail-section wfdetail-substep-section'>
+                                <div class='wfdetail-section-label'><i class='bi bi-box-arrow-in-right'></i> Input</div>
+                                {renderBlob("Input", subPayload.Input!)}
+                            </div>");
+                    }
+                    if (!string.IsNullOrEmpty(subPayload.Output))
+                    {
+                        det.Append($@"
+                            <div class='wfdetail-section wfdetail-substep-section'>
+                                <div class='wfdetail-section-label'><i class='bi bi-box-arrow-right'></i> Output</div>
+                                {renderBlob("Output", subPayload.Output!)}
+                            </div>");
+                    }
+                    if (!string.IsNullOrEmpty(subPayload.DetailsJson))
+                    {
+                        det.Append($@"
+                            <div class='wfdetail-section wfdetail-substep-section'>
+                                <div class='wfdetail-section-label'><i class='bi bi-braces'></i> Details</div>
+                                {renderBlob("Details", subPayload.DetailsJson!)}
+                            </div>");
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(sub.TechnicalData))
                 {
                     det.Append($@"<pre class='wfdetail-tech wfdetail-tech-sub'>{System.Net.WebUtility.HtmlEncode(sub.TechnicalData)}</pre>");
                 }

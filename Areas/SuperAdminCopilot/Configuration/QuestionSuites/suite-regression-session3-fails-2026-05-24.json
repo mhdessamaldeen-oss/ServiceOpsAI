@@ -1,0 +1,484 @@
+{
+  "name": "Suite — Regression: session 3 failed cases (52)",
+  "version": "1.0",
+  "description": "All 52 cases that errored in session 3 of suite-comprehensive-syria-2026-05-24 (run on 2026-05-24). Same JSON shape as the source suite. Re-run after applying fixes to verify regressions are resolved without breaking the 174 cases that already passed. Failure mix: 18 false refusals (classifier over-aggressive), 12 empty-root (spec extractor weakness), 6 placeholder leakage (entity resolution missing), 6 JSON parse failures (local model JSON-mode), ~5 column hallucinations (schema linking), 3 date conversion, 2 degenerate TOP-N, 1 tool 404.",
+  "Scenarios": [
+    {
+      "Code": "CMP-AGG-009",
+      "Question": "average meter reading per customer",
+      "Category": "AGG",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "MeterReadings",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-AI-003",
+      "Question": "average AI processing time",
+      "Category": "AGG",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "TicketAiAnalyses",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-AI-004",
+      "Question": "AI analyses with low confidence",
+      "Category": "SEL",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "TicketAiAnalyses",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-AR-008",
+      "Question": "أي إدارة لديها أسوأ تقييم رضا؟",
+      "Category": "RNK",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Departments",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-AR-009",
+      "Question": "ما سبب ارتفاع فواتير كهرباء حلب في سبتمبر 2025؟",
+      "Category": "PD",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tariffs",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-AR-010",
+      "Question": "عدد التذاكر في كل محافظة",
+      "Category": "GRP",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-AR-012",
+      "Question": "العملاء النشطين في دمشق",
+      "Category": "JOIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-AR-015",
+      "Question": "التذاكر المتعلقة بالكهرباء",
+      "Category": "JOIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-AR-016",
+      "Question": "الانقطاعات الكبرى هذا الشهر",
+      "Category": "SEL",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Outages",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-AR-017",
+      "Question": "أي خدمة تحقق أكبر إيراد؟",
+      "Category": "GRP",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-CMT-003",
+      "Question": "comments authored by admins",
+      "Category": "JOIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "TicketComments",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-CSAT-002",
+      "Question": "percentage of positive csat",
+      "Category": "AGG",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "CsatResponses",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-GRP-001",
+      "Question": "bills count by status",
+      "Category": "GRP",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-GRP-014",
+      "Question": "departments per region",
+      "Category": "GRP",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Departments",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-GRPM-005",
+      "Question": "bills per month per service",
+      "Category": "GRP",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-HAV-002",
+      "Question": "regions with at least 20 customers",
+      "Category": "GRP",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-HAV-003",
+      "Question": "customers with more than 3 overdue bills",
+      "Category": "GRP",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-HIER-002",
+      "Question": "all subcategories under water",
+      "Category": "JOIN",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "TicketCategories",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-HIER-004",
+      "Question": "categories under electricity",
+      "Category": "SEL",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "TicketCategories",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-J2-002",
+      "Question": "bills issued by Aleppo electricity department",
+      "Category": "JOIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-J3-005",
+      "Question": "customers in damascus with bills above 100K SYP",
+      "Category": "JOIN",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-LK-004",
+      "Question": "outages caused by fiber cut",
+      "Category": "SEM",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Outages",
+      "ExpectedSql": "SELECT * FROM Outages WHERE Cause='FiberCut'",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-LOOK-005",
+      "Question": "closed-state statuses",
+      "Category": "SEL",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "TicketStatuses",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-MS-001",
+      "Question": "compare this month revenue vs last month by service",
+      "Category": "MS",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-MS-002",
+      "Question": "year over year ticket volume change per department",
+      "Category": "MS",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-MTR-002",
+      "Question": "customers with > 3 estimated readings",
+      "Category": "GRP",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "MeterReadings",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-MTR-004",
+      "Question": "how many readings were estimated last month",
+      "Category": "CNT",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "MeterReadings",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-PD-001",
+      "Question": "customers whose electricity consumption spiked 2x for 3 months",
+      "Category": "PD",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "MeterReadings",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-PD-003",
+      "Question": "ticket clusters within 1 hour same region+service — likely outages",
+      "Category": "PD",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-PD-004",
+      "Question": "explain why aleppo electricity bills jumped in september 2025",
+      "Category": "PD",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tariffs",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-PD-006",
+      "Question": "departments with negative csat trend",
+      "Category": "PD",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Departments",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-PRJ-005",
+      "Question": "customer (name, national id, phone)",
+      "Category": "SEL",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-RGN-001",
+      "Question": "all governorates in syria",
+      "Category": "SEL",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Regions",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-RGN-002",
+      "Question": "districts under aleppo",
+      "Category": "JOIN",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Regions",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-SEL-010",
+      "Question": "show me the tariffs",
+      "Category": "SEL",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tariffs",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-SEL-011",
+      "Question": "government process complaints",
+      "Category": "SEL",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-SEL-013",
+      "Question": "customers with no email",
+      "Category": "SEL",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-TOP-002",
+      "Question": "top 10 customers by total billed",
+      "Category": "RNK",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-TOP-003",
+      "Question": "top 3 departments by ticket volume",
+      "Category": "RNK",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Departments",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-TOP-004",
+      "Question": "5 longest outages",
+      "Category": "RNK",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Outages",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-TOP-006",
+      "Question": "3 customers with the most tickets",
+      "Category": "RNK",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-TRF-002",
+      "Question": "tariffs that changed in 2025",
+      "Category": "SEL",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tariffs",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-TRF-004",
+      "Question": "highest rate per unit",
+      "Category": "AGG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tariffs",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-USR-002",
+      "Question": "users assigned to the most tickets",
+      "Category": "RNK",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "AspNetUsers",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-V2-FACTUAL-001",
+      "Question": "show me the tariffs",
+      "Category": "SEL",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tariffs",
+      "ExpectedSql": "SELECT * FROM Tariffs",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-V2-FACTUAL-002",
+      "Question": "all governorates in syria",
+      "Category": "HIER",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Regions",
+      "ExpectedSql": "SELECT Id, NameEn, NameAr FROM Regions WHERE ParentRegionId IS NULL",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-V2-FACTUAL-003",
+      "Question": "outages caused by fiber cut",
+      "Category": "SEL",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Outages",
+      "ExpectedSql": "SELECT * FROM Outages WHERE Cause = 'FiberCut'",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-V2-FACTUAL-004",
+      "Question": "highest rate per unit",
+      "Category": "TOP",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tariffs",
+      "ExpectedSql": "SELECT TOP 1 ServiceTypeId, RegionId, RatePerUnit FROM Tariffs ORDER BY RatePerUnit DESC",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-V2-HIER-001",
+      "Question": "primary ticket categories",
+      "Category": "HIER",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "TicketCategories",
+      "ExpectedSql": "SELECT Id, Name, Tier FROM TicketCategories WHERE ParentCategoryId IS NULL",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-V2-NULL-001",
+      "Question": "customers with no email",
+      "Category": "SEL",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "ExpectedSql": "SELECT Id, FullNameEn, Phone FROM Customers WHERE Email IS NULL",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-V2-TOPN-001",
+      "Question": "top 10 customers by total billed",
+      "Category": "TOP",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "ExpectedSql": "SELECT TOP 10 c.Id, c.FullNameEn, SUM(b.TotalAmount) AS Total FROM Customers c JOIN Bills b ON b.CustomerId = c.Id GROUP BY c.Id, c.FullNameEn ORDER BY Total DESC",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "CMP-V2-TOPN-002",
+      "Question": "top 3 departments by ticket volume",
+      "Category": "TOP",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Departments",
+      "ExpectedSql": "SELECT TOP 3 d.NameEn, COUNT(*) AS TicketCount FROM Departments d JOIN Tickets t ON t.DepartmentId = d.Id GROUP BY d.NameEn ORDER BY TicketCount DESC",
+      "MaxLatencyMs": 180000
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "Shape: COMPARE (cross-period / cross-entity side-by-side)",
+  "version": "1.0",
+  "description": "Comparison shape — period-vs-period, region-vs-region, status-vs-status. Tests CaseWhenComparisonPhase, PeriodComparisons populator, and the multi-temporal-period grounding (Q1+Q2 emits two UNION ALL legs).",
+  "Scenarios": [
+    { "Code": "CMP-SIMPLE-1", "Question": "open versus closed ticket count", "Category": "shape:COMPARE/status-vs-status", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "COMPARE", "ExpectedAggregations": [{ "function": "SUM", "column": "CASE WHEN TicketStatuses.Name='Open' THEN 1 ELSE 0 END", "alias": "Open" }, { "function": "SUM", "column": "CASE WHEN TicketStatuses.Name='Closed' THEN 1 ELSE 0 END", "alias": "Closed" }], "MaxLatencyMs": 180000 },
+    { "Code": "CMP-SIMPLE-2", "Question": "paid versus unpaid bill counts", "Category": "shape:COMPARE/status-vs-status", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "COMPARE", "ExpectedAggregations": [{ "function": "SUM", "column": "CASE WHEN Bills.Status='Paid' THEN 1 ELSE 0 END", "alias": "Paid" }, { "function": "SUM", "column": "CASE WHEN Bills.Status IN ('Issued','Overdue') THEN 1 ELSE 0 END", "alias": "Unpaid" }], "MaxLatencyMs": 180000 },
+    { "Code": "CMP-SIMPLE-3", "Question": "water vs electricity outages", "Category": "shape:COMPARE/service-vs-service", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Outages", "ExpectedOperation": "COMPARE", "MaxLatencyMs": 180000 },
+
+    { "Code": "CMP-MEDIUM-1", "Question": "tickets this month vs last month", "Category": "shape:COMPARE/period-vs-period", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "COMPARE_PERIOD", "MaxLatencyMs": 180000 },
+    { "Code": "CMP-MEDIUM-2", "Question": "bills this quarter compared to last quarter", "Category": "shape:COMPARE/period-vs-period", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "COMPARE_PERIOD", "MaxLatencyMs": 180000 },
+    { "Code": "CMP-MEDIUM-3", "Question": "Damascus bills versus Aleppo bills", "Category": "shape:COMPARE/region-vs-region", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "COMPARE", "MaxLatencyMs": 180000 },
+    { "Code": "CMP-MEDIUM-4", "Question": "Aleppo outages compared to Homs outages", "Category": "shape:COMPARE/region-vs-region", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Outages", "ExpectedOperation": "COMPARE", "MaxLatencyMs": 180000 },
+
+    { "Code": "CMP-HARD-1", "Question": "revenue this year versus last year", "Category": "shape:COMPARE/period+sum", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "COMPARE_PERIOD", "ExpectedAggregations": [{ "function": "SUM", "column": "Bills.TotalAmount" }], "MaxLatencyMs": 180000 },
+    { "Code": "CMP-HARD-2", "Question": "ticket volume this year vs last year", "Category": "shape:COMPARE/period+volume+verb-routing", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "COMPARE_PERIOD", "MaxLatencyMs": 180000 },
+    { "Code": "CMP-HARD-3", "Question": "open tickets in Damascus vs Aleppo this quarter", "Category": "shape:COMPARE/multi-dimensional", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "COMPARE", "MaxLatencyMs": 180000 },
+    { "Code": "CMP-HARD-4", "Question": "Q1 vs Q2 bill totals this year", "Category": "shape:COMPARE/quarter+sum", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "COMPARE_PERIOD", "ExpectedAggregations": [{ "function": "SUM", "column": "Bills.TotalAmount" }], "MaxLatencyMs": 180000 },
+
+    { "Code": "CMP-MULTI-1", "Question": "Q1 and Q2 and Q3 ticket counts", "Category": "shape:COMPARE/multi-period-3way", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "COMPARE_PERIOD", "MaxLatencyMs": 180000 },
+    { "Code": "CMP-MULTI-2", "Question": "compare today yesterday and last week", "Category": "shape:COMPARE/multi-period-anchors", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "COMPARE_PERIOD", "MaxLatencyMs": 180000 },
+
+    { "Code": "CMP-AR-1", "Question": "الفواتير المدفوعة مقابل غير المدفوعة", "Category": "shape:COMPARE/arabic-status", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "COMPARE", "MaxLatencyMs": 180000 },
+    { "Code": "CMP-AR-2", "Question": "هذا الشهر مقابل الشهر الماضي للتذاكر", "Category": "shape:COMPARE/arabic-period", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "COMPARE_PERIOD", "MaxLatencyMs": 180000 },
+
+    { "Code": "CMP-EDGE-1", "Question": "compare them", "Category": "shape:COMPARE/edge-vague", "Difficulty": "Hard", "ExpectedIntent": "Clarification", "MaxLatencyMs": 180000 }
+  ]
+}

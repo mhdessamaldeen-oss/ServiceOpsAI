@@ -1,0 +1,45 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.MaintenanceScheduleDto>
+
+<div class="table-responsive">
+    <table id="maintenanceTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Schedule #</th>
+                <th class="py-3">Asset</th>
+                <th class="py-3">Region</th>
+                <th class="py-3">Window</th>
+                <th class="py-3">Type</th>
+                <th class="py-3">Status</th>
+                <th class="text-end py-3">Affected</th>
+                <th class="py-3">Notified?</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@m.ScheduleNumber</code></td>
+                    <td><div style="color: var(--text-main) !important;">@m.AssetName</div><div class="small text-muted">@m.TitleEn</div></td>
+                    <td>@m.RegionName</td>
+                    <td class="small">@m.ScheduledStart.ToString("yyyy-MM-dd HH:mm")<br/><span class="text-muted">→ @m.ScheduledEnd.ToString("yyyy-MM-dd HH:mm")</span></td>
+                    <td><span class="badge rounded-pill px-3 py-2" style="background: rgba(56,189,248,0.1); color: #38bdf8; border: 1px solid #38bdf8;">@m.MaintenanceType</span></td>
+                    <td>
+                        @{ var (bg, fg) = m.Status switch { "Completed" => ("rgba(var(--primary-color-rgb),0.1)", "var(--primary-color)"), "InProgress" => ("rgba(56,189,248,0.1)", "#38bdf8"), "Scheduled" => ("rgba(168,85,247,0.1)", "#a855f7"), "Cancelled" => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"), "Deferred" => ("rgba(245,158,11,0.1)", "#f59e0b"), _ => ("rgba(148,163,184,0.1)", "#94a3b8") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @bg; color: @fg; border: 1px solid @fg;">@m.Status</span>
+                    </td>
+                    <td class="text-end">@(m.ExpectedAffectedCustomers?.ToString("N0") ?? "—")</td>
+                    <td>@(m.CustomersNotified ? "Yes" : "No")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@m.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@m.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@m.Id" method="post" onsubmit="return confirm('Delete @m.ScheduleNumber?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No maintenance windows match the current filter.</h6></div> }
+</div>

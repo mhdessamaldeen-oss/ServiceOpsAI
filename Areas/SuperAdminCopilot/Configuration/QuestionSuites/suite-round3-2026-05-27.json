@@ -1,0 +1,60 @@
+{
+  "name": "Suite — Round 3 (NaturalKeyFilter + Dedup + TS skip-tightening, varied complexity)",
+  "version": "1.0",
+  "description": "Round 3: 15 fresh questions covering all 8 shapes with EASY/MEDIUM/HARD difficulty + 2 fix-targeted questions for the new R3 SpecRepair phases (NaturalKey injection, Aggregation dedup, tightened TIMESERIES skip-condition). Mix of EN/AR.",
+  "Scenarios": [
+    { "Code": "R3-LKP-01", "Question": "show details of ticket TKT-00075",
+      "Category": "LOOKUP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R3-LKP-02", "Question": "what is the priority of TKT-00020",
+      "Category": "LOOKUP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R3-LKP-03-AR", "Question": "تفاصيل التذكرة TKT-00060",
+      "Category": "LOOKUP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R3-COUNT-01", "Question": "how many bills are overdue",
+      "Category": "COUNT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R3-COUNT-02-AR", "Question": "كم عدد التذاكر في حماة",
+      "Category": "COUNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R3-TOPN-01", "Question": "top 5 customers by bill total",
+      "Category": "TOPN", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R3-AGG-01", "Question": "total sum of unpaid bills and total count of unpaid bills",
+      "Category": "AGGREGATE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R3-TS-01", "Question": "monthly trend of resolved tickets",
+      "Category": "TIMESERIES", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R3-TS-02", "Question": "outages per day for the last week",
+      "Category": "TIMESERIES", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Outages",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R3-CMP-01", "Question": "compare bill amounts between Damascus and Aleppo customers",
+      "Category": "COMPARE", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R3-JOIN-01", "Question": "tickets with their region and service type",
+      "Category": "JOIN", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R3-JOIN-02-AR", "Question": "العملاء وتذاكرهم المفتوحة",
+      "Category": "JOIN", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R3-FLT-01", "Question": "unresolved tickets from last 7 days",
+      "Category": "FILTER", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+    { "Code": "R3-FLT-02-AR", "Question": "البلاغات العاجلة في اللاذقية",
+      "Category": "FILTER", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": null, "MaxLatencyMs": 180000 },
+
+    { "Code": "R3-WARN", "Question": "customers where shoeSize is large",
+      "Category": "WARNING", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Customers",
+      "ExpectedSql": null, "ExpectedWarning": "UnknownColumn", "MaxLatencyMs": 180000 }
+  ]
+}

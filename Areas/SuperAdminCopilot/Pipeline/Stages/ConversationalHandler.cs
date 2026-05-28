@@ -4,7 +4,6 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperAdminCopilot.Configuration;
-using SuperAdminCopilot.Pipeline.Routing;
 
 /// <summary>
 /// Deterministic short-circuit for casual / human-conversation questions: greetings, thanks,
@@ -37,7 +36,7 @@ public enum ConversationalKind
 
 public sealed record ConversationalReply(ConversationalKind Kind, string Reply);
 
-internal sealed class ConversationalHandler : IConversationalHandler, IRoutingProbe
+internal sealed class ConversationalHandler : IConversationalHandler
 {
     private readonly IOptionsMonitor<CopilotTextCatalog> _textMonitor;
     private readonly ILogger<ConversationalHandler> _logger;
@@ -49,25 +48,6 @@ internal sealed class ConversationalHandler : IConversationalHandler, IRoutingPr
     }
 
     public string Name => "Conversational";
-
-    /// <summary>Probe — match-only, no text-catalog read, no side effects. Mirrors the same
-    /// regex bank TryHandle uses so the router and the handler agree on every claim.</summary>
-    public Task<RouterDecision?> ProbeAsync(string question, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(question)) return Task.FromResult<RouterDecision?>(null);
-        var trimmed = question.Trim();
-        if (trimmed.Length > 80) return Task.FromResult<RouterDecision?>(null);
-
-        string? reason = null;
-        if (CapabilitiesPhrase.IsMatch(trimmed)) reason = "capabilities";
-        else if (GreetingExact.IsMatch(trimmed)) reason = "greeting";
-        else if (ThanksPhrase.IsMatch(trimmed)) reason = "thanks";
-        else if (FarewellPhrase.IsMatch(trimmed)) reason = "farewell";
-
-        return Task.FromResult<RouterDecision?>(reason is null
-            ? null
-            : new RouterDecision(IntentLabel.Greeting, 1.0, Name, reason));
-    }
 
     /// <summary>"hi" / "hello" / "hey" / "good morning" — bare greetings. Bound by length so
     /// "Hi, how many tickets…" doesn't match (only the leading word is the greeting; the question

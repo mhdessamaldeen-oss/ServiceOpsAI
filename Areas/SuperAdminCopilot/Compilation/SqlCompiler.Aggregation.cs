@@ -61,6 +61,17 @@ internal sealed partial class SqlCompiler
             // this skip, the parameter ends up as an nvarchar string and SQL Server fails with
             // "Conversion failed when converting the nvarchar value '@p2' to data type int."
             if (IsPlaceholderToken(v)) continue;
+            // HAVING thresholds are virtually always numeric (COUNT > 5, AVG > 100). Coerce
+            // string-typed LLM output to long/decimal so SqlClient doesn't bind as nvarchar
+            // — SQL Server then errors with "Conversion failed when converting the nvarchar
+            // value 'N' to data type int." when comparing against an aggregate.
+            if (v is string sv && sv.Length > 0 && sv[0] != '@')
+            {
+                if (long.TryParse(sv, System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out var lv)) v = lv;
+                else if (decimal.TryParse(sv, System.Globalization.NumberStyles.Number,
+                        System.Globalization.CultureInfo.InvariantCulture, out var dv)) v = dv;
+            }
             var pn = "@p" + paramIndex++;
             parameters[pn] = v ?? DBNull.Value;
             pieces.Add($"{fn}({colExpr}) {sqlOp} {pn}");

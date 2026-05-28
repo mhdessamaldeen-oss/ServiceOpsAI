@@ -1,0 +1,91 @@
+{
+  "name": "Quality Tier 2 — single table, scalar aggregations (AVG/SUM/MIN/MAX)",
+  "version": "1.0.0",
+  "description": "Single-table aggregations, scalar return. Each scenario carries the expected scalar (numeric, compared with 0.1%-relative tolerance). Tests aggregation routing, optional filter-with-aggregate, and the structural 'single-row aggregate' rule (empty select + aggregations only).",
+  "Scenarios": [
+    {
+      "Code": "QT2-AVG-BILL",
+      "Question": "what is the average bill amount",
+      "Category": "T2-AGG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 35800.53,
+      "ExpectedShape": "AVG(Bills.TotalAmount), single-row aggregate, empty select, no GROUP BY",
+      "Notes": "Pure AVG. Verifies the 'select MUST be empty' rule for single-row aggregates.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT2-SUM-BILL",
+      "Question": "total amount across all bills",
+      "Category": "T2-AGG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 435620800,
+      "ExpectedShape": "SUM(Bills.TotalAmount), single-row aggregate",
+      "Notes": "SUM not COUNT. 'total amount' must route to SUM(TotalAmount), not COUNT(*).",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT2-MAX-BILL",
+      "Question": "highest bill amount ever issued",
+      "Category": "T2-AGG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 114800.00,
+      "ExpectedShape": "MAX(Bills.TotalAmount), single-row aggregate",
+      "Notes": "MAX on a numeric column. Verifies 'highest X' synonym routing to MAX.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT2-MIN-BILL",
+      "Question": "lowest bill amount on record",
+      "Category": "T2-AGG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 3300.00,
+      "ExpectedShape": "MIN(Bills.TotalAmount), single-row aggregate",
+      "Notes": "MIN. 'lowest X' synonym routing.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT2-AVG-METER",
+      "Question": "average meter reading value",
+      "Category": "T2-AGG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "MeterReadings",
+      "ExpectedScalar": 5431.73,
+      "ExpectedShape": "AVG(MeterReadings.Value)",
+      "Notes": "Same shape as QT2-AVG-BILL but a different root entity. Cross-entity sanity check.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT2-AVG-BILL-PAID",
+      "Question": "average bill amount for paid bills",
+      "Category": "T2-AGG-FILTER",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 35849.83,
+      "ExpectedShape": "AVG(Bills.TotalAmount) WHERE Status='Paid', empty select",
+      "Notes": "AVG + status filter. Critical: must keep select EMPTY even with a filter. This is the rule that broke BL-MS-001 originally.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT2-SUM-BILL-OVERDUE",
+      "Question": "total amount of overdue bills",
+      "Category": "T2-AGG-FILTER",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 10952100,
+      "ExpectedShape": "SUM(Bills.TotalAmount) WHERE Status='Overdue'",
+      "Notes": "SUM + status filter on a smaller-value subset (~3% of bills, so a wrong status filter would be obvious).",
+      "MaxLatencyMs": 60000
+    }
+  ]
+}

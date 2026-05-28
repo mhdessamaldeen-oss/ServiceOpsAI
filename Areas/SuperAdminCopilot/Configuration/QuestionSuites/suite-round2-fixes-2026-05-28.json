@@ -1,0 +1,103 @@
+{
+  "name": "Suite Round-2 — Fix Verification (2026-05-28)",
+  "version": "1.0",
+  "description": "12 cases that lock in the Round 2 fixes: temporal year-anchoring (Q1 2027 / Feb 2019), embedding-fallback SQL path for non-embedded entities, multi-table Phase 06 joins, FK-edge weighting, Arabic synonym resolution. Designed to catch regressions before they propagate. Run after every meaningful change to SchemaInferenceGenerator / SemanticLayer / InjectTemporalFilterFromQuestionPhase / fk-role-patterns.",
+  "Scenarios": [
+    {
+      "Code": "R2-TEMP-001",
+      "Question": "How many bills issued in Q1 2025?",
+      "Category": "TEMP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Bills",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills WHERE IssuedAt >= DATEFROMPARTS(2025,1,1) AND IssuedAt < DATEFROMPARTS(2025,4,1)",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000,
+      "_note": "Year-qualified quarter must produce explicit DATEFROMPARTS(2025,...) — NOT YEAR(GETDATE())."
+    },
+    {
+      "Code": "R2-TEMP-002",
+      "Question": "How many tickets in Q1 2025 vs Q1 2026?",
+      "Category": "COMPARE", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets WHERE CreatedAt >= DATEFROMPARTS(2025,1,1) AND CreatedAt < DATEFROMPARTS(2025,4,1) UNION ALL SELECT COUNT(*) FROM Tickets WHERE CreatedAt >= DATEFROMPARTS(2026,1,1) AND CreatedAt < DATEFROMPARTS(2026,4,1)",
+      "ExpectedMinRows": 2, "MaxLatencyMs": 180000,
+      "_note": "Multi-year period comparison must use TWO distinct year ranges (UNION ALL), not collapse to current year."
+    },
+    {
+      "Code": "R2-TEMP-003",
+      "Question": "tickets created in February 2026",
+      "Category": "TEMP", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT * FROM Tickets WHERE CreatedAt >= DATEFROMPARTS(2026,2,1) AND CreatedAt < DATEFROMPARTS(2026,3,1) AND IsDeleted = 0",
+      "MaxLatencyMs": 180000,
+      "_note": "Year-qualified month — must NOT use current-year start."
+    },
+    {
+      "Code": "R2-FALLBACK-001",
+      "Question": "work orders about transformer",
+      "Category": "TEXT_SEARCH", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "WorkOrders",
+      "ExpectedSql": "SELECT * FROM WorkOrders WHERE (TitleEn LIKE '%transformer%' OR Description LIKE '%transformer%' OR ResolutionNotes LIKE '%transformer%')",
+      "MaxLatencyMs": 180000,
+      "_note": "WorkOrders has no embeddings — must route to SQL LIKE on SearchableColumns, not refuse."
+    },
+    {
+      "Code": "R2-FALLBACK-002",
+      "Question": "payments matching cash",
+      "Category": "TEXT_SEARCH", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Payments",
+      "ExpectedSql": "SELECT * FROM Payments WHERE (ExternalTransactionId LIKE '%cash%' OR Notes LIKE '%cash%')",
+      "MaxLatencyMs": 180000,
+      "_note": "Payments has no embeddings + searchable text columns — SQL fallback."
+    },
+    {
+      "Code": "R2-FALLBACK-003",
+      "Question": "tickets about gas leak",
+      "Category": "TEXT_SEARCH", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "-- Semantic-search: Ticket matching 'gas leak'",
+      "MaxLatencyMs": 180000,
+      "_note": "Tickets HAS embeddings — must route to semantic vector search, not the SQL fallback."
+    },
+    {
+      "Code": "R2-PHASE06-001",
+      "Question": "How many service accounts are active?",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "ServiceAccounts",
+      "ExpectedSql": "SELECT COUNT(*) FROM ServiceAccounts WHERE Status = 'Active'",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000,
+      "_note": "Phase 06 entity (synthesized from schema-inferred) — confirms auto-synthesis path."
+    },
+    {
+      "Code": "R2-PHASE06-002",
+      "Question": "total payments collected this month",
+      "Category": "AGG", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Payments",
+      "ExpectedSql": "SELECT SUM(AmountInBase) FROM Payments WHERE PaidAt >= DATEADD(month,DATEDIFF(month,0,GETDATE()),0) AND PaidAt < DATEADD(month,1,DATEADD(month,DATEDIFF(month,0,GETDATE()),0))",
+      "ExpectedMinRows": 1, "MaxLatencyMs": 180000,
+      "_note": "Confirms PaidAt → 'paid' DateRole + 'this month' temporal expansion + SUM aggregation."
+    },
+    {
+      "Code": "R2-JOIN-001",
+      "Question": "list payments and their customer names",
+      "Category": "JOIN", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Payments",
+      "ExpectedSql": "SELECT p.PaymentReference, c.FullNameEn FROM Payments p JOIN Bills b ON b.Id = p.BillId JOIN Customers c ON c.Id = b.CustomerId",
+      "MaxLatencyMs": 180000,
+      "_note": "Multi-hop join Payments → Bills → Customers — exercises the FK-edge weighting (Bill.CustomerId is cheaper than CreatedByUserId)."
+    },
+    {
+      "Code": "R2-AR-001",
+      "Question": "كم عدد أوامر العمل المفتوحة؟",
+      "Category": "CNT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "WorkOrders",
+      "ExpectedSql": "SELECT COUNT(*) FROM WorkOrders WHERE Status = 'Open'",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000,
+      "_note": "Arabic for WorkOrders + status — confirms the Arabic synonym layer (أوامر العمل) added to schema-overrides.json resolves."
+    },
+    {
+      "Code": "R2-AR-002",
+      "Question": "كم عدد الفنيين النشطين؟",
+      "Category": "CNT", "Difficulty": "Medium", "ExpectedIntent": "DataQuery", "EntityFocus": "Technicians",
+      "ExpectedSql": "SELECT COUNT(*) FROM Technicians WHERE IsActive = 1",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000,
+      "_note": "Arabic for Technicians (الفنيين) — confirms Phase 06 Arabic synonyms."
+    },
+    {
+      "Code": "R2-REGRESS-001",
+      "Question": "how many open tickets",
+      "Category": "CNT", "Difficulty": "Easy", "ExpectedIntent": "DataQuery", "EntityFocus": "Tickets",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE s.Name = 'Open' AND t.IsDeleted = 0",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1, "MaxLatencyMs": 180000,
+      "_note": "Pure regression check — the canonical question that the 94.3% baseline includes. Must still pass after all Round 2 changes."
+    }
+  ]
+}

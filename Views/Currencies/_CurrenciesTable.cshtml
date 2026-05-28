@@ -1,0 +1,47 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.CurrencyDto>
+
+<div class="table-responsive">
+    <table id="currenciesTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Code</th>
+                <th class="py-3">Name</th>
+                <th class="py-3">Symbol</th>
+                <th class="text-end py-3">Rate to SYP</th>
+                <th class="py-3">Base?</th>
+                <th class="py-3">Active</th>
+                <th class="py-3">Last Updated</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@c.Code</code></td>
+                    <td><div style="color: var(--text-main) !important;">@c.NameEn</div><div class="small text-muted" dir="rtl">@c.NameAr</div></td>
+                    <td class="fs-5">@c.Symbol</td>
+                    <td class="text-end fw-bold">@c.ExchangeRateToBase.ToString("N4")</td>
+                    <td>
+                        @if (c.IsBase)
+                        { <span class="badge rounded-pill px-3 py-2" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid var(--primary-color);">BASE</span> }
+                    </td>
+                    <td>@(c.IsActive ? "Yes" : "No")</td>
+                    <td class="small text-muted">@c.LastRateUpdate.ToString("yyyy-MM-dd")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@c.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        @if (!c.IsBase)
+                        {
+                            <form asp-action="Delete" asp-route-id="@c.Id" method="post" onsubmit="return confirm('Delete currency @c.Code?');" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No currencies match the current filter.</h6></div> }
+</div>

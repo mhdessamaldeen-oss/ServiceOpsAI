@@ -1,0 +1,25 @@
+@model ServiceOpsAI.Models.MaintenanceSchedule
+@{ ViewData["Title"] = "New Maintenance Schedule"; }
+
+<h2><i class="bi bi-plus-circle"></i> New Maintenance Schedule</h2>
+
+<form asp-action="Create" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="col-md-4"><label asp-for="ScheduleNumber" class="form-label">Schedule #</label><input asp-for="ScheduleNumber" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="TitleEn" class="form-label">Title (EN)</label><input asp-for="TitleEn" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="TitleAr" class="form-label">Title (AR)</label><input asp-for="TitleAr" class="form-control" dir="rtl" /></div>
+    <div class="col-md-4"><label asp-for="AssetId" class="form-label">Asset</label><select asp-for="AssetId" class="form-select" asp-items="ViewBag.Assets"><option value="">—</option></select></div>
+    <div class="col-md-4"><label asp-for="RegionId" class="form-label">Region</label><select asp-for="RegionId" class="form-select" asp-items="ViewBag.Regions"><option value="">—</option></select></div>
+    <div class="col-md-4"><label asp-for="DepartmentId" class="form-label">Department</label><select asp-for="DepartmentId" class="form-select" asp-items="ViewBag.Departments"><option value="">—</option></select></div>
+    <div class="col-md-3"><label asp-for="ScheduledStart" class="form-label">Scheduled Start</label><input asp-for="ScheduledStart" type="datetime-local" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="ScheduledEnd" class="form-label">Scheduled End</label><input asp-for="ScheduledEnd" type="datetime-local" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="ActualStart" class="form-label">Actual Start</label><input asp-for="ActualStart" type="datetime-local" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="ActualEnd" class="form-label">Actual End</label><input asp-for="ActualEnd" type="datetime-local" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="Status" class="form-label">Status</label><select asp-for="Status" class="form-select">@foreach (var v in Enum.GetValues<ServiceOpsAI.Models.MaintenanceStatus>()){<option value="@v">@v</option>}</select></div>
+    <div class="col-md-3"><label asp-for="MaintenanceType" class="form-label">Type</label><select asp-for="MaintenanceType" class="form-select">@foreach (var v in Enum.GetValues<ServiceOpsAI.Models.MaintenanceType>()){<option value="@v">@v</option>}</select></div>
+    <div class="col-md-3"><label asp-for="ExpectedAffectedCustomers" class="form-label">Expected Affected #</label><input asp-for="ExpectedAffectedCustomers" type="number" class="form-control" /></div>
+    <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input asp-for="CustomersNotified" class="form-check-input" /><label asp-for="CustomersNotified" class="form-check-label">Customers notified</label></div></div>
+    <div class="col-12"><label asp-for="Description" class="form-label">Description</label><textarea asp-for="Description" class="form-control" rows="3"></textarea></div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Create</button> <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Cancel</a></div>
+</form>

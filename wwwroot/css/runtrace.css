@@ -352,6 +352,26 @@
     font-size: 0.75rem;
 }
 
+/* Sub-step LLM-call breakdown — compact grid (model / tokens / cost / elapsed)
+   shown right under the sub-step row when the sub-step is an LLM call. */
+.runtrace-substep-llm {
+    margin-top: 0.45rem;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.35rem;
+    font-size: 0.78rem;
+}
+
+/* Nested sections inside a sub-step — slightly tighter spacing + a left rail
+   so they read as belonging to the sub-step they're under, not floating in the
+   parent expand panel. */
+.runtrace-substep-section {
+    margin-top: 0.5rem;
+    padding-left: 0.5rem;
+    border-left: 2px solid rgba(var(--text-main-rgb), 0.08);
+}
+.runtrace-substep-section .runtrace-section-label { font-size: 0.65rem; }
+.runtrace-substep-section .runtrace-desc { font-size: 0.82rem; padding: 0.45rem 0.7rem; }
+
 /* ── Section blocks inside the expanded row ─────────────────────
    Mirrors the wide-panel design in workflow.css so the Run Trace's
    per-step breakdown matches the Workflow tab's detail richness. */

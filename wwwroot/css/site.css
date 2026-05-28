@@ -49,8 +49,9 @@ body.sf-body {
   height: 100vh;
   z-index: 1000;
   transition: width 0.22s ease;
-  /* overflow stays `visible` so hover-flyout labels can escape the rail. The
-     menu UL has its own overflow-y: auto for long menus on short viewports. */
+  /* overflow stays `visible` on the outer rail. The .sidebar-menu UL inside
+     is the scroll container (overflow-y: auto); the collapsed-mode hover
+     flyout uses position: fixed so it still escapes the rail. */
 }
 
 /* Collapsed sidebar: icon-only rail with hover-flyout labels.
@@ -85,9 +86,13 @@ html.sidebar-collapsed .sidebar-link i {
    icon when the sidebar is collapsed. Pure CSS, no Bootstrap tooltip JS needed. */
 html.sidebar-collapsed .sidebar-link[data-label]::after {
     content: attr(data-label);
-    position: absolute;
-    inset-inline-start: calc(100% + 8px);
-    top: 50%;
+    /* position: fixed (not absolute) so the flyout escapes the new
+       .sidebar-menu scroll container. The link's --flyout-top / --flyout-left
+       CSS variables are set on hover by an inline script in _Layout.cshtml
+       using getBoundingClientRect(). */
+    position: fixed;
+    inset-inline-start: var(--flyout-left, calc(var(--sidebar-collapsed-width, 64px) + 8px));
+    top: var(--flyout-top, 50%);
     transform: translateY(-50%) scale(0.96);
     transform-origin: center left;
     background: var(--bg-elevated, var(--bg-card));
@@ -125,14 +130,33 @@ html.sidebar-collapsed .sidebar-link:focus-visible[data-label]::after {
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--border-color);
+  flex: 0 0 auto;
 }
 
 .sidebar-menu {
   list-style: none;
   padding: 0.75rem;
   margin: 0;
-  /* No overflow clipping — the hover-flyout labels on collapsed links need to
-     escape this container. Vertical spill is acceptable with our ~10 items. */
+  /* Take remaining vertical space and scroll when items exceed it.
+     min-height: 0 is required so this flex child can actually shrink
+     below its content height inside the fixed-height sidebar. The
+     collapsed-mode hover flyout is rendered with position: fixed
+     (see :hover rule + inline JS in _Layout) so it escapes this
+     overflow container. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--text-muted-rgb), 0.35) transparent;
+}
+.sidebar-menu::-webkit-scrollbar { width: 6px; }
+.sidebar-menu::-webkit-scrollbar-thumb {
+  background: rgba(var(--text-muted-rgb), 0.3);
+  border-radius: 3px;
+}
+.sidebar-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--text-muted-rgb), 0.55);
 }
 
 .sidebar-link {

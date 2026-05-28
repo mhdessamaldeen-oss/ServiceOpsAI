@@ -1,0 +1,171 @@
+06:17:36 ▶ shapes/suite-shape-GROUPBY-2026-05-28.json
+06:17:36   sessionId=134
+06:18:22   s=134 traces=0/15 stall=833249902s
+06:19:07   s=134 traces=0/15 stall=833249947s
+06:19:52   s=134 traces=1/15 stall=38s
+06:20:37   s=134 traces=1/15 stall=83s
+06:21:22   s=134 traces=2/15 stall=22s
+06:22:07   s=134 traces=2/15 stall=67s
+06:22:52   s=134 traces=4/15 stall=20s
+06:23:38   s=134 traces=4/15 stall=66s
+06:24:23   s=134 traces=4/15 stall=111s
+06:25:08   s=134 traces=5/15 stall=40s
+06:25:53   s=134 traces=6/15 stall=29s
+06:26:38   s=134 traces=6/15 stall=74s
+06:27:23   s=134 traces=6/15 stall=119s
+06:28:08   s=134 traces=7/15 stall=32s
+06:28:53   s=134 traces=7/15 stall=77s
+06:29:39   s=134 traces=7/15 stall=123s
+06:30:24   s=134 traces=8/15 stall=38s
+06:31:09   s=134 traces=8/15 stall=83s
+06:31:54   s=134 traces=9/15 stall=9s
+06:32:39   s=134 traces=9/15 stall=54s
+06:33:24   s=134 traces=9/15 stall=99s
+06:34:09   s=134 traces=10/15 stall=42s
+06:34:55   s=134 traces=10/15 stall=88s
+06:35:40   s=134 traces=11/15 stall=27s
+06:36:25   s=134 traces=11/15 stall=72s
+06:37:10   s=134 traces=12/15 stall=14s
+06:37:55   s=134 traces=12/15 stall=59s
+06:38:40   s=134 traces=13/15 stall=7s
+06:39:25   s=134 traces=13/15 stall=52s
+06:40:10   s=134 traces=14/15 stall=29s
+06:40:56   s=134 traces=15/15 stall=12s
+06:41:06 ▶ shapes/suite-shape-TIMESERIES-2026-05-28.json
+06:41:07   sessionId=136
+06:41:52   s=136 traces=1/16 stall=27s
+06:42:37   s=136 traces=2/16 stall=5s
+06:43:22   s=136 traces=2/16 stall=50s
+06:44:07   s=136 traces=2/16 stall=95s
+06:44:52   s=136 traces=2/16 stall=140s
+06:45:37   s=136 traces=3/16 stall=36s
+06:46:23   s=136 traces=3/16 stall=82s
+06:47:08   s=136 traces=5/16 stall=29s
+06:47:53   s=136 traces=6/16 stall=5s
+06:48:38   s=136 traces=6/16 stall=50s
+06:49:23   s=136 traces=7/16 stall=24s
+06:50:08   s=136 traces=8/16 stall=7s
+06:50:53   s=136 traces=8/16 stall=52s
+06:51:38   s=136 traces=8/16 stall=97s
+06:52:23   s=136 traces=8/16 stall=142s
+06:53:09   s=136 traces=8/16 stall=188s
+06:53:54   s=136 traces=9/16 stall=9s
+06:54:39   s=136 traces=9/16 stall=54s
+06:55:24   s=136 traces=9/16 stall=99s
+06:56:09   s=136 traces=10/16 stall=18s
+06:56:54   s=136 traces=10/16 stall=63s
+06:57:39   s=136 traces=10/16 stall=108s
+06:58:24   s=136 traces=11/16 stall=25s
+06:59:10   s=136 traces=11/16 stall=71s
+06:59:55   s=136 traces=11/16 stall=116s
+07:00:40   s=136 traces=12/16 stall=36s
+07:01:25   s=136 traces=12/16 stall=81s
+07:02:10   s=136 traces=13/16 stall=39s
+07:02:55   s=136 traces=14/16 stall=10s
+07:03:40   s=136 traces=14/16 stall=55s
+07:04:26   s=136 traces=15/16 stall=43s
+07:05:11   s=136 traces=16/16 stall=38s
+07:05:21 ▶ shapes/suite-shape-WINDOW-2026-05-28.json
+07:05:21   sessionId=138
+07:06:06   s=138 traces=0/12 stall=833252766s
+07:06:52   s=138 traces=0/12 stall=833252812s
+07:07:37   s=138 traces=1/12 stall=41s
+07:08:22   s=138 traces=1/12 stall=86s
+07:09:07   s=138 traces=2/12 stall=30s
+07:09:52   s=138 traces=2/12 stall=75s
+07:10:37   s=138 traces=3/12 stall=14s
+07:11:22   s=138 traces=3/12 stall=59s
+07:12:08   s=138 traces=4/12 stall=33s
+07:12:53   s=138 traces=4/12 stall=78s
+07:13:38   s=138 traces=4/12 stall=123s
+07:14:23   s=138 traces=5/12 stall=30s
+07:15:08   s=138 traces=6/12 stall=23s
+07:15:53   s=138 traces=6/12 stall=68s
+07:16:38   s=138 traces=7/12 stall=24s
+07:17:23   s=138 traces=7/12 stall=69s
+07:18:09   s=138 traces=7/12 stall=115s
+07:18:54   s=138 traces=8/12 stall=13s
+07:19:39   s=138 traces=9/12 stall=1s
+07:20:24   s=138 traces=10/12 stall=43s
+07:21:09   s=138 traces=11/12 stall=32s
+07:21:54   s=138 traces=11/12 stall=77s
+07:22:39   s=138 traces=11/12 stall=122s
+07:23:24   s=138 traces=11/12 stall=167s
+07:24:10   s=138 traces=12/12 stall=35s
+07:24:20 ▶ shapes/suite-shape-HAVING-2026-05-28.json
+07:24:20   sessionId=141
+07:25:05   s=141 traces=0/7 stall=833253905s
+07:25:50   s=141 traces=0/7 stall=833253950s
+07:26:35   s=141 traces=0/7 stall=833253995s
+07:27:20   s=141 traces=1/7 stall=34s
+07:28:06   s=141 traces=1/7 stall=80s
+07:28:51   s=141 traces=1/7 stall=125s
+07:29:36   s=141 traces=2/7 stall=25s
+07:30:21   s=141 traces=2/7 stall=70s
+07:31:06   s=141 traces=2/7 stall=115s
+07:31:51   s=141 traces=3/7 stall=16s
+07:32:36   s=141 traces=3/7 stall=61s
+07:33:21   s=141 traces=4/7 stall=10s
+07:34:07   s=141 traces=4/7 stall=56s
+07:34:52   s=141 traces=4/7 stall=101s
+07:35:37   s=141 traces=5/7 stall=24s
+07:36:22   s=141 traces=5/7 stall=69s
+07:37:07   s=141 traces=6/7 stall=27s
+07:37:52   s=141 traces=6/7 stall=72s
+07:38:37   s=141 traces=6/7 stall=117s
+07:39:22   s=141 traces=7/7 stall=10s
+07:39:33 ▶ shapes/suite-shape-FILTER-2026-05-28.json
+07:39:33   sessionId=142
+07:40:18   s=142 traces=0/16 stall=833254818s
+07:41:03   s=142 traces=0/16 stall=833254863s
+07:41:48   s=142 traces=1/16 stall=43s
+07:42:34   s=142 traces=2/16 stall=19s
+07:43:19   s=142 traces=2/16 stall=64s
+07:44:04   s=142 traces=3/16 stall=16s
+07:44:49   s=142 traces=4/16 stall=1s
+07:45:34   s=142 traces=6/16 stall=9s
+07:46:19   s=142 traces=6/16 stall=54s
+07:47:04   s=142 traces=8/16 stall=12s
+07:47:49   s=142 traces=8/16 stall=57s
+07:48:35   s=142 traces=11/16 stall=14s
+07:49:20   s=142 traces=12/16 stall=5s
+07:50:05   s=142 traces=12/16 stall=50s
+07:50:50   s=142 traces=12/16 stall=95s
+07:51:35   s=142 traces=13/16 stall=2s
+07:52:20   s=142 traces=13/16 stall=47s
+07:53:05   s=142 traces=13/16 stall=92s
+07:53:50   s=142 traces=14/16 stall=7s
+07:54:35   s=142 traces=14/16 stall=52s
+07:55:21   s=142 traces=14/16 stall=98s
+07:56:06   s=142 traces=15/16 stall=15s
+07:56:51   s=142 traces=15/16 stall=60s
+07:57:36   s=142 traces=15/16 stall=105s
+07:58:21   s=142 traces=16/16 stall=29s
+07:58:31 ▶ shapes/suite-shape-COMPARE-2026-05-28.json
+07:58:32   sessionId=144
+07:59:17   s=144 traces=0/16 stall=833255957s
+08:00:02   s=144 traces=0/16 stall=833256002s
+08:00:47   s=144 traces=1/16 stall=15s
+08:01:32   s=144 traces=1/16 stall=60s
+08:02:18   s=144 traces=2/16 stall=37s
+08:03:03   s=144 traces=2/16 stall=82s
+08:03:48   s=144 traces=4/16 stall=31s
+08:04:33   s=144 traces=5/16 stall=2s
+08:05:18   s=144 traces=5/16 stall=47s
+08:06:03   s=144 traces=8/16 stall=3s
+08:06:48   s=144 traces=9/16 stall=12s
+08:07:34   s=144 traces=11/16 stall=35s
+08:08:19   s=144 traces=13/16 stall=33s
+08:09:04   s=144 traces=14/16 stall=20s
+08:09:49   s=144 traces=16/16 stall=30s
+08:09:59 ─── Done ──
+
+Suite                                         Sid Traces Expected Fails
+-----                                         --- ------ -------- -----
+shapes/suite-shape-GROUPBY-2026-05-28.json    134     15       15     3
+shapes/suite-shape-TIMESERIES-2026-05-28.json 136     16       16     2
+shapes/suite-shape-WINDOW-2026-05-28.json     138     12       12     2
+shapes/suite-shape-HAVING-2026-05-28.json     141      7        7     1
+shapes/suite-shape-FILTER-2026-05-28.json     142     16       16     0
+shapes/suite-shape-COMPARE-2026-05-28.json    144     16       16     0
+

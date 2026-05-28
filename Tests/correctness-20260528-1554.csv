@@ -1,0 +1,210 @@
+SessionId,CaseCode,SourceSuite,ExecOk,SchemaPass,SchemaReason,JudgePass,JudgeReason,Final
+147,COUNT-SIMPLE-1,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-SIMPLE-2,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-SIMPLE-3,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-SIMPLE-4,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-MEDIUM-1,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-MEDIUM-2,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-MEDIUM-3,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-MEDIUM-4,suite-shape-COUNT-2026-05-28,True,False,"no COUNT",False,"schema-fail",SCHEMA_FAIL
+147,COUNT-MEDIUM-5,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-MEDIUM-6,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-HARD-1,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-HARD-2,suite-shape-COUNT-2026-05-28,True,False,"missing filter column Bills.IssuedAt",False,"schema-fail",SCHEMA_FAIL
+147,COUNT-HARD-3,suite-shape-COUNT-2026-05-28,True,False,"missing COUNT aggregation",False,"schema-fail",SCHEMA_FAIL
+147,COUNT-NULL-1,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-NULL-2,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-DISTINCT-1,suite-shape-COUNT-2026-05-28,True,False,"wrong root entity (expected Tickets)",False,"schema-fail",SCHEMA_FAIL
+147,COUNT-DISTINCT-2,suite-shape-COUNT-2026-05-28,True,False,"wrong root entity (expected Outages)",False,"schema-fail",SCHEMA_FAIL
+147,COUNT-AR-1,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-AR-2,suite-shape-COUNT-2026-05-28,True,False,"missing filter column Regions.NameEn",False,"schema-fail",SCHEMA_FAIL
+147,COUNT-EDGE-1,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-EDGE-2,suite-shape-COUNT-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+147,COUNT-EDGE-3,suite-shape-COUNT-2026-05-28,True,False,"no COUNT",False,"schema-fail",SCHEMA_FAIL
+148,LKP-SIMPLE-1,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-SIMPLE-2,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-SIMPLE-3,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-MEDIUM-1,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-MEDIUM-2,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-MEDIUM-3,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-MEDIUM-4,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-HARD-1,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+148,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+148,LKP-HARD-2,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-HARD-3,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-HARD-4,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-MULTI-1,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-AR-1,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-AR-2,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-EDGE-1,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+148,LKP-EDGE-2,suite-shape-LOOKUP-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,FLT-SIMPLE-1,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,FLT-SIMPLE-2,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,FLT-SIMPLE-3,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+149,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+149,FLT-MEDIUM-1,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,FLT-MEDIUM-2,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,FLT-MEDIUM-3,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+149,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+149,FLT-MEDIUM-4,suite-shape-FILTER-2026-05-28,True,False,"missing filter column Bills.TotalAmount",False,"schema-fail",SCHEMA_FAIL
+149,FLT-MEDIUM-5,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,FLT-HARD-1,suite-shape-FILTER-2026-05-28,True,False,"wrong root entity (expected Tickets)",False,"schema-fail",SCHEMA_FAIL
+149,FLT-HARD-2,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,FLT-MULTI-1,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,FLT-MULTI-2,suite-shape-FILTER-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+149,FLT-NEG-1,suite-shape-FILTER-2026-05-28,True,False,"missing filter column Regions.NameEn",False,"schema-fail",SCHEMA_FAIL
+149,FLT-NEG-2,suite-shape-FILTER-2026-05-28,False,False,"no SQL emitted",False,"exec failed",EXEC_FAIL
+149,FLT-AR-1,suite-shape-FILTER-2026-05-28,True,False,"missing filter column Regions.NameEn",False,"schema-fail",SCHEMA_FAIL
+149,FLT-EDGE-1,suite-shape-FILTER-2026-05-28,False,False,"no SQL emitted",False,"exec failed",EXEC_FAIL
+150,AGG-SIMPLE-1,suite-shape-AGGREGATE-2026-05-28,True,False,"missing AVG aggregation",False,"schema-fail",SCHEMA_FAIL
+150,AGG-SIMPLE-2,suite-shape-AGGREGATE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+150,AGG-SIMPLE-3,suite-shape-AGGREGATE-2026-05-28,True,False,"missing SUM aggregation",False,"schema-fail",SCHEMA_FAIL
+150,AGG-SIMPLE-4,suite-shape-AGGREGATE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+150,AGG-SIMPLE-5,suite-shape-AGGREGATE-2026-05-28,False,False,"no SQL emitted",False,"exec failed",EXEC_FAIL
+150,AGG-MEDIUM-1,suite-shape-AGGREGATE-2026-05-28,True,False,"missing MAX aggregation",False,"schema-fail",SCHEMA_FAIL
+150,AGG-MEDIUM-2,suite-shape-AGGREGATE-2026-05-28,True,False,"missing MIN aggregation",False,"schema-fail",SCHEMA_FAIL
+150,AGG-MEDIUM-3,suite-shape-AGGREGATE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+150,AGG-MEDIUM-4,suite-shape-AGGREGATE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+150,AGG-MEDIUM-5,suite-shape-AGGREGATE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+150,AGG-HARD-1,suite-shape-AGGREGATE-2026-05-28,True,False,"wrong root entity (expected Bills)",False,"schema-fail",SCHEMA_FAIL
+150,AGG-HARD-2,suite-shape-AGGREGATE-2026-05-28,True,False,"missing MAX aggregation",False,"schema-fail",SCHEMA_FAIL
+150,AGG-HARD-3,suite-shape-AGGREGATE-2026-05-28,True,False,"wrong root entity (expected Bills)",False,"schema-fail",SCHEMA_FAIL
+150,AGG-HARD-4,suite-shape-AGGREGATE-2026-05-28,True,False,"missing AVG aggregation",False,"schema-fail",SCHEMA_FAIL
+150,AGG-AR-1,suite-shape-AGGREGATE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+150,AGG-AR-2,suite-shape-AGGREGATE-2026-05-28,True,False,"missing filter column Bills.IssuedAt",False,"schema-fail",SCHEMA_FAIL
+150,AGG-EDGE-1,suite-shape-AGGREGATE-2026-05-28,True,False,"missing MAX aggregation",False,"schema-fail",SCHEMA_FAIL
+150,AGG-EDGE-2,suite-shape-AGGREGATE-2026-05-28,True,False,"missing AVG aggregation",False,"schema-fail",SCHEMA_FAIL
+151,TOPN-SIMPLE-1,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-SIMPLE-2,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-SIMPLE-3,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-SIMPLE-4,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-MEDIUM-1,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-MEDIUM-2,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-MEDIUM-3,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-MEDIUM-4,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-HARD-1,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-HARD-2,suite-shape-TOPN-2026-05-28,True,False,"missing SUM aggregation",False,"schema-fail",SCHEMA_FAIL
+151,TOPN-HARD-3,suite-shape-TOPN-2026-05-28,True,False,"missing COUNT aggregation",False,"schema-fail",SCHEMA_FAIL
+151,TOPN-HARD-4,suite-shape-TOPN-2026-05-28,True,False,"missing COUNT aggregation",False,"schema-fail",SCHEMA_FAIL
+151,TOPN-AR-1,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-AR-2,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,TOPN-EDGE-1,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+151,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+151,TOPN-EDGE-2,suite-shape-TOPN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+152,GRP-SIMPLE-1,suite-shape-GROUPBY-2026-05-28,False,True,"ok",False,"exec failed",EXEC_FAIL
+152,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+152,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+152,GRP-SIMPLE-2,suite-shape-GROUPBY-2026-05-28,True,False,"wrong root entity (expected Bills)",False,"schema-fail",SCHEMA_FAIL
+152,GRP-SIMPLE-3,suite-shape-GROUPBY-2026-05-28,True,False,"wrong root entity (expected Outages)",False,"schema-fail",SCHEMA_FAIL
+152,GRP-SIMPLE-4,suite-shape-GROUPBY-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+152,GRP-MEDIUM-1,suite-shape-GROUPBY-2026-05-28,False,False,"wrong root entity (expected Bills)",False,"exec failed",EXEC_FAIL
+152,GRP-MEDIUM-2,suite-shape-GROUPBY-2026-05-28,True,False,"wrong root entity (expected Bills)",False,"schema-fail",SCHEMA_FAIL
+152,GRP-MEDIUM-3,suite-shape-GROUPBY-2026-05-28,True,False,"no GROUP BY",False,"schema-fail",SCHEMA_FAIL
+152,GRP-MEDIUM-4,suite-shape-GROUPBY-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+152,GRP-HARD-1,suite-shape-GROUPBY-2026-05-28,True,False,"wrong root entity (expected Tickets)",False,"schema-fail",SCHEMA_FAIL
+152,GRP-HARD-2,suite-shape-GROUPBY-2026-05-28,True,False,"wrong root entity (expected Outages)",False,"schema-fail",SCHEMA_FAIL
+152,GRP-HARD-3,suite-shape-GROUPBY-2026-05-28,False,False,"no SQL emitted",False,"exec failed",EXEC_FAIL
+152,GRP-HARD-4,suite-shape-GROUPBY-2026-05-28,True,False,"no GROUP BY",False,"schema-fail",SCHEMA_FAIL
+152,GRP-AR-1,suite-shape-GROUPBY-2026-05-28,True,False,"no GROUP BY",False,"schema-fail",SCHEMA_FAIL
+152,GRP-AR-2,suite-shape-GROUPBY-2026-05-28,True,False,"wrong root entity (expected Bills)",False,"schema-fail",SCHEMA_FAIL
+152,GRP-EDGE-1,suite-shape-GROUPBY-2026-05-28,True,False,"no GROUP BY",False,"schema-fail",SCHEMA_FAIL
+153,JOIN-SIMPLE-1,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+153,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+153,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+153,JOIN-SIMPLE-2,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+153,JOIN-SIMPLE-3,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+153,JOIN-MEDIUM-1,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+153,JOIN-MEDIUM-2,suite-shape-JOIN-2026-05-28,True,False,"wrong root entity (expected Bills)",False,"schema-fail",SCHEMA_FAIL
+153,JOIN-MEDIUM-3,suite-shape-JOIN-2026-05-28,True,False,"wrong root entity (expected Outages)",False,"schema-fail",SCHEMA_FAIL
+153,JOIN-MEDIUM-4,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+153,JOIN-HARD-1,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+153,JOIN-HARD-2,suite-shape-JOIN-2026-05-28,True,False,"wrong root entity (expected Bills)",False,"schema-fail",SCHEMA_FAIL
+153,JOIN-HARD-3,suite-shape-JOIN-2026-05-28,True,False,"wrong root entity (expected Tickets)",False,"schema-fail",SCHEMA_FAIL
+153,JOIN-ANTI-1,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+153,JOIN-ANTI-2,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+153,JOIN-ANTI-3,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+153,JOIN-TEMPORAL-1,suite-shape-JOIN-2026-05-28,True,False,"wrong root entity (expected Customers)",False,"schema-fail",SCHEMA_FAIL
+153,JOIN-AR-1,suite-shape-JOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+154,TS-SIMPLE-1,suite-shape-TIMESERIES-2026-05-28,True,False,"no time-bucket function",False,"schema-fail",SCHEMA_FAIL
+154,TS-SIMPLE-2,suite-shape-TIMESERIES-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+154,TS-SIMPLE-3,suite-shape-TIMESERIES-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+154,TS-SIMPLE-4,suite-shape-TIMESERIES-2026-05-28,True,False,"no time-bucket function",False,"schema-fail",SCHEMA_FAIL
+154,TS-MEDIUM-1,suite-shape-TIMESERIES-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+154,TS-MEDIUM-2,suite-shape-TIMESERIES-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+154,TS-MEDIUM-3,suite-shape-TIMESERIES-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+154,TS-MEDIUM-4,suite-shape-TIMESERIES-2026-05-28,True,False,"missing filter column Bills.Status",False,"schema-fail",SCHEMA_FAIL
+154,TS-HARD-1,suite-shape-TIMESERIES-2026-05-28,False,False,"no SQL emitted",False,"exec failed",EXEC_FAIL
+154,TS-HARD-2,suite-shape-TIMESERIES-2026-05-28,False,True,"ok",False,"exec failed",EXEC_FAIL
+154,TS-HARD-3,suite-shape-TIMESERIES-2026-05-28,True,False,"missing SUM aggregation",False,"schema-fail",SCHEMA_FAIL
+154,TS-HARD-4,suite-shape-TIMESERIES-2026-05-28,False,True,"ok",False,"exec failed",EXEC_FAIL
+154,TS-AR-1,suite-shape-TIMESERIES-2026-05-28,True,False,"no time-bucket function",False,"schema-fail",SCHEMA_FAIL
+154,TS-AR-2,suite-shape-TIMESERIES-2026-05-28,True,False,"wrong root entity (expected Bills)",False,"schema-fail",SCHEMA_FAIL
+154,TS-EDGE-1,suite-shape-TIMESERIES-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+154,TS-EDGE-2,suite-shape-TIMESERIES-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,CMP-SIMPLE-1,suite-shape-COMPARE-2026-05-28,True,False,"missing SUM aggregation",False,"schema-fail",SCHEMA_FAIL
+155,CMP-SIMPLE-2,suite-shape-COMPARE-2026-05-28,True,False,"missing SUM aggregation",False,"schema-fail",SCHEMA_FAIL
+155,CMP-SIMPLE-3,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,CMP-MEDIUM-1,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,CMP-MEDIUM-2,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+155,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+155,CMP-MEDIUM-3,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+155,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+155,CMP-MEDIUM-4,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,CMP-HARD-1,suite-shape-COMPARE-2026-05-28,True,False,"missing SUM aggregation",False,"schema-fail",SCHEMA_FAIL
+155,CMP-HARD-2,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+155,,super-admin-copilot,True,False,"case not in suite",False,"skipped",MISSING
+155,CMP-HARD-3,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,CMP-HARD-4,suite-shape-COMPARE-2026-05-28,True,False,"missing SUM aggregation",False,"schema-fail",SCHEMA_FAIL
+155,CMP-MULTI-1,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,CMP-MULTI-2,suite-shape-COMPARE-2026-05-28,False,False,"no SQL emitted",False,"exec failed",EXEC_FAIL
+155,CMP-AR-1,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,CMP-AR-2,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+155,CMP-EDGE-1,suite-shape-COMPARE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+156,WIN-RANK-1,suite-shape-WINDOW-2026-05-28,True,False,"no window function",False,"schema-fail",SCHEMA_FAIL
+156,WIN-RANK-2,suite-shape-WINDOW-2026-05-28,True,False,"no window function",False,"schema-fail",SCHEMA_FAIL
+156,WIN-RANK-3,suite-shape-WINDOW-2026-05-28,True,False,"no window function",False,"schema-fail",SCHEMA_FAIL
+156,WIN-RUN-1,suite-shape-WINDOW-2026-05-28,True,False,"no window function",False,"schema-fail",SCHEMA_FAIL
+156,WIN-RUN-2,suite-shape-WINDOW-2026-05-28,True,False,"no window function",False,"schema-fail",SCHEMA_FAIL
+156,WIN-RUN-3,suite-shape-WINDOW-2026-05-28,True,False,"no window function",False,"schema-fail",SCHEMA_FAIL
+156,WIN-LAG-1,suite-shape-WINDOW-2026-05-28,True,False,"no window function",False,"schema-fail",SCHEMA_FAIL
+156,WIN-LAG-2,suite-shape-WINDOW-2026-05-28,False,False,"no window function",False,"exec failed",EXEC_FAIL
+156,WIN-LAG-3,suite-shape-WINDOW-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+156,WIN-PCT-1,suite-shape-WINDOW-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+156,WIN-PCT-2,suite-shape-WINDOW-2026-05-28,True,False,"no window function",False,"schema-fail",SCHEMA_FAIL
+156,WIN-AR-1,suite-shape-WINDOW-2026-05-28,True,False,"no window function",False,"schema-fail",SCHEMA_FAIL
+157,EX-1,suite-shape-EXISTS-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+157,EX-2,suite-shape-EXISTS-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+157,EX-3,suite-shape-EXISTS-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+157,EX-4,suite-shape-EXISTS-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+157,EX-5,suite-shape-EXISTS-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+157,NEX-1,suite-shape-EXISTS-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+157,NEX-2,suite-shape-EXISTS-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+157,NEX-3,suite-shape-EXISTS-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+157,NEX-4,suite-shape-EXISTS-2026-05-28,True,False,"wrong root entity (expected Customers)",False,"schema-fail",SCHEMA_FAIL
+157,EX-AR-1,suite-shape-EXISTS-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+158,HAV-1,suite-shape-HAVING-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+158,HAV-2,suite-shape-HAVING-2026-05-28,True,False,"no HAVING",False,"schema-fail",SCHEMA_FAIL
+158,HAV-3,suite-shape-HAVING-2026-05-28,False,False,"wrong root entity (expected Departments)",False,"exec failed",EXEC_FAIL
+158,HAV-4,suite-shape-HAVING-2026-05-28,True,False,"no HAVING",False,"schema-fail",SCHEMA_FAIL
+158,HAV-5,suite-shape-HAVING-2026-05-28,True,False,"wrong root entity (expected Regions)",False,"schema-fail",SCHEMA_FAIL
+158,HAV-6,suite-shape-HAVING-2026-05-28,True,False,"no HAVING",False,"schema-fail",SCHEMA_FAIL
+158,HAV-AR-1,suite-shape-HAVING-2026-05-28,False,False,"wrong root entity (expected Regions)",False,"exec failed",EXEC_FAIL
+159,SELF-1,suite-shape-SELFJOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+159,SELF-2,suite-shape-SELFJOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+159,SELF-3,suite-shape-SELFJOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+159,SELF-4,suite-shape-SELFJOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+159,SELF-5,suite-shape-SELFJOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+159,SELF-AR-1,suite-shape-SELFJOIN-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+160,UNION-1,suite-shape-UNION-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+160,UNION-2,suite-shape-UNION-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+160,UNION-3,suite-shape-UNION-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+160,UNION-4,suite-shape-UNION-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+160,UNION-5,suite-shape-UNION-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+160,UNION-AR-1,suite-shape-UNION-2026-05-28,True,True,"ok",True,"judge-skipped",PASS
+161,REC-CHILD-1,suite-shape-RECURSIVE-2026-05-28,True,True,"ok",True,"judge-skipped",PASS

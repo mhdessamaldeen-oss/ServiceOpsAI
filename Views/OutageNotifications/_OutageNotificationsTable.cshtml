@@ -1,0 +1,43 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.OutageNotificationDto>
+
+<div class="table-responsive">
+    <table id="outageNotifsTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Outage</th>
+                <th class="py-3">Customer</th>
+                <th class="py-3">Channel</th>
+                <th class="py-3">Sent</th>
+                <th class="py-3">Delivered</th>
+                <th class="py-3">Read</th>
+                <th class="py-3">Status</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var n in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@n.OutageNumber</code></td>
+                    <td style="color: var(--text-main) !important;">@n.CustomerName</td>
+                    <td><span class="badge rounded-pill px-3 py-2" style="background: rgba(56,189,248,0.1); color: #38bdf8; border: 1px solid #38bdf8;">@n.Channel</span></td>
+                    <td class="small text-muted">@n.SentAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="small text-muted">@(n.DeliveredAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                    <td class="small text-muted">@(n.ReadAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                    <td>
+                        @{ var (bg, fg) = n.Status switch { "Read" => ("rgba(var(--primary-color-rgb),0.1)", "var(--primary-color)"), "Delivered" => ("rgba(56,189,248,0.1)", "#38bdf8"), "Sent" => ("rgba(168,85,247,0.1)", "#a855f7"), "Pending" => ("rgba(245,158,11,0.1)", "#f59e0b"), "Failed" => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"), _ => ("rgba(148,163,184,0.1)", "#94a3b8") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @bg; color: @fg; border: 1px solid @fg;">@n.Status</span>
+                    </td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@n.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@n.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@n.Id" method="post" onsubmit="return confirm('Delete this notification?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No notifications match the current filter.</h6></div> }
+</div>

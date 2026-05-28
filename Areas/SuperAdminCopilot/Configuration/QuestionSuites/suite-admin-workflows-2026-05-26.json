@@ -1,0 +1,44 @@
+{
+  "name": "Admin Workflows Suite — what ops admins actually ask",
+  "version": "1.0.0",
+  "description": "Replaces the COUNT-heavy academic shape suites. Tests REAL admin workflows: multi-table navigation, name-based search with fuzzy match, complaint/billing reports, drill-down, cross-entity analytics. Covers all 11 data-bearing tables and their FK relations (Customers↔Regions, Bills↔Customers↔ServiceTypes, Tickets↔ALL, Outages↔Region+Service+Dept, etc.). Uses REAL customer/region/service names from the live DB. Each expected scalar pre-computed via SQL on 2026-05-26.",
+  "Scenarios": [
+
+    { "Code": "AW-NAV-UsersRoles", "Question": "list users with their roles", "Category": "NAV", "Difficulty": "Easy", "ExpectedScalar": 13 },
+    { "Code": "AW-NAV-TixWithCust", "Question": "show me tickets with their customer name", "Category": "NAV", "Difficulty": "Easy", "ExpectedScalar": 83 },
+    { "Code": "AW-NAV-TixWithCustAndRegion", "Question": "tickets with customer name and region", "Category": "NAV", "Difficulty": "Medium", "ExpectedScalar": 83 },
+    { "Code": "AW-NAV-CustomersWithRegion", "Question": "list all customers with their region", "Category": "NAV", "Difficulty": "Easy", "ExpectedScalar": 200 },
+    { "Code": "AW-NAV-OutagesFullChain", "Question": "outages with service type, region and responsible department", "Category": "NAV", "Difficulty": "Medium", "ExpectedScalar": 32 },
+    { "Code": "AW-NAV-BillsCustSvc", "Question": "bills with customer name and service type", "Category": "NAV", "Difficulty": "Easy", "ExpectedScalar": 12168 },
+
+    { "Code": "AW-SRCH-BillsForHouri", "Question": "show me bills for customer Houri", "Category": "SRCH", "Difficulty": "Medium", "ExpectedScalar": 480 },
+    { "Code": "AW-SRCH-TixForMansour", "Question": "tickets opened by customer Mansour", "Category": "SRCH", "Difficulty": "Medium", "ExpectedScalar": 3 },
+    { "Code": "AW-SRCH-CustHaddad", "Question": "find customer Haddad", "Category": "SRCH", "Difficulty": "Easy", "ExpectedScalar": 2 },
+    { "Code": "AW-SRCH-OutagesAleppo", "Question": "outages in Aleppo governorate", "Category": "SRCH", "Difficulty": "Medium", "ExpectedScalar": 3 },
+    { "Code": "AW-SRCH-CustomersDamascus", "Question": "customers in Damascus governorate", "Category": "SRCH", "Difficulty": "Medium", "ExpectedScalar": 6 },
+    { "Code": "AW-SRCH-HomsWaterDept", "Question": "show me the Homs Water Department", "Category": "SRCH", "Difficulty": "Easy", "ExpectedScalar": 1 },
+    { "Code": "AW-SRCH-BillsCustHouriPaid", "Question": "paid bills for customer Houri", "Category": "SRCH", "Difficulty": "Hard", "ExpectedScalar": 424 },
+    { "Code": "AW-SRCH-MeterReadHouriElec", "Question": "electricity meter readings for customer Houri", "Category": "SRCH", "Difficulty": "Hard", "ExpectedScalar": 48 },
+
+    { "Code": "AW-WF-OpenCritGt7Days", "Question": "open critical tickets older than 7 days", "Category": "WF", "Difficulty": "Hard", "ExpectedScalar": 7 },
+    { "Code": "AW-WF-CustMany3Overdue", "Question": "customers with more than 3 overdue bills", "Category": "WF", "Difficulty": "Hard", "ExpectedScalar": 19 },
+    { "Code": "AW-WF-DeptsResolvedZero", "Question": "departments that resolved no tickets", "Category": "WF", "Difficulty": "Hard", "ExpectedScalar": 35 },
+    { "Code": "AW-WF-OutagesElecAleppo", "Question": "electricity outages in Aleppo", "Category": "WF", "Difficulty": "Medium", "ExpectedScalar": 1 },
+    { "Code": "AW-WF-CustWithUnpaid", "Question": "how many customers have unpaid bills", "Category": "WF", "Difficulty": "Medium", "ExpectedScalar": 197 },
+    { "Code": "AW-WF-CustOnlyClosedTix", "Question": "customers whose tickets are all closed or resolved", "Category": "WF", "Difficulty": "Hard", "ExpectedScalar": 40 },
+
+    { "Code": "AW-LIST-OverdueBills", "Question": "give me a list of all overdue bills", "Category": "LIST", "Difficulty": "Easy", "ExpectedScalar": 325 },
+    { "Code": "AW-LIST-Top10HighestBills", "Question": "top 10 highest-value invoices", "Category": "LIST", "Difficulty": "Medium", "ExpectedScalar": 10 },
+    { "Code": "AW-LIST-CritUnresolvedTix", "Question": "list critical tickets that are still unresolved", "Category": "LIST", "Difficulty": "Medium", "ExpectedScalar": 7 },
+    { "Code": "AW-LIST-AllRegionGovs", "Question": "show me all governorates", "Category": "LIST", "Difficulty": "Easy", "ExpectedScalar": 14 },
+    { "Code": "AW-LIST-PaidBillsHouri", "Question": "list paid bills of customer Houri", "Category": "LIST", "Difficulty": "Hard", "ExpectedScalar": 424 },
+
+    { "Code": "AW-ANA-ComplaintsByRegion", "Question": "complaint counts per region", "Category": "ANA", "Difficulty": "Medium", "ExpectedScalar": 36 },
+    { "Code": "AW-ANA-AvgResolPerPrio", "Question": "average resolution time per priority", "Category": "ANA", "Difficulty": "Hard", "ExpectedScalar": 4 },
+    { "Code": "AW-ANA-BillsPerSvcPerMonth", "Question": "bill counts per service type per month", "Category": "ANA", "Difficulty": "Hard", "ExpectedScalar": 96 },
+    { "Code": "AW-ANA-OutagesByRegSev", "Question": "outage counts by region and severity", "Category": "ANA", "Difficulty": "Hard", "ExpectedScalar": 26 },
+
+    { "Code": "AW-COMPLEX-AvgCSATPerDept", "Question": "average CSAT score per department", "Category": "COMPLEX", "Difficulty": "Hard", "ExpectedScalar": 18 },
+    { "Code": "AW-COMPLEX-RegionsWithCritOpen", "Question": "regions with open critical complaints", "Category": "COMPLEX", "Difficulty": "Hard", "ExpectedScalar": 7 }
+  ]
+}

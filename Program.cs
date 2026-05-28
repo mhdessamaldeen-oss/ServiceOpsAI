@@ -77,6 +77,7 @@ builder.Configuration.AddJsonFile("copilot-text.json", optional: true, reloadOnC
 // pattern / role mapping by editing the JSON without restarting the host.
 builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/write-intent-verbs.json", optional: true, reloadOnChange: true);
 builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/fk-role-patterns.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/spec-repair-rules.json", optional: true, reloadOnChange: true);
 builder.Services.Configure<CopilotTextSettings>(builder.Configuration);
 builder.Services.Configure<CopilotTracePersistenceOptions>(builder.Configuration.GetSection(CopilotTracePersistenceOptions.SectionName));
 
@@ -193,19 +194,17 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapStaticAssets();
+app.UseStaticFiles();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Dashboard}/{action=Index}/{id?}")
-    .WithStaticAssets();
+    pattern: "{controller=Dashboard}/{action=Index}/{id?}");
 
 app.MapHub<CopilotAssessmentHub>("/hubs/copilotAssessment");
 app.MapHub<CopilotChatHub>("/hubs/copilotChat");
 
 
-app.MapRazorPages()
-   .WithStaticAssets();
+app.MapRazorPages();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -218,6 +217,11 @@ using (var scope = app.Services.CreateScope())
     // Idempotent — no-ops if Customers already populated.
     var dbContext = services.GetRequiredService<ApplicationDbContext>();
     await ServiceOpsAI.Data.Seed.ServiceOpsSeeder.SeedAsync(dbContext);
+
+    // Phase 06 depth (billing layer + field ops + customer voice). Runs AFTER the
+    // domain seeder above, since Phase 06 rows attach to existing customers/bills/outages.
+    // Each table is independently guarded with AnyAsync() so re-running is safe.
+    await ServiceOpsAI.Data.DbSeeder.EnsureSeedPhase06PublicAsync(dbContext);
 
     var aiService = services.GetRequiredService<IAiAnalysisService>();
     await aiService.ResetInterruptedAnalysesAsync();

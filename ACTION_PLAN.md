@@ -127,7 +127,7 @@ These are real targets from a 2026-05-17 code scan. Each is assigned to a specif
 
 | ID | Target | Pay-off step |
 |---|---|---|
-| **R1** | Orchestrator dependency bundling — `SimpleCopilotOrchestrator` constructor has **27 injected deps**. Group into capability facades (`IConversationCapability`, `ISqlGenerationCapability`, `ISafetyCapability`, `IRoutingCapability`, `IObservabilityCapability`) → 6 deps. | Step 8 |
+| **R1** | Orchestrator dependency bundling — `CopilotOrchestrator` constructor has **27 injected deps**. Group into capability facades (`IConversationCapability`, `ISqlGenerationCapability`, `ISafetyCapability`, `IRoutingCapability`, `IObservabilityCapability`) → 6 deps. | Step 8 |
 | **R2** | `SqlCompiler.cs` is 1658 lines despite an already-started partial-class split. Deepen: `SqlCompiler.Filters.cs`, `.JoinGraph.cs`, `.GroupBy.cs`, `.PeriodCompare.cs`, `.Window.cs`. Each ≤ 300 lines. | Step 13 |
 | **R3** | `SpecExtractor.cs` is 891 lines with the main system prompt hardcoded as C# string constants (the long-standing "Fix E" tech debt). Split into `SpecExtractor.cs` (orchestration), `.PromptBuilder.cs` (reads `copilot-text.json::SpecExtractorPromptSections`), `.PostProcess.cs` (normalize/validate). | Step 17 |
 | **R4** | `ToolHandler.cs` is 839 lines with 4 hardcoded score thresholds (`HighConfidenceScoreThreshold = 8`, `ScoreGapThreshold = 3`, `LlmFallbackMinTopScore = 4`, `DbShapedQuestionToolGate = 12`). Move to `CopilotOptions.ToolScoring`. Split file 5 ways. | Step 12 |
@@ -230,7 +230,7 @@ DIN-SQL / LangChain field-standard pattern. Universally +5–10 EX points in pub
 ## Step 10 — Convergence guard via `QuerySpecHasher`
 
 - **Issue:** Self-correction could thrash on identical "fixes". The hash-equality cost-saver pattern already exists for SpecRefine.
-- **Fix:** Re-use the hash check from `SimpleCopilotOrchestrator.TryRefineSpecAsync` — if corrected SQL equals previous, stop.
+- **Fix:** Re-use the hash check from `CopilotOrchestrator.TryRefineSpecAsync` — if corrected SQL equals previous, stop.
 - **Refactor in-flight:** Extract the hash-equality check into `IConvergenceGuard` so both SpecRefine and SelfCorrector share one implementation instead of two near-duplicates.
 - **Acceptance:** Trace shows "self-correction converged, stopping" when LLM emits identical retry.
 

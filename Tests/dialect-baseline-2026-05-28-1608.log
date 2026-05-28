@@ -1,0 +1,35 @@
+16:08:18 ▶ shapes/suite-shape-CROSS-2026-05-28.json (expected 15 cases)
+16:08:19   sessionId=163 totalCases=15
+16:09:04   s=163 traces=1/15 stall=6s
+16:09:49   s=163 traces=1/15 stall=51s
+16:10:34   s=163 traces=2/15 stall=26s
+16:11:19   s=163 traces=3/15 stall=27s
+16:12:04   s=163 traces=4/15 stall=34s
+16:12:49   s=163 traces=5/15 stall=40s
+16:13:34   s=163 traces=6/15 stall=29s
+16:14:19   s=163 traces=7/15 stall=22s
+16:15:04   s=163 traces=7/15 stall=67s
+16:15:49   s=163 traces=8/15 stall=19s
+16:16:35   s=163 traces=9/15 stall=16s
+16:17:20   s=163 traces=10/15 stall=7s
+16:18:05   s=163 traces=11/15 stall=8s
+16:18:50   s=163 traces=12/15 stall=0s
+16:19:35   s=163 traces=12/15 stall=45s
+16:20:20   s=163 traces=14/15 stall=2s
+16:21:05   s=163 traces=14/15 stall=47s
+16:21:50   s=163 traces=14/15 stall=92s
+16:22:35   s=163 traces=14/15 stall=137s
+16:23:20   s=163 traces=14/15 stall=182s
+16:24:05   s=163 traces=14/15 stall=227s
+16:24:50   s=163 traces=14/15 stall=272s
+16:25:35   s=163 traces=14/15 stall=317s
+16:25:35   STALL: moving on
+16:25:35   ✓ ok=13 errors=1 total=14
+16:25:45 ─── Done ──
+
+Suite                                    SessionId Traces Expected Ok Errors Total PassPct
+-----                                    --------- ------ -------- -- ------ ----- -------
+shapes/suite-shape-CROSS-2026-05-28.json       163     14       15 13      1    14   92.90
+
+
+16:25:46 OVERALL: 13 / 14 = 92.9%  (baseline 94.3%)

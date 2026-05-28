@@ -1,0 +1,26 @@
+@model ServiceOpsAI.Models.ServiceAccount
+@{ ViewData["Title"] = "Service Account Details"; }
+
+<h2><i class="bi bi-file-earmark-text-fill"></i> @Model.AccountNumber</h2>
+
+<div class="card shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Account #</dt><dd class="col-sm-9"><code>@Model.AccountNumber</code></dd>
+            <dt class="col-sm-3">Customer</dt><dd class="col-sm-9">@Model.Customer?.FullNameEn / <span dir="rtl">@Model.Customer?.FullNameAr</span></dd>
+            <dt class="col-sm-3">Service Type</dt><dd class="col-sm-9">@Model.ServiceType?.NameEn / <span dir="rtl">@Model.ServiceType?.NameAr</span></dd>
+            <dt class="col-sm-3">Service Point</dt><dd class="col-sm-9"><code>@Model.ServicePoint?.PointCode</code> — @Model.ServicePoint?.Region?.NameEn</dd>
+            <dt class="col-sm-3">Segment</dt><dd class="col-sm-9">@Model.CustomerSegment?.NameEn</dd>
+            <dt class="col-sm-3">Department</dt><dd class="col-sm-9">@Model.Department?.NameEn</dd>
+            <dt class="col-sm-3">Status</dt><dd class="col-sm-9">@Model.Status</dd>
+            <dt class="col-sm-3">Activated</dt><dd class="col-sm-9">@Model.ActivatedAt.ToString("yyyy-MM-dd")</dd>
+            <dt class="col-sm-3">Deactivated</dt><dd class="col-sm-9">@(Model.DeactivatedAt?.ToString("yyyy-MM-dd") ?? "—")</dd>
+            <dt class="col-sm-3">Contracted Capacity</dt><dd class="col-sm-9">@Model.ContractedCapacity?.ToString("N2") @Model.CapacityUnit</dd>
+            <dt class="col-sm-3">Notes</dt><dd class="col-sm-9">@Model.Notes</dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>

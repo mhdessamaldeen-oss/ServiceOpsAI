@@ -74,7 +74,12 @@ public sealed record CopilotResponse(
     // Confidence score in [0..1]. Verified-match exposes the cosine similarity; LLM paths
     // approximate confidence from retry count (1.0 = no retries, 0.5 = 1 retry, etc.).
     // Useful for UI gating ("only auto-apply answers above 0.85") downstream.
-    double? Confidence = null);
+    double? Confidence = null,
+    // Compiler-emitted warnings about silently-dropped parts of the LLM's spec. Each entry
+    // names a column/filter that didn't make it into the SQL (e.g. unknown column, rejected
+    // placeholder value). UI should render these inline so the user knows the answer didn't
+    // fully honor their question. Null/empty = clean compilation.
+    IReadOnlyList<Abstractions.CopilotWarning>? Warnings = null);
 
 /// <summary>
 /// One stage of the orchestrator pipeline (Preflight, Retriever, Planner, Compiler, Validator,
@@ -148,6 +153,10 @@ public sealed class QuerySpec
     public List<JoinSpec> Joins { get; set; } = new();
 
     public int? Limit { get; set; }
+
+    /// <summary>Pagination skip count. When &gt;0 the compiler emits OFFSET/FETCH instead of TOP and synthesizes an ORDER BY if missing.</summary>
+    public int? Offset { get; set; }
+
     public bool Distinct { get; set; }
 
     /// <summary>
@@ -159,6 +168,17 @@ public sealed class QuerySpec
     /// aggregation needs to repeat over disjoint time slices.
     /// </summary>
     public List<PeriodSpec> PeriodComparisons { get; set; } = new();
+
+    /// <summary>
+    /// Phase 07 — the single source of truth for the question's temporal scope. Filled by
+    /// the deterministic <c>TimeIntentExtractor</c> BEFORE the LLM planner runs. When this
+    /// is non-null and <see cref="TimeIntent.Kind"/> is not <c>Unqualified</c>, the compiler
+    /// uses it directly and ignores any temporal filters the LLM might have emitted on the
+    /// same date column. Retires the year-anchored q{N}_start tokens, the
+    /// SpecificYearMonthFilter phase, and the InjectTemporalFilterFromQuestion phase — all
+    /// of which are folded into the extractor.
+    /// </summary>
+    public TimeIntent? TimeIntent { get; set; }
 
     /// <summary>
     /// F1.b — when <see cref="Intent"/> is <c>"clarification"</c>, this holds the follow-up
@@ -245,7 +265,10 @@ public sealed class OrderBySpec
     public string Direction { get; set; } = "asc";
 }
 
-public sealed record CompiledSql(string Sql, IReadOnlyDictionary<string, object?> Parameters);
+public sealed record CompiledSql(
+    string Sql,
+    IReadOnlyDictionary<string, object?> Parameters,
+    IReadOnlyList<Abstractions.CopilotWarning>? Warnings = null);
 
 public sealed record ValidationResult(bool IsValid, IReadOnlyList<string> Errors);
 

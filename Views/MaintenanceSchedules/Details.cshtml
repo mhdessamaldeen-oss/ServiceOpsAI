@@ -1,0 +1,25 @@
+@model ServiceOpsAI.Models.MaintenanceSchedule
+@{ ViewData["Title"] = "Maintenance Schedule Details"; }
+
+<h2><i class="bi bi-tools"></i> @Model.ScheduleNumber</h2>
+
+<div class="card shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Number</dt><dd class="col-sm-9"><code>@Model.ScheduleNumber</code></dd>
+            <dt class="col-sm-3">Title (EN/AR)</dt><dd class="col-sm-9">@Model.TitleEn / <span dir="rtl">@Model.TitleAr</span></dd>
+            <dt class="col-sm-3">Asset</dt><dd class="col-sm-9">@Model.Asset?.NameEn</dd>
+            <dt class="col-sm-3">Region / Department</dt><dd class="col-sm-9">@Model.Region?.NameEn / @Model.Department?.NameEn</dd>
+            <dt class="col-sm-3">Scheduled</dt><dd class="col-sm-9">@Model.ScheduledStart.ToString("yyyy-MM-dd HH:mm") → @Model.ScheduledEnd.ToString("yyyy-MM-dd HH:mm")</dd>
+            <dt class="col-sm-3">Actual</dt><dd class="col-sm-9">@(Model.ActualStart?.ToString("yyyy-MM-dd HH:mm") ?? "—") → @(Model.ActualEnd?.ToString("yyyy-MM-dd HH:mm") ?? "—")</dd>
+            <dt class="col-sm-3">Type / Status</dt><dd class="col-sm-9">@Model.MaintenanceType / @Model.Status</dd>
+            <dt class="col-sm-3">Expected Affected #</dt><dd class="col-sm-9">@Model.ExpectedAffectedCustomers</dd>
+            <dt class="col-sm-3">Customers Notified?</dt><dd class="col-sm-9">@(Model.CustomersNotified ? "Yes" : "No")</dd>
+            <dt class="col-sm-3">Description</dt><dd class="col-sm-9">@Model.Description</dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>

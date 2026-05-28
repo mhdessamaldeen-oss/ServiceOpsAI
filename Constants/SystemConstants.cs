@@ -86,6 +86,23 @@ namespace ServiceOpsAI.Constants
         /// generator. Keeping it on the same provider+model as Copilot is the safe default; can be
         /// downgraded to a smaller faster model (e.g. <c>qwen2.5:3b</c>) once accuracy is measured.</summary>
         public const string ClassifierWorkloadModel = "AiClassifierModel";
+
+        // Per-ROLE provider + model overrides — same cascading shape as the workload slots above
+        // (provider dropdown → model dropdown filtered by that provider). Every LLM call site in
+        // the SuperAdminCopilot pipeline gets its own pair; each is OPTIONAL and falls back to the
+        // CopilotProvider/CopilotWorkloadModel pair when unset (non-breaking). The point: spec
+        // composition wants a strong code model, but explainer/decomposer/classifier can all run
+        // on a smaller faster model — possibly on a different provider entirely.
+        public const string DecomposerRoleProvider = "AiDecomposerProvider";
+        public const string DecomposerRoleModel = "AiDecomposerModel";
+        public const string SchemaLinkerRoleProvider = "AiSchemaLinkerProvider";
+        public const string SchemaLinkerRoleModel = "AiSchemaLinkerModel";
+        public const string StructuralCueParserRoleProvider = "AiStructuralCueParserProvider";
+        public const string StructuralCueParserRoleModel = "AiStructuralCueParserModel";
+        public const string SelfCorrectorRoleProvider = "AiSelfCorrectorProvider";
+        public const string SelfCorrectorRoleModel = "AiSelfCorrectorModel";
+        public const string ExplainerRoleProvider = "AiExplainerProvider";
+        public const string ExplainerRoleModel = "AiExplainerModel";
         public const string OllamaTimeoutSeconds = "AiOllamaTimeoutSeconds";
         public const string OllamaMaxPromptChars = "AiOllamaMaxPromptChars";
         public const string OllamaTemperature = "AiOllamaTemperature";

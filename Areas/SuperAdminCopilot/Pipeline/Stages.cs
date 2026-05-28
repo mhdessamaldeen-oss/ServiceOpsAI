@@ -43,7 +43,7 @@ public static class StageNames
     public const string StepRetry            = "Retry";
     public const string StepIntentRoute      = "IntentRouter";
     public const string StepSqlIntentGuard   = "SqlIntentGuard";
-    // Added for SimpleCopilotOrchestrator (Phase 1 redesigned pipeline).
+    // Added for CopilotOrchestrator (Phase 1 redesigned pipeline).
     public const string StepConversational   = "Conversational";
     public const string StepKnowledgeMatch   = "KnowledgeMatch";
     public const string StepSemanticSearch   = "SemanticSearch";
@@ -124,7 +124,7 @@ public static class StageNames
         "semanticunderstanding"  => "GUARDS",
         "conversationcontext"    => "GUARDS",
         "retrydegenerationguard" => "DEGEN",
-        // ── New-pipeline steps introduced by SimpleCopilotOrchestrator ────────────
+        // ── New-pipeline steps introduced by CopilotOrchestrator ────────────
         "accesspolicy"           => "VAL",     // safety gate — rendered alongside other validators
         "specextractor"          => "PLAN",    // the redesigned LLM step replaces the old planner
         "specextractor (refine)" => "PLAN",    // retry path with previous spec + error
@@ -199,7 +199,7 @@ public sealed record PipelineStageDescriptor(
 
 /// <summary>
 /// The Workflow tab's source of truth. Top-to-bottom order matches the orchestrator flow in
-/// <see cref="Pipeline.SimpleCopilotOrchestrator"/>. Adding a new stage means: (a) add a
+/// <see cref="Pipeline.CopilotOrchestrator"/>. Adding a new stage means: (a) add a
 /// descriptor here, (b) record it via OrchestratorStepRecorder. The view picks it up
 /// automatically — no view changes needed.
 /// </summary>

@@ -38,13 +38,12 @@
                     }
                     
                     @foreach(var slot in new[] {
+                        // Cross-cutting workload defaults — apply to features OUTSIDE the
+                        // SuperAdminCopilot pipeline (legacy analysis, embeddings). The 7
+                        // copilot pipeline stages live in their own section below.
                         (Name: "GLOBALDEFAULT", Key: "activeProvider",   Val: (string)activeProvider.ToString(),     Desc: "FallbackEngineDesc", ModelKey: (string?)null,         ModelVal: (string?)null),
                         (Name: "ANALYSIS",      Key: "analysisProvider", Val: (string)ViewBag.DbAnalysisProvider,    Desc: "AnalysisDesc",       ModelKey: "analysisModel",   ModelVal: (string?)ViewBag.DbAnalysisModel),
-                        (Name: "KNOWLEDGERAG",  Key: "ragProvider",      Val: (string)ViewBag.DbRagProvider,         Desc: "RAGDesc",            ModelKey: "ragModel",        ModelVal: (string?)ViewBag.DbRagModel),
-                        // Intent Router runs BEFORE the SQL Generator. Same model is fine to start;
-                        // can be swapped to a smaller/faster model later without retraining anything.
-                        (Name: "INTENTROUTER",  Key: "classifierProvider", Val: (string)ViewBag.DbClassifierProvider, Desc: "ClassifierDesc",   ModelKey: "classifierModel", ModelVal: (string?)ViewBag.DbClassifierModel),
-                        (Name: "SQLGENERATOR",  Key: "copilotProvider",  Val: (string)ViewBag.DbCopilotProvider,     Desc: "CopilotDesc",        ModelKey: "copilotModel",    ModelVal: (string?)ViewBag.DbCopilotModel)
+                        (Name: "KNOWLEDGERAG",  Key: "ragProvider",      Val: (string)ViewBag.DbRagProvider,         Desc: "RAGDesc",            ModelKey: "ragModel",        ModelVal: (string?)ViewBag.DbRagModel)
                     }) {
                         <div class="col-md-3">
                             <div class="routing-slot h-100 p-2 rounded-3 bg-white border border-opacity-10 position-relative transition-all hover-lift">
@@ -86,6 +85,74 @@
                             </div>
                         </div>
                     }
+                </div>
+
+                <!-- Copilot Pipeline Stages — all 7 LLM call sites in the SuperAdminCopilot
+                     pipeline, grouped together. Same cascading Provider+Model shape as the
+                     workload slots above. Empty Provider = inherit from SQL Generator.
+                     Single Save covers everything in this <form>. Stages are ordered roughly
+                     by call sequence: classifier → decomposer → schema linker → cue parser →
+                     SQL generator → self-corrector → explainer. -->
+                <div class="mt-3 pt-3 border-top">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h6 class="fw-bolder mb-0 d-flex align-items-center gap-2" style="font-size: 0.75rem;">
+                                <i class="bi bi-cpu-fill text-primary"></i>
+                                Copilot Pipeline Stages
+                            </h6>
+                            <p class="text-muted smaller mb-0" style="font-size: 0.6rem;">
+                                Each stage of the SuperAdminCopilot pipeline picks its own provider + model.
+                                Empty = inherit from SQL Generator. Pick a smaller model for narrow stages (classifier, cue parser, explainer) to save tokens and latency.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        @foreach (var roleSlot in new[] {
+                            (Name: "INTENT ROUTER",  Key: "classifierProvider",          Val: (string)ViewBag.DbClassifierProvider,          Desc: "Classifies intent: data query / chat / tool / refuse. Small model (3B) is plenty.",   ModelKey: "classifierModel",          ModelVal: (string?)ViewBag.DbClassifierModel),
+                            (Name: "DECOMPOSER",     Key: "decomposerProvider",          Val: (string)ViewBag.DbDecomposerProvider,          Desc: "Splits compound questions into sub-queries. 3B is plenty.",                          ModelKey: "decomposerModel",          ModelVal: (string?)ViewBag.DbDecomposerModel),
+                            (Name: "SCHEMA LINKER",  Key: "schemaLinkerProvider",        Val: (string)ViewBag.DbSchemaLinkerProvider,        Desc: "Picks the tables and columns the question needs. Code-aware 7B.",                    ModelKey: "schemaLinkerModel",        ModelVal: (string?)ViewBag.DbSchemaLinkerModel),
+                            (Name: "CUE PARSER",     Key: "structuralCueParserProvider", Val: (string)ViewBag.DbStructuralCueParserProvider, Desc: "Reads column lists from the question (brackets, separators). 3B suffices.",          ModelKey: "structuralCueParserModel", ModelVal: (string?)ViewBag.DbStructuralCueParserModel),
+                            (Name: "SQL GENERATOR",  Key: "copilotProvider",             Val: (string)ViewBag.DbCopilotProvider,             Desc: "The main SQL composer. Hardest stage — use the strongest local model available.",     ModelKey: "copilotModel",             ModelVal: (string?)ViewBag.DbCopilotModel),
+                            (Name: "SELF-CORRECTOR", Key: "selfCorrectorProvider",       Val: (string)ViewBag.DbSelfCorrectorProvider,       Desc: "Re-prompts on execution error to fix bad SQL. Same skill as SQL Generator.",          ModelKey: "selfCorrectorModel",       ModelVal: (string?)ViewBag.DbSelfCorrectorModel),
+                            (Name: "EXPLAINER",      Key: "explainerProvider",           Val: (string)ViewBag.DbExplainerProvider,           Desc: "Writes the natural-language reply over the result rows. Mid-size chat model.",       ModelKey: "explainerModel",           ModelVal: (string?)ViewBag.DbExplainerModel)
+                        }) {
+                            <div class="col-md-3">
+                                <div class="routing-slot h-100 p-2 rounded-3 bg-white border border-opacity-10 position-relative transition-all hover-lift">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <div class="p-1 rounded-circle" style="background: var(--bg-surface-alt);">
+                                            <i class="bi bi-circle-fill" style="font-size: 0.5rem; color: var(--info-color);"></i>
+                                        </div>
+                                        <h6 class="fw-bold mb-0 text-uppercase tracking-wider" style="font-size: 0.6rem;">@roleSlot.Name</h6>
+                                    </div>
+                                    @{
+                                        var roleProviderSelectId = $"prov-sel-{roleSlot.Key}";
+                                        var roleModelSelectId = $"model-sel-{roleSlot.ModelKey}";
+                                    }
+                                    <select id="@roleProviderSelectId" name="@roleSlot.Key"
+                                            class="form-select form-select-sm border border-light fw-semibold text-dark shadow-none mb-2"
+                                            data-model-select-id="@roleModelSelectId"
+                                            onchange="onWorkloadProviderChange(this)">
+                                        <option value="">@Loc.Get("InheritDefault")</option>
+                                        @foreach (var p in providers) {
+                                            <option value="@p" selected="@(roleSlot.Val == p.ToString())">@GetName(p)</option>
+                                        }
+                                    </select>
+                                    <select id="@roleModelSelectId" name="@roleSlot.ModelKey"
+                                            class="form-select form-select-sm border border-light shadow-none workload-model-select"
+                                            data-current-value="@(roleSlot.ModelVal ?? "")"
+                                            data-provider-select-id="@roleProviderSelectId"
+                                            title="Pick a model from the provider's curated 'Allowed Models' list. Empty = use the provider's default."
+                                            onchange="onWorkloadModelChange(this)">
+                                        <option value="">(provider default)</option>
+                                        @if (!string.IsNullOrEmpty(roleSlot.ModelVal)) {
+                                            <option value="@roleSlot.ModelVal" selected="selected">@roleSlot.ModelVal</option>
+                                        }
+                                    </select>
+                                    <p class="smaller text-muted mt-2 mb-0 lh-sm" style="font-size: 0.6rem;">@roleSlot.Desc</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
                 </div>
             </form>
         </div>

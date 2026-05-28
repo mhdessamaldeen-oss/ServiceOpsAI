@@ -71,7 +71,7 @@ internal sealed class ScopeConfidenceGate : IScopeConfidenceGate
         // Always compute BOTH signals up-front and log them — even on a pass — so trace
         // history captures the actual scores. Critical for floor-calibration tuning later.
         var vqMaxSimilarity = await _verifiedQueryMatcher.MaxSimilarityAsync(question, cancellationToken);
-        var schemaResult = await _schemaRetriever.RetrieveAsync(question, topK: 1, cancellationToken);
+        var schemaResult = await _schemaRetriever.RetrieveAsync(question, topK: opts.ScopeGateRetrieverTopK, cancellationToken);
         var schemaTopScore = schemaResult.Tables.Count > 0 ? schemaResult.Tables[0].Score : 0f;
         var topTable = schemaResult.Tables.Count > 0 ? schemaResult.Tables[0].Table.Name : "(none)";
 

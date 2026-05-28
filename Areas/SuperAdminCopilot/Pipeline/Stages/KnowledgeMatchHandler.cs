@@ -3,7 +3,6 @@ namespace SuperAdminCopilot.Pipeline.Stages;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using SuperAdminCopilot.Pipeline.Routing;
 using SuperAdminCopilot.Schema;
 using SuperAdminCopilot.Semantic;
 
@@ -26,39 +25,13 @@ public interface IKnowledgeMatchHandler
 
 public sealed record KnowledgeMatchResult(string Reply, string Term);
 
-internal sealed class KnowledgeMatchHandler : IKnowledgeMatchHandler, IRoutingProbe
+internal sealed class KnowledgeMatchHandler : IKnowledgeMatchHandler
 {
     private readonly ISemanticLayer _semantic;
     private readonly IEntityCatalog _catalog;
     private readonly ILogger<KnowledgeMatchHandler> _logger;
 
     public string Name => "KnowledgeMatch";
-
-    /// <summary>Probe — replays the exact same gating that TryHandle uses: rejects data-query
-    /// phrasings, then checks for a knowledge-shape match AND that the captured term resolves
-    /// to a semantic-layer entry. Without the resolution check the probe would over-claim
-    /// concept questions whose term doesn't exist in this domain.</summary>
-    public Task<RouterDecision?> ProbeAsync(string question, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(question)) return Task.FromResult<RouterDecision?>(null);
-        if (DataQueryClassifier.IsMatch(question)) return Task.FromResult<RouterDecision?>(null);
-
-        var term = ExtractKnowledgeTerm(question);
-        if (term is null) return Task.FromResult<RouterDecision?>(null);
-
-        var resolves = _semantic.GetEntityByNameOrSynonym(term) is not null
-                    || _semantic.GetMetric(term) is not null
-                    || _semantic.GetDimension(term) is not null;
-        if (!resolves)
-        {
-            var stripped = StripPlural(term);
-            resolves = !string.Equals(stripped, term, StringComparison.OrdinalIgnoreCase)
-                       && _semantic.GetEntityByNameOrSynonym(stripped) is not null;
-        }
-        return Task.FromResult<RouterDecision?>(resolves
-            ? new RouterDecision(IntentLabel.Knowledge, 0.95, Name, $"term='{term}' resolved")
-            : null);
-    }
 
     /// <summary>
     /// English vocabulary patterns: "what is a/an X", "explain X", "what does X mean",

@@ -31,16 +31,18 @@
     margin-inline-end: auto !important;
 }
 
-/* User: anchor RIGHT (or left in RTL) — classic chat pattern. Bubble shrinks
-   to its content; text inside is right-aligned.                              */
+/* User: anchor LEFT alongside the assistant (Claude-style vertical stack) so
+   question and answer share the same start edge instead of zig-zagging like
+   WhatsApp. Bubble still shrinks to its content for visual distinction.      */
 .copilot-message-user {
-    align-self: flex-end !important;
+    align-self: flex-start !important;
+    align-items: flex-start !important;
     width: fit-content !important;
-    margin-inline-start: auto !important;
-    margin-inline-end: 1.5rem !important;
-    text-align: end !important;
-    padding-inline-start: 1.25rem !important;   /* no left avatar — push it to the right */
-    padding-inline-end: 3rem !important;        /* room for avatar on the right */
+    margin-inline-start: 1.5rem !important;
+    margin-inline-end: auto !important;
+    text-align: start !important;
+    padding-inline-start: 3rem !important;      /* room for avatar on the start side */
+    padding-inline-end: 1.25rem !important;
 }
 
 /* User message: keep it a chip, but on the LEFT with an avatar — same flow as
@@ -54,7 +56,7 @@
     background: rgba(var(--primary-color-rgb, 16, 185, 129), 0.10) !important;
     border: 1px solid rgba(var(--primary-color-rgb, 16, 185, 129), 0.25) !important;
     border-radius: 14px !important;
-    border-bottom-right-radius: 4px !important;   /* tail notch on the right */
+    border-bottom-left-radius: 4px !important;   /* tail notch on the start side */
     box-shadow: none !important;
     color: var(--text-main) !important;
 }
@@ -69,13 +71,13 @@
 
 .copilot-message-user:hover { transform: none !important; }
 
-/* Avatar circle for the user — anchored to the END side of the bubble so it
-   sits on the right in LTR and the left in RTL (logical inset). */
+/* Avatar circle for the user — anchored to the START side of the bubble so it
+   mirrors the assistant's avatar position (Claude-style vertical stack). */
 .copilot-message-user::before {
     content: "\F4DA"; /* bi-person */
     font-family: "bootstrap-icons";
     position: absolute;
-    inset-inline-end: 0.6rem;
+    inset-inline-start: 0.6rem;
     top: 0.7rem;
     width: 2rem;
     height: 2rem;
@@ -219,7 +221,90 @@
     border-right: 3px solid var(--primary-color) !important;
 }
 [dir="rtl"] .copilot-message-user {
-    /* In RTL the bubble is on the LEFT side, so flip the tail notch.          */
-    border-bottom-right-radius: 14px !important;
-    border-bottom-left-radius: 4px !important;
+    /* In RTL the start side is the RIGHT — flip the tail notch so it stays on
+       the start edge (matches the LTR tail-on-start behavior).               */
+    border-bottom-left-radius: 14px !important;
+    border-bottom-right-radius: 4px !important;
+}
+
+/* =============================================================================
+   9. Claude-style turn spine + chat-area polish
+   A thin vertical line drawn in the gutter just outside each chat message,
+   extending into the gap below so consecutive messages stitch into ONE
+   continuous line. The line visually groups each question with its answer
+   the way Claude's UI does — without any HTML changes.
+   ========================================================================== */
+
+/* The assistant's heavy 3px primary accent is replaced by the spine, so demote
+   the inline border-left to a normal subtle hairline that matches the user
+   bubble. The spine itself carries the "this is a turn" cue. */
+.copilot-message-assistant {
+    border-left: 1px solid rgba(148, 163, 184, 0.20) !important;
+}
+[dir="rtl"] .copilot-message-assistant {
+    border-right: 1px solid rgba(148, 163, 184, 0.20) !important;
+    border-left: none !important;
+}
+
+/* Spine — drawn per TURN, not per message, so each question is visibly
+   tied to its own answer:
+     • The USER message's spine extends DOWN through the flex gap into the
+       following assistant — this is the Q→A link.
+     • The ASSISTANT's spine stays inside its own box (no overshoot below),
+       which leaves a clear empty gutter before the next user message and
+       reads as a turn separator.
+   The 3rem overshoot on the user side is generous so it absorbs whatever
+   margin-bottom + flex gap the thread uses; any excess simply paints under
+   the next assistant bubble. */
+#copilot-thread .copilot-message-user::after,
+#copilot-thread .copilot-message-assistant::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: -0.85rem;
+    top: 0;
+    width: 2px;
+    background: rgba(var(--primary-color-rgb, 16, 185, 129), 0.45);
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+#copilot-thread .copilot-message-user::after {
+    height: calc(100% + 3rem);   /* bridges down into its following answer */
+}
+#copilot-thread .copilot-message-assistant::after {
+    height: 100%;                /* stops cleanly so the next turn reads as separate */
+}
+
+/* If the user message is NOT immediately followed by an assistant (queued,
+   pending without answer, or final user message), don't dangle the spine. */
+#copilot-thread .copilot-message-user:not(:has(+ .copilot-message-assistant))::after {
+    height: 100%;
+}
+
+/* Subtler chat-area shadows: the spine carries the visual hierarchy, so
+   drop the heavy 25% black drop-shadow on the assistant card and remove
+   the lift-shadow from the user bubble entirely. */
+#copilot-thread .copilot-message-assistant {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04),
+                0 6px 16px rgba(0, 0, 0, 0.06) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+#copilot-thread .copilot-message-user {
+    box-shadow: none !important;
+}
+
+/* Hover: the assistant card's hairline border brightens to the accent so
+   the reader gets a quiet "this is the chunk I'm focused on" cue. */
+#copilot-thread .copilot-message-assistant:hover {
+    border-color: rgba(var(--primary-color-rgb, 16, 185, 129), 0.35) !important;
+}
+
+/* Pending / "thinking" assistant bubble has no border-left declared inline,
+   so make sure the spine still aligns by giving it the same hairline. */
+#copilot-thread .copilot-message-assistant.animate__fadeIn {
+    border-left: 1px solid rgba(148, 163, 184, 0.20) !important;
+}
+[dir="rtl"] #copilot-thread .copilot-message-assistant.animate__fadeIn {
+    border-right: 1px solid rgba(148, 163, 184, 0.20) !important;
+    border-left: none !important;
 }

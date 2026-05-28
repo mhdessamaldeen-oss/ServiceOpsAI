@@ -101,10 +101,79 @@ internal sealed class SpecEnricher : ISpecEnricher
         if (!hasAggregations || spec.GroupBy.Count > 0)
             AugmentFkColumnsWithLabels(spec);
 
+        // R9 — Joined-table label injection. When the spec joins to a table but no column from
+        // that table is in SELECT (e.g. "tickets with their region and service type" produced
+        // a JOIN graph but only projected TicketNumber), inject the joined table's LabelColumn.
+        // Analysts need to see WHICH region/service the row belongs to — not just the root.
+        // Skip on pure-count specs to avoid degenerating a scalar result into a row list.
+        if (!IsPureCount(spec))
+            AddJoinedTableLabelsToSelect(spec);
+
         // Final dedup pass — different rules might have added the same column.
         DedupSelect(spec);
 
         return spec;
+    }
+
+    // ── R9 ─────────────────────────────────────────────────────────────────────────────
+    // Walk every table the spec causes the compiler to JOIN (explicit spec.Joins, plus tables
+    // referenced in Filters/GroupBy/OrderBy that aren't the root). For each such table where
+    // SELECT has zero columns from it, add its LabelColumn so the user can identify the joined
+    // entity in the result. Without this, "tickets with their region" returns just TicketNumber
+    // with no region anywhere visible — the user can't tell which region each row belongs to.
+    private void AddJoinedTableLabelsToSelect(QuerySpec spec)
+    {
+        if (string.IsNullOrEmpty(spec.Root)) return;
+
+        // Tables that already have a projected column — don't double-add.
+        var tablesInSelect = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in spec.Select)
+        {
+            var (t, _) = SplitColumnRef(s);
+            if (!string.IsNullOrEmpty(t)) tablesInSelect.Add(t);
+        }
+
+        // Tables that will be joined: explicit joins + tables referenced in filters / groupby /
+        // orderby. Skip the root (it's the FROM table).
+        var joinedTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var j in spec.Joins)
+            if (!string.IsNullOrEmpty(j.Table)) joinedTables.Add(j.Table);
+        foreach (var f in spec.Filters)
+        {
+            var (t, _) = SplitColumnRef(f.Column ?? "");
+            if (!string.IsNullOrEmpty(t)) joinedTables.Add(t);
+        }
+        foreach (var g in spec.GroupBy)
+        {
+            if (g.Contains('(') || g.Contains(' ')) continue;
+            var (t, _) = SplitColumnRef(g);
+            if (!string.IsNullOrEmpty(t)) joinedTables.Add(t);
+        }
+        foreach (var o in spec.OrderBy)
+        {
+            var (t, _) = SplitColumnRef(o.Column ?? "");
+            if (!string.IsNullOrEmpty(t)) joinedTables.Add(t);
+        }
+        joinedTables.Remove(spec.Root);
+
+        if (joinedTables.Count == 0) return;
+
+        var present = spec.Select.Select(NormalizeRef).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = 0;
+        foreach (var jt in joinedTables)
+        {
+            if (tablesInSelect.Contains(jt)) continue;
+            var t = _knowledge.GetTable(jt);
+            if (t?.Roles.LabelColumn is not { Length: > 0 } label) continue;
+            var labelRef = $"{jt}.{label}";
+            if (present.Add(NormalizeRef(labelRef)))
+            {
+                spec.Select.Add(labelRef);
+                added++;
+            }
+        }
+        if (added > 0)
+            _logger.LogDebug("[SpecEnricher] R9: added {Count} joined-table label column(s) to SELECT.", added);
     }
 
     // ── R1 ─────────────────────────────────────────────────────────────────────────────

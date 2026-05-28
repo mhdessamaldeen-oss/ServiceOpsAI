@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace ServiceOpsAI.Data
 {
-    public static class DbSeeder
+    public static partial class DbSeeder
     {
         private static readonly string[] BrowserNames = ["Chrome", "Edge", "Firefox", "Safari"];
         private static readonly string[] DesktopOperatingSystems = ["Windows 11", "Windows 10", "macOS", "Ubuntu"];
@@ -456,6 +456,11 @@ namespace ServiceOpsAI.Data
             var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
             var webHostEnvironment = serviceProvider.GetRequiredService<IWebHostEnvironment>();
             await EnsureSeedTicketsAsync(context, userManager, webHostEnvironment);
+
+            // Phase 06 — Billing depth + Field Ops + Customer Voice.
+            // Runs AFTER tickets because some Phase 06 rows attach to existing tickets (WorkOrders,
+            // CallLogs.RelatedTicketId) and to existing bills (Payments, Subsidies).
+            await EnsureSeedPhase06Async(context);
         }
 
         public static async Task PurgeOperationalDataAsync(IServiceProvider serviceProvider)

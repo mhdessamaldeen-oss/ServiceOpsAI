@@ -1,0 +1,19 @@
+{
+  "name": "Shape: EXISTS / NOT EXISTS (existence quantification)",
+  "version": "1.0",
+  "description": "Existence quantification — at least one related row exists (EXISTS) or none exists (NOT EXISTS / anti-join). Routes through escape valve with EXISTS gold example.",
+  "Scenarios": [
+    { "Code": "EX-1", "Question": "customers who have at least one paid bill", "Category": "shape:EXISTS/positive", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "EXISTS", "MaxLatencyMs": 180000 },
+    { "Code": "EX-2", "Question": "tickets where the customer also has an unpaid bill", "Category": "shape:EXISTS/cross-table", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "EXISTS", "MaxLatencyMs": 180000 },
+    { "Code": "EX-3", "Question": "customers who have at least one open ticket", "Category": "shape:EXISTS/positive-ticket", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "EXISTS", "MaxLatencyMs": 180000 },
+    { "Code": "EX-4", "Question": "regions with at least one outage this month", "Category": "shape:EXISTS+temporal", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Regions", "ExpectedOperation": "EXISTS", "MaxLatencyMs": 180000 },
+    { "Code": "EX-5", "Question": "customers who have ever filed a complaint", "Category": "shape:EXISTS/historical", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "EXISTS", "MaxLatencyMs": 180000 },
+
+    { "Code": "NEX-1", "Question": "customers without any bills", "Category": "shape:NOT-EXISTS/anti", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "NOT_EXISTS", "MaxLatencyMs": 180000 },
+    { "Code": "NEX-2", "Question": "tickets without any comments", "Category": "shape:NOT-EXISTS/anti-tickets", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "NOT_EXISTS", "MaxLatencyMs": 180000 },
+    { "Code": "NEX-3", "Question": "regions that have never had an outage", "Category": "shape:NOT-EXISTS/never", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Regions", "ExpectedOperation": "NOT_EXISTS", "MaxLatencyMs": 180000 },
+    { "Code": "NEX-4", "Question": "customers who never opened a ticket", "Category": "shape:NOT-EXISTS/never-ticket", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "NOT_EXISTS", "MaxLatencyMs": 180000 },
+
+    { "Code": "EX-AR-1", "Question": "العملاء الذين لديهم فاتورة مدفوعة على الأقل", "Category": "shape:EXISTS/arabic", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "EXISTS", "MaxLatencyMs": 180000 }
+  ]
+}

@@ -1,0 +1,25 @@
+@model ServiceOpsAI.Models.CallLog
+@{ ViewData["Title"] = "Call Log Details"; }
+
+<h2><i class="bi bi-telephone-fill"></i> @Model.CallReference</h2>
+
+<div class="card shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Reference</dt><dd class="col-sm-9"><code>@Model.CallReference</code></dd>
+            <dt class="col-sm-3">Customer</dt><dd class="col-sm-9">@Model.Customer?.FullNameEn / <span dir="rtl">@Model.Customer?.FullNameAr</span></dd>
+            <dt class="col-sm-3">Caller Phone</dt><dd class="col-sm-9">@Model.CallerPhone</dd>
+            <dt class="col-sm-3">Direction / Channel</dt><dd class="col-sm-9">@Model.Direction / @Model.Channel</dd>
+            <dt class="col-sm-3">Started → Ended</dt><dd class="col-sm-9">@Model.StartedAt.ToString("yyyy-MM-dd HH:mm") → @(Model.EndedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</dd>
+            <dt class="col-sm-3">Duration</dt><dd class="col-sm-9">@(Model.DurationSeconds.HasValue ? $"{Model.DurationSeconds / 60}m {Model.DurationSeconds % 60}s" : "—")</dd>
+            <dt class="col-sm-3">Outcome</dt><dd class="col-sm-9">@Model.Outcome</dd>
+            <dt class="col-sm-3">Related Ticket</dt><dd class="col-sm-9"><code>@Model.RelatedTicket?.TicketNumber</code></dd>
+            <dt class="col-sm-3">Related Outage</dt><dd class="col-sm-9"><code>@Model.RelatedOutage?.OutageNumber</code></dd>
+            <dt class="col-sm-3">Summary</dt><dd class="col-sm-9">@Model.Summary</dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>

@@ -78,6 +78,87 @@ namespace ServiceOpsAI.Mappings
                 .ForMember(dest => dest.ServiceType,    opt => opt.MapFrom(src => src.ServiceType.ToString()))
                 .ForMember(dest => dest.Status,         opt => opt.MapFrom(src => src.Status.ToString()));
 
+            // ─── Phase 06 — Billing / Field Ops / Customer Voice ───
+            CreateMap<Currency, CurrencyDto>();
+            CreateMap<PaymentMethod, PaymentMethodDto>();
+            CreateMap<CustomerSegment, CustomerSegmentDto>();
+
+            CreateMap<ServicePoint, ServicePointDto>()
+                .ForMember(dest => dest.RegionName, opt => opt.MapFrom(src => src.Region != null ? src.Region.NameEn : null))
+                .ForMember(dest => dest.PointType,  opt => opt.MapFrom(src => src.PointType.ToString()));
+
+            CreateMap<ServiceAccount, ServiceAccountDto>()
+                .ForMember(dest => dest.CustomerName,     opt => opt.MapFrom(src => src.Customer != null ? src.Customer.FullNameEn : string.Empty))
+                .ForMember(dest => dest.ServiceType,      opt => opt.MapFrom(src => src.ServiceType != null ? src.ServiceType.NameEn : string.Empty))
+                .ForMember(dest => dest.ServicePointCode, opt => opt.MapFrom(src => src.ServicePoint != null ? src.ServicePoint.PointCode : null))
+                .ForMember(dest => dest.CustomerSegment,  opt => opt.MapFrom(src => src.CustomerSegment != null ? src.CustomerSegment.NameEn : null))
+                .ForMember(dest => dest.DepartmentName,   opt => opt.MapFrom(src => src.Department != null ? src.Department.NameEn : null))
+                .ForMember(dest => dest.Status,           opt => opt.MapFrom(src => src.Status.ToString()));
+
+            CreateMap<Payment, PaymentDto>()
+                .ForMember(dest => dest.BillNumber,         opt => opt.MapFrom(src => src.Bill != null ? src.Bill.BillNumber : null))
+                .ForMember(dest => dest.PaymentMethodName,  opt => opt.MapFrom(src => src.PaymentMethod != null ? src.PaymentMethod.NameEn : null))
+                .ForMember(dest => dest.CurrencyCode,       opt => opt.MapFrom(src => src.Currency != null ? src.Currency.Code : string.Empty))
+                .ForMember(dest => dest.CurrencySymbol,     opt => opt.MapFrom(src => src.Currency != null ? src.Currency.Symbol : string.Empty))
+                .ForMember(dest => dest.Status,             opt => opt.MapFrom(src => src.Status.ToString()));
+
+            CreateMap<TariffTier, TariffTierDto>()
+                .ForMember(dest => dest.TariffServiceType, opt => opt.MapFrom(src => src.Tariff != null && src.Tariff.ServiceType != null ? src.Tariff.ServiceType.NameEn : null))
+                .ForMember(dest => dest.TariffRegion,      opt => opt.MapFrom(src => src.Tariff != null && src.Tariff.Region != null ? src.Tariff.Region.NameEn : null));
+
+            CreateMap<Subsidy, SubsidyDto>()
+                .ForMember(dest => dest.BillNumber,   opt => opt.MapFrom(src => src.Bill != null ? src.Bill.BillNumber : null))
+                .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.Customer != null ? src.Customer.FullNameEn : string.Empty))
+                .ForMember(dest => dest.Segment,      opt => opt.MapFrom(src => src.CustomerSegment != null ? src.CustomerSegment.NameEn : null))
+                .ForMember(dest => dest.Status,       opt => opt.MapFrom(src => src.Status.ToString()));
+
+            CreateMap<Asset, AssetDto>()
+                .ForMember(dest => dest.ServiceType,    opt => opt.MapFrom(src => src.ServiceType != null ? src.ServiceType.NameEn : string.Empty))
+                .ForMember(dest => dest.RegionName,     opt => opt.MapFrom(src => src.Region != null ? src.Region.NameEn : null))
+                .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.NameEn : null))
+                .ForMember(dest => dest.AssetType,      opt => opt.MapFrom(src => src.AssetType.ToString()))
+                .ForMember(dest => dest.Status,         opt => opt.MapFrom(src => src.Status.ToString()));
+
+            CreateMap<Technician, TechnicianDto>()
+                .ForMember(dest => dest.DepartmentName,    opt => opt.MapFrom(src => src.Department != null ? src.Department.NameEn : null))
+                .ForMember(dest => dest.PrimaryRegionName, opt => opt.MapFrom(src => src.PrimaryRegion != null ? src.PrimaryRegion.NameEn : null))
+                .ForMember(dest => dest.Specialty,         opt => opt.MapFrom(src => src.Specialty.ToString()));
+
+            CreateMap<WorkOrder, WorkOrderDto>()
+                .ForMember(dest => dest.OrderType,      opt => opt.MapFrom(src => src.OrderType.ToString()))
+                .ForMember(dest => dest.Status,         opt => opt.MapFrom(src => src.Status.ToString()))
+                .ForMember(dest => dest.Priority,       opt => opt.MapFrom(src => src.Priority.ToString()))
+                .ForMember(dest => dest.TicketNumber,   opt => opt.MapFrom(src => src.Ticket != null ? src.Ticket.TicketNumber : null))
+                .ForMember(dest => dest.OutageNumber,   opt => opt.MapFrom(src => src.Outage != null ? src.Outage.OutageNumber : null))
+                .ForMember(dest => dest.AssetName,      opt => opt.MapFrom(src => src.Asset != null ? src.Asset.NameEn : null))
+                .ForMember(dest => dest.TechnicianName, opt => opt.MapFrom(src => src.AssignedTechnician != null ? src.AssignedTechnician.FullNameEn : null))
+                .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.NameEn : null))
+                .ForMember(dest => dest.RegionName,     opt => opt.MapFrom(src => src.Region != null ? src.Region.NameEn : null));
+
+            CreateMap<MaintenanceSchedule, MaintenanceScheduleDto>()
+                .ForMember(dest => dest.AssetName,       opt => opt.MapFrom(src => src.Asset != null ? src.Asset.NameEn : null))
+                .ForMember(dest => dest.RegionName,      opt => opt.MapFrom(src => src.Region != null ? src.Region.NameEn : null))
+                .ForMember(dest => dest.Status,          opt => opt.MapFrom(src => src.Status.ToString()))
+                .ForMember(dest => dest.MaintenanceType, opt => opt.MapFrom(src => src.MaintenanceType.ToString()));
+
+            CreateMap<CallLog, CallLogDto>()
+                .ForMember(dest => dest.CustomerName,         opt => opt.MapFrom(src => src.Customer != null ? src.Customer.FullNameEn : null))
+                .ForMember(dest => dest.Direction,            opt => opt.MapFrom(src => src.Direction.ToString()))
+                .ForMember(dest => dest.Channel,              opt => opt.MapFrom(src => src.Channel.ToString()))
+                .ForMember(dest => dest.Outcome,              opt => opt.MapFrom(src => src.Outcome.ToString()))
+                .ForMember(dest => dest.RelatedTicketNumber,  opt => opt.MapFrom(src => src.RelatedTicket != null ? src.RelatedTicket.TicketNumber : null));
+
+            CreateMap<OutageNotification, OutageNotificationDto>()
+                .ForMember(dest => dest.OutageNumber, opt => opt.MapFrom(src => src.Outage != null ? src.Outage.OutageNumber : null))
+                .ForMember(dest => dest.CustomerName, opt => opt.MapFrom(src => src.Customer != null ? src.Customer.FullNameEn : string.Empty))
+                .ForMember(dest => dest.Channel,      opt => opt.MapFrom(src => src.Channel.ToString()))
+                .ForMember(dest => dest.Status,       opt => opt.MapFrom(src => src.Status.ToString()));
+
+            CreateMap<SlaPolicy, SlaPolicyDto>()
+                .ForMember(dest => dest.CustomerSegment, opt => opt.MapFrom(src => src.CustomerSegment != null ? src.CustomerSegment.NameEn : null))
+                .ForMember(dest => dest.ServiceType,     opt => opt.MapFrom(src => src.ServiceType != null ? src.ServiceType.NameEn : null))
+                .ForMember(dest => dest.Priority,        opt => opt.MapFrom(src => src.Priority != null ? src.Priority.Name : null));
+
             CreateMap<Ticket, LookupDisplayDto>()
                 .ForMember(dest => dest.Display, opt => opt.MapFrom(src => src.TicketNumber + " - " + src.Title));
 

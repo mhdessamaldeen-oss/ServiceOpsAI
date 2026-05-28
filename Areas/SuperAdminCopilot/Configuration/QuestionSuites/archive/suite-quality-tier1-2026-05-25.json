@@ -1,0 +1,79 @@
+{
+  "name": "Quality Tier 1 — single table, no joins",
+  "version": "1.0.0",
+  "description": "Shape: SELECT/COUNT/FILTER on a single table. Each scenario carries the expected scalar answer (or expected row count) so verdict=OK can be checked for SEMANTIC correctness, not just SQL validity. Computed against the live DB on 2026-05-25 before this suite was written.",
+  "Scenarios": [
+    {
+      "Code": "QT1-CNT-CUST",
+      "Question": "how many customers",
+      "Category": "T1-COUNT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "ExpectedScalar": 200,
+      "ExpectedShape": "single-row aggregate",
+      "Notes": "Single COUNT(*) on Customers. No joins, no filters. Verifies the pure-count code path.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT1-CNT-BILL",
+      "Question": "how many bills are there in total",
+      "Category": "T1-COUNT",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 12168,
+      "ExpectedShape": "single-row aggregate",
+      "Notes": "Largest domain table. Verifies counting on a high-row-count table.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT1-CNT-PAID",
+      "Question": "how many bills have been paid",
+      "Category": "T1-COUNT-FILTER",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 10862,
+      "ExpectedShape": "single-row aggregate with WHERE Status='Paid'",
+      "Notes": "COUNT with a Status='Paid' filter. Tests the structural rule 'add filter, keep select empty'.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT1-CNT-OVERDUE",
+      "Question": "how many overdue bills do we have",
+      "Category": "T1-COUNT-FILTER",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 325,
+      "ExpectedShape": "single-row aggregate with WHERE Status='Overdue'",
+      "Notes": "Same shape as QT1-CNT-PAID but with a different lookup value to detect over-fitting.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT1-LIST-SVC",
+      "Question": "list all active service types",
+      "Category": "T1-LIST",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "ServiceTypes",
+      "ExpectedScalar": 5,
+      "ExpectedShape": "SELECT label columns, no aggregation, soft-delete filter applied",
+      "Notes": "Verifies the 'list X' shape with the soft-delete IsActive=1 filter auto-injected.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT1-LIST-REG",
+      "Question": "show me all the regions",
+      "Category": "T1-LIST",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Regions",
+      "ExpectedScalar": 76,
+      "ExpectedShape": "SELECT label columns, no aggregation, no soft-delete (table has none)",
+      "Notes": "Regions has no IsActive column. Verifies the compiler doesn't synthesize a phantom soft-delete filter.",
+      "MaxLatencyMs": 60000
+    }
+  ]
+}

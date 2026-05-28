@@ -200,6 +200,14 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
             var queryVec = await _embedder.EmbedAsync(question, cancellationToken);
             if (queryVec.Length == 0) return null;
 
+            // Intent-shape gate: when the user's question signals an aggregation
+            // ("how many ...", "count of ...", "total ...", "average ...", etc.), reject
+            // cached queries that have no aggregation in their SELECT. The cosine-similarity
+            // gate alone treats "how many ticket categories" as similar enough to
+            // "show me tickets" and returns a list-query SQL when the user wanted a count.
+            // Same guard rejects the inverse (cached aggregation when user wants a list).
+            var questionWantsAggregation = QuestionImpliesAggregation(question);
+
             VerifiedMatch? best = null;
             foreach (var (vq, vec) in vectors)
             {
@@ -207,6 +215,12 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
                 var score = Cosine(queryVec, vec);
                 var threshold = (float)(vq.MinSimilarity ?? _options.Value.VerifiedQueryMinSimilarity);
                 if (score < threshold) continue;
+                // Shape-intent check: skip cache entries that would clearly return the wrong shape.
+                if (questionWantsAggregation && !SqlHasAggregation(vq.Sql))
+                {
+                    _logger.LogDebug("[VerifiedQueryMatcher] rejecting match — question implies aggregation but cached SQL has none. Q='{Q}' cached='{C}'", question, vq.Question);
+                    continue;
+                }
                 if (best is null || score > best.Similarity) best = new VerifiedMatch(vq, score);
             }
             return best;
@@ -217,6 +231,20 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
             return null;
         }
     }
+
+    private static readonly System.Text.RegularExpressions.Regex AggregationQuestionRegex =
+        new(@"^\s*(how\s+many|count\s+of|number\s+of|total\s+|sum\s+of|sum\s+|average\s+|avg\s+|mean\s+|highest\s+|lowest\s+|maximum\s+|minimum\s+|max\s+|min\s+)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static readonly System.Text.RegularExpressions.Regex AggregationSqlRegex =
+        new(@"\b(COUNT|SUM|AVG|MIN|MAX|COUNT_BIG)\s*\(",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static bool QuestionImpliesAggregation(string question)
+        => !string.IsNullOrWhiteSpace(question) && AggregationQuestionRegex.IsMatch(question);
+
+    private static bool SqlHasAggregation(string? sql)
+        => !string.IsNullOrWhiteSpace(sql) && AggregationSqlRegex.IsMatch(sql);
 
     public async Task<float> MaxSimilarityAsync(string question, CancellationToken cancellationToken = default)
     {

@@ -1,0 +1,51 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.WorkOrderDto>
+
+<div class="table-responsive">
+    <table id="workOrdersTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Order #</th>
+                <th class="py-3">Type</th>
+                <th class="py-3">Title</th>
+                <th class="py-3">Ticket / Outage</th>
+                <th class="py-3">Technician</th>
+                <th class="py-3">Status</th>
+                <th class="py-3">Priority</th>
+                <th class="py-3">Created</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var w in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@w.OrderNumber</code></td>
+                    <td>
+                        @{ var (tbg, tfg) = w.OrderType switch { "Preventive" => ("rgba(56,189,248,0.1)", "#38bdf8"), "Inspection" => ("rgba(168,85,247,0.1)", "#a855f7"), "Installation" => ("rgba(var(--primary-color-rgb),0.1)", "var(--primary-color)"), _ => ("rgba(245,158,11,0.1)", "#f59e0b") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @tbg; color: @tfg; border: 1px solid @tfg;">@w.OrderType</span>
+                    </td>
+                    <td style="color: var(--text-main) !important;">@w.TitleEn</td>
+                    <td><code class="text-muted">@(w.TicketNumber ?? w.OutageNumber ?? "—")</code></td>
+                    <td class="small">@w.TechnicianName</td>
+                    <td>
+                        @{ var (sbg, sfg) = w.Status switch { "Completed" => ("rgba(var(--primary-color-rgb),0.1)", "var(--primary-color)"), "InProgress" => ("rgba(56,189,248,0.1)", "#38bdf8"), "Assigned" => ("rgba(168,85,247,0.1)", "#a855f7"), "OnHold" => ("rgba(245,158,11,0.1)", "#f59e0b"), "Cancelled" => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"), _ => ("rgba(148,163,184,0.1)", "#94a3b8") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @sbg; color: @sfg; border: 1px solid @sfg;">@w.Status</span>
+                    </td>
+                    <td>
+                        @{ var (pbg, pfg) = w.Priority switch { "Critical" => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"), "High" => ("rgba(245,158,11,0.1)", "#f59e0b"), "Normal" => ("rgba(56,189,248,0.1)", "#38bdf8"), _ => ("rgba(148,163,184,0.1)", "#94a3b8") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @pbg; color: @pfg; border: 1px solid @pfg;">@w.Priority</span>
+                    </td>
+                    <td class="small text-muted">@w.CreatedAt.ToString("yyyy-MM-dd")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@w.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@w.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@w.Id" method="post" onsubmit="return confirm('Delete @w.OrderNumber?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No work orders match the current filter.</h6></div> }
+</div>

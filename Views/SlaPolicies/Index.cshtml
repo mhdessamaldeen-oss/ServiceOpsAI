@@ -1,0 +1,38 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.SlaPolicyDto>
+
+@{
+    ViewData["Title"] = "SLA Policies";
+    var request = Model.Request;
+    var shell = new ServiceOpsAI.Models.Common.FeatureTableShellViewModel
+    {
+        Title = "Service-Level Agreement Policies",
+        Subtitle = "Response / resolution targets per Customer Segment × Service Type × Priority. Replaces SLA-as-hardcoded-Ticket-field with a queryable policy.",
+        ShowColumnSearchToggle = true,
+        TableSelector = "#slaTable",
+        TablePartialName = "~/Views/SlaPolicies/_SlaPoliciesTable.cshtml",
+        TableModel = Model, PaginationModel = Model
+    };
+    var header = new ServiceOpsAI.Models.Common.PageHeaderViewModel
+    {
+        Title = "SLA Policies",
+        Subtitle = "How quickly we promise to respond and resolve — by segment, service, and priority.",
+        IconClass = "bi bi-shield-check",
+        Actions = new() { new() { Text = "New Policy", Href = Url.Action("Create", "SlaPolicies") ?? "#", IconClass = "bi bi-plus-circle", CssClass = "btn btn-sm btn-primary rounded-pill px-3 fw-bold shadow-sm" } }
+    };
+}
+
+<partial name="_PageHeader" model="header" />
+@if (TempData["Error"] != null) { <div class="alert alert-danger mb-4">@TempData["Error"]</div> }
+<div class="card border-0 shadow-sm mb-4" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body p-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-lg-10">
+                <label class="form-label small fw-bold text-muted text-uppercase">Search</label>
+                <div class="input-group"><span class="input-group-text bg-transparent"><i class="bi bi-search text-primary"></i></span>
+                <input type="text" name="request.SearchString" class="form-control bg-transparent" placeholder="Policy code, name (EN/AR)…" value="@request.SearchString" /></div>
+            </div>
+            <div class="col-lg-2"><button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Apply</button></div>
+        </form>
+    </div>
+</div>
+<partial name="~/Views/Shared/Components/Tables/_FeatureTableShell.cshtml" model="shell" />

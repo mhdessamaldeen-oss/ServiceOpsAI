@@ -1,0 +1,22 @@
+@model ServiceOpsAI.Models.PaymentMethod
+@{ ViewData["Title"] = "Payment Method Details"; }
+
+<h2><i class="bi bi-credit-card-2-front-fill"></i> @Model.NameEn</h2>
+
+<div class="card shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Code</dt><dd class="col-sm-9"><code>@Model.Code</code></dd>
+            <dt class="col-sm-3">Name (EN)</dt><dd class="col-sm-9">@Model.NameEn</dd>
+            <dt class="col-sm-3">Name (AR)</dt><dd class="col-sm-9" dir="rtl">@Model.NameAr</dd>
+            <dt class="col-sm-3">Digital?</dt><dd class="col-sm-9">@(Model.IsDigital ? "Yes" : "No")</dd>
+            <dt class="col-sm-3">Fee %</dt><dd class="col-sm-9">@Model.FeePercent.ToString("N2")</dd>
+            <dt class="col-sm-3">Sort Order</dt><dd class="col-sm-9">@Model.SortOrder</dd>
+            <dt class="col-sm-3">Active?</dt><dd class="col-sm-9">@(Model.IsActive ? "Yes" : "No")</dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>

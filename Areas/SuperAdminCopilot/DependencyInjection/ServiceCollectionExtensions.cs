@@ -2,16 +2,21 @@ namespace SuperAdminCopilot.DependencyInjection;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ServiceOpsAI.Services.AI.Providers.Roles;
 using SuperAdminCopilot.Abstractions;
 using SuperAdminCopilot.Compilation;
 using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Eval;
+using SuperAdminCopilot.Eval.Paraphrase;
 using SuperAdminCopilot.Execution;
 using SuperAdminCopilot.Explanation;
 using SuperAdminCopilot.HostBridge;
 using SuperAdminCopilot.Pipeline;
+using SuperAdminCopilot.Pipeline.EntityResolution;
 using SuperAdminCopilot.Pipeline.Stages;
+using SuperAdminCopilot.Pipeline.Stages.Decomposed;
 using SuperAdminCopilot.Retrieval;
 using SuperAdminCopilot.Schema;
 using SuperAdminCopilot.Semantic;
@@ -31,11 +36,32 @@ public static class ServiceCollectionExtensions
         // scan that runs once per process boot.
         Pipeline.StageNames.AssertGraphCoverage();
 
+        // Single-source settings — copilot-options.json under Areas/SuperAdminCopilot/Configuration/.
+        // Replaces the previous appsettings.json "SuperAdminCopilot" section binding.
+        // The file is the ONLY place runtime knobs live for this module.
+        var copilotConfig = CopilotOptionsLoader.BuildConfiguration();
         services.AddOptions<CopilotOptions>()
-            .Bind(configuration.GetSection(CopilotOptions.SectionName))
+            .Bind(copilotConfig.GetSection(CopilotOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+        // Profile overlay (Phase 4) — applies the named preset from copilot-options.json's
+        // Profiles{} block on top of the bound values. Runs BEFORE the SystemSettings overlay
+        // so admin-edited operator settings always win over the engineering profile baseline.
+        services.PostConfigure<CopilotOptions>(opts => CopilotOptionsLoader.ApplyProfile(copilotConfig, opts));
         services.AddSingleton<IPostConfigureOptions<CopilotOptions>, HostCopilotOptionsConfigurator>();
+        // Declarative linguistic cues — Configuration/linguistic-cues.json. Loaded once at
+        // startup, compiled to regex objects, exposed via ILinguisticCuesProvider. Replaces the
+        // hardcoded regex sets previously embedded across SpecRepair phases. To add a new
+        // language or synonym, edit the JSON; no recompilation required. Schema is documented
+        // in Configuration/LinguisticCues.cs.
+        services.AddSingleton<ILinguisticCuesProvider, LinguisticCuesProvider>();
+
+        // SQL-dialect abstraction. Compiler talks to ISqlDialect instead of hardcoding T-SQL.
+        // Default binding = MssqlDialect (current production target). Swap to PostgresDialect
+        // (or any future implementation) by changing this single line — no compiler rewrite.
+        // The dialect is unit-tested exhaustively in SqlDialectTests; each new dialect MUST
+        // pass every assertion there before being eligible for production use.
+        services.AddSingleton<Compilation.Dialects.ISqlDialect, Compilation.Dialects.MssqlDialect>();
         // D.3 — externalized text catalog. Reload-on-change is enabled by the host's default
         // appsettings.json registration; admins inject IOptionsMonitor<CopilotTextCatalog> and
         // read .CurrentValue on each access. A standalone copilot-text.json is shipped as a
@@ -61,6 +87,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITextEmbedder>(sp => new CachingTextEmbedder(sp.GetRequiredService<HostAiProviderEmbedder>()));
         services.AddScoped<ISemanticSearch, HostSemanticSearchBridge>();
         services.AddScoped<ITraceSink, HostTraceSink>();
+        // Phase 6 portability hook — abstracts chat-message persistence so the API controller
+        // no longer reaches into the host's DbContext directly. Replace HostConversationPersister
+        // when porting the copilot to a host with a different conversation schema.
+        services.AddScoped<IConversationPersister, HostConversationPersister>();
         services.AddScoped<ISuperAdminCopilotChatBridge, SuperAdminCopilotChatBridge>();
         // Live progress broadcaster — SignalR-backed in the production host so the chat
         // UI's Claude-style timeline updates in real time as each stage runs. Replace with
@@ -91,6 +121,178 @@ public static class ServiceCollectionExtensions
         // Scoped because it consumes IPastQuestionStore (Scoped, DbContext-backed) for the
         // persistent-learning few-shot retrieval. Per-request allocation cost is microseconds.
         services.AddScoped<Pipeline.Stages.ISpecExtractor, Pipeline.Stages.SpecExtractor>();
+        // ── SpecRepair: consolidated LLM-output mutation pipeline ──────────────────────
+        // One owner for every mutation between SpecExtractor (raw LLM output) and SqlCompiler
+        // (deterministic SQL synthesis). Phases run in the order registered here — order is
+        // the contract; see Areas/SuperAdminCopilot/Pipeline/SpecRepair/README.md for the
+        // full phase table and what bug class each covers.
+        services.Configure<Pipeline.SpecRepair.SpecRepairOptions>(
+            configuration.GetSection("SpecRepair"));
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.HoistInlineAggregatesPhase>();
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.NormalizeAggregationFunctionPhase>();
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.NormalizeFilterOperatorPhase>();
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.StripQuotedFilterValuesPhase>();
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InferRootFromQuestionPhase>();
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InferRootFromColumnRefsPhase>();
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.AutoQualifyColumnsPhase>();
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.DropAggregatedColumnsFromSelectPhase>();
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.DropFilterContradictingGroupByPhase>();
+        // DropSpuriousGroupBy: LLM emits MAX/MIN/SUM/AVG alongside GROUP BY of root.PK/NK,
+        // producing per-row stats instead of a scalar. Drops the GROUP BY + identifier select items.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.DropSpuriousGroupByForScalarAggregationPhase>();
+        // MapValueSynonyms: canonicalise filter values via SemanticLayer.ResolveSynonymValue
+        // ("urgent" → "Critical", "pending payment" → "Issued"). Driven by semantic-layer.json synonyms section.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.MapValueSynonymsPhase>();
+        // ConvertFkEqualsNameToJoin: WHERE FK_Id = 'Houri' → join target table + filter on target's
+        // label column. Generic via InferredTable.ForeignKeysOut + semantic-layer LabelColumn —
+        // works on any FK→entity pair in any schema. MUST run before ConvertNameFilterToLikePhase
+        // so the redirected filter then gets the eq→like conversion.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ConvertFkEqualsNameToJoinPhase>();
+        // ConvertNameFilterToLike: filter eq on a searchable column → like '%value%'. Covers
+        // "customer Houri" / "Aleppo governorate" partial-name matching using semantic-layer's
+        // searchableColumns declaration. Critical for admin name-search workflows.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ConvertNameFilterToLikePhase>();
+        // Anti-join upgrade: when question says "X with no Y" but LLM emitted INNER JOIN, flip to "anti".
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.UpgradeInnerJoinToAntiJoinPhase>();
+        // ConvertTopNAggregationToList: "top 10 highest bills" → LLM emits SUM(TotalAmount) LIMIT 10
+        // instead of a row list. Detects the pattern and converts to bare select + ORDER BY DESC.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ConvertTopNAggregationToListPhase>();
+        // EnforceCountOuterEntity: "how many customers have unpaid bills" — LLM picks Bills and
+        // counts bills (325). Swap root to the outer entity from the question text and force
+        // COUNT(DISTINCT outer.Id). Driven by semantic-layer entity synonym lookup.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.EnforceCountOuterEntityPhase>();
+        // ReplaceWrongAggregation: question says AVG/SUM/MAX/MIN but spec emitted COUNT(*).
+        // Sibling to ForceAggregationOnCount — that one fires when aggregations is empty;
+        // this one fires when it's non-empty but wrong. MUST run before ForceAggregationOnCount
+        // so the latter sees the now-correct shape.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ReplaceWrongAggregationPhase>();
+        // DedupAggregations: drops duplicate aggregation entries sharing the same function+column
+        // pair. The LLM sometimes emits SUM(amount), SUM(amount) — both render and the compiler
+        // suffixes _2 on the second alias. Runs AFTER aggregation-shape fixes so we de-dupe the
+        // final list, not an intermediate.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.DedupAggregationsPhase>();
+        // InjectNaturalKeyFilterFromQuestion: question text contains a token matching the entity's
+        // naturalKeyFormat regex (e.g. TKT-00050) → add WHERE NaturalKeyCol = 'token'. Universal
+        // and schema-driven via semantic-layer.json's naturalKeyColumn + naturalKeyFormat fields.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InjectNaturalKeyFilterFromQuestionPhase>();
+        // ApplyConceptPatterns: question text matches a semantic-layer ConceptPattern trigger
+        // (e.g. "overdue", "stale", "backlog") AND the pattern's filters target a referenced
+        // table → inject those filters. Schema-driven; new concepts are added by editing
+        // semantic-layer.json's conceptPatterns section, no code change.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ApplyConceptPatternsPhase>();
+        // InjectTimeSeriesBucketing: TIMESERIES intent ("by month" / "weekly" / "trend over time")
+        // and no date GROUP BY yet → inject FORMAT/DATEADD bucket + GROUP BY + COUNT(*). Bucket
+        // expression rendered against the entity's semantic-layer "default" date role (CreatedAt
+        // for Tickets, IssuedAt for Bills, etc.) so it works on any new schema.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InjectTimeSeriesBucketingPhase>();
+        // Phase 07 — TimeIntent first. Single owner of temporal-intent injection. Fills the
+        // date filter on spec.Filters / spec.PeriodComparisons from a structured TimeIntent.
+        // The two legacy temporal phases below detect the populated filter and bow out via
+        // their existing "skip if filter already on date column" early-return — no duplicates.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.TimeIntentSpecRepairPhase>();
+        // InjectTemporalFilterFromQuestion: question text has a temporal keyword ("today",
+        // "this week", "last 30 days", "Q1 of this year") AND the root entity has a default date
+        // column AND the spec has NO filter on that column → inject the matching filter using the
+        // compiler's existing @-token vocabulary. Catches the common silent-failure where the LLM
+        // drops the time constraint entirely (e.g. "bills issued this week" → returns all
+        // Issued-status bills regardless of date).
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InjectTemporalFilterFromQuestionPhase>();
+        // InjectLookupValueFilterFromQuestion: scan question text for whole-word matches against
+        // the actual values of FK-reachable lookup tables (Damascus / Aleppo / Water / Critical /
+        // Open, etc.) → inject WHERE LookupTable.LabelCol = value when no such filter exists.
+        // Catches dropped categorical constraints the LLM forgets to emit. Schema-driven via
+        // EntityCatalog.GetAllLookupValues and the FK graph — no hardcoded entity names.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InjectLookupValueFilterFromQuestionPhase>();
+        // RewriteEmptyToIsNull: question contains "no X" / "without X" / "missing X" AND the LLM
+        // emitted a `column = ''` filter on a nullable column → rewrite to `column IS NULL`.
+        // Also injects the IS NULL filter when no filter on the absence-noun column exists.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.RewriteEmptyToIsNullPhase>();
+        // ForceCountDistinctOnDistinctQuestion: question contains "how many distinct/unique X"
+        // → ensure aggregation is COUNT(DISTINCT col), not COUNT(*) or GROUP BY. Picks the column
+        // from the existing aggregation, the entity's natural-key, or "Id" in that order.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ForceCountDistinctOnDistinctQuestionPhase>();
+        // ForceTopNRowsOverMaxMin: question is TOPN ("top 5 X by Y" / "bottom 3" / "newest 10")
+        // AND spec emitted a single MAX/MIN aggregation AND has a Limit → swap to TOP-N rows
+        // ORDER BY metric. Catches the "MAX(BaseAmount) instead of TOP 10 ORDER BY IssuedAt DESC"
+        // failure mode.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ForceTopNRowsOverMaxMinPhase>();
+        // DedupContradictoryFilters: remove same-column overlapping/contradictory filter pairs
+        // (Status='X' AND Status IN ('Y','Z'), duplicate filters, etc.). Without this the AND'd
+        // filters silently degrade to 0 rows or an overly narrow result.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.DedupContradictoryFiltersPhase>();
+        // StripFiltersOnAllTime: question contains "ever" / "all time" / "in history" → strip
+        // the root entity's date filter AND any status-narrowing filter. The user's "any" intent
+        // shouldn't be over-narrowed by the LLM's defaults.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.StripFiltersOnAllTimePhase>();
+        // SwapDateColumnByVerb: question verb signals a specific lifecycle event (resolved /
+        // closed / started / ended / issued / paid / signed up) → swap filters/orderby/groupby
+        // from the LLM's chosen date column to the verb-implied date column from semantic-layer
+        // dateRoles. Fixes "ticket volume" using ResolvedAt instead of CreatedAt, etc.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.SwapDateColumnByVerbPhase>();
+        // EnsureOrderByForTopN: spec has Limit but no OrderBy → inject a stable default order
+        // using the root entity's default date column DESC (or Id DESC). Prevents nondeterministic
+        // TOP N results.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.EnsureOrderByForTopNPhase>();
+        // ── Joins/ (file-organized by concern) ───────────────────────────────────────────────
+        // DetectOverJoin: strip joined tables not referenced anywhere in SELECT/FILTER/GROUPBY.
+        // Fixes the "A-COUNT-006 added irrelevant Customers join" silent over-count.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Joins.DetectOverJoinPhase>();
+        // ForceCountDistinctOnFanOutJoin: COUNT(*) with a 1:N join → COUNT(DISTINCT root.Id) so
+        // the result counts root rows, not Cartesian-product rows from the fan-out.
+        // Aligned with Looker/Holistics/Honeydew BI-tool conventions for fan-out handling.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Joins.ForceCountDistinctOnFanOutJoinPhase>();
+        // CrossEntityCountRootInference: 'how many customers who opened a ticket' → root=Tickets,
+        // COUNT(DISTINCT Tickets.CustomerId). Catches LLM picking the dimension as root when the
+        // user actually wants distinct fact-rows by dimension key.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Joins.CrossEntityCountRootInferencePhase>();
+        // ── Filters/ (deeper concern split) ──────────────────────────────────────────────────
+        // NegationFilter: 'not in Damascus' / 'except gas' / 'excluding X' → flip eq/in to neq/notin.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Filters.NegationFilterPhase>();
+        // RangeFilterFromQuestion: 'between X and Y' / 'over X' / 'less than X' → numeric filter
+        // on root entity's first money/amount/total column.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Filters.RangeFilterFromQuestionPhase>();
+        // SpecificYearMonthFilter: 'in 2025' / 'in March 2025' / 'since 2024' / 'before 2025' →
+        // half-open date range filter. Inspired by TIMEX3 / SUTime temporal-expression standards.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Filters.SpecificYearMonthFilterPhase>();
+        // ── Aggregation/ ─────────────────────────────────────────────────────────────────────
+        // CaseWhenComparison: diagnostic phase — detects COMPARE-shape with wrong aggregate
+        // (single COUNT instead of SUM(CASE WHEN) per leg). Stage-1 grounding handles the
+        // proper emission upstream; this phase logs uncovered cases for analysis.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Aggregation.CaseWhenComparisonPhase>();
+        // ApplyDerivedMetricHint: override the LLM's wrong aggregation column when the question
+        // implies a derived metric (ticket-age → DATEDIFF; revenue → Bills.TotalAmount; etc.).
+        // Backstop for the SpecExtractor prompt hint — runs even when the LLM ignores the hint.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Aggregation.ApplyDerivedMetricHintPhase>();
+        // StripUnsolicitedStatusOnSuperlative: when question is a superlative aggregate
+        // (largest/smallest/peak X) without explicit status cue, strip the auto-added Status
+        // filter. Catches "largest single bill" → MIN/MAX(BaseAmount) WHERE Status=Issued
+        // — user asked for overall max, not max among Issued.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Aggregation.StripUnsolicitedStatusOnSuperlativePhase>();
+        // RejectInvalidAggregationOnType: AVG/SUM on datetime → wrap in DATEDIFF; bit → CAST to
+        // INT; nvarchar → drop and replace with COUNT(*). Prevents "Operand data type datetime2
+        // is invalid for avg operator" SQL execution failures (B-WIN-lag-2 in session 109).
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Aggregation.RejectInvalidAggregationOnTypePhase>();
+        // EnsureSelectInGroupBy: SELECT has a non-aggregated column that's missing from GROUP BY
+        // → append it. Prevents "Column X is invalid in the select list because it is not
+        // contained in either an aggregate function or the GROUP BY clause" (B-WIN-run-2).
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.Selection.EnsureSelectInGroupByPhase>();
+        // ExpectationVerifier registration — used by the verifier runner script + future
+        // assessment-summary plumbing to score traces by Expected* fields on each case.
+        services.AddSingleton<Eval.ExpectationVerifier.IExpectationVerifier, Eval.ExpectationVerifier.ExpectationVerifier>();
+
+        // ── Stage-1 grounding (principled redesign, DIN-SQL / CHESS / ValueNet style) ──────────
+        // Pre-resolves schema-linked values, temporal slots, natural keys, intent shape, and
+        // lifecycle verb date-role BEFORE the LLM call. The resolved context is rendered into the
+        // SpecExtractor prompt as ground truth — the LLM is told to use it verbatim instead of
+        // guessing. SpecRepair phases stay as a backstop; they become no-ops when the LLM uses
+        // the grounded context correctly.
+        services.AddSingleton<Grounding.IValueLinker, Grounding.ValueLinker>();
+        services.AddSingleton<Grounding.IQuestionGrounder, Grounding.QuestionGrounder>();
+        // Force-aggregation runs LAST — after root inference + column qualification, so it
+        // can pick the right column to aggregate against. Covers the "paraphrased aggregation"
+        // class: "largest bill we ever sent" → MAX, "peak meter reading" → MAX, etc.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ForceAggregationOnCountQuestionPhase>();
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepair, Pipeline.SpecRepair.SpecRepair>();
         // Escape valve — when form-filling QuerySpec can't express the shape (window funcs,
         // recursive CTEs, complex analytics), ask the LLM to write raw T-SQL. Output still
         // passes the SqlAstValidator + ReadOnlyExecutor read-only guard. Last-resort fallback.
@@ -99,6 +301,10 @@ public static class ServiceCollectionExtensions
         // pre-routing: window-function / running-total / rank questions bypass the
         // form-filling QuerySpec path and go straight to LlmDirectSqlEmitter.
         services.AddSingleton<Pipeline.Stages.IQuestionShapeClassifier, Pipeline.Stages.QuestionShapeClassifier>();
+        // Phase 7a — Prompt Shape Classifier. Deterministic 8-shape classifier (COUNT, TOPN,
+        // AGGREGATE, TIMESERIES, COMPARE, LOOKUP, JOIN, FILTER) that drives example-bank
+        // selection in the prompt assembler. Patterns live in Configuration/Prompts/shape-classifier.json.
+        services.AddSingleton<Pipeline.Prompts.IPromptShapeClassifier, Pipeline.Prompts.DeterministicPromptShapeClassifier>();
         // LLM-fallback decomposer for compound questions the regex HeuristicDecomposer misses.
         // The new orchestrator tries regex first (fast); falls back to this when regex returns null.
         services.AddSingleton<Pipeline.Stages.ILlmDecomposer, Pipeline.Stages.LlmDecomposer>();
@@ -158,6 +364,11 @@ public static class ServiceCollectionExtensions
         // the QuestionShapeEngine's regex doesn't cover. Optional consumer; registered so future
         // stages can inject it without re-wiring DI.
         services.AddSingleton<ITemporalParser, TemporalParser>();
+
+        // Phase 07 — TimeIntent extractor. Consolidates all temporal parsing into a single
+        // module that fills QuerySpec.TimeIntent BEFORE the LLM planner runs. Retires the
+        // 5 competing temporal phases (SpecificYearMonth / InjectTemporalFilter / etc.).
+        services.AddSingleton<ITimeIntentExtractor, TimeIntentExtractor>();
 
         // Department embedding matcher (D.2) — cosine-rank fallback when the JSON synonym dictionary
         // misses a word the user typed. Async API, opt-in for consumers (EntityRootGuard /
@@ -242,32 +453,15 @@ public static class ServiceCollectionExtensions
         // the HybridIntentRouter can ask "is this question yours?" without running the handler).
         services.AddSingleton<Pipeline.Stages.ConversationalHandler>();
         services.AddSingleton<Pipeline.Stages.IConversationalHandler>(sp => sp.GetRequiredService<Pipeline.Stages.ConversationalHandler>());
-        services.AddSingleton<Pipeline.Routing.IRoutingProbe>(sp => sp.GetRequiredService<Pipeline.Stages.ConversationalHandler>());
 
         services.AddSingleton<Pipeline.Stages.KnowledgeMatchHandler>();
         services.AddSingleton<Pipeline.Stages.IKnowledgeMatchHandler>(sp => sp.GetRequiredService<Pipeline.Stages.KnowledgeMatchHandler>());
-        services.AddSingleton<Pipeline.Routing.IRoutingProbe>(sp => sp.GetRequiredService<Pipeline.Stages.KnowledgeMatchHandler>());
 
         services.AddSingleton<Pipeline.Stages.DeterministicMetadataHandler>();
         services.AddSingleton<Pipeline.Stages.IMetadataHandler>(sp => sp.GetRequiredService<Pipeline.Stages.DeterministicMetadataHandler>());
-        services.AddSingleton<Pipeline.Routing.IRoutingProbe>(sp => sp.GetRequiredService<Pipeline.Stages.DeterministicMetadataHandler>());
 
         services.AddScoped<Pipeline.Stages.SemanticSearchHandler>();
         services.AddScoped<Pipeline.Stages.ISemanticSearchHandler>(sp => sp.GetRequiredService<Pipeline.Stages.SemanticSearchHandler>());
-        services.AddScoped<Pipeline.Routing.IRoutingProbe>(sp => sp.GetRequiredService<Pipeline.Stages.SemanticSearchHandler>());
-
-        // Intent router (Phase 1) — built but NOT yet wired into CopilotOrchestrator's main flow.
-        // Phase 2 replaces the existing try-handler cascade with `await _router.ClassifyAsync(...)`
-        // followed by a switch on the decided IntentLabel. The router has no behavioural effect
-        // until that wiring lands.
-        services.AddSingleton<Pipeline.Routing.ILlmIntentClassifier, Pipeline.Routing.LlmIntentClassifier>();
-        services.AddScoped<Pipeline.Routing.IIntentRouter, Pipeline.Routing.HybridIntentRouter>();
-
-        // Tool keyword probe — catches external-knowledge questions ("exchange rates",
-        // "where is Riyadh", "universities in Egypt") before the router's DataQuery default
-        // sends them into the planner. Without this probe the planner hallucinates Tickets
-        // SQL for tool questions and the database returns garbage.
-        services.AddScoped<Pipeline.Routing.IRoutingProbe, Pipeline.Routing.ToolKeywordProbe>();
 
         // Decomposer (regex) + ResultShapeValidator + ConversationContext + SuggestedPromptProvider
         // remain useful. The shape-engine, IntentCoercer, LiteralDateGuard, EntityRootGuard,
@@ -290,7 +484,7 @@ public static class ServiceCollectionExtensions
         // a focused conversational/knowledge → decompose → spec-extract → compile → validate →
         // execute → explain flow. The old CopilotOrchestrator file is kept temporarily and
         // will be deleted in Step 1.7 once smoke tests confirm parity.
-        services.AddScoped<ISuperAdminCopilot, SimpleCopilotOrchestrator>();
+        services.AddScoped<ISuperAdminCopilot, CopilotOrchestrator>();
 
         // Retry budget — Scoped so each HTTP request (i.e. each user question) gets a fresh
         // budget. Sub-questions emitted by the Decomposer share the parent's budget, which is
@@ -311,6 +505,29 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<Pipeline.CopilotWarmupHostedService>();
         // P1 #80 — daily prune of old trace rows (configurable retention).
         services.AddHostedService<Pipeline.TraceRetentionHostedService>();
+
+        // Role-bound LLM factory — per-role model override from SystemSettings; falls back to default.
+        services.Configure<AiRoleBindings>(configuration.GetSection(AiRoleBindings.SectionName));
+        services.AddSingleton<IRoleBoundLlmClientFactory, RoleBoundLlmClientFactory>();
+        services.Configure<ValueIndexOptions>(configuration.GetSection(ValueIndexOptions.SectionName));
+
+        // Paraphrase-robustness eval runner — used by ParaphraseEvalController.
+        services.AddScoped<IParaphraseRobustnessRunner, ParaphraseRobustnessRunner>();
+        services.AddScoped<IOfflineParaphraseGenerator, OfflineParaphraseGenerator>();
+
+        // LLM-driven structural-cue parser — extracts column requests and grouping hints
+        // from any bracket / dash / comma / SQL-style notation in the question text. Consumed
+        // by the orchestrator's RunSingle path before SpecExtractor sees the question.
+        services.AddSingleton<IDecomposedPromptProvider>(sp => new DecomposedPromptProvider(
+            sp.GetRequiredService<ILogger<DecomposedPromptProvider>>()));
+        services.AddScoped<IStructuralCueParser, StructuralCueParser>();
+
+        // Fuzzy entity resolution — surfaces in the question (e.g. "Damascus") get resolved
+        // to canonical DB values via trigram match against a sample-value index. Hosted service
+        // primes the index on startup and refreshes periodically.
+        services.AddSingleton<IValueIndex, ValueIndex>();
+        services.AddSingleton<IFuzzyEntityResolver, FuzzyEntityResolver>();
+        services.AddHostedService<ValueIndexHostedService>();
 
         return services;
     }

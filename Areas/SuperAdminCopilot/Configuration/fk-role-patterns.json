@@ -3,8 +3,8 @@
     "Patterns": [
       {
         "Role": "creator",
-        "Patterns": [ "CreatedBy", "OpenedBy", "RaisedBy", "AuthoredBy" ],
-        "QuestionVerbs": [ "created by", "opened by", "raised by", "authored by", "made by" ]
+        "Patterns": [ "CreatedBy", "OpenedBy", "RaisedBy", "AuthoredBy", "LoggedBy", "ReportedBy" ],
+        "QuestionVerbs": [ "created by", "opened by", "raised by", "authored by", "made by", "logged by", "reported by" ]
       },
       {
         "Role": "modifier",
@@ -13,18 +13,18 @@
       },
       {
         "Role": "resolver",
-        "Patterns": [ "ResolvedBy", "ClosedBy", "CompletedBy" ],
+        "Patterns": [ "ResolvedBy", "ClosedBy", "CompletedBy", "FixedBy" ],
         "QuestionVerbs": [ "resolved by", "closed by", "completed by", "fixed by" ]
       },
       {
         "Role": "assignee",
-        "Patterns": [ "AssignedTo", "AssigneeId", "AssignedUserId", "HandledBy" ],
-        "QuestionVerbs": [ "assigned to", "handled by", "owned by" ]
+        "Patterns": [ "AssignedTo", "AssigneeId", "AssignedUserId", "HandledBy", "AssignedTechnicianId", "DispatchedTo" ],
+        "QuestionVerbs": [ "assigned to", "handled by", "owned by", "dispatched to" ]
       },
       {
         "Role": "owner",
-        "Patterns": [ "OwnerId", "OwnedBy", "OwnerUserId" ],
-        "QuestionVerbs": [ "owner", "owned by" ]
+        "Patterns": [ "OwnerId", "OwnedBy", "OwnerUserId", "CustomerId", "SubscriberId", "AccountHolderId" ],
+        "QuestionVerbs": [ "owner", "owned by", "belongs to", "of customer", "of client" ]
       },
       {
         "Role": "approver",
@@ -45,6 +45,91 @@
         "Role": "submitter",
         "Patterns": [ "SubmittedBy" ],
         "QuestionVerbs": [ "submitted by" ]
+      },
+      {
+        "Role": "escalator",
+        "Patterns": [ "EscalatedToUserId", "EscalatedBy" ],
+        "QuestionVerbs": [ "escalated to", "escalated by" ]
+      },
+      {
+        "Role": "receiver",
+        "Patterns": [ "ReceivedByUserId", "ReceivedBy" ],
+        "QuestionVerbs": [ "received by", "collected by" ]
+      },
+      {
+        "Role": "billed",
+        "Patterns": [ "BillId", "RelatedBillId", "InvoiceId" ],
+        "QuestionVerbs": [ "for bill", "on bill", "for invoice" ]
+      },
+      {
+        "Role": "service",
+        "Patterns": [ "ServiceTypeId", "ServiceId" ],
+        "QuestionVerbs": [ "for service", "of service" ]
+      },
+      {
+        "Role": "service_account",
+        "Patterns": [ "ServiceAccountId", "AccountId", "ContractId", "SubscriptionId" ],
+        "QuestionVerbs": [ "for account", "of contract", "of subscription" ]
+      },
+      {
+        "Role": "service_point",
+        "Patterns": [ "ServicePointId", "PointId", "PremisesId" ],
+        "QuestionVerbs": [ "at point", "at site", "at premises" ]
+      },
+      {
+        "Role": "asset",
+        "Patterns": [ "AssetId", "EquipmentId", "FacilityId", "ParentAssetId" ],
+        "QuestionVerbs": [ "for asset", "of equipment", "at facility" ]
+      },
+      {
+        "Role": "outage",
+        "Patterns": [ "OutageId", "RelatedOutageId", "IncidentId" ],
+        "QuestionVerbs": [ "for outage", "of outage", "in incident" ]
+      },
+      {
+        "Role": "ticket",
+        "Patterns": [ "TicketId", "RelatedTicketId", "ParentTicketId" ],
+        "QuestionVerbs": [ "for ticket", "of ticket", "on ticket" ]
+      },
+      {
+        "Role": "region",
+        "Patterns": [ "RegionId", "DistrictId", "GovernorateId", "PrimaryRegionId" ],
+        "QuestionVerbs": [ "in region", "in district", "in governorate" ]
+      },
+      {
+        "Role": "department",
+        "Patterns": [ "DepartmentId", "TeamId", "DivisionId" ],
+        "QuestionVerbs": [ "in department", "for team", "of division" ]
+      },
+      {
+        "Role": "currency",
+        "Patterns": [ "CurrencyId" ],
+        "QuestionVerbs": [ "in currency", "denominated in" ]
+      },
+      {
+        "Role": "segment",
+        "Patterns": [ "CustomerSegmentId", "SegmentId" ],
+        "QuestionVerbs": [ "in segment", "of segment", "of class" ]
+      },
+      {
+        "Role": "payment_method",
+        "Patterns": [ "PaymentMethodId" ],
+        "QuestionVerbs": [ "via method", "paid by", "channel" ]
+      },
+      {
+        "Role": "category",
+        "Patterns": [ "CategoryId", "TicketCategoryId" ],
+        "QuestionVerbs": [ "in category", "of kind" ]
+      },
+      {
+        "Role": "priority",
+        "Patterns": [ "PriorityId", "TicketPriorityId" ],
+        "QuestionVerbs": [ "of priority" ]
+      },
+      {
+        "Role": "status",
+        "Patterns": [ "StatusId", "TicketStatusId" ],
+        "QuestionVerbs": [ "of status", "in status" ]
       }
     ]
   }

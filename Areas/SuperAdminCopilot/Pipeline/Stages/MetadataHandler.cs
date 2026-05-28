@@ -5,7 +5,6 @@ using Microsoft.Extensions.Options;
 using SuperAdminCopilot.Abstractions;
 using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
-using SuperAdminCopilot.Pipeline.Routing;
 using SuperAdminCopilot.Schema;
 using SuperAdminCopilot.Semantic;
 
@@ -40,7 +39,7 @@ public interface IMetadataHandler
 
 public sealed record MetadataHandlerResult(string Sql, ExecutionResult Result);
 
-internal sealed class DeterministicMetadataHandler : IMetadataHandler, IRoutingProbe
+internal sealed class DeterministicMetadataHandler : IMetadataHandler
 {
     private readonly IExecutor _executor;
     private readonly ISemanticLayer _semanticLayer;
@@ -60,27 +59,6 @@ internal sealed class DeterministicMetadataHandler : IMetadataHandler, IRoutingP
     }
 
     public string Name => "Metadata";
-
-    /// <summary>Probe — matches any of the metadata regexes that TryHandleAsync uses.
-    /// Skipped when EnableSchemaIntrospection is off (the handler will refuse anyway, so
-    /// no point claiming it here — the LLM classifier can pick Refuse if needed).</summary>
-    public Task<RouterDecision?> ProbeAsync(string question, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(question)) return Task.FromResult<RouterDecision?>(null);
-        if (!_options.EnableSchemaIntrospection) return Task.FromResult<RouterDecision?>(null);
-
-        string? matchedPattern = null;
-        if (ListTables.IsMatch(question)) matchedPattern = "list-tables";
-        else if (!LooksLikeOneColumnProjection(question) && ColumnsInTable.IsMatch(question)) matchedPattern = "columns-in";
-        else if (DataTypeOf.IsMatch(question)) matchedPattern = "data-type";
-        else if (!LooksLikeDataRowList(question) && (Relationship.IsMatch(question) || RelationshipReverse.IsMatch(question))) matchedPattern = "relationship";
-        else if (WhichTable.IsMatch(question)) matchedPattern = "which-table";
-        else if (SearchTablesByName.IsMatch(question)) matchedPattern = "search-tables";
-
-        return Task.FromResult<RouterDecision?>(matchedPattern is null
-            ? null
-            : new RouterDecision(IntentLabel.Metadata, 0.95, Name, $"matched {matchedPattern}"));
-    }
 
     /// <summary>
     /// Matches all the natural ways to ask about a table's columns:

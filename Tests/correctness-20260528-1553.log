@@ -1,0 +1,27 @@
+15:53:37 Loaded 22 traces from sessions: 147
+15:53:38   [147/COUNT-SIMPLE-1] PASS  judge-skipped
+15:53:38   [147/COUNT-SIMPLE-2] PASS  judge-skipped
+15:53:38   [147/COUNT-SIMPLE-3] PASS  judge-skipped
+15:53:38   [147/COUNT-SIMPLE-4] PASS  judge-skipped
+15:53:38   [147/COUNT-MEDIUM-1] PASS  judge-skipped
+15:53:38   [147/COUNT-MEDIUM-2] PASS  judge-skipped
+15:53:38   [147/COUNT-MEDIUM-3] PASS  judge-skipped
+15:53:38   [147/COUNT-MEDIUM-4] SCHEMA_FAIL: no COUNT
+15:53:38   [147/COUNT-MEDIUM-5] PASS  judge-skipped
+15:53:38   [147/COUNT-MEDIUM-6] PASS  judge-skipped
+15:53:38   [147/COUNT-HARD-1] PASS  judge-skipped
+15:53:38   [147/COUNT-HARD-2] SCHEMA_FAIL: missing filter column Bills.IssuedAt
+15:53:38   [147/COUNT-HARD-3] SCHEMA_FAIL: missing COUNT aggregation
+15:53:38   [147/COUNT-NULL-1] PASS  judge-skipped
+15:53:38   [147/COUNT-NULL-2] PASS  judge-skipped
+15:53:38   [147/COUNT-DISTINCT-1] SCHEMA_FAIL: wrong root entity (expected Tickets)
+15:53:38   [147/COUNT-DISTINCT-2] SCHEMA_FAIL: wrong root entity (expected Outages)
+15:53:38   [147/COUNT-AR-1] PASS  judge-skipped
+15:53:38   [147/COUNT-AR-2] SCHEMA_FAIL: missing filter column Regions.NameEn
+15:53:38   [147/COUNT-EDGE-1] PASS  judge-skipped
+15:53:38   [147/COUNT-EDGE-2] PASS  judge-skipped
+15:53:38   [147/COUNT-EDGE-3] SCHEMA_FAIL: no COUNT
+15:53:38 ─── Per-suite summary ──
+15:53:38   suite-shape-COUNT-2026-05-28                                  15/ 22  ( 68.2%)  exec=0  schema=7  judge=0
+15:53:38 OVERALL CORRECTNESS: 15 / 22 = 68.2%
+15:53:38 Detailed CSV: C:\Work\Lern\Improve\v2\AISupportAnalysisPlatform\Tests\correctness-20260528-1553.csv

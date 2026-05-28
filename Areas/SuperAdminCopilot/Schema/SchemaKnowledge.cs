@@ -189,6 +189,17 @@ internal sealed class SchemaKnowledge : ISchemaKnowledge
         };
         var cols = ApplyColumnOverrides(t.Columns, ov.Columns ?? new List<ColumnOverride>());
 
+        // Merge synonyms: auto + overrides (deduplicated, case-insensitive). The override
+        // is *additive*, not replacing — Arabic forms come from overrides without erasing
+        // the auto-generated English forms.
+        var mergedSynonyms = new List<string>(t.Synonyms);
+        if (ov.Synonyms is { Count: > 0 })
+        {
+            var seen = new HashSet<string>(mergedSynonyms, StringComparer.OrdinalIgnoreCase);
+            foreach (var s in ov.Synonyms)
+                if (!string.IsNullOrWhiteSpace(s) && seen.Add(s)) mergedSynonyms.Add(s);
+        }
+
         return new InferredTable
         {
             Name = t.Name,
@@ -200,6 +211,8 @@ internal sealed class SchemaKnowledge : ISchemaKnowledge
             Columns = cols,
             ForeignKeysOut = t.ForeignKeysOut,
             ReferencedBy = t.ReferencedBy,
+            SampleValues = t.SampleValues,
+            Synonyms = mergedSynonyms,
             Source = ov.HasAnyValue() ? SpecConstants.InferenceSources.HeuristicPlusOverride : t.Source,
         };
     }

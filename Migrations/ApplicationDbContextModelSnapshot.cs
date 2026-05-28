@@ -776,6 +776,83 @@ namespace ServiceOpsAI.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("ServiceOpsAI.Models.Asset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AssetCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("AssetType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CommissionedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DecommissionedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(10, 6)
+                        .HasColumnType("decimal(10,6)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(10, 6)
+                        .HasColumnType("decimal(10,6)");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int?>("ParentAssetId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RegionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ServiceTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Specification")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetCode")
+                        .IsUnique();
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ParentAssetId");
+
+                    b.HasIndex("RegionId");
+
+                    b.HasIndex("ServiceTypeId", "AssetType");
+
+                    b.ToTable("Assets");
+                });
+
             modelBuilder.Entity("ServiceOpsAI.Models.Bill", b =>
                 {
                     b.Property<int>("Id")
@@ -863,6 +940,79 @@ namespace ServiceOpsAI.Migrations
                     b.HasIndex("DepartmentId", "Status");
 
                     b.ToTable("Bills");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.CallLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CallReference")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("CallerPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("HandledByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("RelatedOutageId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RelatedTicketId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CallReference")
+                        .IsUnique();
+
+                    b.HasIndex("HandledByUserId");
+
+                    b.HasIndex("RelatedOutageId");
+
+                    b.HasIndex("RelatedTicketId");
+
+                    b.HasIndex("StartedAt");
+
+                    b.HasIndex("CustomerId", "StartedAt");
+
+                    b.ToTable("CallLogs");
                 });
 
             modelBuilder.Entity("ServiceOpsAI.Models.ComplaintType", b =>
@@ -974,6 +1124,55 @@ namespace ServiceOpsAI.Migrations
                         .IsUnique();
 
                     b.ToTable("CsatResponses");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.Currency", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<decimal>("ExchangeRateToBase")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsBase")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastRateUpdate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Currencies");
                 });
 
             modelBuilder.Entity("ServiceOpsAI.Models.CustomTheme", b =>
@@ -1139,6 +1338,49 @@ namespace ServiceOpsAI.Migrations
                     b.ToTable("Customers");
                 });
 
+            modelBuilder.Entity("ServiceOpsAI.Models.CustomerSegment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("DefaultPriorityFloor")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSubsidyEligible")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("CustomerSegments");
+                });
+
             modelBuilder.Entity("ServiceOpsAI.Models.Department", b =>
                 {
                     b.Property<int>("Id")
@@ -1213,6 +1455,83 @@ namespace ServiceOpsAI.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ExternalApiSettings");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.MaintenanceSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ActualEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ActualStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AssetId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("CustomersNotified")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int?>("ExpectedAffectedCustomers")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MaintenanceType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("RegionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ScheduleNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("ScheduledEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ScheduledStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("TitleAr")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("TitleEn")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("RegionId");
+
+                    b.HasIndex("ScheduleNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ScheduledStart", "Status");
+
+                    b.ToTable("MaintenanceSchedules");
                 });
 
             modelBuilder.Entity("ServiceOpsAI.Models.MeterReading", b =>
@@ -1368,6 +1687,192 @@ namespace ServiceOpsAI.Migrations
                     b.ToTable("Outages");
                 });
 
+            modelBuilder.Entity("ServiceOpsAI.Models.OutageNotification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("MaintenanceScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MessageAr")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("MessageEn")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("OutageId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SentToEmail")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SentToPhone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("ServiceAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaintenanceScheduleId");
+
+                    b.HasIndex("OutageId");
+
+                    b.HasIndex("ServiceAccountId");
+
+                    b.HasIndex("CustomerId", "SentAt");
+
+                    b.ToTable("OutageNotifications");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("decimal(14,2)");
+
+                    b.Property<decimal>("AmountInBase")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("decimal(14,2)");
+
+                    b.Property<int>("BillId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CurrencyId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("ExchangeRateToBase")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("ExternalTransactionId")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PaymentMethodId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PaymentReference")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ReceivedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("ServiceAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrencyId");
+
+                    b.HasIndex("PaidAt");
+
+                    b.HasIndex("PaymentMethodId");
+
+                    b.HasIndex("PaymentReference")
+                        .IsUnique();
+
+                    b.HasIndex("ReceivedByUserId");
+
+                    b.HasIndex("ServiceAccountId");
+
+                    b.HasIndex("BillId", "Status");
+
+                    b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.PaymentMethod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<decimal>("FeePercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDigital")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("PaymentMethods");
+                });
+
             modelBuilder.Entity("ServiceOpsAI.Models.Region", b =>
                 {
                     b.Property<int>("Id")
@@ -1445,6 +1950,130 @@ namespace ServiceOpsAI.Migrations
                     b.ToTable("ResolutionTypes");
                 });
 
+            modelBuilder.Entity("ServiceOpsAI.Models.ServiceAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccountNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("ActivatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CapacityUnit")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal?>("ContractedCapacity")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CustomerSegmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeactivatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ServicePointId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ServiceTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountNumber")
+                        .IsUnique();
+
+                    b.HasIndex("CustomerSegmentId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ServicePointId");
+
+                    b.HasIndex("CustomerId", "Status");
+
+                    b.HasIndex("ServiceTypeId", "Status");
+
+                    b.ToTable("ServiceAccounts");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.ServicePoint", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AddressLineAr")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<string>("AddressLineEn")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("InstalledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(10, 6)
+                        .HasColumnType("decimal(10,6)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(10, 6)
+                        .HasColumnType("decimal(10,6)");
+
+                    b.Property<string>("MeterNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PointCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PointType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("RegionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PointCode")
+                        .IsUnique();
+
+                    b.HasIndex("RegionId");
+
+                    b.ToTable("ServicePoints");
+                });
+
             modelBuilder.Entity("ServiceOpsAI.Models.ServiceType", b =>
                 {
                     b.Property<int>("Id")
@@ -1488,6 +2117,142 @@ namespace ServiceOpsAI.Migrations
                         .IsUnique();
 
                     b.ToTable("ServiceTypes");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.SlaPolicy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("BusinessHoursOnly")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("CustomerSegmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveTo")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FirstResponseMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("PolicyCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int?>("PriorityId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ResolutionMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ServiceTypeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PolicyCode")
+                        .IsUnique();
+
+                    b.HasIndex("PriorityId");
+
+                    b.HasIndex("ServiceTypeId");
+
+                    b.HasIndex("CustomerSegmentId", "ServiceTypeId", "PriorityId");
+
+                    b.ToTable("SlaPolicies");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.Subsidy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("decimal(14,2)");
+
+                    b.Property<decimal?>("AppliedPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("AuthorizedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("BillId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CustomerSegmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("IssuedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ProgramCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ProgramNameAr")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("ProgramNameEn")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorizedByUserId");
+
+                    b.HasIndex("BillId");
+
+                    b.HasIndex("CustomerSegmentId");
+
+                    b.HasIndex("ProgramCode");
+
+                    b.HasIndex("CustomerId", "IssuedAt");
+
+                    b.ToTable("Subsidies");
                 });
 
             modelBuilder.Entity("ServiceOpsAI.Models.SystemSetting", b =>
@@ -1559,6 +2324,112 @@ namespace ServiceOpsAI.Migrations
                     b.HasIndex("ServiceTypeId", "RegionId", "EffectiveFrom");
 
                     b.ToTable("Tariffs");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.TariffTier", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("FromUnit")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("decimal(14,2)");
+
+                    b.Property<string>("LabelAr")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("LabelEn")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<decimal>("RatePerUnit")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("decimal(12,4)");
+
+                    b.Property<int>("TariffId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TierNumber")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("ToUnit")
+                        .HasPrecision(14, 2)
+                        .HasColumnType("decimal(14,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TariffId", "TierNumber")
+                        .IsUnique();
+
+                    b.ToTable("TariffTiers");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.Technician", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmployeeCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FullNameAr")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("FullNameEn")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime>("HiredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("PrimaryRegionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Specialty")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("YearsOfExperience")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeCode")
+                        .IsUnique();
+
+                    b.HasIndex("PrimaryRegionId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("DepartmentId", "IsActive");
+
+                    b.ToTable("Technicians");
                 });
 
             modelBuilder.Entity("ServiceOpsAI.Models.Ticket", b =>
@@ -2134,6 +3005,108 @@ namespace ServiceOpsAI.Migrations
                     b.ToTable("TicketStatuses");
                 });
 
+            modelBuilder.Entity("ServiceOpsAI.Models.WorkOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ArrivedOnSiteAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AssetId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("AssignedTechnicianId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime?>("DispatchedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrderNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("OrderType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("OutageId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Priority")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("RegionId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("RequiredSecondVisit")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int?>("ServicePointId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("TicketId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TitleAr")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("TitleEn")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("OrderNumber")
+                        .IsUnique();
+
+                    b.HasIndex("OutageId");
+
+                    b.HasIndex("RegionId");
+
+                    b.HasIndex("ServicePointId");
+
+                    b.HasIndex("TicketId");
+
+                    b.HasIndex("AssignedTechnicianId", "Status");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("WorkOrders");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -2233,6 +3206,38 @@ namespace ServiceOpsAI.Migrations
                     b.Navigation("Department");
                 });
 
+            modelBuilder.Entity("ServiceOpsAI.Models.Asset", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Asset", "ParentAsset")
+                        .WithMany()
+                        .HasForeignKey("ParentAssetId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Region", "Region")
+                        .WithMany()
+                        .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.ServiceType", "ServiceType")
+                        .WithMany()
+                        .HasForeignKey("ServiceTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+
+                    b.Navigation("ParentAsset");
+
+                    b.Navigation("Region");
+
+                    b.Navigation("ServiceType");
+                });
+
             modelBuilder.Entity("ServiceOpsAI.Models.Bill", b =>
                 {
                     b.HasOne("ServiceOpsAI.Models.Customer", "Customer")
@@ -2258,6 +3263,37 @@ namespace ServiceOpsAI.Migrations
                     b.Navigation("Department");
 
                     b.Navigation("ServiceType");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.CallLog", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.ApplicationUser", "HandledByUser")
+                        .WithMany()
+                        .HasForeignKey("HandledByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Outage", "RelatedOutage")
+                        .WithMany()
+                        .HasForeignKey("RelatedOutageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Ticket", "RelatedTicket")
+                        .WithMany()
+                        .HasForeignKey("RelatedTicketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("HandledByUser");
+
+                    b.Navigation("RelatedOutage");
+
+                    b.Navigation("RelatedTicket");
                 });
 
             modelBuilder.Entity("ServiceOpsAI.Models.CsatResponse", b =>
@@ -2297,6 +3333,30 @@ namespace ServiceOpsAI.Migrations
                     b.Navigation("Region");
 
                     b.Navigation("ServiceType");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.MaintenanceSchedule", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Asset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Region", "Region")
+                        .WithMany()
+                        .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Region");
                 });
 
             modelBuilder.Entity("ServiceOpsAI.Models.MeterReading", b =>
@@ -2354,6 +3414,78 @@ namespace ServiceOpsAI.Migrations
                     b.Navigation("ServiceType");
                 });
 
+            modelBuilder.Entity("ServiceOpsAI.Models.OutageNotification", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceOpsAI.Models.MaintenanceSchedule", "MaintenanceSchedule")
+                        .WithMany()
+                        .HasForeignKey("MaintenanceScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Outage", "Outage")
+                        .WithMany()
+                        .HasForeignKey("OutageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.ServiceAccount", "ServiceAccount")
+                        .WithMany()
+                        .HasForeignKey("ServiceAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("MaintenanceSchedule");
+
+                    b.Navigation("Outage");
+
+                    b.Navigation("ServiceAccount");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.Payment", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Bill", "Bill")
+                        .WithMany()
+                        .HasForeignKey("BillId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceOpsAI.Models.Currency", "Currency")
+                        .WithMany()
+                        .HasForeignKey("CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceOpsAI.Models.PaymentMethod", "PaymentMethod")
+                        .WithMany()
+                        .HasForeignKey("PaymentMethodId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.ApplicationUser", "ReceivedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReceivedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.ServiceAccount", "ServiceAccount")
+                        .WithMany()
+                        .HasForeignKey("ServiceAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Bill");
+
+                    b.Navigation("Currency");
+
+                    b.Navigation("PaymentMethod");
+
+                    b.Navigation("ReceivedByUser");
+
+                    b.Navigation("ServiceAccount");
+                });
+
             modelBuilder.Entity("ServiceOpsAI.Models.Region", b =>
                 {
                     b.HasOne("ServiceOpsAI.Models.Country", "Country")
@@ -2372,6 +3504,113 @@ namespace ServiceOpsAI.Migrations
                     b.Navigation("ParentRegion");
                 });
 
+            modelBuilder.Entity("ServiceOpsAI.Models.ServiceAccount", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceOpsAI.Models.CustomerSegment", "CustomerSegment")
+                        .WithMany()
+                        .HasForeignKey("CustomerSegmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.ServicePoint", "ServicePoint")
+                        .WithMany()
+                        .HasForeignKey("ServicePointId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceOpsAI.Models.ServiceType", "ServiceType")
+                        .WithMany()
+                        .HasForeignKey("ServiceTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("CustomerSegment");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("ServicePoint");
+
+                    b.Navigation("ServiceType");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.ServicePoint", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Region", "Region")
+                        .WithMany()
+                        .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Region");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.SlaPolicy", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.CustomerSegment", "CustomerSegment")
+                        .WithMany()
+                        .HasForeignKey("CustomerSegmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.TicketPriority", "Priority")
+                        .WithMany()
+                        .HasForeignKey("PriorityId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.ServiceType", "ServiceType")
+                        .WithMany()
+                        .HasForeignKey("ServiceTypeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CustomerSegment");
+
+                    b.Navigation("Priority");
+
+                    b.Navigation("ServiceType");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.Subsidy", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.ApplicationUser", "AuthorizedByUser")
+                        .WithMany()
+                        .HasForeignKey("AuthorizedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Bill", "Bill")
+                        .WithMany()
+                        .HasForeignKey("BillId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceOpsAI.Models.CustomerSegment", "CustomerSegment")
+                        .WithMany()
+                        .HasForeignKey("CustomerSegmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AuthorizedByUser");
+
+                    b.Navigation("Bill");
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("CustomerSegment");
+                });
+
             modelBuilder.Entity("ServiceOpsAI.Models.Tariff", b =>
                 {
                     b.HasOne("ServiceOpsAI.Models.Region", "Region")
@@ -2388,6 +3627,41 @@ namespace ServiceOpsAI.Migrations
                     b.Navigation("Region");
 
                     b.Navigation("ServiceType");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.TariffTier", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Tariff", "Tariff")
+                        .WithMany()
+                        .HasForeignKey("TariffId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tariff");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.Technician", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Region", "PrimaryRegion")
+                        .WithMany()
+                        .HasForeignKey("PrimaryRegionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Department");
+
+                    b.Navigation("PrimaryRegion");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ServiceOpsAI.Models.Ticket", b =>
@@ -2627,6 +3901,58 @@ namespace ServiceOpsAI.Migrations
                         .HasForeignKey("TicketId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Ticket");
+                });
+
+            modelBuilder.Entity("ServiceOpsAI.Models.WorkOrder", b =>
+                {
+                    b.HasOne("ServiceOpsAI.Models.Asset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Technician", "AssignedTechnician")
+                        .WithMany()
+                        .HasForeignKey("AssignedTechnicianId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Outage", "Outage")
+                        .WithMany()
+                        .HasForeignKey("OutageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Region", "Region")
+                        .WithMany()
+                        .HasForeignKey("RegionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.ServicePoint", "ServicePoint")
+                        .WithMany()
+                        .HasForeignKey("ServicePointId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceOpsAI.Models.Ticket", "Ticket")
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("AssignedTechnician");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Outage");
+
+                    b.Navigation("Region");
+
+                    b.Navigation("ServicePoint");
 
                     b.Navigation("Ticket");
                 });

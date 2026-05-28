@@ -1,0 +1,67 @@
+{
+  "name": "Quality Tier 4 — GROUP BY + aggregation per dimension",
+  "version": "1.0.0",
+  "description": "GROUP BY single lookup dimension with COUNT/SUM aggregate. Expected = number of distinct groups returned (each row = one group). Tests PromoteGroupByPkToLabel + auto-inference + the FK-walk for grouping on a lookup label rather than the FK column.",
+  "Scenarios": [
+    {
+      "Code": "QT4-TIX-PER-PRIO",
+      "Question": "ticket count per priority",
+      "Category": "T4-GROUPBY",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedScalar": 4,
+      "ExpectedShape": "SELECT TicketPriorities.Name, COUNT(*) GROUP BY TicketPriorities.Name",
+      "Notes": "Classic 'X per Y' shape. 4 priorities exist; if every priority has at least one ticket, result is 4 rows.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT4-TIX-PER-STATUS",
+      "Question": "how many tickets are in each status",
+      "Category": "T4-GROUPBY",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedScalar": 2,
+      "ExpectedShape": "SELECT TicketStatuses.Name, COUNT(*) GROUP BY TicketStatuses.Name",
+      "Notes": "Only 2 statuses are actually represented (33 Open + 50 Closed/Resolved). Detects whether the LLM groups by the populated value (right) or by all 7 statuses returning some with 0 (wrong).",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT4-OUTAGE-PER-SVC",
+      "Question": "outages per service type",
+      "Category": "T4-GROUPBY",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Outages",
+      "ExpectedScalar": 4,
+      "ExpectedShape": "SELECT ServiceTypes.NameEn, COUNT(*) GROUP BY ServiceTypes.NameEn",
+      "Notes": "Different root + different lookup. 4 service types have at least one outage out of 5 total.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT4-BILL-SUM-PER-STATUS",
+      "Question": "total bill amount per status",
+      "Category": "T4-GROUPBY-SUM",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 3,
+      "ExpectedShape": "SELECT Bills.Status, SUM(Bills.TotalAmount) GROUP BY Bills.Status",
+      "Notes": "GROUP BY a column on the ROOT table (no join). 3 distinct status values: Paid, Issued, Overdue.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT4-METER-AVG-PER-SVC",
+      "Question": "average meter reading per service type",
+      "Category": "T4-GROUPBY-AVG",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "MeterReadings",
+      "ExpectedScalar": 4,
+      "ExpectedShape": "SELECT ServiceTypes.NameEn, AVG(MeterReadings.Value) GROUP BY ServiceTypes.NameEn",
+      "Notes": "AVG-per-dimension. 4 service types represented in meter readings.",
+      "MaxLatencyMs": 60000
+    }
+  ]
+}

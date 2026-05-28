@@ -1,0 +1,23 @@
+@model ServiceOpsAI.Models.SlaPolicy
+@{ ViewData["Title"] = "New SLA Policy"; }
+
+<h2><i class="bi bi-plus-circle"></i> New SLA Policy</h2>
+
+<form asp-action="Create" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="col-md-4"><label asp-for="PolicyCode" class="form-label">Code</label><input asp-for="PolicyCode" class="form-control" placeholder="SLA-RES-ELEC-P1" /></div>
+    <div class="col-md-4"><label asp-for="NameEn" class="form-label">Name (EN)</label><input asp-for="NameEn" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="NameAr" class="form-label">Name (AR)</label><input asp-for="NameAr" class="form-control" dir="rtl" /></div>
+    <div class="col-md-4"><label asp-for="CustomerSegmentId" class="form-label">Segment</label><select asp-for="CustomerSegmentId" class="form-select" asp-items="ViewBag.Segments"><option value="">— Any —</option></select></div>
+    <div class="col-md-4"><label asp-for="ServiceTypeId" class="form-label">Service</label><select asp-for="ServiceTypeId" class="form-select" asp-items="ViewBag.ServiceTypes"><option value="">— Any —</option></select></div>
+    <div class="col-md-4"><label asp-for="PriorityId" class="form-label">Priority</label><select asp-for="PriorityId" class="form-select" asp-items="ViewBag.Priorities"><option value="">— Any —</option></select></div>
+    <div class="col-md-3"><label asp-for="FirstResponseMinutes" class="form-label">First-Response (min)</label><input asp-for="FirstResponseMinutes" type="number" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="ResolutionMinutes" class="form-label">Resolution (min)</label><input asp-for="ResolutionMinutes" type="number" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="EffectiveFrom" class="form-label">Effective From</label><input asp-for="EffectiveFrom" type="date" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="EffectiveTo" class="form-label">Effective To</label><input asp-for="EffectiveTo" type="date" class="form-control" /></div>
+    <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input asp-for="BusinessHoursOnly" class="form-check-input" /><label asp-for="BusinessHoursOnly" class="form-check-label">Business hours only</label></div></div>
+    <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label">Active</label></div></div>
+    <div class="col-12"><label asp-for="Notes" class="form-label">Notes</label><textarea asp-for="Notes" class="form-control" rows="2"></textarea></div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Create</button> <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Cancel</a></div>
+</form>

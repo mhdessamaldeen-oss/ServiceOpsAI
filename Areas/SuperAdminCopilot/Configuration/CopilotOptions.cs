@@ -41,25 +41,14 @@ public sealed class CopilotOptions
     /// live DB. Off by default — most deployments prefer log warnings to crash-on-startup.</summary>
     public bool FailFastOnSchemaDrift { get; set; } = false;
 
-    /// <summary>Tables the retriever should NEVER surface as candidates for user questions.
-    /// Defaults cover the copilot's own infra tables (assessment summaries / trace history /
-    /// chat sessions / tool definitions) which a planner LLM might otherwise pick as the root
-    /// for analytic questions. Operators can extend per deployment via appsettings.json or
-    /// copilot-text.json. Matching is case-insensitive on table name.</summary>
-    public List<string> RetrieverHiddenTables { get; set; } = new()
-    {
-        "CopilotAssessmentRunSummaries",
-        "CopilotTraceHistories",
-        "CopilotChatMessages",
-        "CopilotChatSessions",
-        "CopilotToolDefinitions",
-        "SystemSettings",
-        "__EFMigrationsHistory",
-        "GeminiApiKeys",
-        "TicketAiAnalyses",
-        "TicketAiAnalysisLogs",
-        "TicketSemanticEmbeddings"
-    };
+    /// <summary>Exact table names hidden from the retriever. Single-source convention: C# default
+    /// is empty; values live in <c>copilot-options.json</c>. Case-insensitive.</summary>
+    public List<string> RetrieverHiddenTables { get; set; } = new();
+
+    /// <summary>Wildcard patterns hidden from the retriever (e.g. <c>__*</c> for EF migrations,
+    /// <c>AspNet*</c> for Identity tables). Single-source convention: C# default is empty;
+    /// values live in <c>copilot-options.json</c>. Wildcard syntax: <c>*</c> matches any sequence.</summary>
+    public List<string> RetrieverHiddenTablePatterns { get; set; } = new();
 
     /// <summary>Path to the semantic-layer JSON config (entities, metrics, dimensions, synonyms).</summary>
     [Required]
@@ -139,14 +128,9 @@ public sealed class CopilotOptions
     [Range(0, 1000, ErrorMessage = "PastQuestionRagDegenerateScriptThreshold must be 0..1000.")]
     public int PastQuestionRagDegenerateScriptThreshold { get; set; } = 5;
 
-    /// <summary>
-    /// Maximum LLM calls allowed per question across the whole pipeline (semantic understanding +
-    /// planner + retry-planner + explainer). Default 5 covers the two-phase pipeline worst case:
-    /// understanding (1) + planner (1) + 1 retry (1) + explainer (1) = 4, plus 1 margin.
-    /// Set to 0 to disable the cap (not recommended in production).
-    /// </summary>
+    /// <summary>Max LLM calls per question. Default 7 covers: classifier + cue-parser + spec + 1 retry + coverage + explainer = 6, plus 1 margin.</summary>
     [Range(0, 20, ErrorMessage = "MaxLlmCallsPerQuestion must be 0..20.")]
-    public int MaxLlmCallsPerQuestion { get; set; } = 5;
+    public int MaxLlmCallsPerQuestion { get; set; } = 7;
 
     /// <summary>
     /// Per-question hard cap on the cumulative estimated USD cost of LLM calls. Checked
@@ -176,8 +160,8 @@ public sealed class CopilotOptions
     /// restart pays the embedder priming + entity-vector caching + first LLM provider warm-up.
     /// Steady-state per-question wall-clock is ~10-15s, so this is a 4× ceiling, not a target.</para>
     /// </summary>
-    [Range(0, 600, ErrorMessage = "MaxQuestionWallClockSeconds must be 0..600.")]
-    public int MaxQuestionWallClockSeconds { get; set; } = 60;
+    [Range(0, 3600, ErrorMessage = "MaxQuestionWallClockSeconds must be 0..3600 (1h).")]
+    public int MaxQuestionWallClockSeconds { get; set; } = 1800;
 
     /// <summary>
     /// Per-LLM-call timeout in seconds. Wraps every provider GenerateAsync / GenerateJsonAsync
@@ -185,8 +169,8 @@ public sealed class CopilotOptions
     /// Default 45s. Lower for fast small models; raise for large hosted models. Always less than
     /// or equal to <see cref="MaxQuestionWallClockSeconds"/> to make sense.
     /// </summary>
-    [Range(5, 600, ErrorMessage = "LlmCallTimeoutSeconds must be 5..600.")]
-    public int LlmCallTimeoutSeconds { get; set; } = 45;
+    [Range(5, 1800, ErrorMessage = "LlmCallTimeoutSeconds must be 5..1800 (30min).")]
+    public int LlmCallTimeoutSeconds { get; set; } = 900;
 
     /// <summary>
     /// P1 #80 — Trace history retention in days. The background prune job deletes
@@ -261,6 +245,9 @@ public sealed class CopilotOptions
     /// </summary>
     [Range(0, 5, ErrorMessage = "CoverageCheckMaxCallsPerQuestion must be 0..5.")]
     public int CoverageCheckMaxCallsPerQuestion { get; set; } = 1;
+
+    /// <summary>Skip the CoverageChecker on first-attempt single-root specs with no joins/group-by and ≤1 filter/aggregation. Joined / grouped / retry-recovered specs still go through it.</summary>
+    public bool SkipCoverageCheckOnTrivialAnswers { get; set; } = true;
 
     /// <summary>
     /// Master switch for the compound-question decomposer. When true the orchestrator detects
@@ -365,30 +352,20 @@ public sealed class CopilotOptions
     /// </summary>
     public TableExposureMode TableExposureMode { get; set; } = TableExposureMode.AllExceptBlocked;
 
-    /// <summary>Exact table names or schema-qualified names denied to every Copilot layer.</summary>
-    public List<string> BlockedTables { get; set; } = new() { "__EFMigrationsHistory" };
+    /// <summary>Exact table names or schema-qualified names denied to every Copilot layer.
+    /// Single-source convention: C# default is empty; values live in <c>copilot-options.json</c>.</summary>
+    public List<string> BlockedTables { get; set; } = new();
 
-    /// <summary>Wildcard table patterns denied to every Copilot layer.</summary>
-    public List<string> BlockedTablePatterns { get; set; } = new()
-    {
-        "Audit*",
-        "*Secret*",
-        "*Token*"
-    };
+    /// <summary>Wildcard table patterns denied to every Copilot layer. Single-source convention:
+    /// C# default is empty; values live in <c>copilot-options.json</c>.</summary>
+    public List<string> BlockedTablePatterns { get; set; } = new();
 
-    /// <summary>Wildcard column patterns denied in prompts, SQL, metadata answers, and output.</summary>
-    public List<string> BlockedColumns { get; set; } = new()
-    {
-        "*.PasswordHash",
-        "*.SecurityStamp",
-        "*.ConcurrencyStamp",
-        "*.AuthenticatorKey",
-        "*.RecoveryCode",
-        "*.ApiKey",
-        "*.Secret",
-        "*.Token",
-        "*.Password"
-    };
+    /// <summary>Wildcard column patterns denied in prompts, SQL, metadata answers, and output.
+    /// Single-source convention: C# default is empty; values live in <c>copilot-options.json</c>.
+    /// <b>SECURITY-CRITICAL:</b> if the JSON is missing entries like <c>*.PasswordHash</c>,
+    /// <c>*.Token</c>, etc., sensitive columns CAN leak. Every deployment is responsible for
+    /// declaring its own column denylist explicitly.</summary>
+    public List<string> BlockedColumns { get; set; } = new();
 
     /// <summary>Wildcard column patterns treated as sensitive even when not listed by the semantic layer.</summary>
     public List<string> SensitiveColumns { get; set; } = new();
@@ -434,7 +411,7 @@ public sealed class CopilotOptions
     /// need to raise this; operators on schemas with rich descriptions can leave it.
     /// </summary>
     [Range(0.0, 1.0, ErrorMessage = "OutOfScopeSchemaFloor must be 0.0..1.0.")]
-    public double OutOfScopeSchemaFloor { get; set; } = 0.30;
+    public double OutOfScopeSchemaFloor { get; set; } = 0.20;
 
     /// <summary>
     /// Verified-query catalog floor for the scope-confidence gate. If the highest catalog cosine
@@ -444,7 +421,49 @@ public sealed class CopilotOptions
     /// "is this trustworthy?". Default 0.55.
     /// </summary>
     [Range(0.0, 1.0, ErrorMessage = "OutOfScopeVerifiedQueryFloor must be 0.0..1.0.")]
-    public double OutOfScopeVerifiedQueryFloor { get; set; } = 0.70;
+    public double OutOfScopeVerifiedQueryFloor { get; set; } = 0.55;
+
+    /// <summary>High-confidence floor for the IntentClassifier — at or above this, OOS verdicts refuse outright and SQL verdicts skip the scope gate. Raised to 0.90 to reduce false-refusals on entity-heavy data questions ("bills issued by …", "explain why … jumped").</summary>
+    [Range(0.0, 1.0, ErrorMessage = "IntentClassifierDecisiveConfidence must be 0.0..1.0.")]
+    public double IntentClassifierDecisiveConfidence { get; set; } = 0.90;
+
+    // ── Profile selector (Phase 4) ──────────────────────────────────────────────────────────
+    // Names a preset block in copilot-options.json that overlays threshold properties at
+    // load time. Null/empty = use the explicit values above with no overlay. Built-in
+    // presets: "Cloud" | "LocalMedium" | "LocalSmall". Operators can add new presets by
+    // editing copilot-options.json — no code change required.
+
+    /// <summary>Selects a Profile preset block from copilot-options.json to overlay thresholds.</summary>
+    public string? Profile { get; set; }
+
+    // ── Magic-number replacements promoted to options (Phase 3) ─────────────────────────────
+    // Previously hardcoded in pipeline code. Defaults match the prior literal values so the
+    // behaviour change is purely "tuneable from one place" — no functional drift.
+
+    /// <summary>Cap on the number of candidate tables the SpecExtractor includes in the planner
+    /// prompt after neighbor-expansion. Previously the literal <c>6</c> in
+    /// <c>SpecExtractor.ExpandWithNeighbors</c>. Smaller = tighter prompt for local models;
+    /// larger = more context for cloud models.</summary>
+    [Range(1, 50, ErrorMessage = "SpecPromptMaxTables must be 1..50.")]
+    public int SpecPromptMaxTables { get; set; } = 6;
+
+    /// <summary>Minimum cosine similarity for a verified-query catalog entry to be eligible as a
+    /// few-shot example in the planner prompt (NOT to be used as the answer — that's
+    /// <see cref="VerifiedQueryMinSimilarity"/>). Previously the literal <c>0.65f</c> in
+    /// <c>SpecExtractor</c>'s <c>FindTopAsync</c> call.</summary>
+    [Range(0.0, 1.0, ErrorMessage = "VqFewShotMinSimilarity must be 0.0..1.0.")]
+    public double VqFewShotMinSimilarity { get; set; } = 0.65;
+
+    /// <summary>Number of verified-query catalog entries to surface as few-shot examples.
+    /// Previously the literal <c>3</c> in <c>SpecExtractor</c>.</summary>
+    [Range(0, 20, ErrorMessage = "VqFewShotTopK must be 0..20.")]
+    public int VqFewShotTopK { get; set; } = 3;
+
+    /// <summary>Top-K passed to the schema-semantic retriever from the ScopeConfidenceGate.
+    /// Previously the literal <c>1</c> in <c>ScopeConfidenceGate</c>. Higher values let the
+    /// gate consider lower-ranked matches when deciding whether a question is in-scope.</summary>
+    [Range(1, 20, ErrorMessage = "ScopeGateRetrieverTopK must be 1..20.")]
+    public int ScopeGateRetrieverTopK { get; set; } = 1;
 }
 
 public enum TableExposureMode

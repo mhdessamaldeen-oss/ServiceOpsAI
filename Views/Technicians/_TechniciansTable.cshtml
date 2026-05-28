@@ -1,0 +1,42 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.TechnicianDto>
+
+<div class="table-responsive">
+    <table id="techniciansTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Code</th>
+                <th class="py-3">Name</th>
+                <th class="py-3">Phone</th>
+                <th class="py-3">Department</th>
+                <th class="py-3">Region</th>
+                <th class="py-3">Specialty</th>
+                <th class="text-end py-3">Yrs Exp</th>
+                <th class="py-3">Active</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@t.EmployeeCode</code></td>
+                    <td><div style="color: var(--text-main) !important;">@t.FullNameEn</div><div class="small text-muted" dir="rtl">@t.FullNameAr</div></td>
+                    <td class="small">@t.Phone</td>
+                    <td>@t.DepartmentName</td>
+                    <td>@t.PrimaryRegionName</td>
+                    <td><span class="badge rounded-pill px-3 py-2" style="background: rgba(var(--primary-color-rgb),0.1); color: var(--primary-color); border: 1px solid var(--primary-color);">@t.Specialty</span></td>
+                    <td class="text-end">@t.YearsOfExperience</td>
+                    <td>@(t.IsActive ? "Yes" : "No")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@t.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@t.Id" method="post" onsubmit="return confirm('Delete technician @t.FullNameEn?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No technicians match the current filter.</h6></div> }
+</div>

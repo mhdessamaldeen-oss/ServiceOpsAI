@@ -14,12 +14,40 @@ public sealed class SemanticLayerConfig
     public List<SynonymGroup> Synonyms { get; set; } = new();
 
     /// <summary>
+    /// Cross-entity defaults the compiler reads when an entity definition is missing a value
+    /// (e.g. no explicit <see cref="EntityDefinition.LabelColumn"/>). Lets new schemas override
+    /// the framework's generic SQL conventions without touching code.
+    /// </summary>
+    public SemanticDefaults Defaults { get; set; } = new();
+
+    /// <summary>
     /// Semantic concept patterns for the <see cref="Pipeline.Stages.QuestionRewriter"/>.
     /// Each pattern maps natural-language triggers ("unattended", "stale", "backlog") to
     /// concrete database operations (filters, metrics, query shapes). New concepts are
     /// added here — zero code changes required.
     /// </summary>
     public List<ConceptPattern> ConceptPatterns { get; set; } = new();
+}
+
+/// <summary>
+/// Cross-entity defaults from semantic-layer.json's top-level <c>defaults</c> section.
+/// Each list is consulted by the compiler as a fallback when the entity doesn't declare its
+/// own value. Editing this section is the way to tune generic-SQL conventions for a new
+/// schema — no code change required.
+/// </summary>
+public sealed class SemanticDefaults
+{
+    /// <summary>
+    /// Ordered preference list for picking a row-label column when the entity has no explicit
+    /// <see cref="EntityDefinition.LabelColumn"/>. The compiler walks this list, returns the
+    /// first column that exists on the table.
+    ///
+    /// <para><b>Single-source convention:</b> the C# default is intentionally empty. Values
+    /// live in <c>semantic-layer.json</c>'s <c>defaults.labelColumnPreference</c> block.
+    /// Empty list = no fallback; entities without an explicit <see cref="EntityDefinition.LabelColumn"/>
+    /// won't get FK-name rewrite or default-label SELECT (safe degradation, not a crash).</para>
+    /// </summary>
+    public List<string> LabelColumnPreference { get; set; } = new();
 }
 
 /// <summary>
@@ -147,6 +175,16 @@ public sealed class EntityDefinition
     /// pool from <see cref="Configuration.CopilotTextCatalog.SuggestedFollowupTemplates"/>.
     /// </summary>
     public List<string> SuggestedFollowupTemplates { get; set; } = new();
+
+    /// <summary>
+    /// Whether this entity has semantic-vector embeddings available. Today: Tickets only
+    /// (see TicketSemanticEmbeddings table). The <c>SemanticSearchHandler</c> gates its
+    /// similarity-and-text-search paths on this flag — when false, the request falls
+    /// through to the SQL planner which uses LIKE/=/IN against the entity's
+    /// <see cref="SearchableColumns"/>. This is the policy from the embedding-fallback-policy
+    /// memory: don't refuse questions just because the entity isn't vectorized.
+    /// </summary>
+    public bool HasEmbeddings { get; set; }
 }
 
 /// <summary>

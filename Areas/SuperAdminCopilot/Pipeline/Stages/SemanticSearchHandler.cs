@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using SuperAdminCopilot.Abstractions;
 using SuperAdminCopilot.Models;
-using SuperAdminCopilot.Pipeline.Routing;
 using SuperAdminCopilot.Semantic;
 
 /// <summary>
@@ -41,49 +40,15 @@ public sealed record SemanticSearchHandlerResult(
     string Mode,                                         // "similar-to-entity" | "text-search"
     IReadOnlyList<SemanticSearchHit> Hits);              // raw hits — orchestrator threads these into CopilotResponse.SimilarEntities
 
-internal sealed class SemanticSearchHandler : ISemanticSearchHandler, IRoutingProbe
+internal sealed class SemanticSearchHandler : ISemanticSearchHandler
 {
     private readonly ISemanticSearch _search;
     private readonly ISemanticLayer _semanticLayer;
+    private readonly Abstractions.ICompiler _compiler;
+    private readonly Abstractions.IExecutor _executor;
     private readonly ILogger<SemanticSearchHandler> _logger;
 
     public string Name => "SemanticSearch";
-
-    /// <summary>Probe — replays the SAME gating used inside TryHandleAsync: if the
-    /// DeterministicSqlIntent guard fires, the question is NOT a semantic search even when a
-    /// synonym + verb appear; fall through. Otherwise build the per-entity patterns and report
-    /// match. Cheap regex work — no DB or vector call.</summary>
-    public Task<RouterDecision?> ProbeAsync(string question, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(question)) return Task.FromResult<RouterDecision?>(null);
-
-        // Pattern 1 — similarity-to-entity (natural-key code) always wins over the guard,
-        // because a code is a strong signal even when the surrounding question has comparators.
-        foreach (var entity in _semanticLayer.Config.Entities)
-        {
-            if (string.IsNullOrEmpty(entity.NaturalKeyFormat)) continue;
-            var similarityPattern = BuildSimilarityRegex(entity);
-            if (similarityPattern is null) continue;
-            if (similarityPattern.IsMatch(question))
-                return Task.FromResult<RouterDecision?>(new RouterDecision(
-                    IntentLabel.SemanticSearch, 1.0, Name, $"similar-to {entity.Name}"));
-        }
-
-        // Pattern 2 — free-text search. Skip when the deterministic-SQL guard says it's SQL.
-        if (DeterministicSqlIntent.IsMatch(question))
-            return Task.FromResult<RouterDecision?>(null);
-
-        foreach (var entity in _semanticLayer.Config.Entities)
-        {
-            if (entity.Synonyms is not { Count: > 0 }) continue;
-            var textPattern = BuildTextSearchRegex(entity);
-            if (textPattern is null) continue;
-            if (textPattern.IsMatch(question))
-                return Task.FromResult<RouterDecision?>(new RouterDecision(
-                    IntentLabel.SemanticSearch, 0.9, Name, $"text-search on {entity.Name}"));
-        }
-        return Task.FromResult<RouterDecision?>(null);
-    }
 
     /// <summary>Verbs that anchor a similarity question. Always followed by an optional entity-noun
     /// hint and the natural-key value.</summary>
@@ -146,10 +111,17 @@ internal sealed class SemanticSearchHandler : ISemanticSearchHandler, IRoutingPr
         @"[<>](?!=?\s*=)|(?<!\w)=(?!=)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public SemanticSearchHandler(ISemanticSearch search, ISemanticLayer semanticLayer, ILogger<SemanticSearchHandler> logger)
+    public SemanticSearchHandler(
+        ISemanticSearch search,
+        ISemanticLayer semanticLayer,
+        Abstractions.ICompiler compiler,
+        Abstractions.IExecutor executor,
+        ILogger<SemanticSearchHandler> logger)
     {
         _search = search;
         _semanticLayer = semanticLayer;
+        _compiler = compiler;
+        _executor = executor;
         _logger = logger;
     }
 
@@ -171,6 +143,11 @@ internal sealed class SemanticSearchHandler : ISemanticSearchHandler, IRoutingPr
         foreach (var entity in _semanticLayer.Config.Entities)
         {
             if (string.IsNullOrEmpty(entity.NaturalKeyFormat)) continue;
+            // [Embedding-fallback policy] If the entity has no semantic embeddings, semantic
+            // similarity literally can't be computed. Skip the vector path; the question will
+            // fall through to the SQL planner, which uses LIKE/=/IN over the entity's
+            // SearchableColumns. Keeps Phase 06 entities (no embeddings yet) answerable.
+            if (!entity.HasEmbeddings) continue;
 
             var similarityPattern = BuildSimilarityRegex(entity);
             if (similarityPattern is null) continue;
@@ -215,15 +192,76 @@ internal sealed class SemanticSearchHandler : ISemanticSearchHandler, IRoutingPr
             var queryText = m.Groups["query"].Value.Trim().Trim(',', '.', ';').Trim();
             if (queryText.Length < 3) continue;
 
-            _logger.LogInformation("[SemanticSearchHandler] text-search match: entity={Department} q='{Query}'", entity.Name, queryText);
-            var hits = await _search.SearchByTextAsync(queryText, topK: 10, entity.Name, cancellationToken);
-            return BuildResult(
-                mode: "text-search",
-                hits: hits,
-                sqlSummary: $"-- Semantic-search: {entity.Name} matching '{queryText}'");
+            // [Embedding-fallback policy] Branch on whether the entity is vectorized.
+            //   • Has embeddings (Tickets today) → semantic vector search via ISemanticSearch.
+            //   • No embeddings (Phase 06 entities) → deterministic SQL LIKE over the entity's
+            //     SearchableColumns. This is the SQL fallback the user mandated: questions like
+            //     "work orders about transformer faults" must still return rows, just via LIKE
+            //     instead of vector similarity. Both paths return the same handler-result shape
+            //     so the orchestrator persists them identically.
+            if (entity.HasEmbeddings)
+            {
+                _logger.LogInformation("[SemanticSearchHandler] text-search (embeddings): entity={Entity} q='{Query}'", entity.Name, queryText);
+                var hits = await _search.SearchByTextAsync(queryText, topK: 10, entity.Name, cancellationToken);
+                return BuildResult(
+                    mode: "text-search",
+                    hits: hits,
+                    sqlSummary: $"-- Semantic-search: {entity.Name} matching '{queryText}'");
+            }
+
+            // Non-embedded entity with no usable text columns — let the planner take a shot.
+            if (entity.SearchableColumns is not { Count: > 0 }) continue;
+
+            _logger.LogInformation("[SemanticSearchHandler] text-search (SQL fallback): entity={Entity} q='{Query}'", entity.Name, queryText);
+            return await ExecuteSqlTextSearchAsync(entity, queryText, cancellationToken);
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// SQL fallback for "X about Y" / "X matching Y" / "X regarding Y" questions when the
+    /// entity has no semantic embeddings. Builds a <see cref="QuerySpec"/> with a
+    /// <c>text_search</c> filter, which the compiler expands to <c>(Col1 LIKE @p OR Col2 LIKE @p …)</c>
+    /// over the entity's <see cref="EntityDefinition.SearchableColumns"/>. Returns a
+    /// <see cref="SemanticSearchHandlerResult"/> so the orchestrator's persistence + explain
+    /// path is reused unchanged.
+    /// </summary>
+    private async Task<SemanticSearchHandlerResult?> ExecuteSqlTextSearchAsync(
+        EntityDefinition entity, string queryText, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(entity.Table)) return null;
+
+        var spec = new Models.QuerySpec
+        {
+            Root = entity.Table,
+            Filters = new List<Models.FilterSpec>
+            {
+                new() { Column = "*", Op = Models.SpecConstants.FilterOps.TextSearch, Value = queryText },
+            },
+            Limit = 20,
+        };
+
+        Models.CompiledSql compiled;
+        try { compiled = _compiler.Compile(spec); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[SemanticSearchHandler] SQL fallback: compile failed for entity={Entity}", entity.Name);
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(compiled.Sql))
+        {
+            _logger.LogDebug("[SemanticSearchHandler] SQL fallback: empty compile output for entity={Entity}", entity.Name);
+            return null;
+        }
+
+        var execResult = await _executor.ExecuteAsync(compiled, cancellationToken);
+        return new SemanticSearchHandlerResult(
+            Sql: compiled.Sql,
+            Result: execResult,
+            Mode: "text-search-sql",
+            Hits: Array.Empty<SemanticSearchHit>());
     }
 
     /// <summary>

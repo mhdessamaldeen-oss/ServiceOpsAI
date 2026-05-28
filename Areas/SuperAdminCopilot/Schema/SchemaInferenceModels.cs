@@ -27,6 +27,17 @@ public sealed class InferredTable
     /// (statuses, priorities, categories) so the LLM doesn't have to guess valid filter values —
     /// it sees "Open / Closed / In Progress" and uses one of those literally.</summary>
     public List<string> SampleValues { get; set; } = new();
+
+    /// <summary>
+    /// Auto-generated English synonyms for this entity (e.g. <c>Customer</c> → "customer",
+    /// "customers", "client", "subscriber"). Drives planner table-resolution when the
+    /// user's phrasing doesn't match the canonical table name. Generated from
+    /// singularize/pluralize of the table name plus a small utility-domain dictionary in
+    /// <see cref="SchemaInferenceGenerator"/>. Arabic synonyms come from
+    /// <c>schema-overrides.json</c>, never auto.
+    /// </summary>
+    public List<string> Synonyms { get; set; } = new();
+
     public string Source { get; set; } = "heuristic";
 }
 
@@ -92,8 +103,14 @@ public sealed class TableOverride
     public InferredRolesOverride? Roles { get; set; }
     public List<ColumnOverride>? Columns { get; set; }
 
+    /// <summary>Human-curated synonyms to *append* to the auto-generated English ones.
+    /// Primary use: Arabic forms (<c>تذكرة</c>, <c>شكوى</c>) that the heuristic can't produce.
+    /// Merged with — not replacing — <see cref="InferredTable.Synonyms"/> at runtime.</summary>
+    public List<string>? Synonyms { get; set; }
+
     public bool HasAnyValue() =>
-        Description is not null || Flags is not null || Roles is not null || (Columns?.Count > 0);
+        Description is not null || Flags is not null || Roles is not null
+        || (Columns?.Count > 0) || (Synonyms?.Count > 0);
 }
 
 public sealed class InferredFlagsOverride

@@ -1,0 +1,39 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.PaymentMethodDto>
+
+<div class="table-responsive">
+    <table id="paymentMethodsTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Code</th>
+                <th class="py-3">Name</th>
+                <th class="py-3">Digital?</th>
+                <th class="text-end py-3">Fee %</th>
+                <th class="py-3">Order</th>
+                <th class="py-3">Active</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@m.Code</code></td>
+                    <td><div style="color: var(--text-main) !important;">@m.NameEn</div><div class="small text-muted" dir="rtl">@m.NameAr</div></td>
+                    <td>@(m.IsDigital ? "Yes" : "No")</td>
+                    <td class="text-end">@m.FeePercent.ToString("N2")%</td>
+                    <td class="small text-muted">@m.SortOrder</td>
+                    <td>@(m.IsActive ? "Yes" : "No")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@m.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@m.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@m.Id" method="post" onsubmit="return confirm('Delete @m.NameEn?');" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No payment methods match the current filter.</h6></div> }
+</div>

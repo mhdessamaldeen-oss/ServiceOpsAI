@@ -436,6 +436,16 @@ internal static class OrchestratorStepRecorder
                 details: new { missingAspects = gap.Missing }),
             kind: StageNames.KindLlmCall));
 
+    /// <summary>Records that the coverage check was deliberately skipped (trivial-answer fast-path).</summary>
+    public static void RecordCoverageCheckSkipped(this BroadcastingStepList steps, string question, string reason) =>
+        steps.Add(Step(StageNames.StepCoverageCheck, StageNames.StatusOk, elapsedMs: 0L,
+            "SKIPPED",
+            technical: StepPayload.Of(StepPayloadKinds.LlmCall,
+                input: question,
+                output: "SKIPPED",
+                reason: reason),
+            kind: StageNames.KindLlmCall));
+
     // ── Explainer ─────────────────────────────────────────────────────────────────────
 
     public static void RecordExplainer(this BroadcastingStepList steps, string question,

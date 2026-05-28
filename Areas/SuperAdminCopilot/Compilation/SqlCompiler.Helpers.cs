@@ -66,7 +66,7 @@ internal sealed partial class SqlCompiler
             formatted = "";
             return false;
         }
-        formatted = $"[{t}].[{c}]";
+        formatted = _dialect.QuoteQualified(t, c);
         return true;
     }
 
@@ -86,23 +86,23 @@ internal sealed partial class SqlCompiler
         var (t, c) = SplitQualified(columnRef);
         if (string.IsNullOrEmpty(t) || string.IsNullOrEmpty(c) || !_catalog.ColumnExists(t, c))
             return false;
+        var bare = _dialect.QuoteQualified(t, c);
         var col = _catalog.GetColumns(t).FirstOrDefault(ci =>
             string.Equals(ci.ColumnName, c, StringComparison.OrdinalIgnoreCase));
         if (col is null)
         {
-            wrapped = $"[{t}].[{c}]";
+            wrapped = bare;
             return true;
         }
-        var bare = $"[{t}].[{c}]";
         if (!col.IsNullable || !IsTextOrIdLike(col.DataType))
         {
             wrapped = bare;
             return true;
         }
-        // Cast non-string ID-like types (uniqueidentifier / int) so the literal '(Unassigned)' is
-        // type-compatible with the column expression for the ISNULL contract.
-        var castInner = IsTextType(col.DataType) ? bare : $"CAST({bare} AS NVARCHAR(64))";
-        wrapped = $"ISNULL({castInner}, '(Unassigned)')";
+        // Cast non-string ID-like types (uniqueidentifier / int) so the '(Unassigned)' literal is
+        // type-compatible with the column expression for the COALESCE/ISNULL contract.
+        var castInner = IsTextType(col.DataType) ? bare : _dialect.CastAsString(bare, 64);
+        wrapped = _dialect.NullCoalesce(castInner, "'(Unassigned)'");
         wasWrapped = true;
         return true;
     }

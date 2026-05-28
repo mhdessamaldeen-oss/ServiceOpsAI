@@ -1,19 +1,25 @@
 {
+  "defaults": {
+    "labelColumnPreference": [
+      "Name", "Title", "Code", "DisplayName", "UserName", "Label"
+    ]
+  },
   "entities": [
     {
       "name": "Ticket",
       "table": "Tickets",
-      "synonyms": ["ticket", "tickets", "issue", "issues", "case", "cases", "bug", "bugs", "problem", "problems", "request", "requests", "incident", "incidents", "complaint", "complaints", "report", "reports"],
+      "hasEmbeddings": true,
+      "synonyms": ["ticket", "tickets", "issue", "issues", "case", "cases", "bug", "bugs", "problem", "problems", "request", "requests", "incident", "incidents", "complaint", "complaints", "report", "reports", "تذكرة", "تذاكر", "التذاكر", "التذكرة", "تكت", "تكتات", "التكت", "التكتات", "شكوى", "شكاوى", "الشكوى", "الشكاوى", "بلاغ", "بلاغات", "البلاغ", "البلاغات", "مشكلة", "مشاكل", "المشكلة", "المشاكل"],
       "softDeleteColumn": "IsDeleted",
       "softDeleteFilterValue": false,
       "searchableColumns": ["Title", "Description", "ResolutionSummary", "RootCause"],
       "naturalKeyColumn": "TicketNumber",
-      "naturalKeyFormat": "^[A-Za-z]{1,6}-\\d{4}-\\d{3,7}$",
+      "naturalKeyFormat": "^[A-Za-z]{1,6}-\\d{3,7}(-\\d{1,7})?$",
       "labelColumn": "Title",
       "displayColumns": ["Id", "TicketNumber", "Title", "CreatedAt"],
       "dateRoles": {
         "created": "CreatedAt",
-        "updated": "ModifiedAt",
+        "updated": "UpdatedAt",
         "resolved": "ResolvedAt",
         "closed": "ClosedAt",
         "due": "DueDate",
@@ -30,14 +36,14 @@
     {
       "name": "User",
       "table": "AspNetUsers",
-      "synonyms": ["user", "users", "customer", "customers", "client", "clients", "agent", "agents", "person", "people", "account", "accounts"],
-      "softDeleteColumn": "IsDeleted",
-      "softDeleteFilterValue": false,
+      "synonyms": ["user", "users", "staff", "agent", "agents", "operator", "operators", "employee", "employees", "account", "accounts", "موظف", "موظفين", "عامل"],
+      "softDeleteColumn": "IsActive",
+      "softDeleteFilterValue": true,
       "sensitiveColumns": ["PasswordHash", "SecurityStamp", "ConcurrencyStamp", "TwoFactorEnabled", "PhoneNumberConfirmed", "EmailConfirmed", "LockoutEnd", "LockoutEnabled", "AccessFailedCount"],
       "naturalKeyColumn": "UserName",
       "labelColumn": "UserName",
       "displayColumns": ["Id", "UserName", "Email"],
-      "description": "ASP.NET Identity user — covers both customers and agents."
+      "description": "THE PRIMARY 'users' table. When the user asks about 'users', 'staff', 'agents', 'admins' without further qualification, THIS is the correct table — NOT Customers (those are external utility subscribers). Internal staff (ASP.NET Identity) handle Tickets and run admin workflows. Disambiguation rule: 'users' alone always means AspNetUsers; 'customers'/'subscribers'/'complainants' means Customers."
     },
     {
       "name": "TicketComment",
@@ -121,7 +127,7 @@
       "labelColumn": "FullNameEn",
       "displayColumns": ["Id", "FullNameEn", "FullNameAr", "Phone", "RegionId", "Status"],
       "dateRoles": { "signed_up": "SignupAt", "churned": "ChurnedAt", "default": "SignupAt" },
-      "description": "External customer (utility subscriber) — distinct from ApplicationUser (internal staff). FullNameEn and FullNameAr are the bilingual name. NationalId is a fake 11-digit identifier. Customers consume services (Electricity, Internet, Water, Gas) which produce Bills, and may file Tickets. Status: Active, Suspended, Churned. RegionId points at the customer's district (Region.RegionType = District); join Region → ParentRegion to get the governorate."
+      "description": "External customer (utility subscriber) — distinct from ApplicationUser (internal staff). FullNameEn and FullNameAr are the bilingual name. NationalId is a fake 11-digit identifier. Customers consume services (Electricity, Internet, Water, Gas) which produce Bills, and may file Tickets. Status is the canonical lifecycle filter (values: 'Active', 'Suspended', 'Churned'). ChurnedAt timestamp is set ONLY when Status='Churned' — to find churned customers use Status='Churned' NOT ChurnedAt=value. Likewise filter 'no email' with Email IS NULL, not Email=value. RegionId points at the customer's district (Region.RegionType = District); join Region → ParentRegion to get the governorate."
     },
     {
       "name": "Bill",
@@ -131,9 +137,9 @@
       "naturalKeyColumn": "BillNumber",
       "naturalKeyFormat": "^(ELEC|INT|WTR|GAS)-\\d{4}-\\d{2}-\\d{6}$",
       "labelColumn": "BillNumber",
-      "displayColumns": ["Id", "BillNumber", "CustomerId", "ServiceType", "PeriodStart", "TotalAmount", "Status"],
+      "displayColumns": ["Id", "BillNumber", "CustomerId", "ServiceTypeId", "PeriodStart", "TotalAmount", "Status"],
       "dateRoles": { "issued": "IssuedAt", "due": "DueDate", "paid": "PaidAt", "period": "PeriodStart", "default": "PeriodStart" },
-      "description": "Utility bill -- single polymorphic table covering all four ServiceType values (Electricity, Internet, Water, Gas). All monetary fields in Syrian Pounds (SYP). Status: Issued (current), Paid, Overdue (past DueDate), Disputed (a Ticket of ComplaintType=BillingDispute exists), Cancelled. Linked to Customer (CustomerId) and the Department that issued it (DepartmentId). UsageQuantity + UsageUnit describe consumption in kWh/GB/m³/cylinders depending on ServiceType."
+      "description": "Utility bill -- single polymorphic table covering all four ServiceType values (Electricity, Internet, Water, Gas). All monetary fields in Syrian Pounds (SYP). Status is the canonical payment filter (values: 'Issued' current, 'Paid', 'Overdue' past-due, 'Disputed', 'Cancelled'). PaidAt is just a completion timestamp set when Status='Paid' — to find paid bills use Status='Paid' NOT PaidAt=value. Linked to Customer (CustomerId) and the Department that issued it (DepartmentId). UsageQuantity + UsageUnit describe consumption in kWh/GB/m³/cylinders depending on ServiceType."
     },
     {
       "name": "Department",
@@ -141,7 +147,7 @@
       "synonyms": ["department", "departments", "branch office", "regional office", "service provider", "operator", "إدارة", "إدارات", "فرع", "فروع"],
       "searchableColumns": ["NameEn", "NameAr"],
       "labelColumn": "NameEn",
-      "displayColumns": ["Id", "NameEn", "NameAr", "ServiceType", "RegionId"],
+      "displayColumns": ["Id", "NameEn", "NameAr", "ServiceTypeId", "RegionId"],
       "description": "Regional service operator -- one Department per (Region, ServiceType) pair. Total 56 (14 governorates × 4 service types: Electricity/Internet/Water/Gas). Each Bill is issued by a Department; each Ticket is handled by a Department. The dimension along which super-admin Copilot questions pivot for cross-region/cross-service comparisons. RegionId points at the governorate (not the district)."
     },
     {
@@ -414,8 +420,8 @@
       "name": "user_count",
       "expression": "COUNT(*)",
       "filters": [],
-      "synonyms": ["user count", "number of users", "how many users", "total users", "count of users", "count of customers", "count of agents"],
-      "description": "Total number of rows in AspNetUsers. Root must be AspNetUsers."
+      "synonyms": ["user count", "number of users", "how many users", "total users", "count of users", "count of staff", "count of agents", "count of operators"],
+      "description": "Total number of rows in AspNetUsers (internal staff — agents, supervisors, admins). NOT for external customers / utility subscribers (use the Customer entity + Customers table for those). Root must be AspNetUsers."
     },
     {
       "name": "users_per_role",
@@ -423,6 +429,13 @@
       "filters": [],
       "synonyms": ["users per role", "user count per role", "how many users per role", "count users by role", "user count by role", "members per role"],
       "description": "Used with groupBy=[AspNetRoles.Name]. Root MUST be AspNetUserRoles, joined to AspNetRoles. Counts how many user assignments exist for each role name — answers 'how many users for each role'."
+    },
+    {
+      "name": "customer_count",
+      "expression": "COUNT(*)",
+      "filters": [],
+      "synonyms": ["customer count", "number of customers", "how many customers", "total customers", "count of customers", "subscriber count", "number of subscribers", "how many subscribers", "total subscribers", "count of subscribers", "count of clients", "عدد المشتركين", "كم عدد المشتركين", "كم عدد الزبائن"],
+      "description": "Total number of rows in Customers (external utility subscribers). Root must be Customers. NOT for internal staff (use user_count for that)."
     }
   ],
 
@@ -626,6 +639,94 @@
       "type": "value",
       "context": "TicketAiAnalyses.AnalysisStatus",
       "aliases": ["processing", "in progress", "running", "executing"]
+    },
+
+    {
+      "canonical": "Paid",
+      "type": "value",
+      "context": "Bills.Status",
+      "aliases": ["paid", "settled", "completed payment", "payment completed", "cleared", "already paid", "fully paid"]
+    },
+    {
+      "canonical": "Issued",
+      "type": "value",
+      "context": "Bills.Status",
+      "aliases": ["issued", "pending", "pending payment", "outstanding", "unpaid", "awaiting payment", "due", "current", "active bill"]
+    },
+    {
+      "canonical": "Overdue",
+      "type": "value",
+      "context": "Bills.Status",
+      "aliases": ["overdue", "past due", "past-due", "late", "delinquent", "behind", "overdue invoice"]
+    },
+    {
+      "canonical": "Disputed",
+      "type": "value",
+      "context": "Bills.Status",
+      "aliases": ["disputed", "contested", "challenged", "in dispute", "under dispute"]
+    },
+    {
+      "canonical": "Cancelled",
+      "type": "value",
+      "context": "Bills.Status",
+      "aliases": ["cancelled", "canceled", "voided", "annulled", "rescinded"]
+    },
+
+    {
+      "canonical": "Active",
+      "type": "value",
+      "context": "Customers.Status",
+      "aliases": ["active", "current", "in service", "enrolled", "live"]
+    },
+    {
+      "canonical": "Inactive",
+      "type": "value",
+      "context": "Customers.Status",
+      "aliases": ["inactive", "not active", "disabled", "suspended", "dormant"]
+    },
+    {
+      "canonical": "Churned",
+      "type": "value",
+      "context": "Customers.Status",
+      "aliases": ["churned", "left", "lost customer", "former customer", "ex-customer", "departed"]
+    },
+
+    {
+      "canonical": "Electricity",
+      "type": "value",
+      "context": "ServiceTypes.NameEn",
+      "aliases": ["electricity", "electric", "electric service", "power", "power service", "elec", "كهرباء"]
+    },
+    {
+      "canonical": "Water",
+      "type": "value",
+      "context": "ServiceTypes.NameEn",
+      "aliases": ["water", "water service", "water supply", "مياه"]
+    },
+    {
+      "canonical": "Gas",
+      "type": "value",
+      "context": "ServiceTypes.NameEn",
+      "aliases": ["gas", "gas service", "natural gas", "غاز"]
+    },
+    {
+      "canonical": "Internet",
+      "type": "value",
+      "context": "ServiceTypes.NameEn",
+      "aliases": ["internet", "internet service", "broadband", "wifi", "data", "إنترنت"]
+    },
+
+    {
+      "canonical": "Governorate",
+      "type": "value",
+      "context": "Regions.RegionType",
+      "aliases": ["governorate", "province", "state", "محافظة"]
+    },
+    {
+      "canonical": "District",
+      "type": "value",
+      "context": "Regions.RegionType",
+      "aliases": ["district", "borough", "subdivision", "حي", "منطقة"]
     }
   ],
 
@@ -654,10 +755,45 @@
       ]
     },
     {
+      "triggers": ["overdue", "past due", "unpaid past due", "متأخرة", "متأخر"],
+      "meaning": "bills with overdue status (issued and not yet paid past the due date)",
+      "filters": [
+        { "column": "Bills.Status", "op": "eq", "value": "Overdue" }
+      ]
+    },
+    {
+      "triggers": ["unpaid", "not paid", "outstanding bill", "غير مدفوعة", "غير مدفوع"],
+      "meaning": "bills with status issued or overdue (any state that is not paid)",
+      "filters": [
+        { "column": "Bills.Status", "op": "in", "value": ["Issued", "Overdue"] }
+      ]
+    },
+    {
       "triggers": ["backlog", "queue", "pending work", "work queue", "outstanding"],
       "meaning": "tickets in Open or In Progress status",
       "filters": [
         { "column": "TicketStatuses.Name", "op": "in", "value": ["Open", "In Progress"] }
+      ]
+    },
+    {
+      "triggers": ["active outage", "active outages", "ongoing outage", "ongoing outages", "current outage", "current outages", "live outage", "live outages", "active", "ongoing", "current", "in progress outage"],
+      "meaning": "outages that have started but not yet ended (EndedAt IS NULL)",
+      "filters": [
+        { "column": "Outages.EndedAt", "op": "isnull" }
+      ]
+    },
+    {
+      "triggers": ["unresolved", "open ticket", "open tickets", "not resolved", "still open", "pending ticket"],
+      "meaning": "tickets that have not been resolved (ResolvedAt IS NULL)",
+      "filters": [
+        { "column": "Tickets.ResolvedAt", "op": "isnull" }
+      ]
+    },
+    {
+      "triggers": ["paid bill", "paid bills", "settled", "completed payment"],
+      "meaning": "bills with Status=Paid",
+      "filters": [
+        { "column": "Bills.Status", "op": "eq", "value": "Paid" }
       ]
     },
     {

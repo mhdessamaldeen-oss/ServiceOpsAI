@@ -1,7 +1,7 @@
 {
   "Version": "2.0",
-  "GeneratedAt": "2026-05-14T16:12:44.2611497+00:00",
-  "SchemaHash": "7DFA3EA173280A79FDC567D8D0450BAAD2C38D2256121C1B8AD651215A2C444E",
+  "GeneratedAt": "2026-05-28T13:40:03.5563169+00:00",
+  "SchemaHash": "B563C128D9E0008096099E07A06F4794A80F0768958BB664475B60F8D5AB23EF",
   "Tables": [
     {
       "Name": "__EFMigrationsHistory",
@@ -27,12 +27,21 @@
           "Name": "ProductVersion",
           "Type": "nvarchar(32)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "product version"
+          ]
         }
       ],
       "ForeignKeysOut": [],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "__efmigrationshistory",
+        "__efmigrationshistories",
+        "__ef migrations history",
+        "__ef migrations histories"
+      ],
       "Source": "heuristic"
     },
     {
@@ -67,13 +76,19 @@
           "Name": "ClaimType",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "claim type"
+          ]
         },
         {
           "Name": "ClaimValue",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "claim value"
+          ]
         }
       ],
       "ForeignKeysOut": [
@@ -85,6 +100,12 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "aspnetroleclaim",
+        "aspnetroleclaims",
+        "asp net role claim",
+        "asp net role claims"
+      ],
       "Source": "heuristic"
     },
     {
@@ -122,7 +143,10 @@
           "Type": "nvarchar(256)",
           "Nullable": true,
           "Role": "natural_key",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "normalized name"
+          ]
         },
         {
           "Name": "ConcurrencyStamp",
@@ -146,10 +170,14 @@
       "SampleValues": [
         "Admin",
         "EndUser",
-        "Manager",
-        "Support Agent",
         "SupportAgent",
         "Viewer"
+      ],
+      "Synonyms": [
+        "aspnetrole",
+        "aspnetroles",
+        "asp net role",
+        "asp net roles"
       ],
       "Source": "heuristic"
     },
@@ -185,13 +213,19 @@
           "Name": "ClaimType",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "claim type"
+          ]
         },
         {
           "Name": "ClaimValue",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "claim value"
+          ]
         }
       ],
       "ForeignKeysOut": [
@@ -203,6 +237,12 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "aspnetuserclaim",
+        "aspnetuserclaims",
+        "asp net user claim",
+        "asp net user claims"
+      ],
       "Source": "heuristic"
     },
     {
@@ -237,7 +277,10 @@
           "Name": "ProviderDisplayName",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "provider display name"
+          ]
         },
         {
           "Name": "UserId",
@@ -257,6 +300,12 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "aspnetuserlogin",
+        "aspnetuserlogins",
+        "asp net user login",
+        "asp net user logins"
+      ],
       "Source": "heuristic"
     },
     {
@@ -304,6 +353,12 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "aspnetuserrole",
+        "aspnetuserroles",
+        "asp net user role",
+        "asp net user roles"
+      ],
       "Source": "heuristic"
     },
     {
@@ -318,6 +373,7 @@
         "IsPerson": true
       },
       "Roles": {
+        "LabelColumn": "FirstName",
         "SoftDeleteColumn": "IsActive",
         "NaturalKey": "NormalizedUserName"
       },
@@ -333,13 +389,20 @@
           "Name": "FirstName",
           "Type": "nvarchar(50)",
           "Nullable": false,
-          "IsPii": false
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "first name"
+          ]
         },
         {
           "Name": "LastName",
           "Type": "nvarchar(50)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "last name"
+          ]
         },
         {
           "Name": "IsActive",
@@ -349,25 +412,32 @@
           "IsPii": false
         },
         {
-          "Name": "EntityId",
+          "Name": "DepartmentId",
           "Type": "int",
           "Nullable": true,
           "Role": "foreign_key",
-          "References": "Entitys.Id",
+          "FkRole": "department",
+          "References": "Departments.Id",
           "IsPii": false
         },
         {
           "Name": "UserName",
           "Type": "nvarchar(256)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "user name"
+          ]
         },
         {
           "Name": "NormalizedUserName",
           "Type": "nvarchar(256)",
           "Nullable": true,
           "Role": "natural_key",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "normalized user name"
+          ]
         },
         {
           "Name": "Email",
@@ -379,25 +449,37 @@
           "Name": "NormalizedEmail",
           "Type": "nvarchar(256)",
           "Nullable": true,
-          "IsPii": true
+          "IsPii": true,
+          "Synonyms": [
+            "normalized email"
+          ]
         },
         {
           "Name": "EmailConfirmed",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "email confirmed"
+          ]
         },
         {
           "Name": "PasswordHash",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": true
+          "IsPii": true,
+          "Synonyms": [
+            "password hash"
+          ]
         },
         {
           "Name": "SecurityStamp",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "security stamp"
+          ]
         },
         {
           "Name": "ConcurrencyStamp",
@@ -410,43 +492,63 @@
           "Name": "PhoneNumber",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": true
+          "IsPii": true,
+          "Synonyms": [
+            "phone number",
+            "phone no",
+            "phone #"
+          ]
         },
         {
           "Name": "PhoneNumberConfirmed",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "phone number confirmed"
+          ]
         },
         {
           "Name": "TwoFactorEnabled",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "two factor enabled"
+          ]
         },
         {
           "Name": "LockoutEnd",
           "Type": "datetimeoffset",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "lockout end"
+          ]
         },
         {
           "Name": "LockoutEnabled",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "lockout enabled"
+          ]
         },
         {
           "Name": "AccessFailedCount",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "access failed count"
+          ]
         }
       ],
       "ForeignKeysOut": [
         {
-          "Column": "EntityId",
-          "Table": "Entitys",
+          "Column": "DepartmentId",
+          "Table": "Departments",
           "ReferencedColumn": "Id"
         }
       ],
@@ -468,11 +570,27 @@
           "FromColumn": "UserId"
         },
         {
+          "FromTable": "CallLogs",
+          "FromColumn": "HandledByUserId"
+        },
+        {
           "FromTable": "CopilotChatSessions",
           "FromColumn": "UserId"
         },
         {
           "FromTable": "Notifications",
+          "FromColumn": "UserId"
+        },
+        {
+          "FromTable": "Payments",
+          "FromColumn": "ReceivedByUserId"
+        },
+        {
+          "FromTable": "Subsidies",
+          "FromColumn": "AuthorizedByUserId"
+        },
+        {
+          "FromTable": "Technicians",
           "FromColumn": "UserId"
         },
         {
@@ -509,6 +627,12 @@
         }
       ],
       "SampleValues": [],
+      "Synonyms": [
+        "aspnetuser",
+        "aspnetusers",
+        "asp net user",
+        "asp net users"
+      ],
       "Source": "heuristic"
     },
     {
@@ -566,6 +690,693 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "aspnetusertoken",
+        "aspnetusertokens",
+        "asp net user token",
+        "asp net user tokens"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Assets",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "NaturalKey": "AssetCode"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "AssetCode",
+          "Type": "nvarchar(40)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "asset code"
+          ]
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "ServiceTypeId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "service",
+          "References": "ServiceTypes.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "DepartmentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "department",
+          "References": "Departments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "AssetType",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "asset type"
+          ]
+        },
+        {
+          "Name": "Status",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CommissionedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "commissioned",
+          "IsPii": false,
+          "Synonyms": [
+            "commissioned at"
+          ]
+        },
+        {
+          "Name": "DecommissionedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "decommissioned",
+          "IsPii": false,
+          "Synonyms": [
+            "decommissioned at"
+          ]
+        },
+        {
+          "Name": "Specification",
+          "Type": "nvarchar(300)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "Latitude",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "Longitude",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ParentAssetId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "asset",
+          "References": "Assets.Id",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "ParentAssetId",
+          "Table": "Assets",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "DepartmentId",
+          "Table": "Departments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "RegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceTypeId",
+          "Table": "ServiceTypes",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "Assets",
+          "FromColumn": "ParentAssetId"
+        },
+        {
+          "FromTable": "MaintenanceSchedules",
+          "FromColumn": "AssetId"
+        },
+        {
+          "FromTable": "WorkOrders",
+          "FromColumn": "AssetId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "asset",
+        "assets",
+        "equipment",
+        "infrastructure",
+        "facility",
+        "facilities"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Bills",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "BillNumber",
+        "NaturalKey": "BillNumber"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "BillNumber",
+          "Type": "nvarchar(30)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "bill number",
+            "bill no",
+            "bill #"
+          ]
+        },
+        {
+          "Name": "CustomerId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "owner",
+          "References": "Customers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "DepartmentId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "department",
+          "References": "Departments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "PeriodStart",
+          "Type": "datetime2",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "period start"
+          ]
+        },
+        {
+          "Name": "PeriodEnd",
+          "Type": "datetime2",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "period end"
+          ]
+        },
+        {
+          "Name": "BaseAmount",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "base amount"
+          ]
+        },
+        {
+          "Name": "UsageAmount",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "usage amount"
+          ]
+        },
+        {
+          "Name": "Taxes",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "TotalAmount",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "total amount"
+          ]
+        },
+        {
+          "Name": "UsageQuantity",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "usage quantity"
+          ]
+        },
+        {
+          "Name": "UsageUnit",
+          "Type": "nvarchar(10)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "usage unit"
+          ]
+        },
+        {
+          "Name": "Status",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IssuedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "issued",
+          "IsPii": false,
+          "Synonyms": [
+            "issued at"
+          ]
+        },
+        {
+          "Name": "DueDate",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "due",
+          "IsPii": false,
+          "Synonyms": [
+            "due date"
+          ]
+        },
+        {
+          "Name": "PaidAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "paid",
+          "IsPii": false,
+          "Synonyms": [
+            "paid at"
+          ]
+        },
+        {
+          "Name": "PaymentMethod",
+          "Type": "nvarchar(50)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "payment method"
+          ]
+        },
+        {
+          "Name": "Notes",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ServiceTypeId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "service",
+          "References": "ServiceTypes.Id",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "CustomerId",
+          "Table": "Customers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "DepartmentId",
+          "Table": "Departments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceTypeId",
+          "Table": "ServiceTypes",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "Payments",
+          "FromColumn": "BillId"
+        },
+        {
+          "FromTable": "Subsidies",
+          "FromColumn": "BillId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "RelatedBillId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "bill",
+        "bills",
+        "invoice",
+        "invoices",
+        "charge",
+        "charges",
+        "statement",
+        "statements"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "CallLogs",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "CallReference",
+        "NaturalKey": "CallReference"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "CallReference",
+          "Type": "nvarchar(30)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "call reference"
+          ]
+        },
+        {
+          "Name": "CustomerId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "owner",
+          "References": "Customers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CallerPhone",
+          "Type": "nvarchar(30)",
+          "Nullable": true,
+          "IsPii": true,
+          "Synonyms": [
+            "caller phone"
+          ]
+        },
+        {
+          "Name": "Direction",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Channel",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "HandledByUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "assignee",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "StartedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "started",
+          "IsPii": false,
+          "Synonyms": [
+            "started at"
+          ]
+        },
+        {
+          "Name": "EndedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "ended at"
+          ]
+        },
+        {
+          "Name": "DurationSeconds",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "duration seconds"
+          ]
+        },
+        {
+          "Name": "Outcome",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "RelatedTicketId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "ticket",
+          "References": "Tickets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RelatedOutageId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "outage",
+          "References": "Outages.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Summary",
+          "Type": "nvarchar(2000)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "HandledByUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "CustomerId",
+          "Table": "Customers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "RelatedOutageId",
+          "Table": "Outages",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "RelatedTicketId",
+          "Table": "Tickets",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "calllog",
+        "calllogs",
+        "call log",
+        "call logs",
+        "contact",
+        "contacts",
+        "call record",
+        "interaction",
+        "interactions"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "ComplaintTypes",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": true,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "Code"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Code",
+          "Type": "nvarchar(40)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "SortOrder",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "sort order"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "ComplaintTypeId"
+        }
+      ],
+      "SampleValues": [
+        "Billing Dispute",
+        "Disconnection",
+        "Meter Issue",
+        "New Connection",
+        "Other",
+        "Service Degraded",
+        "Service Down"
+      ],
+      "Synonyms": [
+        "complainttype",
+        "complainttypes",
+        "complaint type",
+        "complaint types"
+      ],
       "Source": "heuristic"
     },
     {
@@ -594,55 +1405,82 @@
           "Name": "RunId",
           "Type": "uniqueidentifier",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "run id"
+          ]
         },
         {
           "Name": "RunAt",
           "Type": "datetime2",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "run at"
+          ]
         },
         {
           "Name": "ModelName",
           "Type": "nvarchar(128)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "model name"
+          ]
         },
         {
           "Name": "TotalCases",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "total cases"
+          ]
         },
         {
           "Name": "PassCount",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "pass count"
+          ]
         },
         {
           "Name": "FailCount",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "fail count"
+          ]
         },
         {
           "Name": "AvgLatencyMs",
           "Type": "bigint",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "avg latency ms"
+          ]
         },
         {
           "Name": "MaxLatencyMs",
           "Type": "bigint",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "max latency ms"
+          ]
         },
         {
           "Name": "FailedCaseCodes",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "failed case codes"
+          ]
         },
         {
           "Name": "Label",
@@ -655,6 +1493,12 @@
       "ForeignKeysOut": [],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "copilotassessmentrunsummary",
+        "copilotassessmentrunsummaries",
+        "copilot assessment run summary",
+        "copilot assessment run summaries"
+      ],
       "Source": "heuristic"
     },
     {
@@ -703,7 +1547,10 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
         },
         {
           "Name": "TraceId",
@@ -728,6 +1575,12 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "copilotchatmessage",
+        "copilotchatmessages",
+        "copilot chat message",
+        "copilot chat messages"
+      ],
       "Source": "heuristic"
     },
     {
@@ -774,13 +1627,19 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
         },
         {
           "Name": "LastInteractionAt",
           "Type": "datetime2",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "last interaction at"
+          ]
         },
         {
           "Name": "Surface",
@@ -799,7 +1658,10 @@
           "Name": "IsAssessment",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "is assessment"
+          ]
         }
       ],
       "ForeignKeysOut": [
@@ -820,6 +1682,12 @@
         }
       ],
       "SampleValues": [],
+      "Synonyms": [
+        "copilotchatsession",
+        "copilotchatsessions",
+        "copilot chat session",
+        "copilot chat sessions"
+      ],
       "Source": "heuristic"
     },
     {
@@ -848,7 +1716,10 @@
           "Name": "ToolKey",
           "Type": "nvarchar(100)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "tool key"
+          ]
         },
         {
           "Name": "Title",
@@ -867,49 +1738,73 @@
           "Name": "ToolType",
           "Type": "nvarchar(20)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "tool type"
+          ]
         },
         {
           "Name": "CopilotMode",
           "Type": "nvarchar(50)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "copilot mode"
+          ]
         },
         {
           "Name": "IsEnabled",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "is enabled"
+          ]
         },
         {
           "Name": "EndpointUrl",
           "Type": "nvarchar(1000)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "endpoint url"
+          ]
         },
         {
           "Name": "KeywordHints",
           "Type": "nvarchar(500)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "keyword hints"
+          ]
         },
         {
           "Name": "QueryExtractionHint",
           "Type": "nvarchar(500)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "query extraction hint"
+          ]
         },
         {
           "Name": "ResponseFormatHint",
           "Type": "nvarchar(2000)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "response format hint"
+          ]
         },
         {
           "Name": "SortOrder",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "sort order"
+          ]
         },
         {
           "Name": "CreatedAt",
@@ -917,7 +1812,10 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
         },
         {
           "Name": "UpdatedAt",
@@ -925,18 +1823,30 @@
           "Nullable": true,
           "Role": "date",
           "DateRole": "modified",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "updated at"
+          ]
         },
         {
           "Name": "TestPrompt",
           "Type": "nvarchar(500)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "test prompt"
+          ]
         }
       ],
       "ForeignKeysOut": [],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "copilottooldefinition",
+        "copilottooldefinitions",
+        "copilot tool definition",
+        "copilot tool definitions"
+      ],
       "Source": "heuristic"
     },
     {
@@ -975,7 +1885,10 @@
           "Name": "ExecutionPlan",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "execution plan"
+          ]
         },
         {
           "Name": "CreatedAt",
@@ -983,19 +1896,28 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
         },
         {
           "Name": "ModelName",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "model name"
+          ]
         },
         {
           "Name": "TotalElapsedMs",
           "Type": "bigint",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "total elapsed ms"
+          ]
         },
         {
           "Name": "SessionId",
@@ -1009,49 +1931,118 @@
           "Name": "CaseCode",
           "Type": "nvarchar(64)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "case code"
+          ]
         },
         {
           "Name": "ExecutionTimes",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "execution times"
+          ]
         },
         {
           "Name": "PipelineTraceId",
           "Type": "nvarchar(128)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "pipeline trace id"
+          ]
         },
         {
           "Name": "GeneratedScript",
           "Type": "nvarchar(4000)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "generated script"
+          ]
         },
         {
           "Name": "ErrorMessage",
           "Type": "nvarchar(2000)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "error message"
+          ]
         },
         {
           "Name": "EmbeddingModelName",
           "Type": "nvarchar(100)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "embedding model name"
+          ]
         },
         {
           "Name": "QuestionEmbeddingJson",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "question embedding json"
+          ]
         },
         {
           "Name": "SourceSuite",
           "Type": "nvarchar(200)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "source suite"
+          ]
+        },
+        {
+          "Name": "ExpectedScript",
+          "Type": "nvarchar(4000)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "expected script"
+          ]
+        },
+        {
+          "Name": "EstimatedCostUsd",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "estimated cost usd"
+          ]
+        },
+        {
+          "Name": "LlmCallCount",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "llm call count"
+          ]
+        },
+        {
+          "Name": "TotalCompletionTokens",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "total completion tokens"
+          ]
+        },
+        {
+          "Name": "TotalPromptTokens",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "total prompt tokens"
+          ]
         }
       ],
       "ForeignKeysOut": [
@@ -1068,6 +2059,587 @@
         }
       ],
       "SampleValues": [],
+      "Synonyms": [
+        "copilottracehistory",
+        "copilottracehistories",
+        "copilot trace history",
+        "copilot trace histories"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Countries",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": true,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "IsoCode"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "IsoCode",
+          "Type": "nvarchar(3)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "iso code"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Regions",
+          "FromColumn": "CountryId"
+        }
+      ],
+      "SampleValues": [
+        "Syria"
+      ],
+      "Synonyms": [
+        "country",
+        "countries",
+        "nation",
+        "nations"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "CsatResponses",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "TicketId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "ticket",
+          "References": "Tickets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Score",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "CommentEn",
+          "Type": "nvarchar(1000)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "comment en"
+          ]
+        },
+        {
+          "Name": "CommentAr",
+          "Type": "nvarchar(1000)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "comment ar"
+          ]
+        },
+        {
+          "Name": "Sentiment",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "RespondedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "responded",
+          "IsPii": false,
+          "Synonyms": [
+            "responded at"
+          ]
+        },
+        {
+          "Name": "ResponseChannel",
+          "Type": "nvarchar(40)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "response channel"
+          ]
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "TicketId",
+          "Table": "Tickets",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "csatrespons",
+        "csat respons"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Currencies",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "Code"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Code",
+          "Type": "nvarchar(3)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(60)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(60)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "Symbol",
+          "Type": "nvarchar(5)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IsBase",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "is base"
+          ]
+        },
+        {
+          "Name": "ExchangeRateToBase",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "exchange rate to base"
+          ]
+        },
+        {
+          "Name": "LastRateUpdate",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "modified",
+          "IsPii": false,
+          "Synonyms": [
+            "last rate update"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Payments",
+          "FromColumn": "CurrencyId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "currency",
+        "currencies",
+        "money",
+        "fx"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Customers",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": true
+      },
+      "Roles": {
+        "LabelColumn": "FullNameEn",
+        "NaturalKey": "NationalId"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "FullNameEn",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "full name en"
+          ]
+        },
+        {
+          "Name": "FullNameAr",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "full name ar"
+          ]
+        },
+        {
+          "Name": "NationalId",
+          "Type": "nvarchar(20)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": true,
+          "Synonyms": [
+            "national id"
+          ]
+        },
+        {
+          "Name": "Email",
+          "Type": "nvarchar(200)",
+          "Nullable": true,
+          "IsPii": true
+        },
+        {
+          "Name": "Phone",
+          "Type": "nvarchar(30)",
+          "Nullable": false,
+          "IsPii": true
+        },
+        {
+          "Name": "RegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "AddressLineEn",
+          "Type": "nvarchar(300)",
+          "Nullable": true,
+          "IsPii": true,
+          "Synonyms": [
+            "address line en"
+          ]
+        },
+        {
+          "Name": "AddressLineAr",
+          "Type": "nvarchar(300)",
+          "Nullable": true,
+          "IsPii": true,
+          "Synonyms": [
+            "address line ar"
+          ]
+        },
+        {
+          "Name": "Status",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "SignupAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "signup",
+          "IsPii": false,
+          "Synonyms": [
+            "signup at"
+          ]
+        },
+        {
+          "Name": "ChurnedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "churned",
+          "IsPii": false,
+          "Synonyms": [
+            "churned at"
+          ]
+        },
+        {
+          "Name": "Notes",
+          "Type": "nvarchar(1000)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "RegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "Bills",
+          "FromColumn": "CustomerId"
+        },
+        {
+          "FromTable": "CallLogs",
+          "FromColumn": "CustomerId"
+        },
+        {
+          "FromTable": "MeterReadings",
+          "FromColumn": "CustomerId"
+        },
+        {
+          "FromTable": "OutageNotifications",
+          "FromColumn": "CustomerId"
+        },
+        {
+          "FromTable": "ServiceAccounts",
+          "FromColumn": "CustomerId"
+        },
+        {
+          "FromTable": "Subsidies",
+          "FromColumn": "CustomerId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "CustomerId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "customer",
+        "customers",
+        "client",
+        "clients",
+        "subscriber",
+        "subscribers",
+        "account holder",
+        "consumer",
+        "consumers"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "CustomerSegments",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "Code"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Code",
+          "Type": "nvarchar(40)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(80)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(80)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "IsSubsidyEligible",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "is subsidy eligible"
+          ]
+        },
+        {
+          "Name": "DefaultPriorityFloor",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "default priority floor"
+          ]
+        },
+        {
+          "Name": "SortOrder",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "sort order"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "ServiceAccounts",
+          "FromColumn": "CustomerSegmentId"
+        },
+        {
+          "FromTable": "SlaPolicies",
+          "FromColumn": "CustomerSegmentId"
+        },
+        {
+          "FromTable": "Subsidies",
+          "FromColumn": "CustomerSegmentId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "customersegment",
+        "customersegments",
+        "customer segment",
+        "customer segments",
+        "segment",
+        "segments",
+        "customer class",
+        "tariff class",
+        "category",
+        "categories"
+      ],
       "Source": "heuristic"
     },
     {
@@ -1103,129 +2675,189 @@
           "Name": "PrimaryColor",
           "Type": "nvarchar(10)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "primary color"
+          ]
         },
         {
           "Name": "BgMain",
           "Type": "nvarchar(10)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "bg main"
+          ]
         },
         {
           "Name": "BgCard",
           "Type": "nvarchar(10)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "bg card"
+          ]
         },
         {
           "Name": "BgSidebar",
           "Type": "nvarchar(10)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "bg sidebar"
+          ]
         },
         {
           "Name": "BgHeader",
           "Type": "nvarchar(10)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "bg header"
+          ]
         },
         {
           "Name": "TextMain",
           "Type": "nvarchar(10)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "text main"
+          ]
         },
         {
           "Name": "TextMuted",
           "Type": "nvarchar(10)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "text muted"
+          ]
         },
         {
           "Name": "BorderColor",
           "Type": "nvarchar(10)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "border color"
+          ]
         },
         {
           "Name": "IsSystemTheme",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "is system theme"
+          ]
         },
         {
           "Name": "SystemIdentifier",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "system identifier"
+          ]
         },
         {
           "Name": "PrimaryContrastText",
           "Type": "nvarchar(10)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "primary contrast text"
+          ]
         },
         {
           "Name": "BgSurfaceAlt",
           "Type": "nvarchar(10)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "bg surface alt"
+          ]
         },
         {
           "Name": "BgElevated",
           "Type": "nvarchar(10)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "bg elevated"
+          ]
         },
         {
           "Name": "SuccessColor",
           "Type": "nvarchar(10)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "success color"
+          ]
         },
         {
           "Name": "WarningColor",
           "Type": "nvarchar(10)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "warning color"
+          ]
         },
         {
           "Name": "DangerColor",
           "Type": "nvarchar(10)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "danger color"
+          ]
         },
         {
           "Name": "InfoColor",
           "Type": "nvarchar(10)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "info color"
+          ]
         },
         {
           "Name": "ShadowColor",
           "Type": "nvarchar(40)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "shadow color"
+          ]
         }
       ],
       "ForeignKeysOut": [],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "customtheme",
+        "customthemes",
+        "custom theme",
+        "custom themes"
+      ],
       "Source": "heuristic"
     },
     {
-      "Name": "Entitys",
+      "Name": "Departments",
       "Schema": "dbo",
       "PrimaryKey": [
         "Id"
       ],
       "Flags": {
         "IsBridge": false,
-        "IsLookup": true,
-        "IsPerson": false
+        "IsLookup": false,
+        "IsPerson": true
       },
       "Roles": {
-        "LabelColumn": "Name",
+        "LabelColumn": "NameEn",
         "SoftDeleteColumn": "IsActive"
       },
       "Columns": [
@@ -1237,11 +2869,59 @@
           "IsPii": false
         },
         {
-          "Name": "Name",
-          "Type": "nvarchar(100)",
+          "Name": "NameEn",
+          "Type": "nvarchar(150)",
           "Nullable": false,
           "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "RegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
           "IsPii": false
+        },
+        {
+          "Name": "ManagerUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "manager user id"
+          ]
+        },
+        {
+          "Name": "ContactPhone",
+          "Type": "nvarchar(30)",
+          "Nullable": true,
+          "IsPii": true,
+          "Synonyms": [
+            "contact phone"
+          ]
+        },
+        {
+          "Name": "ContactEmail",
+          "Type": "nvarchar(200)",
+          "Nullable": true,
+          "IsPii": true,
+          "Synonyms": [
+            "contact email"
+          ]
         },
         {
           "Name": "IsActive",
@@ -1249,30 +2929,77 @@
           "Nullable": false,
           "Role": "soft_delete",
           "IsPii": false
+        },
+        {
+          "Name": "ServiceTypeId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "service",
+          "References": "ServiceTypes.Id",
+          "IsPii": false
         }
       ],
-      "ForeignKeysOut": [],
+      "ForeignKeysOut": [
+        {
+          "Column": "RegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceTypeId",
+          "Table": "ServiceTypes",
+          "ReferencedColumn": "Id"
+        }
+      ],
       "ReferencedBy": [
         {
           "FromTable": "AspNetUsers",
-          "FromColumn": "EntityId"
+          "FromColumn": "DepartmentId"
+        },
+        {
+          "FromTable": "Assets",
+          "FromColumn": "DepartmentId"
+        },
+        {
+          "FromTable": "Bills",
+          "FromColumn": "DepartmentId"
+        },
+        {
+          "FromTable": "MaintenanceSchedules",
+          "FromColumn": "DepartmentId"
+        },
+        {
+          "FromTable": "Outages",
+          "FromColumn": "DepartmentId"
+        },
+        {
+          "FromTable": "ServiceAccounts",
+          "FromColumn": "DepartmentId"
+        },
+        {
+          "FromTable": "Technicians",
+          "FromColumn": "DepartmentId"
         },
         {
           "FromTable": "Tickets",
-          "FromColumn": "EntityId"
+          "FromColumn": "DepartmentId"
+        },
+        {
+          "FromTable": "WorkOrders",
+          "FromColumn": "DepartmentId"
         }
       ],
-      "SampleValues": [
-        "Audit \u0026 Compliance",
-        "Customer Service",
-        "Education",
-        "Engineering",
-        "Finance",
-        "Health",
-        "HR",
-        "Infrastructure",
-        "Legal",
-        "Marketing"
+      "SampleValues": [],
+      "Synonyms": [
+        "department",
+        "departments",
+        "team",
+        "teams",
+        "unit",
+        "units",
+        "division",
+        "divisions"
       ],
       "Source": "heuristic"
     },
@@ -1329,6 +3056,12 @@
       "ForeignKeysOut": [],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "externalapisetting",
+        "externalapisettings",
+        "external api setting",
+        "external api settings"
+      ],
       "Source": "heuristic"
     },
     {
@@ -1365,7 +3098,10 @@
           "Name": "ApiKey",
           "Type": "nvarchar(200)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "api key"
+          ]
         },
         {
           "Name": "IsActive",
@@ -1378,43 +3114,64 @@
           "Name": "SortOrder",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "sort order"
+          ]
         },
         {
           "Name": "DailyRequestCount",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "daily request count"
+          ]
         },
         {
           "Name": "LastDailyResetUtc",
           "Type": "datetime2",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "last daily reset utc"
+          ]
         },
         {
           "Name": "LastUsedAtUtc",
           "Type": "datetime2",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "last used at utc"
+          ]
         },
         {
           "Name": "RateLimitedUntilUtc",
           "Type": "datetime2",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "rate limited until utc"
+          ]
         },
         {
           "Name": "LastErrorMessage",
           "Type": "nvarchar(400)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "last error message"
+          ]
         },
         {
           "Name": "ConsecutiveFailures",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "consecutive failures"
+          ]
         },
         {
           "Name": "CreatedAtUtc",
@@ -1422,24 +3179,39 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at utc"
+          ]
         },
         {
           "Name": "KeyFingerprint",
           "Type": "nvarchar(64)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "key fingerprint"
+          ]
         },
         {
           "Name": "OwnerEmail",
           "Type": "nvarchar(120)",
           "Nullable": true,
-          "IsPii": true
+          "IsPii": true,
+          "Synonyms": [
+            "owner email"
+          ]
         }
       ],
       "ForeignKeysOut": [],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "geminiapikey",
+        "geminiapikeys",
+        "gemini api key",
+        "gemini api keys"
+      ],
       "Source": "heuristic"
     },
     {
@@ -1476,19 +3248,28 @@
           "Name": "ApiKey",
           "Type": "nvarchar(200)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "api key"
+          ]
         },
         {
           "Name": "KeyFingerprint",
           "Type": "nvarchar(64)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "key fingerprint"
+          ]
         },
         {
           "Name": "OwnerEmail",
           "Type": "nvarchar(120)",
           "Nullable": true,
-          "IsPii": true
+          "IsPii": true,
+          "Synonyms": [
+            "owner email"
+          ]
         },
         {
           "Name": "IsActive",
@@ -1501,73 +3282,109 @@
           "Name": "SortOrder",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "sort order"
+          ]
         },
         {
           "Name": "DailyRequestCount",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "daily request count"
+          ]
         },
         {
           "Name": "LastDailyResetUtc",
           "Type": "datetime2",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "last daily reset utc"
+          ]
         },
         {
           "Name": "LastUsedAtUtc",
           "Type": "datetime2",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "last used at utc"
+          ]
         },
         {
           "Name": "RateLimitedUntilUtc",
           "Type": "datetime2",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "rate limited until utc"
+          ]
         },
         {
           "Name": "LastErrorMessage",
           "Type": "nvarchar(400)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "last error message"
+          ]
         },
         {
           "Name": "ConsecutiveFailures",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "consecutive failures"
+          ]
         },
         {
           "Name": "RemainingRequests",
           "Type": "int",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "remaining requests"
+          ]
         },
         {
           "Name": "RemainingTokens",
           "Type": "bigint",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "remaining tokens"
+          ]
         },
         {
           "Name": "LimitRequests",
           "Type": "int",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "limit requests"
+          ]
         },
         {
           "Name": "LimitTokens",
           "Type": "bigint",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "limit tokens"
+          ]
         },
         {
           "Name": "QuotaSnapshotAtUtc",
           "Type": "datetime2",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "quota snapshot at utc"
+          ]
         },
         {
           "Name": "CreatedAtUtc",
@@ -1575,12 +3392,464 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at utc"
+          ]
         }
       ],
       "ForeignKeysOut": [],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "groqapikey",
+        "groqapikeys",
+        "groq api key",
+        "groq api keys"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "MaintenanceSchedules",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "TitleEn",
+        "NaturalKey": "ScheduleNumber"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "ScheduleNumber",
+          "Type": "nvarchar(30)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "schedule number",
+            "schedule no",
+            "schedule #"
+          ]
+        },
+        {
+          "Name": "AssetId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "asset",
+          "References": "Assets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "DepartmentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "department",
+          "References": "Departments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ScheduledStart",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "scheduled",
+          "IsPii": false,
+          "Synonyms": [
+            "scheduled start"
+          ]
+        },
+        {
+          "Name": "ScheduledEnd",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "scheduled",
+          "IsPii": false,
+          "Synonyms": [
+            "scheduled end"
+          ]
+        },
+        {
+          "Name": "ActualStart",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "actual start"
+          ]
+        },
+        {
+          "Name": "ActualEnd",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "actual end"
+          ]
+        },
+        {
+          "Name": "Status",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "MaintenanceType",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "maintenance type"
+          ]
+        },
+        {
+          "Name": "TitleEn",
+          "Type": "nvarchar(200)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "title en"
+          ]
+        },
+        {
+          "Name": "TitleAr",
+          "Type": "nvarchar(200)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "title ar"
+          ]
+        },
+        {
+          "Name": "Description",
+          "Type": "nvarchar(2000)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ExpectedAffectedCustomers",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "expected affected customers"
+          ]
+        },
+        {
+          "Name": "CustomersNotified",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "customers notified"
+          ]
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "AssetId",
+          "Table": "Assets",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "DepartmentId",
+          "Table": "Departments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "RegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "OutageNotifications",
+          "FromColumn": "MaintenanceScheduleId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "maintenanceschedule",
+        "maintenanceschedules",
+        "maintenance schedule",
+        "maintenance schedules",
+        "planned maintenance",
+        "maintenance window",
+        "planned outage",
+        "service window"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "MeterReadings",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "CustomerId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "owner",
+          "References": "Customers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ServiceTypeId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "service",
+          "References": "ServiceTypes.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ReadingDate",
+          "Type": "datetime2",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "reading date"
+          ]
+        },
+        {
+          "Name": "Value",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Consumption",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ReaderType",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "reader type"
+          ]
+        },
+        {
+          "Name": "MeterNumber",
+          "Type": "nvarchar(40)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "meter number",
+            "meter no",
+            "meter #"
+          ]
+        },
+        {
+          "Name": "Notes",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "CustomerId",
+          "Table": "Customers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceTypeId",
+          "Table": "ServiceTypes",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "meterreading",
+        "meterreadings",
+        "meter reading",
+        "meter readings",
+        "reading",
+        "readings",
+        "consumption record",
+        "meter snapshot"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "ModelPricings",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "DisplayName",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Provider",
+          "Type": "nvarchar(50)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Model",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "DisplayName",
+          "Type": "nvarchar(150)",
+          "Nullable": true,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "display name"
+          ]
+        },
+        {
+          "Name": "InputPer1K",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "input per1k"
+          ]
+        },
+        {
+          "Name": "OutputPer1K",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "output per1k"
+          ]
+        },
+        {
+          "Name": "Currency",
+          "Type": "nvarchar(3)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ContextTokens",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "context tokens"
+          ]
+        },
+        {
+          "Name": "IsLocal",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "is local"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "Notes",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
+        },
+        {
+          "Name": "UpdatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "modified",
+          "IsPii": false,
+          "Synonyms": [
+            "updated at"
+          ]
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "modelpricing",
+        "modelpricings",
+        "model pricing",
+        "model pricings"
+      ],
       "Source": "heuristic"
     },
     {
@@ -1624,13 +3893,19 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
         },
         {
           "Name": "IsRead",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "is read"
+          ]
         },
         {
           "Name": "UserId",
@@ -1656,6 +3931,888 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "notification",
+        "notifications"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "OutageNotifications",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "OutageId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "outage",
+          "References": "Outages.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "MaintenanceScheduleId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "MaintenanceSchedules.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CustomerId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "owner",
+          "References": "Customers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ServiceAccountId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "service_account",
+          "References": "ServiceAccounts.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Channel",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "SentToPhone",
+          "Type": "nvarchar(30)",
+          "Nullable": true,
+          "IsPii": true,
+          "Synonyms": [
+            "sent to phone"
+          ]
+        },
+        {
+          "Name": "SentToEmail",
+          "Type": "nvarchar(200)",
+          "Nullable": true,
+          "IsPii": true,
+          "Synonyms": [
+            "sent to email"
+          ]
+        },
+        {
+          "Name": "SentAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "sent",
+          "IsPii": false,
+          "Synonyms": [
+            "sent at"
+          ]
+        },
+        {
+          "Name": "DeliveredAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "delivered",
+          "IsPii": false,
+          "Synonyms": [
+            "delivered at"
+          ]
+        },
+        {
+          "Name": "ReadAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "read",
+          "IsPii": false,
+          "Synonyms": [
+            "read at"
+          ]
+        },
+        {
+          "Name": "Status",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "MessageEn",
+          "Type": "nvarchar(1000)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "message en"
+          ]
+        },
+        {
+          "Name": "MessageAr",
+          "Type": "nvarchar(1000)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "message ar"
+          ]
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "CustomerId",
+          "Table": "Customers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "MaintenanceScheduleId",
+          "Table": "MaintenanceSchedules",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "OutageId",
+          "Table": "Outages",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceAccountId",
+          "Table": "ServiceAccounts",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "outagenotification",
+        "outagenotifications",
+        "outage notification",
+        "outage notifications",
+        "alert",
+        "alerts",
+        "sms notification",
+        "outage alert"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Outages",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "TitleEn",
+        "NaturalKey": "OutageNumber"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "OutageNumber",
+          "Type": "nvarchar(30)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "outage number",
+            "outage no",
+            "outage #"
+          ]
+        },
+        {
+          "Name": "RegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ServiceTypeId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "service",
+          "References": "ServiceTypes.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "DepartmentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "department",
+          "References": "Departments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "StartedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "started",
+          "IsPii": false,
+          "Synonyms": [
+            "started at"
+          ]
+        },
+        {
+          "Name": "EndedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "ended at"
+          ]
+        },
+        {
+          "Name": "Severity",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Cause",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "IsPlanned",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "is planned"
+          ]
+        },
+        {
+          "Name": "AffectedCustomerCount",
+          "Type": "int",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "affected customer count"
+          ]
+        },
+        {
+          "Name": "TitleEn",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "title en"
+          ]
+        },
+        {
+          "Name": "TitleAr",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "title ar"
+          ]
+        },
+        {
+          "Name": "Description",
+          "Type": "nvarchar(2000)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "DepartmentId",
+          "Table": "Departments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "RegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceTypeId",
+          "Table": "ServiceTypes",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "CallLogs",
+          "FromColumn": "RelatedOutageId"
+        },
+        {
+          "FromTable": "OutageNotifications",
+          "FromColumn": "OutageId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "OutageId"
+        },
+        {
+          "FromTable": "WorkOrders",
+          "FromColumn": "OutageId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "outage",
+        "outages",
+        "blackout",
+        "blackouts",
+        "disconnection",
+        "disconnections",
+        "service disruption",
+        "interruption",
+        "interruptions"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "PaymentMethods",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "Code"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Code",
+          "Type": "nvarchar(40)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(80)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(80)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "IsDigital",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "is digital"
+          ]
+        },
+        {
+          "Name": "FeePercent",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "fee percent"
+          ]
+        },
+        {
+          "Name": "SortOrder",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "sort order"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Payments",
+          "FromColumn": "PaymentMethodId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "paymentmethod",
+        "paymentmethods",
+        "payment method",
+        "payment methods",
+        "payment channel",
+        "payment mode"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Payments",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "PaymentReference",
+        "NaturalKey": "PaymentReference"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "PaymentReference",
+          "Type": "nvarchar(40)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "payment reference"
+          ]
+        },
+        {
+          "Name": "BillId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "billed",
+          "References": "Bills.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ServiceAccountId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "service_account",
+          "References": "ServiceAccounts.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "PaymentMethodId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "payment_method",
+          "References": "PaymentMethods.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CurrencyId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "currency",
+          "References": "Currencies.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Amount",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ExchangeRateToBase",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "exchange rate to base"
+          ]
+        },
+        {
+          "Name": "AmountInBase",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "amount in base"
+          ]
+        },
+        {
+          "Name": "Status",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "PaidAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "paid",
+          "IsPii": false,
+          "Synonyms": [
+            "paid at"
+          ]
+        },
+        {
+          "Name": "ExternalTransactionId",
+          "Type": "nvarchar(120)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "external transaction id"
+          ]
+        },
+        {
+          "Name": "ReceivedByUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "receiver",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Notes",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "ReceivedByUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "BillId",
+          "Table": "Bills",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "CurrencyId",
+          "Table": "Currencies",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "PaymentMethodId",
+          "Table": "PaymentMethods",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceAccountId",
+          "Table": "ServiceAccounts",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "payment",
+        "payments",
+        "transaction",
+        "transactions",
+        "settlement",
+        "settlements",
+        "remittance",
+        "remittances"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Regions",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "SoftDeleteColumn": "IsActive"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(120)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(120)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "CountryId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "Countries.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ParentRegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RegionType",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "region type"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "CountryId",
+          "Table": "Countries",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ParentRegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "Assets",
+          "FromColumn": "RegionId"
+        },
+        {
+          "FromTable": "Customers",
+          "FromColumn": "RegionId"
+        },
+        {
+          "FromTable": "Departments",
+          "FromColumn": "RegionId"
+        },
+        {
+          "FromTable": "MaintenanceSchedules",
+          "FromColumn": "RegionId"
+        },
+        {
+          "FromTable": "Outages",
+          "FromColumn": "RegionId"
+        },
+        {
+          "FromTable": "Regions",
+          "FromColumn": "ParentRegionId"
+        },
+        {
+          "FromTable": "ServicePoints",
+          "FromColumn": "RegionId"
+        },
+        {
+          "FromTable": "Tariffs",
+          "FromColumn": "RegionId"
+        },
+        {
+          "FromTable": "Technicians",
+          "FromColumn": "PrimaryRegionId"
+        },
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "RegionId"
+        },
+        {
+          "FromTable": "WorkOrders",
+          "FromColumn": "RegionId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "region",
+        "regions",
+        "district",
+        "districts",
+        "governorate",
+        "governorates",
+        "area",
+        "areas",
+        "zone",
+        "zones"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "ResolutionTypes",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": true,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "Code"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Code",
+          "Type": "nvarchar(40)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "SortOrder",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "sort order"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Tickets",
+          "FromColumn": "ResolutionTypeId"
+        }
+      ],
+      "SampleValues": [
+        "Bill Adjusted",
+        "Cancelled",
+        "Escalated",
+        "No Fault Found",
+        "Outage Cleared",
+        "Resolved"
+      ],
+      "Synonyms": [
+        "resolutiontype",
+        "resolutiontypes",
+        "resolution type",
+        "resolution types"
+      ],
       "Source": "heuristic"
     },
     {
@@ -1682,31 +4839,46 @@
           "Name": "RunOnUtc",
           "Type": "datetime2",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "run on utc"
+          ]
         },
         {
           "Name": "TotalCases",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "total cases"
+          ]
         },
         {
           "Name": "EvaluatedCases",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "evaluated cases"
+          ]
         },
         {
           "Name": "HitCases",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "hit cases"
+          ]
         },
         {
           "Name": "HitRate",
           "Type": "float",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "hit rate"
+          ]
         },
         {
           "Name": "Version",
@@ -1718,11 +4890,56 @@
           "Name": "SettingsJson",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "settings json"
+          ]
         },
         {
           "Name": "ResultsJson",
           "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "results json"
+          ]
+        },
+        {
+          "Name": "MeanReciprocalRank",
+          "Type": "float",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "mean reciprocal rank"
+          ]
+        },
+        {
+          "Name": "Ndcg5",
+          "Type": "float",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Recall1",
+          "Type": "float",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Recall10",
+          "Type": "float",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Recall3",
+          "Type": "float",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Recall5",
+          "Type": "float",
           "Nullable": false,
           "IsPii": false
         }
@@ -1730,6 +4947,812 @@
       "ForeignKeysOut": [],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "retrievalbenchmarkrun",
+        "retrievalbenchmarkruns",
+        "retrieval benchmark run",
+        "retrieval benchmark runs"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "ServiceAccounts",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "AccountNumber",
+        "NaturalKey": "AccountNumber"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "AccountNumber",
+          "Type": "nvarchar(30)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "account number",
+            "account no",
+            "account #"
+          ]
+        },
+        {
+          "Name": "CustomerId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "owner",
+          "References": "Customers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ServiceTypeId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "service",
+          "References": "ServiceTypes.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ServicePointId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "service_point",
+          "References": "ServicePoints.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CustomerSegmentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "segment",
+          "References": "CustomerSegments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "DepartmentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "department",
+          "References": "Departments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ActivatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "activated",
+          "IsPii": false,
+          "Synonyms": [
+            "activated at"
+          ]
+        },
+        {
+          "Name": "DeactivatedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "deactivated",
+          "IsPii": false,
+          "Synonyms": [
+            "deactivated at"
+          ]
+        },
+        {
+          "Name": "Status",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "ContractedCapacity",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "contracted capacity"
+          ]
+        },
+        {
+          "Name": "CapacityUnit",
+          "Type": "nvarchar(10)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "capacity unit"
+          ]
+        },
+        {
+          "Name": "Notes",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "CustomerId",
+          "Table": "Customers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "CustomerSegmentId",
+          "Table": "CustomerSegments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "DepartmentId",
+          "Table": "Departments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServicePointId",
+          "Table": "ServicePoints",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceTypeId",
+          "Table": "ServiceTypes",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "OutageNotifications",
+          "FromColumn": "ServiceAccountId"
+        },
+        {
+          "FromTable": "Payments",
+          "FromColumn": "ServiceAccountId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "serviceaccount",
+        "serviceaccounts",
+        "service account",
+        "service accounts",
+        "contract",
+        "contracts",
+        "subscription",
+        "subscriptions",
+        "account",
+        "accounts"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "ServicePoints",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "PointCode",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "PointCode"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "PointCode",
+          "Type": "nvarchar(40)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "point code"
+          ]
+        },
+        {
+          "Name": "RegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "AddressLineEn",
+          "Type": "nvarchar(300)",
+          "Nullable": true,
+          "IsPii": true,
+          "Synonyms": [
+            "address line en"
+          ]
+        },
+        {
+          "Name": "AddressLineAr",
+          "Type": "nvarchar(300)",
+          "Nullable": true,
+          "IsPii": true,
+          "Synonyms": [
+            "address line ar"
+          ]
+        },
+        {
+          "Name": "MeterNumber",
+          "Type": "nvarchar(40)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "meter number",
+            "meter no",
+            "meter #"
+          ]
+        },
+        {
+          "Name": "Latitude",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "Longitude",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "PointType",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "point type"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "InstalledAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "installed",
+          "IsPii": false,
+          "Synonyms": [
+            "installed at"
+          ]
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "RegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "ServiceAccounts",
+          "FromColumn": "ServicePointId"
+        },
+        {
+          "FromTable": "WorkOrders",
+          "FromColumn": "ServicePointId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "servicepoint",
+        "servicepoints",
+        "service point",
+        "service points",
+        "meter location",
+        "premises",
+        "site",
+        "sites",
+        "address"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "ServiceTypes",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "Code"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "Code",
+          "Type": "nvarchar(40)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "Unit",
+          "Type": "nvarchar(20)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "IconClass",
+          "Type": "nvarchar(50)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "icon class"
+          ]
+        },
+        {
+          "Name": "SortOrder",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "sort order"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [],
+      "ReferencedBy": [
+        {
+          "FromTable": "Assets",
+          "FromColumn": "ServiceTypeId"
+        },
+        {
+          "FromTable": "Bills",
+          "FromColumn": "ServiceTypeId"
+        },
+        {
+          "FromTable": "Departments",
+          "FromColumn": "ServiceTypeId"
+        },
+        {
+          "FromTable": "MeterReadings",
+          "FromColumn": "ServiceTypeId"
+        },
+        {
+          "FromTable": "Outages",
+          "FromColumn": "ServiceTypeId"
+        },
+        {
+          "FromTable": "ServiceAccounts",
+          "FromColumn": "ServiceTypeId"
+        },
+        {
+          "FromTable": "SlaPolicies",
+          "FromColumn": "ServiceTypeId"
+        },
+        {
+          "FromTable": "Tariffs",
+          "FromColumn": "ServiceTypeId"
+        },
+        {
+          "FromTable": "TicketCategories",
+          "FromColumn": "ServiceTypeId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "servicetype",
+        "servicetypes",
+        "service type",
+        "service types",
+        "service",
+        "services",
+        "utility",
+        "utilities",
+        "service kind"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "SlaPolicies",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "NameEn",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "PolicyCode"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "PolicyCode",
+          "Type": "nvarchar(80)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "policy code"
+          ]
+        },
+        {
+          "Name": "NameEn",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "name en"
+          ]
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "CustomerSegmentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "segment",
+          "References": "CustomerSegments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ServiceTypeId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "service",
+          "References": "ServiceTypes.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "PriorityId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "priority",
+          "References": "TicketPriorities.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "FirstResponseMinutes",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "first response minutes"
+          ]
+        },
+        {
+          "Name": "ResolutionMinutes",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "resolution minutes"
+          ]
+        },
+        {
+          "Name": "BusinessHoursOnly",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "business hours only"
+          ]
+        },
+        {
+          "Name": "EffectiveFrom",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "effective",
+          "IsPii": false,
+          "Synonyms": [
+            "effective from"
+          ]
+        },
+        {
+          "Name": "EffectiveTo",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "effective",
+          "IsPii": false,
+          "Synonyms": [
+            "effective to"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        },
+        {
+          "Name": "Notes",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "CustomerSegmentId",
+          "Table": "CustomerSegments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceTypeId",
+          "Table": "ServiceTypes",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "PriorityId",
+          "Table": "TicketPriorities",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "slapolicy",
+        "slapolicies",
+        "sla policy",
+        "sla policies",
+        "sla",
+        "slas",
+        "service level",
+        "response policy"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Subsidies",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "ProgramNameEn"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "BillId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "billed",
+          "References": "Bills.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CustomerId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "owner",
+          "References": "Customers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CustomerSegmentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "segment",
+          "References": "CustomerSegments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ProgramCode",
+          "Type": "nvarchar(80)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "program code"
+          ]
+        },
+        {
+          "Name": "ProgramNameEn",
+          "Type": "nvarchar(150)",
+          "Nullable": true,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "program name en"
+          ]
+        },
+        {
+          "Name": "ProgramNameAr",
+          "Type": "nvarchar(150)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "program name ar"
+          ]
+        },
+        {
+          "Name": "Amount",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "AppliedPercent",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "applied percent"
+          ]
+        },
+        {
+          "Name": "IssuedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "issued",
+          "IsPii": false,
+          "Synonyms": [
+            "issued at"
+          ]
+        },
+        {
+          "Name": "Status",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "AuthorizedByUserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "approver",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Notes",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "AuthorizedByUserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "BillId",
+          "Table": "Bills",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "CustomerId",
+          "Table": "Customers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "CustomerSegmentId",
+          "Table": "CustomerSegments",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "subsidy",
+        "subsidies",
+        "discount",
+        "discounts",
+        "rebate",
+        "rebates",
+        "credit",
+        "credits",
+        "relief",
+        "reliefs"
+      ],
       "Source": "heuristic"
     },
     {
@@ -1768,6 +5791,415 @@
       "ForeignKeysOut": [],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "systemsetting",
+        "systemsettings",
+        "system setting",
+        "system settings"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Tariffs",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {},
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "ServiceTypeId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "FkRole": "service",
+          "References": "ServiceTypes.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "EffectiveFrom",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "effective",
+          "IsPii": false,
+          "Synonyms": [
+            "effective from"
+          ]
+        },
+        {
+          "Name": "EffectiveTo",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "effective",
+          "IsPii": false,
+          "Synonyms": [
+            "effective to"
+          ]
+        },
+        {
+          "Name": "BaseMonthlyFee",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "base monthly fee"
+          ]
+        },
+        {
+          "Name": "RatePerUnit",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "rate per unit"
+          ]
+        },
+        {
+          "Name": "TaxPercent",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "tax percent"
+          ]
+        },
+        {
+          "Name": "ChangeReasonEn",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "change reason en"
+          ]
+        },
+        {
+          "Name": "ChangeReasonAr",
+          "Type": "nvarchar(500)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "change reason ar"
+          ]
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "RegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServiceTypeId",
+          "Table": "ServiceTypes",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "TariffTiers",
+          "FromColumn": "TariffId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "tariff",
+        "tariffs",
+        "price plan",
+        "rate plan",
+        "pricing",
+        "pricings"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "TariffTiers",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "LabelEn"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "TariffId",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "foreign_key",
+          "References": "Tariffs.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "TierNumber",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "tier number",
+            "tier no",
+            "tier #"
+          ]
+        },
+        {
+          "Name": "FromUnit",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "from unit"
+          ]
+        },
+        {
+          "Name": "ToUnit",
+          "Type": "decimal",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "to unit"
+          ]
+        },
+        {
+          "Name": "RatePerUnit",
+          "Type": "decimal",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "rate per unit"
+          ]
+        },
+        {
+          "Name": "LabelEn",
+          "Type": "nvarchar(80)",
+          "Nullable": true,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "label en"
+          ]
+        },
+        {
+          "Name": "LabelAr",
+          "Type": "nvarchar(80)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "label ar"
+          ]
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "TariffId",
+          "Table": "Tariffs",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "tarifftier",
+        "tarifftiers",
+        "tariff tier",
+        "tariff tiers",
+        "price bracket",
+        "rate bracket",
+        "block",
+        "blocks",
+        "slab",
+        "slabs"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "Technicians",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "FullNameEn",
+        "SoftDeleteColumn": "IsActive",
+        "NaturalKey": "EmployeeCode"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "EmployeeCode",
+          "Type": "nvarchar(20)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "employee code"
+          ]
+        },
+        {
+          "Name": "FullNameEn",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "full name en"
+          ]
+        },
+        {
+          "Name": "FullNameAr",
+          "Type": "nvarchar(150)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "full name ar"
+          ]
+        },
+        {
+          "Name": "Phone",
+          "Type": "nvarchar(30)",
+          "Nullable": true,
+          "IsPii": true
+        },
+        {
+          "Name": "DepartmentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "department",
+          "References": "Departments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "PrimaryRegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "Specialty",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "YearsOfExperience",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "years of experience"
+          ]
+        },
+        {
+          "Name": "UserId",
+          "Type": "nvarchar(450)",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "AspNetUsers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "HiredAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "hired",
+          "IsPii": false,
+          "Synonyms": [
+            "hired at"
+          ]
+        },
+        {
+          "Name": "IsActive",
+          "Type": "bit",
+          "Nullable": false,
+          "Role": "soft_delete",
+          "IsPii": false
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "UserId",
+          "Table": "AspNetUsers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "DepartmentId",
+          "Table": "Departments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "PrimaryRegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [
+        {
+          "FromTable": "WorkOrders",
+          "FromColumn": "AssignedTechnicianId"
+        }
+      ],
+      "SampleValues": [],
+      "Synonyms": [
+        "technician",
+        "technicians",
+        "field engineer",
+        "engineer",
+        "engineers",
+        "field worker",
+        "fitter",
+        "fitters",
+        "lineman",
+        "linemen"
+      ],
       "Source": "heuristic"
     },
     {
@@ -1795,6 +6227,7 @@
           "Type": "int",
           "Nullable": false,
           "Role": "foreign_key",
+          "FkRole": "ticket",
           "References": "Tickets.Id",
           "IsPii": false
         },
@@ -1808,49 +6241,73 @@
           "Name": "SuggestedClassification",
           "Type": "nvarchar(100)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "suggested classification"
+          ]
         },
         {
           "Name": "SuggestedPriority",
           "Type": "nvarchar(50)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "suggested priority"
+          ]
         },
         {
           "Name": "KeyClues",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "key clues"
+          ]
         },
         {
           "Name": "NextStepSuggestion",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "next step suggestion"
+          ]
         },
         {
           "Name": "ConfidenceLevel",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "confidence level"
+          ]
         },
         {
           "Name": "ModelName",
           "Type": "nvarchar(100)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "model name"
+          ]
         },
         {
           "Name": "PromptVersion",
           "Type": "nvarchar(20)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "prompt version"
+          ]
         },
         {
           "Name": "AnalysisStatus",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "analysis status"
+          ]
         },
         {
           "Name": "CreatedOn",
@@ -1858,13 +6315,19 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created on"
+          ]
         },
         {
           "Name": "LastRefreshedOn",
           "Type": "datetime2",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "last refreshed on"
+          ]
         },
         {
           "Name": "CreatedBy",
@@ -1877,25 +6340,39 @@
           "Name": "DiagnosticMetadata",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "diagnostic metadata"
+          ]
         },
         {
           "Name": "InputPromptSize",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "input prompt size"
+          ]
         },
         {
           "Name": "ProcessingDurationMs",
           "Type": "bigint",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "processing duration ms"
+          ]
         },
         {
           "Name": "RunNumber",
           "Type": "int",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "run number",
+            "run no",
+            "run #"
+          ]
         }
       ],
       "ForeignKeysOut": [
@@ -1912,6 +6389,10 @@
         }
       ],
       "SampleValues": [],
+      "Synonyms": [
+        "ticketaianalys",
+        "ticket ai analys"
+      ],
       "Source": "heuristic"
     },
     {
@@ -1952,7 +6433,10 @@
           "Name": "LogLevel",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "log level"
+          ]
         },
         {
           "Name": "CreatedOn",
@@ -1960,7 +6444,10 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created on"
+          ]
         }
       ],
       "ForeignKeysOut": [
@@ -1972,6 +6459,12 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "ticketaianalysislog",
+        "ticketaianalysislogs",
+        "ticket ai analysis log",
+        "ticket ai analysis logs"
+      ],
       "Source": "heuristic"
     },
     {
@@ -1999,6 +6492,7 @@
           "Type": "int",
           "Nullable": false,
           "Role": "foreign_key",
+          "FkRole": "ticket",
           "References": "Tickets.Id",
           "IsPii": false
         },
@@ -2006,25 +6500,37 @@
           "Name": "FileName",
           "Type": "nvarchar(255)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "file name"
+          ]
         },
         {
           "Name": "FilePath",
           "Type": "nvarchar(500)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "file path"
+          ]
         },
         {
           "Name": "ContentType",
           "Type": "nvarchar(100)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "content type"
+          ]
         },
         {
           "Name": "FileSize",
           "Type": "bigint",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "file size"
+          ]
         },
         {
           "Name": "UploadedByUserId",
@@ -2038,7 +6544,10 @@
           "Name": "UploadedAt",
           "Type": "datetime2",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "uploaded at"
+          ]
         },
         {
           "Name": "CommentId",
@@ -2068,6 +6577,12 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "ticketattachment",
+        "ticketattachments",
+        "ticket attachment",
+        "ticket attachments"
+      ],
       "Source": "heuristic"
     },
     {
@@ -2078,7 +6593,7 @@
       ],
       "Flags": {
         "IsBridge": false,
-        "IsLookup": true,
+        "IsLookup": false,
         "IsPerson": false
       },
       "Roles": {
@@ -2106,26 +6621,78 @@
           "Nullable": false,
           "Role": "soft_delete",
           "IsPii": false
+        },
+        {
+          "Name": "NameAr",
+          "Type": "nvarchar(100)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "name ar"
+          ]
+        },
+        {
+          "Name": "ParentCategoryId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "category",
+          "References": "TicketCategories.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ServiceTypeId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "service",
+          "References": "ServiceTypes.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "SortOrder",
+          "Type": "int",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "sort order"
+          ]
+        },
+        {
+          "Name": "Tier",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
         }
       ],
-      "ForeignKeysOut": [],
+      "ForeignKeysOut": [
+        {
+          "Column": "ServiceTypeId",
+          "Table": "ServiceTypes",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ParentCategoryId",
+          "Table": "TicketCategories",
+          "ReferencedColumn": "Id"
+        }
+      ],
       "ReferencedBy": [
+        {
+          "FromTable": "TicketCategories",
+          "FromColumn": "ParentCategoryId"
+        },
         {
           "FromTable": "Tickets",
           "FromColumn": "CategoryId"
         }
       ],
-      "SampleValues": [
-        "Access Request",
-        "Account Management",
-        "Attachment / File Handling",
-        "Authentication",
-        "Authorization / Access",
-        "Data Issue",
-        "Hardware",
-        "Integration",
-        "Network",
-        "Notification"
+      "SampleValues": [],
+      "Synonyms": [
+        "ticketcategory",
+        "ticketcategories",
+        "ticket category",
+        "ticket categories"
       ],
       "Source": "heuristic"
     },
@@ -2154,6 +6721,7 @@
           "Type": "int",
           "Nullable": false,
           "Role": "foreign_key",
+          "FkRole": "ticket",
           "References": "Tickets.Id",
           "IsPii": false
         },
@@ -2168,6 +6736,7 @@
           "Type": "nvarchar(450)",
           "Nullable": false,
           "Role": "foreign_key",
+          "FkRole": "creator",
           "References": "AspNetUsers.Id",
           "IsPii": false
         },
@@ -2177,13 +6746,19 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
         },
         {
           "Name": "CommentAttachmentId",
           "Type": "int",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "comment attachment id"
+          ]
         }
       ],
       "ForeignKeysOut": [
@@ -2205,6 +6780,18 @@
         }
       ],
       "SampleValues": [],
+      "Synonyms": [
+        "ticketcomment",
+        "ticketcomments",
+        "ticket comment",
+        "ticket comments",
+        "comment",
+        "comments",
+        "note",
+        "notes",
+        "remark",
+        "remarks"
+      ],
       "Source": "heuristic"
     },
     {
@@ -2232,6 +6819,7 @@
           "Type": "int",
           "Nullable": false,
           "Role": "foreign_key",
+          "FkRole": "ticket",
           "References": "Tickets.Id",
           "IsPii": false
         },
@@ -2245,13 +6833,19 @@
           "Name": "OldValue",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "old value"
+          ]
         },
         {
           "Name": "NewValue",
           "Type": "nvarchar(max)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "new value"
+          ]
         },
         {
           "Name": "UserId",
@@ -2267,7 +6861,10 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
         }
       ],
       "ForeignKeysOut": [
@@ -2284,6 +6881,12 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "tickethistory",
+        "tickethistories",
+        "ticket history",
+        "ticket histories"
+      ],
       "Source": "heuristic"
     },
     {
@@ -2333,6 +6936,10 @@
       "ForeignKeysOut": [],
       "ReferencedBy": [
         {
+          "FromTable": "SlaPolicies",
+          "FromColumn": "PriorityId"
+        },
+        {
           "FromTable": "Tickets",
           "FromColumn": "PriorityId"
         }
@@ -2342,6 +6949,12 @@
         "High",
         "Low",
         "Medium"
+      ],
+      "Synonyms": [
+        "ticketpriority",
+        "ticketpriorities",
+        "ticket priority",
+        "ticket priorities"
       ],
       "Source": "heuristic"
     },
@@ -2372,7 +6985,12 @@
           "Name": "TicketNumber",
           "Type": "nvarchar(20)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "ticket number",
+            "ticket no",
+            "ticket #"
+          ]
         },
         {
           "Name": "Title",
@@ -2392,6 +7010,7 @@
           "Type": "int",
           "Nullable": false,
           "Role": "foreign_key",
+          "FkRole": "category",
           "References": "TicketCategories.Id",
           "IsPii": false
         },
@@ -2400,6 +7019,7 @@
           "Type": "int",
           "Nullable": false,
           "Role": "foreign_key",
+          "FkRole": "priority",
           "References": "TicketPriorities.Id",
           "IsPii": false
         },
@@ -2408,6 +7028,7 @@
           "Type": "int",
           "Nullable": false,
           "Role": "foreign_key",
+          "FkRole": "status",
           "References": "TicketStatuses.Id",
           "IsPii": false
         },
@@ -2420,11 +7041,12 @@
           "IsPii": false
         },
         {
-          "Name": "EntityId",
+          "Name": "DepartmentId",
           "Type": "int",
           "Nullable": true,
           "Role": "foreign_key",
-          "References": "Entitys.Id",
+          "FkRole": "department",
+          "References": "Departments.Id",
           "IsPii": false
         },
         {
@@ -2432,6 +7054,7 @@
           "Type": "nvarchar(450)",
           "Nullable": true,
           "Role": "foreign_key",
+          "FkRole": "assignee",
           "References": "AspNetUsers.Id",
           "IsPii": false
         },
@@ -2440,6 +7063,7 @@
           "Type": "nvarchar(450)",
           "Nullable": false,
           "Role": "foreign_key",
+          "FkRole": "creator",
           "References": "AspNetUsers.Id",
           "IsPii": false
         },
@@ -2449,7 +7073,10 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
         },
         {
           "Name": "UpdatedAt",
@@ -2457,7 +7084,10 @@
           "Nullable": true,
           "Role": "date",
           "DateRole": "modified",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "updated at"
+          ]
         },
         {
           "Name": "DueDate",
@@ -2465,7 +7095,10 @@
           "Nullable": true,
           "Role": "date",
           "DateRole": "due",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "due date"
+          ]
         },
         {
           "Name": "ResolvedAt",
@@ -2473,7 +7106,10 @@
           "Nullable": true,
           "Role": "date",
           "DateRole": "resolved",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "resolved at"
+          ]
         },
         {
           "Name": "ClosedAt",
@@ -2481,7 +7117,10 @@
           "Nullable": true,
           "Role": "date",
           "DateRole": "completed",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "closed at"
+          ]
         },
         {
           "Name": "IsDeleted",
@@ -2494,13 +7133,21 @@
           "Name": "ResolutionSummary",
           "Type": "nvarchar(500)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "resolution summary"
+          ]
         },
         {
           "Name": "FirstRespondedAt",
           "Type": "datetime2",
           "Nullable": true,
-          "IsPii": false
+          "Role": "date",
+          "DateRole": "responded",
+          "IsPii": false,
+          "Synonyms": [
+            "first responded at"
+          ]
         },
         {
           "Name": "FirstResponseDueAt",
@@ -2508,19 +7155,28 @@
           "Nullable": true,
           "Role": "date",
           "DateRole": "due",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "first response due at"
+          ]
         },
         {
           "Name": "IsSlaBreached",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "is sla breached"
+          ]
         },
         {
           "Name": "PendingReason",
           "Type": "nvarchar(500)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "pending reason"
+          ]
         },
         {
           "Name": "ResolutionDueAt",
@@ -2528,73 +7184,109 @@
           "Nullable": true,
           "Role": "date",
           "DateRole": "due",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "resolution due at"
+          ]
         },
         {
           "Name": "RequiresManagerReview",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "requires manager review"
+          ]
         },
         {
           "Name": "AffectedUsersCount",
           "Type": "int",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "affected users count"
+          ]
         },
         {
           "Name": "BrowserName",
           "Type": "nvarchar(80)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "browser name"
+          ]
         },
         {
           "Name": "EnvironmentName",
           "Type": "nvarchar(50)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "environment name"
+          ]
         },
         {
           "Name": "ExternalReferenceId",
           "Type": "nvarchar(120)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "external reference id"
+          ]
         },
         {
           "Name": "ExternalSystemName",
           "Type": "nvarchar(120)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "external system name"
+          ]
         },
         {
           "Name": "ImpactScope",
           "Type": "nvarchar(50)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "impact scope"
+          ]
         },
         {
           "Name": "OperatingSystem",
           "Type": "nvarchar(80)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "operating system"
+          ]
         },
         {
           "Name": "ProductArea",
           "Type": "nvarchar(100)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "product area"
+          ]
         },
         {
           "Name": "EscalatedAt",
           "Type": "datetime2",
           "Nullable": true,
-          "IsPii": false
+          "Role": "date",
+          "DateRole": "escalated",
+          "IsPii": false,
+          "Synonyms": [
+            "escalated at"
+          ]
         },
         {
           "Name": "EscalatedToUserId",
           "Type": "nvarchar(450)",
           "Nullable": true,
           "Role": "foreign_key",
+          "FkRole": "escalator",
           "References": "AspNetUsers.Id",
           "IsPii": false
         },
@@ -2602,19 +7294,28 @@
           "Name": "EscalationLevel",
           "Type": "nvarchar(50)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "escalation level"
+          ]
         },
         {
           "Name": "ResolutionApprovedAt",
           "Type": "datetime2",
           "Nullable": true,
-          "IsPii": false
+          "Role": "date",
+          "DateRole": "approved",
+          "IsPii": false,
+          "Synonyms": [
+            "resolution approved at"
+          ]
         },
         {
           "Name": "ResolutionApprovedByUserId",
           "Type": "nvarchar(450)",
           "Nullable": true,
           "Role": "foreign_key",
+          "FkRole": "approver",
           "References": "AspNetUsers.Id",
           "IsPii": false
         },
@@ -2623,6 +7324,7 @@
           "Type": "nvarchar(450)",
           "Nullable": true,
           "Role": "foreign_key",
+          "FkRole": "resolver",
           "References": "AspNetUsers.Id",
           "IsPii": false
         },
@@ -2630,26 +7332,88 @@
           "Name": "RootCause",
           "Type": "nvarchar(1500)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "root cause"
+          ]
         },
         {
           "Name": "TechnicalAssessment",
           "Type": "nvarchar(2000)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "technical assessment"
+          ]
         },
         {
           "Name": "VerificationNotes",
           "Type": "nvarchar(1500)",
           "Nullable": true,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "verification notes"
+          ]
         },
         {
           "Name": "ParentTicketId",
           "Type": "int",
           "Nullable": true,
           "Role": "foreign_key",
+          "FkRole": "ticket",
           "References": "Tickets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CustomerId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "owner",
+          "References": "Customers.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RelatedBillId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "billed",
+          "References": "Bills.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ComplaintTypeId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "ComplaintTypes.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ResolutionTypeId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "References": "ResolutionTypes.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "OutageId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "outage",
+          "References": "Outages.Id",
           "IsPii": false
         }
       ],
@@ -2680,8 +7444,38 @@
           "ReferencedColumn": "Id"
         },
         {
-          "Column": "EntityId",
-          "Table": "Entitys",
+          "Column": "RelatedBillId",
+          "Table": "Bills",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ComplaintTypeId",
+          "Table": "ComplaintTypes",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "CustomerId",
+          "Table": "Customers",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "DepartmentId",
+          "Table": "Departments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "OutageId",
+          "Table": "Outages",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "RegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ResolutionTypeId",
+          "Table": "ResolutionTypes",
           "ReferencedColumn": "Id"
         },
         {
@@ -2712,6 +7506,14 @@
       ],
       "ReferencedBy": [
         {
+          "FromTable": "CallLogs",
+          "FromColumn": "RelatedTicketId"
+        },
+        {
+          "FromTable": "CsatResponses",
+          "FromColumn": "TicketId"
+        },
+        {
           "FromTable": "TicketAiAnalyses",
           "FromColumn": "TicketId"
         },
@@ -2734,9 +7536,27 @@
         {
           "FromTable": "TicketSemanticEmbeddings",
           "FromColumn": "TicketId"
+        },
+        {
+          "FromTable": "WorkOrders",
+          "FromColumn": "TicketId"
         }
       ],
       "SampleValues": [],
+      "Synonyms": [
+        "ticket",
+        "tickets",
+        "issue",
+        "issues",
+        "case",
+        "cases",
+        "complaint",
+        "complaints",
+        "report",
+        "reports",
+        "problem",
+        "problems"
+      ],
       "Source": "heuristic"
     },
     {
@@ -2764,13 +7584,19 @@
           "Name": "VectorJson",
           "Type": "nvarchar(max)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "vector json"
+          ]
         },
         {
           "Name": "ModelName",
           "Type": "nvarchar(100)",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "model name"
+          ]
         },
         {
           "Name": "CreatedAt",
@@ -2778,7 +7604,10 @@
           "Nullable": false,
           "Role": "date",
           "DateRole": "created",
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
         }
       ],
       "ForeignKeysOut": [
@@ -2790,6 +7619,12 @@
       ],
       "ReferencedBy": [],
       "SampleValues": [],
+      "Synonyms": [
+        "ticketsemanticembedding",
+        "ticketsemanticembeddings",
+        "ticket semantic embedding",
+        "ticket semantic embeddings"
+      ],
       "Source": "heuristic"
     },
     {
@@ -2840,10 +7675,14 @@
       "SampleValues": [
         "Email",
         "Internal Request",
-        "Mobile App",
         "Phone",
-        "Web Platform",
         "Web Portal"
+      ],
+      "Synonyms": [
+        "ticketsource",
+        "ticketsources",
+        "ticket source",
+        "ticket sources"
       ],
       "Source": "heuristic"
     },
@@ -2888,7 +7727,10 @@
           "Name": "IsClosedState",
           "Type": "bit",
           "Nullable": false,
-          "IsPii": false
+          "IsPii": false,
+          "Synonyms": [
+            "is closed state"
+          ]
         }
       ],
       "ForeignKeysOut": [],
@@ -2906,6 +7748,270 @@
         "Pending",
         "Rejected",
         "Resolved"
+      ],
+      "Synonyms": [
+        "ticketstatus",
+        "ticket status"
+      ],
+      "Source": "heuristic"
+    },
+    {
+      "Name": "WorkOrders",
+      "Schema": "dbo",
+      "PrimaryKey": [
+        "Id"
+      ],
+      "Flags": {
+        "IsBridge": false,
+        "IsLookup": false,
+        "IsPerson": false
+      },
+      "Roles": {
+        "LabelColumn": "TitleEn",
+        "NaturalKey": "OrderNumber"
+      },
+      "Columns": [
+        {
+          "Name": "Id",
+          "Type": "int",
+          "Nullable": false,
+          "Role": "primary_key",
+          "IsPii": false
+        },
+        {
+          "Name": "OrderNumber",
+          "Type": "nvarchar(30)",
+          "Nullable": false,
+          "Role": "natural_key",
+          "IsPii": false,
+          "Synonyms": [
+            "order number",
+            "order no",
+            "order #"
+          ]
+        },
+        {
+          "Name": "OrderType",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "order type"
+          ]
+        },
+        {
+          "Name": "Status",
+          "Type": "nvarchar(450)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "Priority",
+          "Type": "nvarchar(max)",
+          "Nullable": false,
+          "IsPii": false
+        },
+        {
+          "Name": "TicketId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "ticket",
+          "References": "Tickets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "OutageId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "outage",
+          "References": "Outages.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "AssetId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "asset",
+          "References": "Assets.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "ServicePointId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "service_point",
+          "References": "ServicePoints.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "DepartmentId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "department",
+          "References": "Departments.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "RegionId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "region",
+          "References": "Regions.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "AssignedTechnicianId",
+          "Type": "int",
+          "Nullable": true,
+          "Role": "foreign_key",
+          "FkRole": "assignee",
+          "References": "Technicians.Id",
+          "IsPii": false
+        },
+        {
+          "Name": "CreatedAt",
+          "Type": "datetime2",
+          "Nullable": false,
+          "Role": "date",
+          "DateRole": "created",
+          "IsPii": false,
+          "Synonyms": [
+            "created at"
+          ]
+        },
+        {
+          "Name": "DispatchedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "dispatched",
+          "IsPii": false,
+          "Synonyms": [
+            "dispatched at"
+          ]
+        },
+        {
+          "Name": "ArrivedOnSiteAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "arrived",
+          "IsPii": false,
+          "Synonyms": [
+            "arrived on site at"
+          ]
+        },
+        {
+          "Name": "CompletedAt",
+          "Type": "datetime2",
+          "Nullable": true,
+          "Role": "date",
+          "DateRole": "completed",
+          "IsPii": false,
+          "Synonyms": [
+            "completed at"
+          ]
+        },
+        {
+          "Name": "TitleEn",
+          "Type": "nvarchar(200)",
+          "Nullable": false,
+          "Role": "label",
+          "IsPii": false,
+          "Synonyms": [
+            "title en"
+          ]
+        },
+        {
+          "Name": "TitleAr",
+          "Type": "nvarchar(200)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "title ar"
+          ]
+        },
+        {
+          "Name": "Description",
+          "Type": "nvarchar(2000)",
+          "Nullable": true,
+          "IsPii": false
+        },
+        {
+          "Name": "ResolutionNotes",
+          "Type": "nvarchar(2000)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "resolution notes"
+          ]
+        },
+        {
+          "Name": "RequiredSecondVisit",
+          "Type": "bit",
+          "Nullable": false,
+          "IsPii": false,
+          "Synonyms": [
+            "required second visit"
+          ]
+        }
+      ],
+      "ForeignKeysOut": [
+        {
+          "Column": "AssetId",
+          "Table": "Assets",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "DepartmentId",
+          "Table": "Departments",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "OutageId",
+          "Table": "Outages",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "RegionId",
+          "Table": "Regions",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "ServicePointId",
+          "Table": "ServicePoints",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "AssignedTechnicianId",
+          "Table": "Technicians",
+          "ReferencedColumn": "Id"
+        },
+        {
+          "Column": "TicketId",
+          "Table": "Tickets",
+          "ReferencedColumn": "Id"
+        }
+      ],
+      "ReferencedBy": [],
+      "SampleValues": [],
+      "Synonyms": [
+        "workorder",
+        "workorders",
+        "work order",
+        "work orders",
+        "field job",
+        "dispatch",
+        "dispatches",
+        "job ticket",
+        "task",
+        "tasks"
       ],
       "Source": "heuristic"
     }

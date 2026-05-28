@@ -1,0 +1,21 @@
+@model ServiceOpsAI.Models.Technician
+@{ ViewData["Title"] = "New Technician"; }
+
+<h2><i class="bi bi-plus-circle"></i> New Technician</h2>
+
+<form asp-action="Create" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="col-md-3"><label asp-for="EmployeeCode" class="form-label">Employee Code</label><input asp-for="EmployeeCode" class="form-control" placeholder="TEC-00001" /></div>
+    <div class="col-md-3"><label asp-for="FullNameEn" class="form-label">Name (EN)</label><input asp-for="FullNameEn" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="FullNameAr" class="form-label">Name (AR)</label><input asp-for="FullNameAr" class="form-control" dir="rtl" /></div>
+    <div class="col-md-3"><label asp-for="Phone" class="form-label">Phone</label><input asp-for="Phone" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="DepartmentId" class="form-label">Department</label><select asp-for="DepartmentId" class="form-select" asp-items="ViewBag.Departments"><option value="">—</option></select></div>
+    <div class="col-md-4"><label asp-for="PrimaryRegionId" class="form-label">Primary Region</label><select asp-for="PrimaryRegionId" class="form-select" asp-items="ViewBag.Regions"><option value="">—</option></select></div>
+    <div class="col-md-4"><label asp-for="Specialty" class="form-label">Specialty</label><select asp-for="Specialty" class="form-select">@foreach (var v in Enum.GetValues<ServiceOpsAI.Models.TechnicianSpecialty>()){<option value="@v">@v</option>}</select></div>
+    <div class="col-md-3"><label asp-for="YearsOfExperience" class="form-label">Years Exp.</label><input asp-for="YearsOfExperience" type="number" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="HiredAt" class="form-label">Hired</label><input asp-for="HiredAt" type="date" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="UserId" class="form-label">Linked User Id</label><input asp-for="UserId" class="form-control" placeholder="(optional)" /></div>
+    <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label">Active</label></div></div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Create</button> <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Cancel</a></div>
+</form>

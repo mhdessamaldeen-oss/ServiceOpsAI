@@ -1524,10 +1524,23 @@ html.sidebar-collapsed .copilot-shell {
 
 .copilot-pin-fab i { font-size: 1rem; }
 
-/* Generic toast — top-center, slides down from above, auto-dismisses */
+/* Pulse used briefly after a new pin lands — without it the FAB silently
+   increments its counter and users miss the only visible confirmation
+   ("I clicked Pin and nothing happened" reports). */
+.copilot-pin-fab.is-just-pinned {
+    animation: copilot-fab-pulse 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes copilot-fab-pulse {
+    0%   { transform: scale(1);    box-shadow: 0 8px 24px rgba(91, 141, 239, 0.55), 0 0 0 0 rgba(168, 85, 247, 0.6); }
+    35%  { transform: scale(1.22); box-shadow: 0 8px 28px rgba(91, 141, 239, 0.65), 0 0 0 14px rgba(168, 85, 247, 0.0); }
+    100% { transform: scale(1);    box-shadow: 0 8px 24px rgba(91, 141, 239, 0.55); }
+}
+
+/* Generic toast — pushed below the fixed app header (`--header-height`) so it
+   isn't overlapped by the supportFlow bar at top: 0. Slides down from above. */
 .copilot-toast {
     position: fixed;
-    top: 1rem;
+    top: calc(var(--header-height, 48px) + 0.75rem);
     left: 50%;
     transform: translate(-50%, -2rem);
     opacity: 0;
@@ -2114,6 +2127,30 @@ tfoot.copilot-summary-row td {
 .copilot-cost-badge i {
     font-size: 0.85em;
     opacity: 0.7;
+}
+
+/* End-to-end pipeline time, rendered inline beside the "AI COPILOT" header
+   so per-message latency is visible at a glance. Intentionally minimal — a
+   thin vertical separator + icon + tabular-figure number — so it sits next to
+   the uppercase header label without competing for attention. */
+.copilot-header-elapsed {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: 0.15rem;
+    padding-left: 0.65rem;
+    border-left: 1px solid var(--border-color);
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+}
+.copilot-header-elapsed i {
+    font-size: 0.95em;
+    opacity: 0.85;
 }
 
 .copilot-message-pending {

@@ -1,0 +1,31 @@
+@model ServiceOpsAI.Models.WorkOrder
+@{ ViewData["Title"] = "Work Order Details"; }
+
+<h2><i class="bi bi-clipboard-check-fill"></i> @Model.OrderNumber</h2>
+
+<div class="card shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Order #</dt><dd class="col-sm-9"><code>@Model.OrderNumber</code></dd>
+            <dt class="col-sm-3">Title</dt><dd class="col-sm-9">@Model.TitleEn / <span dir="rtl">@Model.TitleAr</span></dd>
+            <dt class="col-sm-3">Type / Priority / Status</dt><dd class="col-sm-9">@Model.OrderType / @Model.Priority / @Model.Status</dd>
+            <dt class="col-sm-3">Technician</dt><dd class="col-sm-9">@Model.AssignedTechnician?.FullNameEn</dd>
+            <dt class="col-sm-3">Ticket</dt><dd class="col-sm-9"><code>@Model.Ticket?.TicketNumber</code></dd>
+            <dt class="col-sm-3">Outage</dt><dd class="col-sm-9"><code>@Model.Outage?.OutageNumber</code></dd>
+            <dt class="col-sm-3">Asset</dt><dd class="col-sm-9">@Model.Asset?.NameEn</dd>
+            <dt class="col-sm-3">Service Point</dt><dd class="col-sm-9"><code>@Model.ServicePoint?.PointCode</code></dd>
+            <dt class="col-sm-3">Department / Region</dt><dd class="col-sm-9">@Model.Department?.NameEn / @Model.Region?.NameEn</dd>
+            <dt class="col-sm-3">Created</dt><dd class="col-sm-9">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm")</dd>
+            <dt class="col-sm-3">Dispatched</dt><dd class="col-sm-9">@(Model.DispatchedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</dd>
+            <dt class="col-sm-3">Arrived</dt><dd class="col-sm-9">@(Model.ArrivedOnSiteAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</dd>
+            <dt class="col-sm-3">Completed</dt><dd class="col-sm-9">@(Model.CompletedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</dd>
+            <dt class="col-sm-3">Description</dt><dd class="col-sm-9">@Model.Description</dd>
+            <dt class="col-sm-3">Resolution Notes</dt><dd class="col-sm-9">@Model.ResolutionNotes</dd>
+            <dt class="col-sm-3">Second Visit?</dt><dd class="col-sm-9">@(Model.RequiredSecondVisit ? "Yes" : "No")</dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>

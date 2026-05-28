@@ -1208,9 +1208,21 @@
                     const collapsed = !!m.isCollapsed;
                     const collapseTitle = collapsed ? 'Expand response' : 'Collapse response';
                     const chevron = collapsed ? 'down' : 'up';
+                    // Elapsed-time pill rendered inline beside the "AI COPILOT" label so the
+                    // user sees end-to-end latency without scrolling to the footer. Reads the
+                    // same ExecutionDetails.TotalElapsedMs stamped by HostTraceSink — degrades
+                    // silently for messages whose trace doesn't carry the field.
+                    const headerElapsedRaw = m.executionDetails?.totalElapsedMs ?? m.executionDetails?.TotalElapsedMs ?? null;
+                    const headerElapsedTxt = headerElapsedRaw != null ? formatElapsedMs(headerElapsedRaw) : '';
+                    const headerElapsedPill = headerElapsedTxt
+                        ? `<span class="copilot-header-elapsed" title="End-to-end pipeline time"><i class="bi bi-clock-history"></i> ${headerElapsedTxt}</span>`
+                        : '';
                     messageElements.push(`<div class="copilot-message copilot-message-assistant ${collapsed ? 'copilot-message-collapsed' : ''}" data-msg-idx="${idx}">
                                 <div class="copilot-message-header">
-                                    <span class="small fw-bold text-uppercase opacity-75" style="letter-spacing: 0.12em; color: var(--text-muted);">AI COPILOT</span>
+                                    <span class="copilot-header-left d-inline-flex align-items-center gap-2">
+                                        <span class="small fw-bold text-uppercase opacity-75" style="letter-spacing: 0.12em; color: var(--text-muted);">AI COPILOT</span>
+                                        ${headerElapsedPill}
+                                    </span>
                                     <button type="button" class="copilot-collapse-btn" onclick="toggleAssistantCollapse(${idx})" aria-expanded="${!collapsed}" title="${collapseTitle}" aria-label="${collapseTitle}">
                                         <i class="bi bi-chevron-${chevron}"></i>
                                     </button>
@@ -2453,13 +2465,22 @@
             return;
         }
         btn.classList.add('is-active');
-        btn.innerHTML = '<i class="bi bi-pin-angle-fill me-1"></i>Pinned';
-        setTimeout(() => { btn.classList.remove('is-active'); btn.innerHTML = '<i class="bi bi-pin-angle me-1"></i>Pin'; }, 1800);
+        btn.innerHTML = '<i class="bi bi-pin-angle-fill me-1"></i>Pinned&nbsp;<i class="bi bi-check2"></i>';
+        // Stay "Pinned ✓" for 5s — the previous 1.8s window was short enough
+        // that users glancing away missed the only inline confirmation.
+        setTimeout(() => { btn.classList.remove('is-active'); btn.innerHTML = '<i class="bi bi-pin-angle me-1"></i>Pin'; }, 5000);
         refreshCopilotPinButton();
-        // Confirm in two ways: a toast (always visible) AND the floating FAB
-        // (in case z-index/positioning hides one or the other on a given theme).
+        // Pulse the FAB so the eye is drawn to the counter going up — silent
+        // increment from N→N+1 in the corner was the "nothing happened" bug.
+        const fab = document.getElementById('copilot-pin-fab');
+        if (fab) {
+            fab.classList.remove('is-just-pinned');
+            void fab.offsetWidth;   // force reflow so the animation restarts on repeat pins
+            fab.classList.add('is-just-pinned');
+            setTimeout(() => fab.classList.remove('is-just-pinned'), 1000);
+        }
         _showCopilotToast(`Pinned · ${pins.length} chart${pins.length === 1 ? '' : 's'} saved. Click the floating pin (bottom-right) to open dashboard.`, 'success');
-        console.log('[Pin] OK. Total pins now:', pins.length, '· FAB element:', document.getElementById('copilot-pin-fab'));
+        console.log('[Pin] OK. Total pins now:', pins.length, '· FAB element:', fab);
     }
 
     function readCopilotPins() {
@@ -4975,11 +4996,25 @@
     // ExecutionDetails.Summary string. Surfacing as compact badges below the assistant
     // message — same numbers also live on the trace row (LlmCallCount / TotalPromptTokens /
     // TotalCompletionTokens / EstimatedCostUsd) for DB-side queries.
+    // Format a duration in milliseconds as a tight human-readable string.
+    // Examples: 10 -> "10ms", 1500 -> "1.5s", 5000 -> "5.0s", 75000 -> "1m 15s".
+    function formatElapsedMs(ms) {
+        const n = Number(ms);
+        if (!Number.isFinite(n) || n < 0) return '';
+        if (n < 1000) return `${Math.round(n)}ms`;
+        if (n < 60000) return `${(n / 1000).toFixed(1)}s`;
+        const mins = Math.floor(n / 60000);
+        const secs = Math.round((n % 60000) / 1000);
+        return `${mins}m ${secs}s`;
+    }
+
     function renderCostBadges(executionDetails) {
         if (!executionDetails) return '';
         const summary = executionDetails.summary || executionDetails.Summary || '';
         const m = summary.match(/(\d+)\s+LLM\s+calls?,\s*(\d+)\+(\d+)\s+tokens?,\s*~\$([0-9.]+)/i);
         const trustBadge = renderTrustBadge(executionDetails);
+        // NOTE: end-to-end TotalElapsedMs is rendered inline beside the "AI COPILOT" header
+        // (see renderConversation). Don't duplicate it here.
 
         if (!m) return trustBadge;
         const [, calls, promptToks, completionToks, costUsd] = m;

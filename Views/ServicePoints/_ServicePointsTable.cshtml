@@ -1,0 +1,43 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.ServicePointDto>
+
+<div class="table-responsive">
+    <table id="servicePointsTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Point Code</th>
+                <th class="py-3">Region</th>
+                <th class="py-3">Address</th>
+                <th class="py-3">Meter #</th>
+                <th class="py-3">Type</th>
+                <th class="py-3">Installed</th>
+                <th class="py-3">Active</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var sp in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@sp.PointCode</code></td>
+                    <td><span style="color: var(--text-main) !important;">@sp.RegionName</span></td>
+                    <td><div style="color: var(--text-main) !important;">@sp.AddressLineEn</div><div class="small text-muted" dir="rtl">@sp.AddressLineAr</div></td>
+                    <td><code class="text-muted">@sp.MeterNumber</code></td>
+                    <td>
+                        @{ var (bg, fg) = sp.PointType switch { "Industrial" => ("rgba(245,158,11,0.1)", "#f59e0b"), "Commercial" => ("rgba(56,189,248,0.1)", "#38bdf8"), "Government" => ("rgba(168,85,247,0.1)", "#a855f7"), _ => ("rgba(var(--primary-color-rgb),0.1)", "var(--primary-color)") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @bg; color: @fg; border: 1px solid @fg;">@sp.PointType</span>
+                    </td>
+                    <td class="small text-muted">@sp.InstalledAt.ToString("yyyy-MM-dd")</td>
+                    <td>@(sp.IsActive ? "Yes" : "No")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@sp.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@sp.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@sp.Id" method="post" onsubmit="return confirm('Delete @sp.PointCode?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No service points match the current filter.</h6></div> }
+</div>

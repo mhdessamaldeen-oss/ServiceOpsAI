@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 using SuperAdminCopilot.Abstractions;
+using SuperAdminCopilot.Compilation.Dialects;
 using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 using SuperAdminCopilot.Schema;
@@ -22,26 +23,43 @@ internal sealed partial class SqlCompiler : ICompiler
     private readonly JoinResolver _joinResolver;
     private readonly ISemanticLayer _semanticLayer;
     private readonly CopilotOptions _options;
+    // PR 1 of dialect sweep — every dialect-touching emission (identifier quoting, NULL coalesce,
+    // string cast, TOP/LIMIT, NOW/GETDATE, DateAdd/Diff/Trunc, etc.) routes through this
+    // abstraction. Bound to MssqlDialect by default in DI; swapping the binding to PostgresDialect
+    // is the only change required to retarget the database. See Areas/SuperAdminCopilot/Compilation/Dialects/MIGRATION.md.
+    private readonly ISqlDialect _dialect;
     // F1 — populated by BuildSelect, consumed by BuildGroupBy. Keys are the plain `[Table].[Column]`
     // form of a GROUP BY column that allows NULL; values are the matching `ISNULL(..., '(Unassigned)')`
     // expression. Both SELECT-side and GROUP BY-side must use the wrapped form for SQL Server to
     // accept the query. Reset on every Compile() — never persisted across calls.
     private Dictionary<string, string> _groupByDisplayMap = new(StringComparer.OrdinalIgnoreCase);
 
+    // Phase 5 — user-visible warnings collected during compilation. Populated by BuildWhere /
+    // BuildSelect when an LLM-emitted column or filter value is silently dropped (unknown column,
+    // placeholder-token value). Reset at the top of Compile(); surfaced on CompiledSql.Warnings;
+    // the orchestrator forwards them onto CopilotResponse.Warnings so the user sees what didn't
+    // make it into the SQL. Critical for weaker local models that drop columns/filters frequently.
+    private List<Abstractions.CopilotWarning> _warnings = new();
+
     public SqlCompiler(
         IEntityCatalog catalog,
         JoinResolver joinResolver,
         ISemanticLayer semanticLayer,
-        IOptions<CopilotOptions> options)
+        IOptions<CopilotOptions> options,
+        ISqlDialect dialect)
     {
         _catalog = catalog;
         _joinResolver = joinResolver;
         _semanticLayer = semanticLayer;
         _options = options.Value;
+        _dialect = dialect;
     }
 
     public CompiledSql Compile(QuerySpec spec)
     {
+        // Reset per-compilation collectors. Same lifecycle as _groupByDisplayMap.
+        _warnings = new List<Abstractions.CopilotWarning>();
+
         // Normalize root: the LLM often echoes the schema-qualified form from the prompt
         // (e.g. "dbo.Tickets"). Strip any schema prefix before catalog lookup. Also resolve
         // entity synonyms ("Issue" → "Tickets") via the semantic layer when the planner names
@@ -62,6 +80,13 @@ internal sealed partial class SqlCompiler : ICompiler
         // slot) silently fails: TryFormatColumn returns false and the column is dropped from
         // SELECT / GROUP BY / filters without a user-visible signal.
         ResolveSynonymsOnColumnRefs(spec);
+
+        // ── LLM-output mutation now owned by SpecRepair pipeline (see
+        // Areas/SuperAdminCopilot/Pipeline/SpecRepair/README.md). It runs in SpecExtractor
+        // before the spec reaches the compiler. The compiler trusts the spec it receives
+        // for column qualification, filter shape, GROUP BY consistency, etc.
+        // Previously inline: AutoQualifyUnqualifiedColumns, DropFilterContradictingGroupBy,
+        // StripQuotedFilterValues. All migrated to SpecRepair phases of the same name.
 
         // Expand semantic-layer references (metric:* in aggregations, dimension:* in
         // select/groupBy/computed) into concrete columns/expressions/extra filters BEFORE we
@@ -86,14 +111,35 @@ internal sealed partial class SqlCompiler : ICompiler
         if (spec.Limit.HasValue && spec.Limit.Value > _options.MaxRows)
             spec.Limit = _options.MaxRows;
 
+        if (spec.Offset.HasValue && spec.Offset.Value < 0) spec.Offset = null;
+        // Default a page size when offset is given alone — keeps the result bounded.
+        if (spec.Offset.HasValue && spec.Offset.Value > 0 && !spec.Limit.HasValue)
+            spec.Limit = _options.MaxRows;
+
         var referenced = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { spec.Root };
-        foreach (var c in spec.Select) AddTable(c, referenced);
-        foreach (var c in spec.GroupBy) AddTable(c, referenced);
+        foreach (var c in spec.Select)
+        {
+            if (LooksLikeColumnExpression(c)) AddTablesFromExpression(c, referenced);
+            else AddTable(c, referenced);
+        }
+        foreach (var c in spec.GroupBy)
+        {
+            if (LooksLikeColumnExpression(c)) AddTablesFromExpression(c, referenced);
+            else AddTable(c, referenced);
+        }
         foreach (var o in spec.OrderBy) AddTable(o.Column, referenced);
         foreach (var f in spec.Filters) AddTable(f.Column, referenced);
         foreach (var a in spec.Aggregations)
         {
             if (a.Column == "*") continue;
+            // Inline expressions (CASE WHEN, FORMAT, DATEDIFF, etc.) reference tables that the
+            // bare-AddTable path can't extract. Scan the expression text so the join graph
+            // discovers e.g. TicketStatuses in a SUM(CASE WHEN TicketStatuses.Name=... ).
+            if (LooksLikeColumnExpression(a.Column))
+            {
+                AddTablesFromExpression(a.Column, referenced);
+                continue;
+            }
             if (a.Column.StartsWith("expr:", StringComparison.OrdinalIgnoreCase))
             {
                 // Folded inline expression (RewriteInvalidStarAggregates) — scan the expression
@@ -178,7 +224,17 @@ internal sealed partial class SqlCompiler : ICompiler
             return EmitPeriodComparison(spec, joinEdges, joinKindByTable);
 
         ApplyDistinctGroupByNormalization(spec);
+        PromoteGroupByPkToLabel(spec);
+        // DropAggregatedColumnsFromSelect is now a SpecRepair phase (runs upstream).
         ApplyAutoGroupByInference(spec);
+        // Aggregate-only queries return one row; drop any offset rather than synthesize an illegal ORDER BY.
+        if (spec.Offset.HasValue && spec.Offset.Value > 0
+            && spec.Aggregations.Any(a => NormalizeAggFn(a.Function) is not null)
+            && spec.GroupBy.Count == 0)
+        {
+            spec.Offset = null;
+        }
+        EnsureOrderByForPagination(spec);
 
         BuildSelect(spec, sb);
         BuildFrom(spec, joinEdges, joinKindByTable, sb);
@@ -186,22 +242,64 @@ internal sealed partial class SqlCompiler : ICompiler
         BuildGroupBy(spec, sb);
         BuildHaving(spec, sb, parameters, ref paramIndex);
         BuildOrderBy(spec, sb);
+        BuildOffsetFetch(spec, sb);
 
-        return new CompiledSql(sb.ToString().TrimEnd() + ";", parameters);
+        return new CompiledSql(
+            sb.ToString().TrimEnd() + ";",
+            parameters,
+            Warnings: _warnings.Count > 0 ? _warnings : null);
     }
 
-    // DISTINCT and GROUP BY express overlapping intent — when an LLM emits both, the result
-    // is malformed SQL (SELECT-list columns that aren't in GROUP BY trigger error 8120).
-    // Universal normalization: when distinct:true is set with no real aggregations, drop
-    // any GROUP BY — DISTINCT subsumes it. With aggregations the GROUP BY is load-bearing,
-    // so we leave it alone and let the SELECT speak through GROUP BY semantics.
+    // T-SQL OFFSET/FETCH requires ORDER BY. Pick deterministically without hardcoded column names:
+    //   1. first GROUP BY column (always legal under aggregations) →
+    //   2. semantic-layer NaturalKeyColumn (stable, human-meaningful) →
+    //   3. live-schema PK (always present on a real table) →
+    //   4. abort (don't synthesize garbage)
+    private void EnsureOrderByForPagination(QuerySpec spec)
+    {
+        if (!(spec.Offset is > 0)) return;
+        if (spec.OrderBy.Count > 0) return;
+        if (string.IsNullOrEmpty(spec.Root)) return;
+
+        if (spec.GroupBy.Count > 0)
+        {
+            spec.OrderBy.Add(new OrderBySpec { Column = spec.GroupBy[0], Direction = "asc" });
+            return;
+        }
+
+        var entity = _semanticLayer.GetEntityForTable(spec.Root);
+        string? column = null;
+        if (entity is not null
+            && !string.IsNullOrWhiteSpace(entity.NaturalKeyColumn)
+            && _catalog.ColumnExists(spec.Root, entity.NaturalKeyColumn!))
+        {
+            column = entity.NaturalKeyColumn;
+        }
+        column ??= ResolvePrimaryKey(spec.Root);
+        if (string.IsNullOrEmpty(column)) return;
+        spec.OrderBy.Add(new OrderBySpec { Column = $"{spec.Root}.{column}", Direction = "asc" });
+    }
+
+    private void BuildOffsetFetch(QuerySpec spec, StringBuilder sb)
+    {
+        // For MSSQL the limit travels via TOP in BuildSelect (LimitGoesBeforeColumns=true); this
+        // clause only fires when offset > 0 and emits OFFSET-FETCH. For dialects with a trailing
+        // LIMIT (Postgres / SQLite / MySQL), the dialect emits "LIMIT N [OFFSET M]" here for any
+        // non-zero bound and BuildSelect's TopClause was a no-op.
+        var clause = _dialect.LimitOffsetClause(spec.Limit, spec.Offset);
+        if (string.IsNullOrEmpty(clause)) return;
+        sb.AppendLine(clause);
+    }
+
+    // GROUP BY without aggregations is almost always wrong — it forces SQL Server to reject any non-grouped SELECT column (error 8120). The LLM occasionally emits a stray GROUP BY on a question that should be a plain list. Drop it.
+    // Also covers the previous DISTINCT+GROUP BY case: DISTINCT subsumes GROUP BY when there are no aggregations.
     private void ApplyDistinctGroupByNormalization(QuerySpec spec)
     {
-        if (spec.Distinct && spec.GroupBy.Count > 0 &&
-            !spec.Aggregations.Any(a => NormalizeAggFn(a.Function) is not null))
-        {
-            spec.GroupBy.Clear();
-        }
+        if (spec.GroupBy.Count == 0) return;
+        var hasAggs = spec.Aggregations.Any(a => NormalizeAggFn(a.Function) is not null)
+                      || spec.Select.Any(LooksLikeAggregateExpression)
+                      || spec.Computed.Any(c => LooksLikeAggregateExpression(c.Expression));
+        if (!hasAggs) spec.GroupBy.Clear();
     }
 
     // Auto-GROUP-BY inference: when the spec has aggregations + non-aggregate SELECT
@@ -209,18 +307,71 @@ internal sealed partial class SqlCompiler : ICompiler
     // Without this fix, BuildSelect silently drops the non-aggregate columns (because
     // they're not in GROUP BY) and the user gets a scalar count instead of the per-group
     // breakdown they asked for.
+    // GROUP BY on a PK column with aggregations produces one-row-per-row counts (COUNT(*)=1 always) — useless.
+    // Promote `GROUP BY <T>.<PK>` → `GROUP BY <T>.<LabelColumn>` using the SEMANTIC LAYER (no hardcoded column-name list).
+    private void PromoteGroupByPkToLabel(QuerySpec spec)
+    {
+        if (spec.GroupBy.Count == 0) return;
+        var hasAggs = spec.Aggregations.Any(a => NormalizeAggFn(a.Function) is not null)
+                      || spec.Select.Any(LooksLikeAggregateExpression);
+        if (!hasAggs) return;
+        for (int i = 0; i < spec.GroupBy.Count; i++)
+        {
+            var (table, col) = SplitQualified(spec.GroupBy[i]);
+            if (string.IsNullOrEmpty(table) || string.IsNullOrEmpty(col)) continue;
+            var pkCol = ResolvePrimaryKey(table);
+            if (string.IsNullOrEmpty(pkCol) || !string.Equals(col, pkCol, StringComparison.OrdinalIgnoreCase)) continue;
+            var label = ResolveLabelColumn(table);
+            if (string.IsNullOrEmpty(label)) continue;
+            var newRef = $"{table}.{label}";
+            spec.GroupBy[i] = newRef;
+            // Mirror in SELECT so the projection follows the GROUP BY swap.
+            for (int j = 0; j < spec.Select.Count; j++)
+            {
+                var (st, sc) = SplitQualified(spec.Select[j]);
+                if (string.Equals(st, table, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(sc, pkCol, StringComparison.OrdinalIgnoreCase))
+                {
+                    spec.Select[j] = newRef;
+                }
+            }
+        }
+    }
+
+    // First PK column from live introspection — null if the table has no PK declared.
+    private string? ResolvePrimaryKey(string table) =>
+        _catalog.Snapshot.KeyConstraints
+            .Where(k => string.Equals(k.TableName, table, StringComparison.OrdinalIgnoreCase)
+                     && string.Equals(k.ConstraintType, "PRIMARY KEY", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).FirstOrDefault();
+
+    // Semantic-layer-driven label resolution. Priority: EntityDefinition.LabelColumn → first DisplayColumns entry → null.
+    // No hardcoded column-name list; if the semantic layer doesn't know a label for the table, we don't guess.
+    private string? ResolveLabelColumn(string table)
+    {
+        var entity = _semanticLayer.GetEntityForTable(table);
+        if (entity is null) return null;
+        if (!string.IsNullOrWhiteSpace(entity.LabelColumn) && _catalog.ColumnExists(table, entity.LabelColumn!))
+            return entity.LabelColumn;
+        foreach (var c in entity.DisplayColumns)
+            if (!string.IsNullOrWhiteSpace(c) && _catalog.ColumnExists(table, c))
+                return c;
+        return null;
+    }
+
     private void ApplyAutoGroupByInference(QuerySpec spec)
     {
-        var hasAggsForInference = spec.Aggregations.Any(a => NormalizeAggFn(a.Function) is not null);
+        // Detect aggregations from Aggregations[] OR from inline AVG()/SUM()/etc. expressions in Select[].
+        // Inline form is common when the LLM emits `select:["AVG(X) AS y","Customers.Id AS c"]` instead of populating Aggregations[].
+        var hasAggsForInference = spec.Aggregations.Any(a => NormalizeAggFn(a.Function) is not null)
+                                  || spec.Select.Any(LooksLikeAggregateExpression);
         if (!hasAggsForInference || spec.GroupBy.Count != 0 || spec.Select.Count == 0) return;
 
-        // C13 — skip raw datetime columns. Inferring GROUP BY off a millisecond-precision
-        // datetime produces one bucket per row, which is the opposite of what the user wants.
-        // If they want a per-period count they need a Computed bucket alias (FORMAT/CAST AS DATE);
-        // the LLM's worked examples teach that pattern. When no bucket exists, drop the date
-        // column from auto-GROUP-BY rather than detonate the result set.
+        // C13 — skip raw datetime columns. Inferring GROUP BY off a millisecond-precision datetime produces one bucket per row.
+        // Also skip the inline-aggregate expressions themselves (they're the "aggregation side", not the group side).
         foreach (var col in spec.Select)
         {
+            if (LooksLikeAggregateExpression(col)) continue;
             if (!TryFormatColumn(col, out _)) continue;
             if (IsRawDateTimeColumn(col)) continue;
             spec.GroupBy.Add(col);
@@ -259,7 +410,10 @@ internal sealed partial class SqlCompiler : ICompiler
             BuildHaving(legSpec, sb, parameters, ref paramIndex);
         }
 
-        return new CompiledSql(sb.ToString().TrimEnd() + ";", parameters);
+        return new CompiledSql(
+            sb.ToString().TrimEnd() + ";",
+            parameters,
+            Warnings: _warnings.Count > 0 ? _warnings : null);
     }
 
     // Shallow-clone the spec with leg-specific overlays:
@@ -283,6 +437,8 @@ internal sealed partial class SqlCompiler : ICompiler
             Having = new List<HavingSpec>(spec.Having),
             Joins = new List<JoinSpec>(spec.Joins),
             Limit = spec.Limit,
+            // UNION ALL legs can't carry independent OFFSET; would need outer-SELECT wrap.
+            Offset = null,
             Distinct = spec.Distinct,
             ClarificationQuestion = spec.ClarificationQuestion,
             // PeriodComparisons intentionally empty.
@@ -461,30 +617,34 @@ internal sealed partial class SqlCompiler : ICompiler
     }
 
     /// <summary>
-    /// Final-pass alias-dedup helper for BuildSelect. Walks the list of "expr AS [alias]"
-    /// strings and renames duplicates to "[alias_2]", "[alias_3]", etc. Items without an explicit
-    /// alias (a bare column ref like `[Tickets].[Title]`) are left alone — collision-handling for
-    /// those happens in the bare-name pre-pass at the top of BuildSelect.
+    /// Final-pass alias-dedup helper for BuildSelect. Walks the list of <c>expr AS &lt;quotedAlias&gt;</c>
+    /// strings and renames duplicates to <c>alias_2</c>, <c>alias_3</c>, etc. Items without an explicit
+    /// alias (a bare column ref) are left alone — collision-handling for those happens in the bare-
+    /// name pre-pass at the top of BuildSelect. The parser uses the dialect's identifier-quote chars,
+    /// so the dedup works for any dialect (T-SQL <c>[…]</c>, Postgres <c>"…"</c>).
     /// </summary>
-    private static void DedupeAliasesInPlace(List<string> items)
+    private void DedupeAliasesInPlace(List<string> items)
     {
+        var qOpen = _dialect.IdentifierQuoteOpen;
+        var qClose = _dialect.IdentifierQuoteClose;
+        var asMarker = " AS " + qOpen;
         var seen = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            // Match "... AS [<alias>]" at the very end. Anchor on " AS [" + closing "]".
-            var asIdx = item.LastIndexOf(" AS [", StringComparison.OrdinalIgnoreCase);
-            if (asIdx < 0 || !item.EndsWith("]")) continue;
-            var aliasStart = asIdx + " AS [".Length;
-            var alias = item.Substring(aliasStart, item.Length - aliasStart - 1);   // trim the "]"
+            // Match "... AS <quotedAlias>" at the very end. Anchor on " AS " + qOpen + ... + qClose.
+            var asIdx = item.LastIndexOf(asMarker, StringComparison.OrdinalIgnoreCase);
+            if (asIdx < 0 || item.Length == 0 || item[^1] != qClose) continue;
+            var aliasStart = asIdx + asMarker.Length;
+            var alias = item.Substring(aliasStart, item.Length - aliasStart - 1);   // trim trailing qClose
             if (string.IsNullOrEmpty(alias)) continue;
 
             if (!seen.TryAdd(alias, 1)) // already-used alias
             {
                 seen[alias]++;
                 var newAlias = $"{alias}_{seen[alias]}";
-                // Rebuild item: keep everything before " AS [", append new alias.
-                items[i] = item.Substring(0, asIdx) + " AS [" + newAlias + "]";
+                // Rebuild item: keep everything before " AS ", append re-quoted new alias.
+                items[i] = item.Substring(0, asIdx) + " AS " + _dialect.QuoteIdentifier(newAlias);
                 seen[newAlias] = 1;     // reserve the new alias too
             }
         }
@@ -537,232 +697,7 @@ internal sealed partial class SqlCompiler : ICompiler
         }
     }
 
-    private void BuildSelect(QuerySpec spec, StringBuilder sb)
-    {
-        sb.Append("SELECT ");
-        if (spec.Distinct) sb.Append("DISTINCT ");
-        if (spec.Limit.HasValue && spec.Limit.Value > 0)
-            sb.Append("TOP (").Append(spec.Limit.Value).Append(") ");
-
-        // GROUP BY safety: when aggregations are present, every non-aggregate column in the
-        // SELECT list must also appear in GROUP BY (SQL Server otherwise rejects the query
-        // with "Column ... is invalid in the select list because it is not contained in
-        // either an aggregate function or the GROUP BY clause"). Drop offenders rather than
-        // emit invalid SQL.
-        var hasAggregations = spec.Aggregations.Any(a => NormalizeAggFn(a.Function) is not null);
-        var groupBySet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        // F1 — nullable GROUP BY columns get wrapped with ISNULL so the NULL bucket has a
-        // human-readable label ("(Unassigned)") instead of a blank row. The map is shared
-        // between BuildSelect (this method) and BuildGroupBy via _groupByDisplayMap so both
-        // emit the same lexical expression — required by SQL Server's GROUP BY identity rule.
-        _groupByDisplayMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (hasAggregations)
-        {
-            foreach (var g in spec.GroupBy)
-            {
-                if (!TryFormatColumn(g, out var f)) continue;
-                groupBySet.Add(f);
-                if (TryWrapNullableGroupKey(g, out var wrapped, out var wasWrapped) && wasWrapped)
-                    _groupByDisplayMap[f] = wrapped;
-            }
-        }
-
-        // Pre-pass: detect bare-column-name collisions across selected columns coming from
-        // different tables (e.g. TicketStatuses.Name + TicketPriorities.Name). When two
-        // selected columns share the bare name, the result-row Dictionary collapses them
-        // under one key — second value wins, first column's data is silently lost.
-        // Fix: alias colliding columns with their table prefix ("TicketStatuses_Name") so
-        // the reader sees distinct keys and the LLM explainer sees unambiguous labels.
-        var bareCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var col in spec.Select)
-        {
-            var (_, bare) = SplitQualified(col);
-            if (string.IsNullOrEmpty(bare)) continue;
-            bareCounts[bare] = bareCounts.GetValueOrDefault(bare) + 1;
-        }
-
-        var items = new List<string>();
-        foreach (var col in spec.Select)
-        {
-            if (!TryFormatColumn(col, out var f)) continue;
-            if (hasAggregations && !groupBySet.Contains(f))
-                continue; // would violate aggregate/GROUP BY rule
-            var (table, bare) = SplitQualified(col);
-            // PII denylist (#55) — refuse to emit any column declared sensitive in the semantic
-            // layer. Defence in depth: the executor also masks these post-fetch in case a query
-            // bypasses the compiler (e.g. * expansion or future raw-SQL paths).
-            if (!string.IsNullOrEmpty(table) && !string.IsNullOrEmpty(bare)
-                && _semanticLayer.IsSensitiveColumn(table, bare))
-            {
-                continue;
-            }
-            // F1 — if this column is a nullable GROUP BY target, swap in the ISNULL-wrapped
-            // expression with an explicit AS [bare] so the column reads naturally in the reply
-            // table AND the GROUP BY emitter (BuildGroupBy) uses the lexically-identical form.
-            if (_groupByDisplayMap.TryGetValue(f, out var wrappedExpr))
-            {
-                items.Add($"{wrappedExpr} AS [{bare}]");
-            }
-            else if (!string.IsNullOrEmpty(bare)
-                && bareCounts.TryGetValue(bare, out var cnt) && cnt > 1
-                && !string.IsNullOrEmpty(table))
-            {
-                // J2 — alias colliding columns. For the common case "Table.Name" + "Table2.Name"
-                // (two lookup labels in one query), use the singularised table name as the alias
-                // so the user sees "Status" + "Priority", not "TicketStatuses_Name" + "TicketPriorities_Name".
-                // Falls back to "Table_Column" for any other column-name collision.
-                var friendly = string.Equals(bare, "Name", StringComparison.OrdinalIgnoreCase)
-                    ? SingulariseTableForAlias(table)
-                    : $"{table}_{bare}";
-                items.Add($"{f} AS [{friendly}]");
-            }
-            else
-            {
-                items.Add(f);
-            }
-        }
-
-        foreach (var a in spec.Aggregations)
-        {
-            var fn = NormalizeAggFn(a.Function);
-            if (fn is null) continue;
-
-            // Reject AVG/SUM/MIN/MAX(*) — invalid T-SQL. RewriteInvalidStarAggregates folds these
-            // into "expr:<expression>" when a Computed expression matches; if it didn't fold, we
-            // skip rather than emit broken SQL. (COUNT(*) is the one legit star-aggregate.)
-            if (a.Column == SpecConst.Aggregates.Star && fn != SpecConst.Aggregates.Count) continue;
-
-            string colExpr;
-            if (a.Column == "*")
-            {
-                colExpr = "*";
-            }
-            else if (a.Column.StartsWith("expr:", StringComparison.OrdinalIgnoreCase))
-            {
-                // RewriteInvalidStarAggregates folded a per-row expression into this aggregate's
-                // column slot. Render it inline (with column qualification) instead of as a
-                // Table.Column reference, since it's not a real catalog column.
-                var raw = a.Column.Substring("expr:".Length);
-                colExpr = QualifyColumnsInExpression(StripTrailingAlias(raw), spec.Root);
-            }
-            else if (!TryFormatColumn(a.Column, out var f)) continue;
-            else colExpr = f;
-
-            // Distinct aggregates (COUNT(DISTINCT col), SUM(DISTINCT col), AVG(DISTINCT col)) —
-            // applies only when a real column is named, not "*". COUNT(DISTINCT *) isn't valid SQL.
-            var inner = a.Distinct && colExpr != "*" ? $"DISTINCT {colExpr}" : colExpr;
-            var alias = string.IsNullOrWhiteSpace(a.Alias) ? fn : a.Alias;
-            items.Add($"{fn}({inner}) AS [{alias}]");
-        }
-
-        // Computed columns: rendered verbatim with an alias. The validator's AST pass catches
-        // anything that names a non-existent table/column; we don't try to be the validator here.
-        foreach (var comp in spec.Computed)
-        {
-            if (string.IsNullOrWhiteSpace(comp.Expression)) continue;
-            // Strip a trailing " AS xxx" the planner sometimes emits inside the expression —
-            // we always append our own "AS [<alias>]" below, and double-AS parses as a syntax
-            // error in SQL Server ("Incorrect syntax near 'AS'").
-            var rawExpr = StripTrailingAlias(comp.Expression);
-            var expr = QualifyColumnsInExpression(rawExpr, spec.Root);
-            var alias = string.IsNullOrWhiteSpace(comp.Alias) ? "Computed" : comp.Alias;
-            items.Add($"{expr} AS [{alias}]");
-        }
-
-        // Default to "*" ONLY when the query has no aggregations and no GROUP BY. With either
-        // present, SELECT * expands to non-aggregate columns that violate SQL Server's
-        // aggregate/GROUP BY rule ("Column ... is invalid in the select list because it is not
-        // contained in either an aggregate function or the GROUP BY clause"). In that case emit
-        // the GROUP BY columns instead — they're guaranteed legal — or fall back to COUNT(*) if
-        // there are aggregations but everything else got filtered out.
-        if (items.Count == 0)
-        {
-            if (hasAggregations || spec.GroupBy.Count > 0)
-            {
-                foreach (var g in spec.GroupBy)
-                    if (TryFormatColumn(g, out var f)) items.Add(f);
-                if (items.Count == 0 && hasAggregations) items.Add("COUNT(*) AS [Count]");
-            }
-            if (items.Count == 0)
-            {
-                // Build a meaningful default SELECT rather than star-expand. Order matters:
-                //   1. Root entity's DisplayColumns from the semantic layer (id + title + …).
-                //   2. Every FILTER column that resolves to a joined table.
-                //      ── This addresses the recurring complaint that questions like
-                //         "Show open critical tickets" filter on TicketStatuses.Name='Open'
-                //         but never project that column — the user can't see WHY rows matched.
-                //   3. Fall back to "*" only when neither source yielded anything (no semantic
-                //      layer entry AND no filters).
-                var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var d in DefaultDisplayColumns(spec.Root))
-                {
-                    if (TryFormatColumn(d, out var df) && added.Add(df)) items.Add(df);
-                }
-                foreach (var fil in spec.Filters)
-                {
-                    if (string.IsNullOrWhiteSpace(fil.Column)) continue;
-                    var (tbl, _) = SplitQualified(fil.Column);
-                    if (string.IsNullOrEmpty(tbl)) continue;
-                    if (string.Equals(tbl, spec.Root, StringComparison.OrdinalIgnoreCase)) continue;
-                    if (TryFormatColumn(fil.Column, out var ff) && added.Add(ff)) items.Add(ff);
-                }
-                if (items.Count == 0) items.Add("*");
-            }
-        }
-
-        // Final-pass alias dedup (#41) — the three SELECT sources (real columns / aggregates /
-        // computed) can independently produce the same alias (e.g., aggregate alias "Count" AND
-        // a Computed alias "Count"). When that happens the result Dictionary collapses the
-        // second under the first key, silently losing data. Walk the items list once, track
-        // assigned aliases, and rename collisions to "<alias>_2", "<alias>_3", etc.
-        DedupeAliasesInPlace(items);
-        sb.AppendLine(string.Join(", ", items));
-    }
-
-    /// <summary>
-    /// Pick a sensible default SELECT list for the root entity when the planner left
-    /// <see cref="QuerySpec.Select"/> empty. Preference order:
-    ///   1. Configured <c>EntityDefinition.DisplayColumns</c> (catalog-verified).
-    ///   2. PK column "Id" + natural-key column + label column ("Name", "Title", "Code", etc.)
-    ///   3. Empty list → caller falls back to "*" elsewhere.
-    /// Mirrors <c>ShapeBase.PickDisplayColumns</c> but lives in the compiler so it runs even
-    /// for planner-emitted specs that the shape engine didn't produce.
-    /// </summary>
-    private IEnumerable<string> DefaultDisplayColumns(string table)
-    {
-        if (string.IsNullOrEmpty(table) || !_catalog.TableExists(table)) yield break;
-        var e = _semanticLayer.GetEntityForTable(table);
-        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (e is not null && e.DisplayColumns is { Count: > 0 })
-        {
-            foreach (var c in e.DisplayColumns)
-            {
-                if (string.IsNullOrEmpty(c)) continue;
-                if (!_catalog.ColumnExists(table, c)) continue;
-                var q = $"{table}.{c}";
-                if (emitted.Add(q)) yield return q;
-            }
-            if (emitted.Count > 0) yield break;
-        }
-        // Fallback chain — only fires when DisplayColumns is missing or every entry was stale.
-        if (_catalog.ColumnExists(table, "Id"))
-        {
-            var q = $"{table}.Id";
-            if (emitted.Add(q)) yield return q;
-        }
-        if (e is not null && !string.IsNullOrEmpty(e.NaturalKeyColumn)
-            && _catalog.ColumnExists(table, e.NaturalKeyColumn!))
-        {
-            var q = $"{table}.{e.NaturalKeyColumn}";
-            if (emitted.Add(q)) yield return q;
-        }
-        foreach (var name in new[] { "Name", "Title", "Code", "DisplayName", "Label", "UserName" })
-        {
-            if (!_catalog.ColumnExists(table, name)) continue;
-            var q = $"{table}.{name}";
-            if (emitted.Add(q)) { yield return q; break; }
-        }
-    }
+    // BuildSelect + DefaultDisplayColumns moved to SqlCompiler.Select.cs.
 
     /// <summary>
     /// Quote/bracket-aware rewrite of column tokens inside a free-form expression.
@@ -859,7 +794,7 @@ internal sealed partial class SqlCompiler : ICompiler
                         && !DatePartKeywords.Contains(innerName)
                         && _catalog.ColumnExists(rootTable, innerName))
                     {
-                        sb.Append('[').Append(rootTable).Append("].[").Append(innerName).Append(']');
+                        sb.Append(_dialect.QuoteQualified(rootTable, innerName));
                     }
                     else
                     {
@@ -904,7 +839,7 @@ internal sealed partial class SqlCompiler : ICompiler
                     && !DatePartKeywords.Contains(word)
                     && _catalog.ColumnExists(rootTable, word))
                 {
-                    sb.Append('[').Append(rootTable).Append("].[").Append(word).Append(']');
+                    sb.Append(_dialect.QuoteQualified(rootTable, word));
                 }
                 else
                 {
@@ -927,7 +862,7 @@ internal sealed partial class SqlCompiler : ICompiler
     private void EmitTableColumn(StringBuilder sb, string tableName, string columnName, string? rootTable)
     {
         if (_catalog.TableExists(tableName) && _catalog.ColumnExists(tableName, columnName))
-            sb.Append('[').Append(tableName).Append("].[").Append(columnName).Append(']');
+            sb.Append(_dialect.QuoteQualified(tableName, columnName));
         else
             sb.Append(tableName).Append('.').Append(columnName);
     }
@@ -1043,6 +978,23 @@ internal sealed partial class SqlCompiler : ICompiler
     }
 
     /// <summary>
+    /// Returns true when the string looks like a non-trivial column expression rather than
+    /// a bare <c>Table.Column</c> reference — i.e. a CASE WHEN, a function call (CAST, FORMAT,
+    /// DATEDIFF, ISNULL, COALESCE, etc.), or anything else containing parens / whitespace.
+    /// Used by BuildSelect to route aggregation columns and select items down the inline-
+    /// expression rendering path instead of letting TryFormatColumn drop them silently.
+    /// </summary>
+    private static bool LooksLikeColumnExpression(string columnRef)
+    {
+        if (string.IsNullOrWhiteSpace(columnRef)) return false;
+        // Parens, brackets-with-spaces, or any embedded whitespace = expression, not a ref.
+        if (columnRef.Contains('(') || columnRef.Contains(')')) return true;
+        // A "Table.Column" is the only valid bare form; anything with internal whitespace is an expr.
+        var trimmed = columnRef.Trim();
+        return trimmed.Contains(' ') || trimmed.Contains('\t');
+    }
+
+    /// <summary>
     /// B12 — when an FkEdge connects two tables that have multiple FK constraints between them,
     /// prefer the FK whose ParentColumn (the column on the FK side) is mentioned somewhere in
     /// the spec's context (Select / Aggregations / GroupBy / OrderBy / Filters). This is how we
@@ -1149,10 +1101,6 @@ internal sealed partial class SqlCompiler : ICompiler
     private static string SingulariseTableForAlias(string table)
     {
         if (string.IsNullOrEmpty(table)) return table;
-        // Strip a leading "Ticket" prefix when present so "TicketStatuses" reads as "Status".
-        // Domain-shaped (any "<Department>Statuses" gets stripped to "Statuses"); kept conservative
-        // because the alternative — TicketStatuses + TicketPriorities — would otherwise produce
-        // "TicketStatuse" and "TicketPrioritie" via pure suffix stripping, which is worse.
         var bare = table;
         if (bare.EndsWith("ies", StringComparison.OrdinalIgnoreCase))
             bare = bare[..^3] + "y";              // Priorities → Priority, Categories → Category
@@ -1161,13 +1109,6 @@ internal sealed partial class SqlCompiler : ICompiler
         else if (bare.EndsWith("s", StringComparison.OrdinalIgnoreCase)
                  && !bare.EndsWith("ss", StringComparison.OrdinalIgnoreCase))
             bare = bare[..^1];                    // Users → User, Sources → Source
-        // Drop a "Ticket" / "User" entity prefix when its presence makes the alias verbose.
-        foreach (var pre in new[] { "Ticket", "User", "Application" })
-            if (bare.StartsWith(pre, StringComparison.OrdinalIgnoreCase) && bare.Length > pre.Length)
-            {
-                bare = bare.Substring(pre.Length);
-                break;
-            }
         return string.IsNullOrEmpty(bare) ? table : bare;
     }
 
@@ -1192,13 +1133,14 @@ internal sealed partial class SqlCompiler : ICompiler
         return $"{alias} ({unitLabel})";
     }
 
-    private static void BuildFrom(
+    private void BuildFrom(
         QuerySpec spec,
         IReadOnlyList<FkEdge> joinEdges,
         IReadOnlyDictionary<string, string> joinKindByTable,
         StringBuilder sb)
     {
-        sb.Append("FROM [").Append(spec.Root).Append("] AS [").Append(spec.Root).Append(']');
+        var rootQ = _dialect.QuoteIdentifier(spec.Root);
+        sb.Append("FROM ").Append(rootQ).Append(" AS ").Append(rootQ);
 
         foreach (var edge in joinEdges)
         {
@@ -1207,429 +1149,17 @@ internal sealed partial class SqlCompiler : ICompiler
             // target table (anti-joins also need an IS NULL filter, added in BuildWhere).
             var kind = joinKindByTable.TryGetValue(edge.TargetTable, out var k) ? k : "inner";
             var joinKeyword = kind is SpecConst.JoinKinds.Left or SpecConst.JoinKinds.Anti ? "LEFT JOIN" : "INNER JOIN";
+            var targetQ = _dialect.QuoteIdentifier(edge.TargetTable);
             sb.AppendLine();
-            sb.Append(joinKeyword).Append(" [").Append(edge.TargetTable).Append("] AS [").Append(edge.TargetTable).Append(']');
-            sb.Append(" ON [").Append(fk.ParentTable).Append("].[").Append(fk.ParentColumn).Append(']');
-            sb.Append(" = [").Append(fk.ReferencedTable).Append("].[").Append(fk.ReferencedColumn).Append(']');
+            sb.Append(joinKeyword).Append(' ').Append(targetQ).Append(" AS ").Append(targetQ);
+            sb.Append(" ON ").Append(_dialect.QuoteQualified(fk.ParentTable, fk.ParentColumn));
+            sb.Append(" = ").Append(_dialect.QuoteQualified(fk.ReferencedTable, fk.ReferencedColumn));
         }
         sb.AppendLine();
     }
 
-    private void BuildWhere(
-        QuerySpec spec,
-        StringBuilder sb,
-        Dictionary<string, object?> parameters,
-        ref int paramIndex,
-        IReadOnlyList<FkEdge>? joinEdges = null,
-        IReadOnlyDictionary<string, string>? joinKindByTable = null)
-    {
-        if ((spec.Filters is null || spec.Filters.Count == 0) &&
-            (joinEdges is null || joinEdges.Count == 0)) return;
+    // BuildWhere + filter rewrites + OR grouping + text-search + placeholder/temporal helpers moved to SqlCompiler.Where.cs.
 
-        // Collapse "same column, same op, multiple values" into a single OR group. Common case:
-        // user says "title contains 'error' OR 'fail'" but the planner emits two LIKE filters.
-        // Spec grammar has no OR — so without this, the compiler ANDs them and the query
-        // returns 0 rows (no single title contains both).
-        var groupedFilters = OrGroupFilters(spec.Filters ?? new List<FilterSpec>());
-
-        var pieces = new List<string>();
-        foreach (var group in groupedFilters)
-        {
-            // Single-filter group: original path.
-            if (group.Count == 1)
-            {
-                var filter = group[0];
-
-                // text_search — cross-column OR over the entity's SearchableColumns. The user
-                // typed "tickets about login" and the planner emitted op:"text_search". We expand
-                // it here into "(Title LIKE '%X%' OR Description LIKE '%X%' OR ...)" — which the
-                // existing OrGroupFilters logic can't produce because it only groups same-column
-                // same-op filters.
-                if (string.Equals(filter.Op, SpecConst.FilterOps.TextSearch, StringComparison.OrdinalIgnoreCase))
-                {
-                    var clauseTs = BuildTextSearchClause(spec.Root, filter, parameters, ref paramIndex);
-                    if (!string.IsNullOrEmpty(clauseTs)) pieces.Add(clauseTs);
-                    continue;
-                }
-
-                // Rewrite BEFORE formatting so a lookup-name filter (StatusId='Closed' →
-                // TicketStatuses.Name='Closed') gets formatted with the new column path.
-                var rewritten = ApplyFilterRewrite(filter);
-                if (!TryFormatColumn(rewritten.Column, out var col)) continue;
-                var clause = BuildFilterClause(col, rewritten, parameters, ref paramIndex);
-                if (!string.IsNullOrEmpty(clause)) pieces.Add(clause);
-                continue;
-            }
-
-            // Multi-filter group on same column+op: emit "(c1 OR c2 OR c3)".
-            // Apply the rewrite to the FIRST filter to derive the shared column path.
-            var firstRewritten = ApplyFilterRewrite(group[0]);
-            if (!TryFormatColumn(firstRewritten.Column, out var sharedCol)) continue;
-            var sub = new List<string>();
-            foreach (var filter in group)
-            {
-                var rewritten = ApplyFilterRewrite(filter);
-                var clause = BuildFilterClause(sharedCol, rewritten, parameters, ref paramIndex);
-                if (!string.IsNullOrEmpty(clause)) sub.Add(clause);
-            }
-            if (sub.Count == 1) pieces.Add(sub[0]);
-            else if (sub.Count > 1) pieces.Add("(" + string.Join(" OR ", sub) + ")");
-        }
-
-        // Anti-join IS NULL clauses: for each LEFT JOIN target declared as "anti", add
-        // "<target>.<referenced PK column> IS NULL" so the query returns root rows that have NO
-        // matching related row.
-        if (joinEdges is not null && joinKindByTable is not null)
-        {
-            foreach (var edge in joinEdges)
-            {
-                if (!joinKindByTable.TryGetValue(edge.TargetTable, out var k) || k != SpecConst.JoinKinds.Anti) continue;
-                var fk = edge.Fk;
-                // The "PK" side of the FK (the side that lives in the related table). For an
-                // anti-join we test that side for NULL — when LEFT JOIN found no row, every
-                // related-table column is NULL.
-                var antiCol = string.Equals(fk.ParentTable, edge.TargetTable, StringComparison.OrdinalIgnoreCase)
-                    ? $"[{fk.ParentTable}].[{fk.ParentColumn}]"
-                    : $"[{fk.ReferencedTable}].[{fk.ReferencedColumn}]";
-                pieces.Add($"{antiCol} IS NULL");
-            }
-        }
-
-        if (pieces.Count == 0) return;
-        sb.Append("WHERE ").AppendLine(string.Join(" AND ", pieces));
-    }
-
-    /// <summary>
-    /// Apply value-synonym rewrite ("urgent" → "Critical") for column-context synonyms declared
-    /// in the semantic layer. Returns either the original filter or a new one with the canonical
-    /// value. No-op for null values, @-tokens, and arrays.
-    /// </summary>
-    private FilterSpec ApplySynonymRewrite(FilterSpec filter)
-    {
-        if (filter.Value is not string sv || sv.Length == 0 || sv[0] == '@') return filter;
-        var canonical = _semanticLayer.ResolveSynonymValue(filter.Column, sv);
-        if (ReferenceEquals(canonical, sv) || string.Equals(canonical, sv, StringComparison.Ordinal))
-            return filter;
-        return new FilterSpec { Column = filter.Column, Op = filter.Op, Value = canonical };
-    }
-
-    /// <summary>
-    /// Combined filter rewrite passing through the value-synonym rewrite (above) AND two new
-    /// fixes from the assessment:
-    /// <list type="bullet">
-    ///   <item>#5 — <b>Lookup-name filter</b>: when filter is <c>&lt;T&gt;.&lt;XId&gt; eq '&lt;string&gt;'</c>
-    ///   and X is an FK to a table with a label column (Name / Title / Code / UserName), rewrite to
-    ///   <c>&lt;RefTable&gt;.&lt;LabelCol&gt; eq '&lt;string&gt;'</c>. Fixes "Tickets without a closed
-    ///   date" planner emitting <c>StatusId = 'Closed'</c> (int FK vs string).</item>
-    ///   <item>#6 — <b>String-literal column reference</b>: filter value looks like
-    ///   <c>Table.Column</c> AND that column exists — drop the filter (it's a join condition the
-    ///   planner mistakenly stringified). Fixes "How many tickets have at least one attachment?"
-    ///   planner emitting <c>WHERE TicketAttachments.TicketId = 'Tickets.Id'</c>.</item>
-    /// </list>
-    /// All callers of <see cref="ApplySynonymRewrite"/> should now use this instead — the
-    /// value-synonym pass is preserved as the last step.
-    /// </summary>
-    private FilterSpec ApplyFilterRewrite(FilterSpec filter)
-    {
-        if (filter is null) return filter!;
-
-        // #6 — string-literal column reference: drop the filter when value is "Table.Column" and
-        // both halves resolve in the catalog. The compiler's join graph will already wire the
-        // referenced relationship via FK; a string-equals comparison would always be false.
-        if (filter.Value is string svRef)
-        {
-            if (Regex.IsMatch(svRef, @"^[A-Za-z_]\w*\.[A-Za-z_]\w*$"))
-            {
-                var (refTable, refCol) = SplitQualified(svRef);
-                if (!string.IsNullOrEmpty(refTable) && !string.IsNullOrEmpty(refCol)
-                    && _catalog.ColumnExists(refTable, refCol))
-                {
-                    // Drop the filter cleanly: the @-prefixed placeholder triggers
-                    // <see cref="IsPlaceholderToken"/> in BuildFilterClause, which returns null
-                    // (i.e. emits no predicate). The relationship is already wired by the join graph.
-                    return new FilterSpec { Column = filter.Column, Op = SpecConst.FilterOps.Eq, Value = "@drop_columnref" };
-                }
-            }
-        }
-
-        // #5 — lookup-name filter rewrite. Match shape "<T>.<X>Id" where X is alphabetic.
-        if (filter.Value is string svLookup && svLookup.Length > 0 && svLookup[0] != '@')
-        {
-            var rewritten = TryRewriteLookupNameFilter(filter, svLookup);
-            if (rewritten is not null) return ApplySynonymRewrite(rewritten);
-        }
-
-        return ApplySynonymRewrite(filter);
-    }
-
-    /// <summary>
-    /// Try to rewrite "<T>.<X>Id eq '<name>'" to "<RefTable>.<LabelCol> eq '<name>'" when the
-    /// FK to <RefTable> exists and <RefTable> has a recognisable label column. Returns null
-    /// when no rewrite applies (caller falls through).
-    /// </summary>
-    private FilterSpec? TryRewriteLookupNameFilter(FilterSpec filter, string stringValue)
-    {
-        var (table, col) = SplitQualified(filter.Column);
-        if (string.IsNullOrEmpty(table) || string.IsNullOrEmpty(col)) return null;
-        if (!col.EndsWith("Id", StringComparison.OrdinalIgnoreCase)) return null;
-        if (!_catalog.TableExists(table)) return null;
-        // Numeric value? Don't rewrite — user filtered by ID directly.
-        if (long.TryParse(stringValue, out _)) return null;
-
-        // Locate the FK with this column on the parent side.
-        var fk = _catalog.Snapshot.ForeignKeys.FirstOrDefault(f =>
-            string.Equals(f.ParentTable, table, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(f.ParentColumn, col, StringComparison.OrdinalIgnoreCase));
-        if (fk is null) return null;
-        if (!_catalog.TableExists(fk.ReferencedTable)) return null;
-
-        // Find a label column on the referenced table. Priority order matches the catalog's own.
-        string? labelCol = null;
-        foreach (var candidate in new[] { "Name", "UserName", "Title", "Code", "Label" })
-        {
-            if (_catalog.ColumnExists(fk.ReferencedTable, candidate)) { labelCol = candidate; break; }
-        }
-        if (labelCol is null) return null;
-
-        return new FilterSpec
-        {
-            Column = $"{fk.ReferencedTable}.{labelCol}",
-            Op = filter.Op,
-            Value = stringValue,
-        };
-    }
-
-    /// <summary>
-    /// Group adjacent filters that share (Column, Op) so they can render as a single OR group.
-    /// Only LIKE / eq / neq filters are grouped — operators where multiple values on the same
-    /// column logically mean "any of these". Filters on different columns or different ops stay
-    /// in their own single-element group (preserves AND semantics across groups).
-    /// </summary>
-    private static List<List<FilterSpec>> OrGroupFilters(List<FilterSpec> filters)
-    {
-        var groups = new List<List<FilterSpec>>();
-        foreach (var f in filters)
-        {
-            var op = (f.Op ?? SpecConst.FilterOps.Eq).ToLowerInvariant();
-            var groupable = op is SpecConst.FilterOps.Like or SpecConst.FilterOps.Eq or SpecConst.FilterOps.Neq or "ne";
-            if (groupable && groups.Count > 0)
-            {
-                var last = groups[^1];
-                var lastF = last[0];
-                var lastOp = (lastF.Op ?? SpecConst.FilterOps.Eq).ToLowerInvariant();
-                if (string.Equals(lastF.Column, f.Column, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(lastOp, op, StringComparison.OrdinalIgnoreCase))
-                {
-                    last.Add(f);
-                    continue;
-                }
-            }
-            groups.Add(new List<FilterSpec> { f });
-        }
-        return groups;
-    }
-
-    /// <summary>
-    /// Expands a text_search filter into a cross-column OR group:
-    /// <c>([Root].[Col1] LIKE @p AND ([Root].[Col2] LIKE @p OR ...))</c> across every column
-    /// listed in the entity's <see cref="EntityDefinition.SearchableColumns"/>. Returns null
-    /// when the entity has no searchable columns configured (skip the filter — let the planner
-    /// fall back to a column-specific LIKE if it can name one).
-    /// </summary>
-    private string? BuildTextSearchClause(
-        string rootTable, FilterSpec f, Dictionary<string, object?> parameters, ref int paramIndex)
-    {
-        if (string.IsNullOrEmpty(rootTable)) return null;
-        var entity = _semanticLayer.GetEntityForTable(rootTable);
-        if (entity is null || entity.SearchableColumns.Count == 0) return null;
-
-        var raw = ExtractValues(f.Value).FirstOrDefault();
-        if (raw is null) return null;
-        var phrase = raw.ToString() ?? "";
-        if (string.IsNullOrWhiteSpace(phrase)) return null;
-        if (IsPlaceholderToken(phrase)) return null;
-
-        // Wrap with % wildcards if the planner didn't already.
-        if (!phrase.Contains('%')) phrase = "%" + phrase + "%";
-
-        // Single shared parameter — same value, multiple columns. Avoids parameter-name churn.
-        var p = "@p" + paramIndex++;
-        parameters[p] = phrase;
-
-        var clauses = new List<string>();
-        foreach (var colName in entity.SearchableColumns)
-        {
-            if (!_catalog.ColumnExists(rootTable, colName)) continue;
-            clauses.Add($"[{rootTable}].[{colName}] LIKE {p}");
-        }
-        if (clauses.Count == 0) return null;
-        return clauses.Count == 1 ? clauses[0] : "(" + string.Join(" OR ", clauses) + ")";
-    }
-
-    private static string? BuildFilterClause(
-        string col, FilterSpec f, Dictionary<string, object?> parameters, ref int paramIndex)
-    {
-        var op = (f.Op ?? "eq").ToLowerInvariant();
-        switch (op)
-        {
-            case "isnull":  return $"{col} IS NULL";
-            case "notnull": return $"{col} IS NOT NULL";
-            case "in":
-            case "notin":
-            {
-                var values = ExtractValues(f.Value);
-                if (values.Length == 0) return null;
-                var paramNames = new List<string>(values.Length);
-                foreach (var v in values)
-                {
-                    if (IsPlaceholderToken(v)) return null; // see IsPlaceholderToken comment
-                    var p = "@p" + paramIndex++;
-                    parameters[p] = v ?? DBNull.Value;
-                    paramNames.Add(p);
-                }
-                return $"{col} {(op == "notin" ? "NOT IN" : "IN")} ({string.Join(", ", paramNames)})";
-            }
-            case SpecConst.FilterOps.Like:
-            {
-                var v = ExtractValues(f.Value).FirstOrDefault();
-                if (IsPlaceholderToken(v)) return null;
-                var p = "@p" + paramIndex++;
-                parameters[p] = v ?? DBNull.Value;
-                return $"{col} LIKE {p}";
-            }
-            case SpecConst.FilterOps.NotLike:
-            {
-                // J7 — without this branch the default arm fell through to `=`, silently
-                // converting `not_like '%error%'` into `= '%error%'` (i.e. equality against
-                // a literal that contains percent signs — almost always zero matches).
-                var v = ExtractValues(f.Value).FirstOrDefault();
-                if (IsPlaceholderToken(v)) return null;
-                var p = "@p" + paramIndex++;
-                parameters[p] = v ?? DBNull.Value;
-                return $"{col} NOT LIKE {p}";
-            }
-            default:
-            {
-                var sqlOp = op switch
-                {
-                    SpecConst.FilterOps.Eq  => "=",
-                    SpecConst.FilterOps.Neq => "<>",
-                    "ne"                    => "<>",
-                    SpecConst.FilterOps.Gt  => ">",
-                    SpecConst.FilterOps.Lt  => "<",
-                    SpecConst.FilterOps.Gte => ">=",
-                    SpecConst.FilterOps.Lte => "<=",
-                    _ => "="
-                };
-                var v = ExtractValues(f.Value).FirstOrDefault();
-                // Temporal token: "@today" / "@yesterday" / "@days:-7" / "@hours:-24" /
-                // "@weeks:-2" / "@months:-3" / "@month_start" / "@year_start" / "@week_start".
-                // These expand to inline SQL date math — NOT parameterized — so SQL Server
-                // sees real expressions instead of trying to compare against the literal token.
-                if (v is string s && TryExpandTemporalToken(s, out var sqlExpr))
-                    return $"{col} {sqlOp} {sqlExpr}";
-                if (IsPlaceholderToken(v)) return null;
-                var p = "@p" + paramIndex++;
-                parameters[p] = v ?? DBNull.Value;
-                return $"{col} {sqlOp} {p}";
-            }
-        }
-    }
-
-    /// <summary>
-    /// Returns true if the value is a planner-emitted placeholder string that should NEVER be
-    /// passed as a real filter value — e.g. "@p0", "@p1", "@param", "?". qwen2.5:3b sometimes
-    /// echoes the SQL parameter syntax it sees in retry prompts back into the spec as a literal
-    /// value, which then gets parameterized as the STRING "@p0" — breaking SQL Server with a
-    /// confusing nvarchar→int conversion error. Drop the filter rather than emit broken SQL.
-    /// Temporal tokens (@today, @days:-7, etc.) are handled separately above and never reach here.
-    /// </summary>
-    private static bool IsPlaceholderToken(object? value)
-    {
-        if (value is not string s || string.IsNullOrEmpty(s)) return false;
-        var t = s.Trim();
-        if (t == "?") return true;
-        if (t.Length < 2 || t[0] != '@') return false;
-        // "@p0" / "@p1" / "@param" / "@arg" / "@val" — anything that looks like a SQL placeholder name
-        // and isn't a temporal token. Temporal tokens are caught earlier; assume any remaining @-string
-        // here is a placeholder echo.
-        return true;
-    }
-
-    /// <summary>
-    /// Expands a temporal token (planner emits a string starting with '@') into an inline
-    /// T-SQL expression. Returning false means the token wasn't recognized; the caller falls
-    /// back to parameterizing the value as a normal string.
-    /// </summary>
-    private static bool TryExpandTemporalToken(string token, out string sqlExpr)
-    {
-        sqlExpr = "";
-        if (string.IsNullOrEmpty(token) || token[0] != '@') return false;
-        var t = token.AsSpan(1).Trim().ToString().ToLowerInvariant();
-
-        switch (t)
-        {
-            case "now":           sqlExpr = "GETDATE()"; return true;
-            case "today":         sqlExpr = "CAST(GETDATE() AS DATE)"; return true;
-            case "yesterday":     sqlExpr = "CAST(DATEADD(day, -1, GETDATE()) AS DATE)"; return true;
-            case "tomorrow":      sqlExpr = "CAST(DATEADD(day, 1, GETDATE()) AS DATE)"; return true;
-            case "today_start":
-            case "day_start":     sqlExpr = "CAST(GETDATE() AS DATE)"; return true;
-
-            // Current calendar boundaries.
-            case "week_start":    sqlExpr = "DATEADD(week, DATEDIFF(week, 0, GETDATE()), 0)"; return true;
-            case "month_start":   sqlExpr = "DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)"; return true;
-            case "year_start":    sqlExpr = "DATEFROMPARTS(YEAR(GETDATE()), 1, 1)"; return true;
-            case "quarter_start": sqlExpr = "DATEADD(quarter, DATEDIFF(quarter, 0, GETDATE()), 0)"; return true;
-
-            // Previous calendar boundaries — pair *_start with the next-period start as upper
-            // bound. Example for "last month":
-            //   filters: [
-            //     { col: "Tickets.CreatedAt", op: "gte", value: "@last_month_start" },
-            //     { col: "Tickets.CreatedAt", op: "lt",  value: "@month_start" }
-            //   ]
-            case "last_week_start":    sqlExpr = "DATEADD(week, DATEDIFF(week, 0, GETDATE()) - 1, 0)"; return true;
-            case "last_month_start":   sqlExpr = "DATEFROMPARTS(YEAR(DATEADD(month, -1, GETDATE())), MONTH(DATEADD(month, -1, GETDATE())), 1)"; return true;
-            case "last_year_start":    sqlExpr = "DATEFROMPARTS(YEAR(GETDATE()) - 1, 1, 1)"; return true;
-            case "last_quarter_start": sqlExpr = "DATEADD(quarter, DATEDIFF(quarter, 0, GETDATE()) - 1, 0)"; return true;
-        }
-
-        // "days:-7" / "hours:-24" / "weeks:-2" / "months:-3" / "years:-1"
-        var colonIdx = t.IndexOf(':');
-        if (colonIdx > 0 && colonIdx < t.Length - 1)
-        {
-            var unit = t[..colonIdx];
-            if (int.TryParse(t[(colonIdx + 1)..], out var offset))
-            {
-                var sqlUnit = unit switch
-                {
-                    "second" or "seconds" or "sec" => "second",
-                    "minute" or "minutes" or "min" => "minute",
-                    "hour" or "hours" or "hr"      => "hour",
-                    "day" or "days"                => "day",
-                    "week" or "weeks" or "wk"      => "week",
-                    "month" or "months" or "mo"    => "month",
-                    "year" or "years" or "yr"      => "year",
-                    _ => null
-                };
-                if (sqlUnit is not null)
-                {
-                    // Consistency with @today / @yesterday: day-or-coarser offsets are anchored to
-                    // the start of today (midnight) so range comparisons against datetime columns
-                    // include the full day. Without this, "@days:-7 at 14:00" excludes data from
-                    // 7 days ago between 00:00-14:00 — silently wrong. Sub-day units keep the time
-                    // component because the user is asking about a rolling window.
-                    var baseExpr = sqlUnit is "second" or "minute" or "hour"
-                        ? "GETDATE()"
-                        : "CAST(GETDATE() AS DATE)";
-                    sqlExpr = $"DATEADD({sqlUnit}, {offset}, {baseExpr})";
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
 
     // GROUP BY / HAVING / ORDER BY clause builders moved to SqlCompiler.Aggregation.cs.
     // BuildOrderBy stays here (still in this file below) until a deeper extraction; this is the
@@ -1703,7 +1233,7 @@ internal sealed partial class SqlCompiler : ICompiler
                 var bare = o.Column.Replace("[", "").Replace("]", "").Trim();
                 var aliasCandidate = bare.Contains('.') ? bare[(bare.LastIndexOf('.') + 1)..] : bare;
                 if (validAliases.Contains(aliasCandidate))
-                    colExpr = "[" + aliasCandidate + "]";
+                    colExpr = _dialect.QuoteIdentifier(aliasCandidate);
                 else
                     continue;
             }
@@ -1726,7 +1256,7 @@ internal sealed partial class SqlCompiler : ICompiler
                 var bare = o.Column.Replace("[", "").Replace("]", "").Trim();
                 var aliasCandidate = bare.Contains('.') ? bare[(bare.LastIndexOf('.') + 1)..] : bare;
                 if (validAliases.Contains(aliasCandidate))
-                    colExpr = "[" + aliasCandidate + "]";
+                    colExpr = _dialect.QuoteIdentifier(aliasCandidate);
                 else
                     continue; // phantom — skip rather than emit invalid SQL
             }

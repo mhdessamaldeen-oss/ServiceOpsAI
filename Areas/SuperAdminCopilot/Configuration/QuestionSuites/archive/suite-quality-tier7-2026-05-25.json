@@ -1,0 +1,31 @@
+{
+  "name": "Quality Tier 7 — conditional aggregation / side-by-side comparison",
+  "version": "1.0.0",
+  "description": "Side-by-side multi-bucket counts in one row via SUM(CASE WHEN ...). Expected = the value of one specific aggregate alias (verified manually below).",
+  "Scenarios": [
+    {
+      "Code": "QT7-OPEN-VS-CLOSED",
+      "Question": "compare open vs closed ticket counts",
+      "Category": "T7-CONDITIONAL-AGG",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedScalar": 33,
+      "ExpectedShape": "SELECT SUM(CASE WHEN Status='Open' THEN 1 ELSE 0 END) AS Open, SUM(CASE WHEN Status IN ('Closed','Resolved') THEN 1 ELSE 0 END) AS Closed — one row, two columns. First-cell scalar = Open count (33).",
+      "Notes": "Tests the conditional-aggregation worked-example. Grader checks the first cell (the open count, 33).",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT7-PAID-VS-OVERDUE",
+      "Question": "show bill counts for paid and overdue side by side",
+      "Category": "T7-CONDITIONAL-AGG",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 10862,
+      "ExpectedShape": "SELECT SUM(CASE WHEN Status='Paid' THEN 1 ELSE 0 END) AS Paid, SUM(CASE WHEN Status='Overdue' THEN 1 ELSE 0 END) AS Overdue — one row, two columns. First cell = Paid count (10862).",
+      "Notes": "Same shape as QT7-OPEN-VS-CLOSED but on Bills + different status values. Grader checks first cell = Paid count.",
+      "MaxLatencyMs": 60000
+    }
+  ]
+}

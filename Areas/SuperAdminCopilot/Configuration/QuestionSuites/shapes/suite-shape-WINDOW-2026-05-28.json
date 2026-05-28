@@ -1,0 +1,23 @@
+{
+  "name": "Shape: WINDOW functions (rank / running total / lag)",
+  "version": "1.0",
+  "description": "Window functions. Routes through QuestionShapeClassifier → LlmDirectSqlEmitter escape valve with shape-specific gold examples (added 2026-05-28). 7B model cannot reliably emit these without the worked example.",
+  "Scenarios": [
+    { "Code": "WIN-RANK-1", "Question": "rank customers by total billed amount", "Category": "shape:WINDOW/rank-sum", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+    { "Code": "WIN-RANK-2", "Question": "rank regions by number of outages", "Category": "shape:WINDOW/rank-count", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Regions", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+    { "Code": "WIN-RANK-3", "Question": "rank departments by average resolution time", "Category": "shape:WINDOW/rank-avg", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Departments", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+
+    { "Code": "WIN-RUN-1", "Question": "running total of bills issued per month", "Category": "shape:WINDOW/running-sum", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+    { "Code": "WIN-RUN-2", "Question": "cumulative tickets resolved per quarter", "Category": "shape:WINDOW/running-count+verb-resolved", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+    { "Code": "WIN-RUN-3", "Question": "running count of customers by signup date", "Category": "shape:WINDOW/running-count+signup", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+
+    { "Code": "WIN-LAG-1", "Question": "for each month show change in ticket count from previous month", "Category": "shape:WINDOW/lag-mom", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+    { "Code": "WIN-LAG-2", "Question": "month-over-month change in revenue", "Category": "shape:WINDOW/lag-revenue", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Bills", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+    { "Code": "WIN-LAG-3", "Question": "year over year ticket volume change", "Category": "shape:WINDOW/lag-yoy", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+
+    { "Code": "WIN-PCT-1", "Question": "median ticket resolution time", "Category": "shape:WINDOW/percentile-median", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Tickets", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+    { "Code": "WIN-PCT-2", "Question": "p95 of outage duration in hours", "Category": "shape:WINDOW/percentile-p95", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Outages", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 },
+
+    { "Code": "WIN-AR-1", "Question": "ترتيب العملاء حسب إجمالي الفواتير", "Category": "shape:WINDOW/arabic-rank", "Difficulty": "Hard", "ExpectedIntent": "DataQuery", "ExpectedPrimaryEntity": "Customers", "ExpectedOperation": "WINDOW", "MaxLatencyMs": 180000 }
+  ]
+}

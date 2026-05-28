@@ -210,8 +210,33 @@
                 </a>
             </li>
             <li>
+                <a class="sidebar-link @(currentController == "Payments" ? "active" : "")" asp-controller="Payments" asp-action="Index" data-label="Payments">
+                    <i class="bi bi-cash-coin @labelMargin"></i><span class="sidebar-link-text">Payments</span>
+                </a>
+            </li>
+            <li>
                 <a class="sidebar-link @(currentController == "Tariffs" ? "active" : "")" asp-controller="Tariffs" asp-action="Index" data-label="Tariffs">
                     <i class="bi bi-tag-fill @labelMargin"></i><span class="sidebar-link-text">Tariffs</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "TariffTiers" ? "active" : "")" asp-controller="TariffTiers" asp-action="Index" data-label="Tariff Tiers">
+                    <i class="bi bi-layers-fill @labelMargin"></i><span class="sidebar-link-text">Tariff Tiers</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "ServiceAccounts" ? "active" : "")" asp-controller="ServiceAccounts" asp-action="Index" data-label="Service Accounts">
+                    <i class="bi bi-file-earmark-text-fill @labelMargin"></i><span class="sidebar-link-text">Service Accounts</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "ServicePoints" ? "active" : "")" asp-controller="ServicePoints" asp-action="Index" data-label="Service Points">
+                    <i class="bi bi-geo-alt-fill @labelMargin"></i><span class="sidebar-link-text">Service Points</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "Subsidies" ? "active" : "")" asp-controller="Subsidies" asp-action="Index" data-label="Subsidies">
+                    <i class="bi bi-bank @labelMargin"></i><span class="sidebar-link-text">Subsidies</span>
                 </a>
             </li>
             <li>
@@ -220,10 +245,54 @@
                 </a>
             </li>
 
+            <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">Field Operations</li>
+            <li>
+                <a class="sidebar-link @(currentController == "WorkOrders" ? "active" : "")" asp-controller="WorkOrders" asp-action="Index" data-label="Work Orders">
+                    <i class="bi bi-clipboard-check-fill @labelMargin"></i><span class="sidebar-link-text">Work Orders</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "Assets" ? "active" : "")" asp-controller="Assets" asp-action="Index" data-label="Assets">
+                    <i class="bi bi-hdd-stack-fill @labelMargin"></i><span class="sidebar-link-text">Assets</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "Technicians" ? "active" : "")" asp-controller="Technicians" asp-action="Index" data-label="Technicians">
+                    <i class="bi bi-person-vcard-fill @labelMargin"></i><span class="sidebar-link-text">Technicians</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "MaintenanceSchedules" ? "active" : "")" asp-controller="MaintenanceSchedules" asp-action="Index" data-label="Maintenance">
+                    <i class="bi bi-tools @labelMargin"></i><span class="sidebar-link-text">Maintenance</span>
+                </a>
+            </li>
+
+            <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">Customer Voice</li>
+            <li>
+                <a class="sidebar-link @(currentController == "CallLogs" ? "active" : "")" asp-controller="CallLogs" asp-action="Index" data-label="Call Logs">
+                    <i class="bi bi-telephone-fill @labelMargin"></i><span class="sidebar-link-text">Call Logs</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "OutageNotifications" ? "active" : "")" asp-controller="OutageNotifications" asp-action="Index" data-label="Notifications">
+                    <i class="bi bi-bell-fill @labelMargin"></i><span class="sidebar-link-text">Outage Notifications</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "SlaPolicies" ? "active" : "")" asp-controller="SlaPolicies" asp-action="Index" data-label="SLA Policies">
+                    <i class="bi bi-shield-check @labelMargin"></i><span class="sidebar-link-text">SLA Policies</span>
+                </a>
+            </li>
+
             <li class="sidebar-heading mt-4 @(Loc.IsRtl ? "me-4" : "ms-4") text-uppercase text-muted small" style="font-weight: 800; letter-spacing: 1px;">Operations</li>
             <li>
                 <a class="sidebar-link @(currentController == "Customers" ? "active" : "")" asp-controller="Customers" asp-action="Index" data-label="Customers">
                     <i class="bi bi-people-fill @labelMargin"></i><span class="sidebar-link-text">Customers</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "CustomerSegments" ? "active" : "")" asp-controller="CustomerSegments" asp-action="Index" data-label="Segments">
+                    <i class="bi bi-people @labelMargin"></i><span class="sidebar-link-text">Customer Segments</span>
                 </a>
             </li>
             <li>
@@ -244,6 +313,16 @@
             <li>
                 <a class="sidebar-link @(currentController == "Countries" ? "active" : "")" asp-controller="Countries" asp-action="Index" data-label="Countries">
                     <i class="bi bi-globe2 @labelMargin"></i><span class="sidebar-link-text">Countries</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "Currencies" ? "active" : "")" asp-controller="Currencies" asp-action="Index" data-label="Currencies">
+                    <i class="bi bi-currency-exchange @labelMargin"></i><span class="sidebar-link-text">Currencies</span>
+                </a>
+            </li>
+            <li>
+                <a class="sidebar-link @(currentController == "PaymentMethods" ? "active" : "")" asp-controller="PaymentMethods" asp-action="Index" data-label="Payment Methods">
+                    <i class="bi bi-credit-card-2-front-fill @labelMargin"></i><span class="sidebar-link-text">Payment Methods</span>
                 </a>
             </li>
             @if (SignInManager.IsSignedIn(User) && User.IsInRole("Admin"))
@@ -358,6 +437,21 @@
             });
             btn.setAttribute('aria-expanded',
                 document.documentElement.classList.contains('sidebar-collapsed') ? 'false' : 'true');
+        })();
+
+        // Collapsed-sidebar hover flyout: the menu UL is a scroll container so the
+        // ::after flyout uses position: fixed (see site.css). Anchor it to the
+        // hovered link via CSS variables from getBoundingClientRect.
+        (function () {
+            var isRtl = document.documentElement.getAttribute('dir') === 'rtl';
+            document.querySelectorAll('.sf-sidebar .sidebar-link[data-label]').forEach(function (link) {
+                link.addEventListener('mouseenter', function () {
+                    if (!document.documentElement.classList.contains('sidebar-collapsed')) return;
+                    var r = link.getBoundingClientRect();
+                    link.style.setProperty('--flyout-top', (r.top + r.height / 2) + 'px');
+                    link.style.setProperty('--flyout-left', (isRtl ? (r.left - 8) : (r.right + 8)) + 'px');
+                });
+            });
         })();
     </script>
     @await RenderSectionAsync("Scripts", required: false)

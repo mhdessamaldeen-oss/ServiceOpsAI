@@ -1,0 +1,55 @@
+{
+  "name": "Quality Tier 6 — CTE / window / running totals",
+  "version": "1.0.0",
+  "description": "Window functions and CTEs. Expected = row count (window-functions on per-row analytics return one row per source row; CTEs typically aggregate). Tests the LlmDirectSqlEmitter escape valve too — many of these shapes don't fit QuerySpec form-filling.",
+  "Scenarios": [
+    {
+      "Code": "QT6-MONTHLY-BILLS",
+      "Question": "monthly bill total over the last 24 months",
+      "Category": "T6-DATEBUCKET",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 24,
+      "ExpectedShape": "SELECT FORMAT(IssuedAt,'yyyy-MM'), SUM(TotalAmount) GROUP BY month",
+      "Notes": "Date-bucketing via computed expression. 24 months of data present.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT6-RUNNING-BILLS",
+      "Question": "running total of bill amounts ordered by issue date",
+      "Category": "T6-WINDOW",
+      "Difficulty": "Medium",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Bills",
+      "ExpectedScalar": 1000,
+      "ExpectedShape": "SELECT IssuedAt, TotalAmount, SUM(TotalAmount) OVER (ORDER BY IssuedAt) — window function, one row per bill (capped at MaxRows)",
+      "Notes": "Running total via SUM() OVER. MaxRows cap should produce 1000.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT6-TOP3-CUST-BY-PAID",
+      "Question": "top 3 customers by total amount paid",
+      "Category": "T6-RANK",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Customers",
+      "ExpectedScalar": 3,
+      "ExpectedShape": "SELECT Customers.FullNameEn, SUM(Bills.TotalAmount) GROUP BY customer ORDER BY sum DESC LIMIT 3 (or via window with RANK<=3)",
+      "Notes": "Simple top-N — should NOT need a CTE or window. Tests that ORDER BY + LIMIT goes through cleanly.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT6-CTE-DEPT-VOLUME",
+      "Question": "with a cte rank departments by ticket count",
+      "Category": "T6-CTE",
+      "Difficulty": "Hard",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Departments",
+      "ExpectedScalar": 60,
+      "ExpectedShape": "WITH cte AS (SELECT DepartmentId, COUNT(*) FROM Tickets GROUP BY DepartmentId) SELECT * FROM cte ORDER BY count DESC — or equivalent window",
+      "Notes": "Explicit CTE request. Tests LlmDirectSqlEmitter escape valve; 60 departments total (most have 0 tickets — the result might cap at fewer).",
+      "MaxLatencyMs": 90000
+    }
+  ]
+}

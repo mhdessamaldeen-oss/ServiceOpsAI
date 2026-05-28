@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SuperAdminCopilot.Configuration;
+using SuperAdminCopilot.Schema;
 
 /// <summary>
 /// Loads <c>semantic-layer.json</c> at first access, builds case-insensitive lookup indexes, and
@@ -31,9 +32,45 @@ internal sealed class SemanticLayer : ISemanticLayer
         Converters = { new JsonStringEnumConverter() },
     };
 
-    public SemanticLayer(IOptions<CopilotOptions> options, ILogger<SemanticLayer> logger)
+    public SemanticLayer(
+        IOptions<CopilotOptions> options,
+        ISchemaKnowledge schemaKnowledge,
+        ILogger<SemanticLayer> logger)
     {
-        _config = new Lazy<SemanticLayerConfig>(() => Load(options.Value.SemanticLayerPath, logger));
+        // Two-source load: the hand-curated `semantic-layer.json` is the canonical source
+        // (rich Arabic synonyms, custom metrics, naturalKey regex). For any table NOT covered
+        // there, we synthesize a baseline EntityDefinition from the auto-inferred schema
+        // knowledge — so adding a new table never requires touching semantic-layer.json
+        // unless the heuristic guess is wrong. Hand-curated entries always win; synthesized
+        // entries fill the gap.
+        _config = new Lazy<SemanticLayerConfig>(() =>
+        {
+            var loaded = Load(options.Value.SemanticLayerPath, logger);
+            var synthesized = SynthesizeMissingEntities(loaded.Entities, schemaKnowledge, logger);
+            if (synthesized.Count > 0)
+            {
+                loaded.Entities.AddRange(synthesized);
+                logger.LogInformation(
+                    "[SemanticLayer] synthesized {Count} entity definitions from SchemaKnowledge " +
+                    "(tables not present in semantic-layer.json): {Names}",
+                    synthesized.Count, string.Join(", ", synthesized.Select(e => e.Name)));
+
+                // Round-3 diagnostic — log the first 6 synonyms per synthesized entity so a
+                // bad merge or missing Arabic forms is obvious from the startup log alone.
+                foreach (var e in synthesized)
+                {
+                    var totalSyn = e.Synonyms?.Count ?? 0;
+                    var preview = totalSyn > 0
+                        ? string.Join(" | ", e.Synonyms!.Take(20))
+                        : "(none)";
+                    logger.LogInformation("  • {Entity} ({Total} syn): search=[{Search}] syn=[{Syn}]",
+                        e.Name, totalSyn,
+                        e.SearchableColumns is { Count: > 0 } ? string.Join(", ", e.SearchableColumns) : "(none)",
+                        preview);
+                }
+            }
+            return loaded;
+        });
         _entityByNameOrSynonym = new Lazy<Dictionary<string, EntityDefinition>>(() =>
         {
             var d = new Dictionary<string, EntityDefinition>(StringComparer.OrdinalIgnoreCase);
@@ -309,5 +346,215 @@ internal sealed class SemanticLayer : ISemanticLayer
         var byBase = Path.Combine(AppContext.BaseDirectory, configured);
         if (File.Exists(byBase)) return byBase;
         return Path.Combine(Directory.GetCurrentDirectory(), configured);
+    }
+
+    // ── Synthesis: auto-fill EntityDefinitions from SchemaKnowledge ───────────────────
+    //
+    // For every table the schema-inference pipeline has produced (but which has no entry
+    // in semantic-layer.json), build a baseline EntityDefinition. Hand-curated entries in
+    // semantic-layer.json always win — we only fill the GAP. This is the no-config path
+    // for new tables: add a table, run the inference, and the planner can answer basic
+    // questions about it without any hand-edit.
+
+    private static List<EntityDefinition> SynthesizeMissingEntities(
+        List<EntityDefinition> manualEntities,
+        ISchemaKnowledge schema,
+        ILogger logger)
+    {
+        if (!schema.IsAvailable) return new List<EntityDefinition>();
+
+        // Tables already covered by manual entries — match on `Table` (the DB table name)
+        // case-insensitively. Empty Table values are skipped.
+        var coveredTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in manualEntities)
+        {
+            if (!string.IsNullOrEmpty(e.Table)) coveredTables.Add(e.Table);
+        }
+
+        var result = new List<EntityDefinition>();
+        foreach (var t in schema.AllTables)
+        {
+            if (string.IsNullOrEmpty(t.Name)) continue;
+            if (coveredTables.Contains(t.Name)) continue;
+
+            // Skip Identity-framework / framework-internal tables and bridge tables — they're
+            // not user-facing entities. Bridge tables can be added explicitly to overrides if
+            // anyone wants to query them by name.
+            if (IsFrameworkTable(t.Name)) continue;
+            if (t.Flags.IsBridge) continue;
+
+            result.Add(SynthesizeFrom(t));
+        }
+        return result;
+    }
+
+    // Identity tables, EF history, and the copilot's own infrastructure tables are skipped.
+    // The planner shouldn't surface them when the user asks "show me X".
+    private static readonly string[] FrameworkTablePrefixes =
+        { "AspNet", "__EF", "Copilot", "TicketAiAnalysis", "TicketSemanticEmbedding", "RetrievalBenchmark", "ModelPricing", "GeminiApi", "GroqApi", "EmbeddingProgress" };
+
+    private static bool IsFrameworkTable(string name)
+    {
+        foreach (var pfx in FrameworkTablePrefixes)
+            if (name.StartsWith(pfx, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private static EntityDefinition SynthesizeFrom(InferredTable t)
+    {
+        var dateRoles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string? defaultDateColumn = null;
+        foreach (var c in t.Columns)
+        {
+            if (string.IsNullOrEmpty(c.DateRole)) continue;
+            // First match per role wins (covers ScheduledStart/ScheduledEnd → both "scheduled":
+            // first one becomes the canonical answer for the role).
+            if (!dateRoles.ContainsKey(c.DateRole)) dateRoles[c.DateRole] = c.Name;
+            // Default = first chronological column, prefer `created` if present.
+            if (defaultDateColumn is null
+                || string.Equals(c.DateRole, SuperAdminCopilot.Models.SpecConstants.DateRoles.Created, StringComparison.OrdinalIgnoreCase))
+            {
+                defaultDateColumn = c.Name;
+            }
+        }
+        if (defaultDateColumn is not null && !dateRoles.ContainsKey("default"))
+            dateRoles["default"] = defaultDateColumn;
+
+        // SearchableColumns: pick PROSE columns (Description / Title / Notes / Summary /
+        // Comment / Content / Message / Body / Detail), bilingual variants included. Round-1
+        // heuristic was "first 4 text columns" which mistakenly picked enum-string columns
+        // (Status / Priority / OrderType) that appear earlier in the table — making
+        // "WorkOrders about transformer" LIKE-search status columns and always return zero.
+        var searchable = PickSearchableColumns(t);
+
+        // SoftDeleteFilterValue: when the soft-delete column is "IsActive" the keep-row value
+        // is TRUE (active rows); for "IsDeleted" / "IsArchived" it's FALSE (not-deleted rows);
+        // for "DeletedAt" it's NULL. Conventional heuristic; users can override.
+        object? softDeleteFilterValue = null;
+        var sdc = t.Roles.SoftDeleteColumn;
+        if (!string.IsNullOrEmpty(sdc))
+        {
+            softDeleteFilterValue = sdc.Equals("IsActive", StringComparison.OrdinalIgnoreCase) ? (object)true
+                : sdc.EndsWith("At", StringComparison.OrdinalIgnoreCase) ? null
+                : (object)false;
+        }
+
+        return new EntityDefinition
+        {
+            Name = t.Name,
+            Table = t.Name,
+            Synonyms = new List<string>(t.Synonyms),
+            SoftDeleteColumn = t.Roles.SoftDeleteColumn,
+            SoftDeleteFilterValue = softDeleteFilterValue,
+            IsLookup = t.Flags.IsLookup,
+            SearchableColumns = searchable,
+            NaturalKeyColumn = t.Roles.NaturalKey,
+            LabelColumn = t.Roles.LabelColumn,
+            DateRoles = dateRoles,
+            Description = $"Auto-synthesized from schema-inferred.json. " +
+                          "Add a manual entry in semantic-layer.json (Arabic synonyms, custom metrics) to override.",
+        };
+    }
+
+    private static bool IsTextType(string sqlType)
+    {
+        if (string.IsNullOrEmpty(sqlType)) return false;
+        var t = sqlType.ToLowerInvariant();
+        return t.StartsWith("nvarchar") || t.StartsWith("varchar")
+            || t.StartsWith("nchar") || t.StartsWith("char")
+            || t.StartsWith("text") || t.StartsWith("ntext");
+    }
+
+    // Names (substring, case-insensitive) that signal a column holds user-facing prose worth
+    // searching. Order matters loosely — earlier entries are preferred when multiple match.
+    // Bilingual suffixes (En/Ar) handled automatically by substring matching.
+    private static readonly string[] ProseColumnHints =
+    {
+        "description",       // bills.Description, outages.Description, etc.
+        "title",             // workorders.TitleEn, maintenanceSchedules.TitleEn
+        "notes",             // most tables — Notes / Note
+        "summary",           // tickets.ResolutionSummary, calllogs.Summary
+        "comment",           // ticketcomments.Content via Comment
+        "content",           // ticketcomments.Content
+        "message",           // outagenotifications.MessageEn / MessageAr
+        "body",
+        "detail",
+        "address",           // servicepoints.AddressLineEn / AddressLineAr
+        "name",              // customers.FullNameEn, technicians.FullNameEn — broad search target
+        "rootcause",         // tickets.RootCause
+        "verification",      // tickets.VerificationNotes
+        "assessment",        // tickets.TechnicalAssessment
+        "specification",     // assets.Specification
+    };
+
+    // Names (substring, case-insensitive) that DISQUALIFY a column from search even if it's
+    // a string type. Enum stored as strings, surrogate identifiers, etc. — these never carry
+    // free-text content users would search by.
+    private static readonly string[] NonSearchableHints =
+    {
+        "status", "priority", "severity", "type", "kind", "category", "channel",
+        "direction", "outcome", "specialty", "stamp", "hash", "isocode", "code",
+        "unit", "method", "currency",
+        "phone", "email",                  // PII; planner shouldn't surface
+        "url", "uri", "endpoint",
+        "id",                              // catches *Id FK columns plus a few stragglers
+    };
+
+    /// <summary>
+    /// Pick up to 4 columns suitable for cross-column LIKE text-search. Priority:
+    ///   1. Columns whose name matches a <see cref="ProseColumnHints"/> entry (Description, Title*, Notes, …).
+    ///   2. Any remaining text column NOT in <see cref="NonSearchableHints"/> (Status / Priority / Email / …).
+    ///   3. Fallback (only if 1 + 2 produce nothing): first 4 text columns regardless.
+    /// PII columns are always excluded.
+    /// </summary>
+    private static List<string> PickSearchableColumns(InferredTable t)
+    {
+        // Text-typed, non-PII, not the natural key (which we already query separately), not a
+        // date / FK / audit column.
+        bool eligible(InferredColumn c) =>
+            IsTextType(c.Type)
+            && !c.IsPii
+            && (c.Role is null || c.Role == SuperAdminCopilot.Models.SpecConstants.ColumnRoles.Label)
+            && string.IsNullOrEmpty(c.DateRole);
+
+        bool nameMatches(string columnName, string[] hints)
+        {
+            foreach (var h in hints)
+                if (columnName.Contains(h, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        var allEligible = t.Columns.Where(eligible).ToList();
+
+        // 1. Prose-named columns first.
+        var prose = allEligible
+            .Where(c => nameMatches(c.Name, ProseColumnHints))
+            .Where(c => !nameMatches(c.Name, NonSearchableHints))
+            .OrderBy(c => Array.FindIndex(ProseColumnHints,
+                h => c.Name.Contains(h, StringComparison.OrdinalIgnoreCase)))  // preserve hint order
+            .Select(c => c.Name)
+            .ToList();
+
+        // 2. Any other text column that's clearly not enum-shaped.
+        if (prose.Count < 4)
+        {
+            var extras = allEligible
+                .Where(c => !nameMatches(c.Name, ProseColumnHints))
+                .Where(c => !nameMatches(c.Name, NonSearchableHints))
+                .Select(c => c.Name);
+            foreach (var x in extras)
+            {
+                if (prose.Count >= 4) break;
+                if (!prose.Contains(x, StringComparer.OrdinalIgnoreCase)) prose.Add(x);
+            }
+        }
+
+        // 3. Last-resort fallback — entity has no obvious text content; fall back to the
+        // original "first N text columns" so the search at least RUNS. Better than refusing.
+        if (prose.Count == 0)
+        {
+            return allEligible.Select(c => c.Name).Take(4).ToList();
+        }
+        return prose.Take(4).ToList();
     }
 }

@@ -389,8 +389,22 @@ namespace ServiceOpsAI.Controllers.AI
                 _assessmentHandler.SetActiveSuites(request.SuiteFiles.ToArray());
             }
 
-            var suite = request.CaseIds?.Any() == true
-                ? await _assessmentHandler.GetTestSuiteAsync(request.CaseIds)
+            // Per user direction 2026-05-25: refuse runs that didn't pick any suite or
+            // specific case. The prior behaviour silently fell back to the legacy master
+            // catalog (Services/AI/Copilot/Assessment/copilot-assessment.json, 206 cases)
+            // whose scenarios have no SourceSuite tag — every trace then appeared in the
+            // grid "without a section" and questions like "mobile address histories" ran
+            // under the generic super-admin-copilot bucket. Forcing an explicit pick keeps
+            // every run scoped to a real suite file so sessions/traces stay grouped.
+            var hasSuiteSelection = request.SuiteFiles is { Count: > 0 };
+            var hasCaseSelection = request.CaseIds is { Count: > 0 };
+            if (!hasSuiteSelection && !hasCaseSelection)
+            {
+                return Json(ApiResponse.Fail("Pick at least one suite file (or select individual cases) before running the assessment."));
+            }
+
+            var suite = hasCaseSelection
+                ? await _assessmentHandler.GetTestSuiteAsync(request.CaseIds!)
                 : await _assessmentHandler.GetDefaultTestSuiteAsync();
 
             if (suite == null || !suite.Any())
@@ -1151,11 +1165,31 @@ namespace ServiceOpsAI.Controllers.AI
                 return NotFound(ApiResponse.Fail("Session not found."));
             }
 
+            // Pull TotalElapsedMs from the linked trace rows so the per-message duration
+            // badge ("3.2s") survives a session reload. Without this, replaying an old
+            // session through the Copilot UI shows messages with no execution time —
+            // they appear inside the chat but the cost-badge row is empty because the
+            // client-side renderCostBadges depends on executionDetails.totalElapsedMs.
+            var traceIds = session.Messages
+                .Where(m => m.TraceId.HasValue)
+                .Select(m => m.TraceId!.Value)
+                .Distinct()
+                .ToList();
+            var traceTimings = traceIds.Count == 0
+                ? new Dictionary<int, long>()
+                : await _context.CopilotTraceHistories
+                    .Where(t => traceIds.Contains(t.Id))
+                    .Select(t => new { t.Id, t.TotalElapsedMs })
+                    .ToDictionaryAsync(t => t.Id, t => t.TotalElapsedMs);
+
             var messages = session.Messages.OrderBy(m => m.CreatedAt).Select(m => new {
                 msgId = m.Id,
                 id = m.TraceId,
                 Role = m.Role.ToString().ToLower(),
-                Content = m.Content
+                Content = m.Content,
+                executionDetails = m.TraceId.HasValue && traceTimings.TryGetValue(m.TraceId.Value, out var elapsed)
+                    ? new { totalElapsedMs = elapsed }
+                    : null
             });
 
             return Json(ApiResponse<object>.Ok(new { session.Id, session.Title, messages }));

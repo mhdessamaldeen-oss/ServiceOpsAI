@@ -1,0 +1,45 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.CallLogDto>
+
+<div class="table-responsive">
+    <table id="callLogsTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Reference</th>
+                <th class="py-3">Customer</th>
+                <th class="py-3">Direction</th>
+                <th class="py-3">Channel</th>
+                <th class="py-3">Started</th>
+                <th class="text-end py-3">Duration</th>
+                <th class="py-3">Outcome</th>
+                <th class="py-3">Ticket?</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@c.CallReference</code></td>
+                    <td style="color: var(--text-main) !important;">@c.CustomerName</td>
+                    <td>@c.Direction</td>
+                    <td><span class="badge rounded-pill px-3 py-2" style="background: rgba(56,189,248,0.1); color: #38bdf8; border: 1px solid #38bdf8;">@c.Channel</span></td>
+                    <td class="small text-muted">@c.StartedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td class="text-end">@(c.DurationSeconds.HasValue ? $"{c.DurationSeconds / 60}m {c.DurationSeconds % 60}s" : "—")</td>
+                    <td>
+                        @{ var (bg, fg) = c.Outcome switch { "Resolved" => ("rgba(var(--primary-color-rgb),0.1)", "var(--primary-color)"), "EscalatedToTicket" => ("rgba(245,158,11,0.1)", "#f59e0b"), "CallbackScheduled" => ("rgba(56,189,248,0.1)", "#38bdf8"), "Abandoned" => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"), _ => ("rgba(148,163,184,0.1)", "#94a3b8") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @bg; color: @fg; border: 1px solid @fg;">@c.Outcome</span>
+                    </td>
+                    <td><code class="text-muted">@c.RelatedTicketNumber</code></td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@c.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@c.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@c.Id" method="post" onsubmit="return confirm('Delete @c.CallReference?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No call logs match the current filter.</h6></div> }
+</div>

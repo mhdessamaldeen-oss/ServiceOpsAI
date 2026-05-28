@@ -1,0 +1,24 @@
+@model ServiceOpsAI.Models.Asset
+@{ ViewData["Title"] = "New Asset"; }
+
+<h2><i class="bi bi-plus-circle"></i> New Asset</h2>
+
+<form asp-action="Create" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="col-md-4"><label asp-for="AssetCode" class="form-label">Asset Code</label><input asp-for="AssetCode" class="form-control" placeholder="TRF-DMSCN-MZH-007" /></div>
+    <div class="col-md-4"><label asp-for="NameEn" class="form-label">Name (EN)</label><input asp-for="NameEn" class="form-control" /></div>
+    <div class="col-md-4"><label asp-for="NameAr" class="form-label">Name (AR)</label><input asp-for="NameAr" class="form-control" dir="rtl" /></div>
+    <div class="col-md-3"><label asp-for="ServiceTypeId" class="form-label">Service</label><select asp-for="ServiceTypeId" class="form-select" asp-items="ViewBag.ServiceTypes"><option value="">—</option></select></div>
+    <div class="col-md-3"><label asp-for="RegionId" class="form-label">Region</label><select asp-for="RegionId" class="form-select" asp-items="ViewBag.Regions"><option value="">—</option></select></div>
+    <div class="col-md-3"><label asp-for="DepartmentId" class="form-label">Department</label><select asp-for="DepartmentId" class="form-select" asp-items="ViewBag.Departments"><option value="">—</option></select></div>
+    <div class="col-md-3"><label asp-for="ParentAssetId" class="form-label">Parent Asset</label><select asp-for="ParentAssetId" class="form-select" asp-items="ViewBag.ParentAssets"><option value="">—</option></select></div>
+    <div class="col-md-3"><label asp-for="AssetType" class="form-label">Type</label><select asp-for="AssetType" class="form-select">@foreach (var v in Enum.GetValues<ServiceOpsAI.Models.AssetType>()){<option value="@v">@v</option>}</select></div>
+    <div class="col-md-3"><label asp-for="Status" class="form-label">Status</label><select asp-for="Status" class="form-select">@foreach (var v in Enum.GetValues<ServiceOpsAI.Models.AssetStatus>()){<option value="@v">@v</option>}</select></div>
+    <div class="col-md-3"><label asp-for="CommissionedAt" class="form-label">Commissioned</label><input asp-for="CommissionedAt" type="date" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="DecommissionedAt" class="form-label">Decommissioned</label><input asp-for="DecommissionedAt" type="date" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="Latitude" class="form-label">Latitude</label><input asp-for="Latitude" type="number" step="0.000001" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="Longitude" class="form-label">Longitude</label><input asp-for="Longitude" type="number" step="0.000001" class="form-control" /></div>
+    <div class="col-12"><label asp-for="Specification" class="form-label">Specification</label><input asp-for="Specification" class="form-control" /></div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Create</button> <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Cancel</a></div>
+</form>

@@ -1,0 +1,22 @@
+@model ServiceOpsAI.Models.OutageNotification
+@{ ViewData["Title"] = "New Outage Notification"; }
+
+<h2><i class="bi bi-plus-circle"></i> New Outage Notification</h2>
+
+<form asp-action="Create" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="col-md-4"><label asp-for="OutageId" class="form-label">Outage</label><select asp-for="OutageId" class="form-select" asp-items="ViewBag.Outages"><option value="">—</option></select></div>
+    <div class="col-md-4"><label asp-for="MaintenanceScheduleId" class="form-label">Maintenance</label><select asp-for="MaintenanceScheduleId" class="form-select" asp-items="ViewBag.Maintenances"><option value="">—</option></select></div>
+    <div class="col-md-4"><label asp-for="CustomerId" class="form-label">Customer</label><select asp-for="CustomerId" class="form-select" asp-items="ViewBag.Customers"><option value="">— Select —</option></select></div>
+    <div class="col-md-3"><label asp-for="Channel" class="form-label">Channel</label><select asp-for="Channel" class="form-select">@foreach (var v in Enum.GetValues<ServiceOpsAI.Models.ContactChannel>()){<option value="@v">@v</option>}</select></div>
+    <div class="col-md-3"><label asp-for="Status" class="form-label">Status</label><select asp-for="Status" class="form-select">@foreach (var v in Enum.GetValues<ServiceOpsAI.Models.NotificationStatus>()){<option value="@v">@v</option>}</select></div>
+    <div class="col-md-3"><label asp-for="SentToPhone" class="form-label">Sent To Phone</label><input asp-for="SentToPhone" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="SentToEmail" class="form-label">Sent To Email</label><input asp-for="SentToEmail" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="SentAt" class="form-label">Sent</label><input asp-for="SentAt" type="datetime-local" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="DeliveredAt" class="form-label">Delivered</label><input asp-for="DeliveredAt" type="datetime-local" class="form-control" /></div>
+    <div class="col-md-3"><label asp-for="ReadAt" class="form-label">Read</label><input asp-for="ReadAt" type="datetime-local" class="form-control" /></div>
+    <div class="col-12"><label asp-for="MessageEn" class="form-label">Message (EN)</label><textarea asp-for="MessageEn" class="form-control" rows="2"></textarea></div>
+    <div class="col-12"><label asp-for="MessageAr" class="form-label">Message (AR)</label><textarea asp-for="MessageAr" class="form-control" rows="2" dir="rtl"></textarea></div>
+    <div class="col-12"><button type="submit" class="btn btn-primary">Create</button> <a class="btn btn-outline-secondary" href="@Url.Action("Index")">Cancel</a></div>
+</form>

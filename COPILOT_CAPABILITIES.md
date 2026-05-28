@@ -261,7 +261,7 @@ Cosine matching threshold lowered to `minSimilarity: 0.82` per-entry so paraphra
 
 **Status (2026-05-18):** `CopilotOptions.EnableDecomposer = true` in current configuration. The decomposer runs as part of the orchestrator's intent classification.
 
-**Caveats:** LLM-driven decomposition remains brittle on Arabic / mixed-script questions (acceptable per the long-standing comment in `SimpleCopilotOrchestrator.cs`). Decomposed sub-queries pay 1 LLM call each, so latency scales linearly.
+**Caveats:** LLM-driven decomposition remains brittle on Arabic / mixed-script questions (acceptable per the long-standing comment in `CopilotOrchestrator.cs`). Decomposed sub-queries pay 1 LLM call each, so latency scales linearly.
 
 **Example that works:**
 - `top 3 entities and top 3 users by tickets created` → split into 2 sub-questions, each routed through the verified-query catalog.

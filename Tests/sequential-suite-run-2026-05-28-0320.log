@@ -1,0 +1,152 @@
+03:20:40 ─── Sequential suite runner started ──
+03:20:40 Logged in as admin@tech.local
+03:20:40 ▶ Triggering shapes/suite-shape-LOOKUP-2026-05-28.json
+03:20:41   → sessionId=116 totalCases=16
+03:21:26   session=116 traces=1/16 stall=15s
+03:22:11   session=116 traces=2/16 stall=14s
+03:22:56   session=116 traces=4/16 stall=2s
+03:23:41   session=116 traces=4/16 stall=47s
+03:24:26   session=116 traces=6/16 stall=10s
+03:25:11   session=116 traces=6/16 stall=55s
+03:25:57   session=116 traces=7/16 stall=42s
+03:26:42   session=116 traces=8/16 stall=30s
+03:27:27   session=116 traces=11/16 stall=5s
+03:28:12   session=116 traces=12/16 stall=18s
+03:28:57   session=116 traces=12/16 stall=63s
+03:29:42   session=116 traces=13/16 stall=7s
+03:30:27   session=116 traces=13/16 stall=52s
+03:31:12   session=116 traces=14/16 stall=34s
+03:31:57   session=116 traces=14/16 stall=79s
+03:32:43   session=116 traces=15/16 stall=7s
+03:33:28   session=116 traces=16/16 stall=6s
+03:33:28 ✓ shapes/suite-shape-LOOKUP-2026-05-28.json: traces=16/16 failures=0 complete=True
+03:33:43 ▶ Triggering shapes/suite-shape-FILTER-2026-05-28.json
+03:33:43 ✗ shapes/suite-shape-FILTER-2026-05-28.json trigger failed: Response status code does not indicate success: 400 (Bad Request).
+03:33:58 ▶ Triggering shapes/suite-shape-AGGREGATE-2026-05-28.json
+03:33:59   → sessionId=117 totalCases=18
+03:34:44   session=117 traces=1/18 stall=36s
+03:35:29   session=117 traces=2/18 stall=7s
+03:36:14   session=117 traces=3/18 stall=17s
+03:36:59   session=117 traces=4/18 stall=29s
+03:37:44   session=117 traces=6/18 stall=5s
+03:38:29   session=117 traces=7/18 stall=3s
+03:39:14   session=117 traces=8/18 stall=44s
+03:40:00   session=117 traces=9/18 stall=43s
+03:40:45   session=117 traces=10/18 stall=44s
+03:41:30   session=117 traces=12/18 stall=2s
+03:42:15   session=117 traces=13/18 stall=7s
+03:43:00   session=117 traces=14/18 stall=8s
+03:43:45   session=117 traces=15/18 stall=16s
+03:44:30   session=117 traces=16/18 stall=23s
+03:45:15   session=117 traces=18/18 stall=27s
+03:45:16 ✓ shapes/suite-shape-AGGREGATE-2026-05-28.json: traces=18/18 failures=1 complete=True
+03:45:30 ▶ Triggering shapes/suite-shape-TOPN-2026-05-28.json
+03:45:31 ✗ shapes/suite-shape-TOPN-2026-05-28.json trigger failed: Response status code does not indicate success: 400 (Bad Request).
+03:45:46 ▶ Triggering shapes/suite-shape-GROUPBY-2026-05-28.json
+03:45:46   → sessionId=118 totalCases=15
+03:46:31   session=118 traces=1/15 stall=1s
+03:47:16   session=118 traces=1/15 stall=46s
+03:48:01   session=118 traces=4/15 stall=25s
+03:48:47   session=118 traces=6/15 stall=33s
+03:49:32   session=118 traces=7/15 stall=27s
+03:50:17   session=118 traces=8/15 stall=32s
+03:51:02   session=118 traces=9/15 stall=35s
+03:51:47   session=118 traces=10/15 stall=37s
+03:52:32   session=118 traces=11/15 stall=30s
+03:53:17   session=118 traces=12/15 stall=8s
+03:54:02   session=118 traces=13/15 stall=0s
+03:54:47   session=118 traces=13/15 stall=45s
+03:55:33   session=118 traces=14/15 stall=21s
+03:56:18   session=118 traces=15/15 stall=16s
+03:56:18 ✓ shapes/suite-shape-GROUPBY-2026-05-28.json: traces=15/15 failures=3 complete=True
+03:56:33 ▶ Triggering shapes/suite-shape-JOIN-2026-05-28.json
+03:56:33 ✗ shapes/suite-shape-JOIN-2026-05-28.json trigger failed: Response status code does not indicate success: 400 (Bad Request).
+03:56:48 ▶ Triggering shapes/suite-shape-TIMESERIES-2026-05-28.json
+03:56:48   → sessionId=119 totalCases=16
+03:57:34   session=119 traces=1/16 stall=43s
+03:58:19   session=119 traces=2/16 stall=36s
+03:59:04   session=119 traces=2/16 stall=81s
+03:59:49   session=119 traces=2/16 stall=126s
+04:00:34   session=119 traces=4/16 stall=0s
+04:01:19   session=119 traces=5/16 stall=41s
+04:02:04   session=119 traces=7/16 stall=1s
+04:02:49   session=119 traces=8/16 stall=10s
+04:03:34   session=119 traces=8/16 stall=55s
+04:04:20   session=119 traces=8/16 stall=101s
+04:05:05   session=119 traces=8/16 stall=146s
+04:05:50   session=119 traces=9/16 stall=27s
+04:06:35   session=119 traces=10/16 stall=22s
+04:07:20   session=119 traces=11/16 stall=11s
+04:08:05   session=119 traces=11/16 stall=56s
+04:08:50   session=119 traces=13/16 stall=9s
+04:09:35   session=119 traces=14/16 stall=20s
+04:10:21   session=119 traces=15/16 stall=24s
+04:11:06   session=119 traces=16/16 stall=31s
+04:11:06 ✓ shapes/suite-shape-TIMESERIES-2026-05-28.json: traces=16/16 failures=2 complete=True
+04:11:21 ▶ Triggering shapes/suite-shape-COMPARE-2026-05-28.json
+04:11:21 ✗ shapes/suite-shape-COMPARE-2026-05-28.json trigger failed: Response status code does not indicate success: 400 (Bad Request).
+04:11:36 ▶ Triggering shapes/suite-shape-WINDOW-2026-05-28.json
+04:11:36   → sessionId=120 totalCases=12
+04:12:21   session=120 traces=1/12 stall=4s
+04:13:06   session=120 traces=1/12 stall=49s
+04:13:52   session=120 traces=1/12 stall=95s
+04:14:37   session=120 traces=1/12 stall=140s
+04:15:22   session=120 traces=2/12 stall=43s
+04:16:07   session=120 traces=4/12 stall=2s
+04:16:52   session=120 traces=4/12 stall=47s
+04:17:37   session=120 traces=6/12 stall=1s
+04:18:22   session=120 traces=7/12 stall=3s
+04:19:08   session=120 traces=7/12 stall=49s
+04:19:53   session=120 traces=9/12 stall=4s
+04:20:38   session=120 traces=11/12 stall=15s
+04:21:23   session=120 traces=11/12 stall=60s
+04:22:08   session=120 traces=11/12 stall=105s
+04:22:53   session=120 traces=12/12 stall=3s
+04:22:53 ✓ shapes/suite-shape-WINDOW-2026-05-28.json: traces=12/12 failures=1 complete=True
+04:23:08 ▶ Triggering shapes/suite-shape-EXISTS-2026-05-28.json
+04:23:08 ✗ shapes/suite-shape-EXISTS-2026-05-28.json trigger failed: Response status code does not indicate success: 400 (Bad Request).
+04:23:23 ▶ Triggering shapes/suite-shape-HAVING-2026-05-28.json
+04:23:24   → sessionId=121 totalCases=7
+04:24:09   session=121 traces=1/7 stall=16s
+04:24:54   session=121 traces=1/7 stall=61s
+04:25:39   session=121 traces=2/7 stall=29s
+04:26:24   session=121 traces=3/7 stall=9s
+04:27:09   session=121 traces=3/7 stall=54s
+04:27:54   session=121 traces=4/7 stall=34s
+04:28:40   session=121 traces=5/7 stall=28s
+04:29:25   session=121 traces=6/7 stall=33s
+04:30:10   session=121 traces=6/7 stall=78s
+04:30:55   session=121 traces=7/7 stall=24s
+04:30:55 ✓ shapes/suite-shape-HAVING-2026-05-28.json: traces=7/7 failures=2 complete=True
+04:31:10 ▶ Triggering shapes/suite-shape-SELFJOIN-2026-05-28.json
+04:31:10 ✗ shapes/suite-shape-SELFJOIN-2026-05-28.json trigger failed: Response status code does not indicate success: 400 (Bad Request).
+04:31:25 ▶ Triggering shapes/suite-shape-UNION-2026-05-28.json
+04:31:25   → sessionId=122 totalCases=6
+04:32:11   session=122 traces=0/6 stall=833243531s
+04:32:56   session=122 traces=1/6 stall=2s
+04:33:41   session=122 traces=1/6 stall=47s
+04:34:26   session=122 traces=2/6 stall=40s
+04:35:11   session=122 traces=3/6 stall=34s
+04:35:56   session=122 traces=4/6 stall=5s
+04:36:41   session=122 traces=4/6 stall=50s
+04:37:26   session=122 traces=5/6 stall=34s
+04:38:12   session=122 traces=6/6 stall=40s
+04:38:12 ✓ shapes/suite-shape-UNION-2026-05-28.json: traces=6/6 failures=0 complete=True
+04:38:27 ▶ Triggering shapes/suite-shape-RECURSIVE-2026-05-28.json
+04:38:27 ✗ shapes/suite-shape-RECURSIVE-2026-05-28.json trigger failed: Response status code does not indicate success: 400 (Bad Request).
+04:38:42 ▶ Triggering shapes/suite-shape-SAFETY-2026-05-28.json
+04:38:42   → sessionId= totalCases=
+04:39:27   session= traces=Msg 102, Level 15, State 1, Server PC\SQLEXPRESS, Line 1/15 stall=Msg 102, Level 15, State 1, Server PC\SQLEXPRESS, Line 1s
+04:39:27 ✗ shapes/suite-shape-SAFETY-2026-05-28.json trigger failed: Cannot convert value "Msg 102, Level 15, State 1, Server PC\SQLEXPRESS, Line 1" to type "System.Int32". Error: "The input string 'Msg 102, Level 15, State 1, Server PC\SQLEXPRESS, Line 1' was not in a correct format."
+04:39:42 ─── Sequential run complete ──
+
+Suite                                         SessionId Traces Expected Failures Complete
+-----                                         --------- ------ -------- -------- --------
+shapes/suite-shape-LOOKUP-2026-05-28.json           116 16           16 0            True
+shapes/suite-shape-AGGREGATE-2026-05-28.json        117 18           18 1            True
+shapes/suite-shape-GROUPBY-2026-05-28.json          118 15           15 3            True
+shapes/suite-shape-TIMESERIES-2026-05-28.json       119 16           16 2            True
+shapes/suite-shape-WINDOW-2026-05-28.json           120 12           12 1            True
+shapes/suite-shape-HAVING-2026-05-28.json           121 7             7 2            True
+shapes/suite-shape-UNION-2026-05-28.json            122 6             6 0            True
+

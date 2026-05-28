@@ -2,6 +2,7 @@ namespace SuperAdminCopilot.Pipeline.Stages;
 
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using ServiceOpsAI.Services.AI.Providers.Roles;
 using SuperAdminCopilot.Abstractions;
 
 /// <summary>
@@ -39,9 +40,9 @@ internal sealed class LlmDecomposer : ILlmDecomposer
     private readonly ILlmClient _llm;
     private readonly ILogger<LlmDecomposer> _logger;
 
-    public LlmDecomposer(ILlmClient llm, ILogger<LlmDecomposer> logger)
+    public LlmDecomposer(IRoleBoundLlmClientFactory llmFactory, ILogger<LlmDecomposer> logger)
     {
-        _llm = llm;
+        _llm = llmFactory.For(AiRole.Decomposer);
         _logger = logger;
     }
 
@@ -125,8 +126,24 @@ internal sealed class LlmDecomposer : ILlmDecomposer
                             && p.Trim().Contains(' '))   // must be multi-word
                 .ToList();
             if (parts.Count <= 1) return new(null, userPrompt, raw, null);
-            // Cap at 4 — anything deeper is fragile, same rule as the heuristic.
+            // Cap at 4 — anything deeper is fragile.
             if (parts.Count > 4) parts = parts.Take(4).ToList();
+            // Hallucination guard: each sub-question must share at least 1 content-word (length ≥ 4) with the original. The LLM has been observed inventing sub-questions like "how many bills are still outstanding" from "bills issued in the last 90 days" — they share 'bills' but the second carries new tokens (outstanding, still) the user never typed. Require >= 50% of the sub-question's content words to appear in the original.
+            var originalContent = ContentTokens(question);
+            if (originalContent.Count > 0)
+            {
+                foreach (var p in parts)
+                {
+                    var sub = ContentTokens(p);
+                    if (sub.Count == 0) continue;
+                    var overlap = sub.Count(t => originalContent.Contains(t));
+                    if (overlap * 2 < sub.Count)  // <50% overlap → hallucinated tokens
+                    {
+                        _logger.LogInformation("[LlmDecomposer] rejecting split: sub-question '{Sub}' shares only {Overlap}/{Total} content words with original — likely LLM hallucination", p, overlap, sub.Count);
+                        return new(null, userPrompt, raw, null);
+                    }
+                }
+            }
             return new(parts, userPrompt, raw, null);
         }
         catch (Exception ex)
@@ -134,6 +151,18 @@ internal sealed class LlmDecomposer : ILlmDecomposer
             _logger.LogDebug(ex, "[LlmDecomposer] split failed for '{Q}'.", question);
             return new(null, userPrompt, raw, ex.Message);
         }
+    }
+
+    // Lowercase content words length ≥ 4 — drops stopwords and short connectives, keeps domain nouns/verbs.
+    private static HashSet<string> ContentTokens(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return new();
+        return new HashSet<string>(
+            text.ToLowerInvariant()
+                .Split(new[] { ' ', '\t', '\n', '\r', '?', '.', ',', ';', ':', '\'', '"', '(', ')', '[', ']', '/', '\\', '-' },
+                       StringSplitOptions.RemoveEmptyEntries)
+                .Where(t => t.Length >= 4),
+            StringComparer.OrdinalIgnoreCase);
     }
 
     private static List<string>? ParseArray(string raw)

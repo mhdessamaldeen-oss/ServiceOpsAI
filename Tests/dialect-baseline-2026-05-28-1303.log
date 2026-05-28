@@ -1,0 +1,40 @@
+13:03:44 ▶ shapes/suite-shape-COUNT-2026-05-28.json (expected 22 cases)
+13:03:47   sessionId=147 totalCases=22
+13:04:32   s=147 traces=0/22 stall=833274272s
+13:05:17   s=147 traces=1/22 stall=5s
+13:06:03   s=147 traces=1/22 stall=51s
+13:06:48   s=147 traces=2/22 stall=32s
+13:07:33   s=147 traces=3/22 stall=28s
+13:08:18   s=147 traces=5/22 stall=11s
+13:09:03   s=147 traces=6/22 stall=3s
+13:09:48   s=147 traces=6/22 stall=48s
+13:10:34   s=147 traces=8/22 stall=23s
+13:11:19   s=147 traces=9/22 stall=6s
+13:12:04   s=147 traces=9/22 stall=51s
+13:12:49   s=147 traces=10/22 stall=34s
+13:13:34   s=147 traces=10/22 stall=79s
+13:14:19   s=147 traces=11/22 stall=39s
+13:15:04   s=147 traces=12/22 stall=4s
+13:15:50   s=147 traces=12/22 stall=50s
+13:16:35   s=147 traces=13/22 stall=40s
+13:17:20   s=147 traces=14/22 stall=41s
+13:18:05   s=147 traces=15/22 stall=26s
+13:18:50   s=147 traces=16/22 stall=22s
+13:19:35   s=147 traces=16/22 stall=67s
+13:20:20   s=147 traces=16/22 stall=112s
+13:21:05   s=147 traces=16/22 stall=157s
+13:21:51   s=147 traces=16/22 stall=203s
+13:22:36   s=147 traces=16/22 stall=248s
+13:23:21   s=147 traces=18/22 stall=25s
+13:24:06   s=147 traces=18/22 stall=70s
+13:24:51   s=147 traces=21/22 stall=21s
+13:25:36   s=147 traces=22/22 stall=31s
+13:25:37   ✗ Cannot convert value "Msg 207, Level 16, State 1, Server PC\SQLEXPRESS, Line 1" to type "System.Int32". Error: "The input string 'Msg 207, Level 16, State 1, Server PC\SQLEXPRESS, Line 1' was not in a correct format."
+13:25:47 ─── Done ──
+
+Suite                                    SessionId Traces Expected Ok Errors Total PassPct
+-----                                    --------- ------ -------- -- ------ ----- -------
+shapes/suite-shape-COUNT-2026-05-28.json                0       22  0      0     0       0
+
+
+13:25:47 OVERALL: 0 / 0 = 0%  (baseline 94.3%)

@@ -59,29 +59,45 @@ internal sealed class SpecExtractor : ISpecExtractor
     private readonly IOptions<CopilotOptions> _options;
     private readonly IOptionsMonitor<FkRoleOptions> _fkRoleOptions;
     private readonly IOptionsMonitor<CopilotTextCatalog> _textCatalog;
+    private readonly Pipeline.SpecRepair.ISpecRepair _specRepair;
+    private readonly Pipeline.Prompts.IPromptShapeClassifier _promptShapeClassifier;
+    private readonly ISemanticLayer _semanticLayer;
+    private readonly SuperAdminCopilot.Grounding.IQuestionGrounder _grounder;
     private readonly ILogger<SpecExtractor> _logger;
 
     public SpecExtractor(
         ISchemaSemanticRetriever retriever,
         ISchemaKnowledge knowledge,
-        ILlmClient llm,
+        ServiceOpsAI.Services.AI.Providers.Roles.IRoleBoundLlmClientFactory llmFactory,
         IPastQuestionStore pastQuestions,
         IVerifiedQueryMatcher vqMatcher,
         ITemporalParser temporalParser,
         IOptions<CopilotOptions> options,
         IOptionsMonitor<FkRoleOptions> fkRoleOptions,
         IOptionsMonitor<CopilotTextCatalog> textCatalog,
+        Pipeline.SpecRepair.ISpecRepair specRepair,
+        Pipeline.Prompts.IPromptShapeClassifier promptShapeClassifier,
+        ISemanticLayer semanticLayer,
+        SuperAdminCopilot.Grounding.IQuestionGrounder grounder,
         ILogger<SpecExtractor> logger)
     {
         _retriever = retriever;
         _knowledge = knowledge;
-        _llm = llm;
+        // Use the QuerySpecComposer role binding so the SpecExtractor can be pointed at a
+        // bigger / code-specialized model (e.g. qwen2.5-coder:7b) independently of the rest
+        // of the pipeline. Binding lives in appsettings.json under Ai:RoleBindings.QuerySpecComposer.
+        // Empty binding falls back to the Copilot workload's default model.
+        _llm = llmFactory.For(ServiceOpsAI.Services.AI.Providers.Roles.AiRole.QuerySpecComposer);
         _pastQuestions = pastQuestions;
         _vqMatcher = vqMatcher;
         _temporalParser = temporalParser;
         _options = options;
         _fkRoleOptions = fkRoleOptions;
         _textCatalog = textCatalog;
+        _specRepair = specRepair;
+        _promptShapeClassifier = promptShapeClassifier;
+        _semanticLayer = semanticLayer;
+        _grounder = grounder;
         _logger = logger;
     }
 
@@ -102,6 +118,14 @@ internal sealed class SpecExtractor : ISpecExtractor
         if (string.IsNullOrWhiteSpace(question))
             return new SpecExtractionResult { Error = "empty question" };
 
+        // Phase 7a — classify the question's prompt shape (COUNT/TOPN/JOIN/...). Today this
+        // is observational only: we log the classification so trace analysis can correlate
+        // shape with success rate. Phase 7c-full will use the shape to route to per-shape
+        // example banks in the prompt assembler; until then the existing god-prompt path
+        // remains unchanged.
+        var promptShape = _promptShapeClassifier.Classify(question);
+        _logger.LogInformation("[SpecExtractor] promptShape={Shape} for '{Question}'", promptShape, question);
+
         try
         {
             // Sanity check: retriever needs the embedder + schema knowledge. If either is
@@ -119,27 +143,38 @@ internal sealed class SpecExtractor : ISpecExtractor
 
             var retrieval = await _retriever.RetrieveAsync(question, topK: 3, cancellationToken);
             var tables = retrieval.Tables.Select(t => t.Table).ToList();
+
+            // Keyword-fallback: scan semantic-layer synonyms against the question text and add any
+            // matching entity to the candidate list. The retriever embeds table name + description
+            // + label/content columns, but NOT the entity's synonym list — so questions phrased
+            // using a synonym ("meter readings" for MeterReadings, "outages" for Outages) often
+            // fall below the retriever's similarity threshold. Keyword matching is exact; combined
+            // with the retriever's fuzzy match, recall is dramatically higher. Cheap O(N synonyms).
+            AddKeywordMatchedTables(question, tables);
+
             if (tables.Count == 0)
             {
-                // Retriever returned nothing despite being "available" — embedder hiccup or
-                // genuinely no match. Surface the top schema tables so the user has a hint.
-                var topTables = _knowledge.AllTables
+                // Retriever AND keyword fallback both returned nothing — surface ALL non-hidden
+                // domain tables so the orchestrator's escape-valve recovery path can fire and let
+                // the direct-SQL emitter take a fresh shot at the question.
+                var domainTables = _knowledge.AllTables
                     .Where(t => !t.Flags.IsBridge && !t.Flags.IsLookup)
-                    .Take(5)
+                    .Where(t => !IsHiddenFromRetriever(t.Name))
                     .Select(t => t.Name)
                     .ToList();
                 return new SpecExtractionResult
                 {
-                    Error = topTables.Count > 0
-                        ? $"no candidate tables matched. Available: {string.Join(", ", topTables)}"
+                    Error = domainTables.Count > 0
+                        ? $"no candidate tables matched. Available: {string.Join(", ", domainTables.Take(8))}"
                         : "no candidate tables",
+                    CandidateTables = domainTables,
                 };
             }
 
             // Expand to include neighbor tables the candidates reference / are referenced by,
-            // so the LLM has enough context to choose joins. Capped at 6 total to keep the
-            // prompt small for local models.
-            tables = ExpandWithNeighbors(tables, maxTotal: 6);
+            // so the LLM has enough context to choose joins. Cap tunable via
+            // CopilotOptions.SpecPromptMaxTables (default 6 — small enough for local models).
+            tables = ExpandWithNeighbors(tables, maxTotal: _options.Value.SpecPromptMaxTables);
 
             // Fetch top similar past questions (persistent learning) — adds them as worked
             // examples in the prompt. Helps the LLM recognise question shapes it's already seen
@@ -164,14 +199,19 @@ internal sealed class SpecExtractor : ISpecExtractor
             // RAG only fires when a similar question has actually been asked before (cold-start
             // problem). The VQ catalog is rich (>125 entries) and gold-quality — using it as a
             // few-shot safety net helps the planner on questions that have no past-trace match.
-            // Lower threshold (0.65) than MatchAsync's strict trust threshold — these aren't run
-            // AS the answer, they're shown to the LLM as worked examples of similar shapes.
+            // Top-K and minimum-similarity floor tunable via CopilotOptions.VqFewShotTopK /
+            // VqFewShotMinSimilarity (defaults 3 / 0.65 — lower threshold than VerifiedQueryMinSimilarity
+            // because these aren't run AS the answer, only shown as worked examples).
             IReadOnlyList<VerifiedMatch> vqExamples = Array.Empty<VerifiedMatch>();
             if (previousError is null)
             {
                 try
                 {
-                    vqExamples = await _vqMatcher.FindTopAsync(question, topK: 3, minSimilarity: 0.65f, cancellationToken);
+                    vqExamples = await _vqMatcher.FindTopAsync(
+                        question,
+                        topK: _options.Value.VqFewShotTopK,
+                        minSimilarity: (float)_options.Value.VqFewShotMinSimilarity,
+                        cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -179,11 +219,27 @@ internal sealed class SpecExtractor : ISpecExtractor
                 }
             }
 
-            var prompt = BuildUserPrompt(question, tables, previousSpec, previousError, refinement, pastExamples, vqExamples);
+            // Stage-1 grounding — resolve schema/value/temporal/natural-key/intent BEFORE the LLM.
+            // The LLM is then told the answers as ground truth instead of guessing them. See
+            // Areas/SuperAdminCopilot/Grounding/QuestionGrounder.cs and the principled redesign
+            // notes in the project memory. Falls back to QuestionGroundingContext.Empty on
+            // failure — SpecRepair phases remain as a backstop.
+            SuperAdminCopilot.Grounding.QuestionGroundingContext grounding;
+            try
+            {
+                grounding = await _grounder.GroundAsync(question, tables, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[SpecExtractor] grounding failed; falling back to ungrounded prompt.");
+                grounding = SuperAdminCopilot.Grounding.QuestionGroundingContext.Empty;
+            }
+
+            var prompt = BuildUserPrompt(question, tables, previousSpec, previousError, refinement, pastExamples, vqExamples, grounding);
 
             using var hint = Abstractions.LlmCallStageHint.Use(refinement ? "SpecRefine" : "SpecExtractor");
             var raw = await _llm.GenerateJsonAsync(_textCatalog.CurrentValue.SpecExtractorSystemPrompt, prompt, cancellationToken);
-            var spec = ParseSpec(raw);
+            var spec = ParseSpec(raw, question, tables);
             if (spec is null)
             {
                 return new SpecExtractionResult
@@ -195,7 +251,21 @@ internal sealed class SpecExtractor : ISpecExtractor
                 };
             }
 
+            // Never-refuse policy: when the LLM emits intent=clarification, promote to data_query
+            // and let SpecRepair fill the missing fields (root inference, smart defaults). The
+            // clarification text is preserved in the spec so the orchestrator can surface it as
+            // a hint alongside the best-guess answer.
+            if (!string.IsNullOrEmpty(spec.Intent)
+                && !string.Equals(spec.Intent, "data_query", StringComparison.OrdinalIgnoreCase))
+            {
+                spec.Intent = "data_query";
+            }
+
             NormalizeSpec(spec, question);
+            // Consolidated LLM-output mutation pipeline. Owns column auto-qualification,
+            // function-name normalization, root inference, etc. The compiler trusts the spec
+            // that comes out of this. See Areas/SuperAdminCopilot/Pipeline/SpecRepair/README.md.
+            _specRepair.Apply(spec, question, tables);
             return new SpecExtractionResult
             {
                 Spec = spec,
@@ -209,6 +279,89 @@ internal sealed class SpecExtractor : ISpecExtractor
             _logger.LogWarning(ex, "[SpecExtractor] extract failed for '{Q}'.", question);
             return new SpecExtractionResult { Error = ex.Message };
         }
+    }
+
+    // True when table name matches either the exact-hidden list or any wildcard pattern.
+    private bool IsHiddenFromRetriever(string tableName)
+    {
+        var opts = _options.Value;
+        if (opts.RetrieverHiddenTables.Any(n => string.Equals(n, tableName, StringComparison.OrdinalIgnoreCase)))
+            return true;
+        foreach (var pattern in opts.RetrieverHiddenTablePatterns)
+            if (WildcardMatch(pattern, tableName)) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Scan semantic-layer entity synonyms against the question text. For each entity whose
+    /// table is hidden-from-retriever-safe, exists in schema knowledge, and is NOT already in
+    /// the candidate list, append it if any synonym (or the canonical Name) appears as a
+    /// whole-word match in the question. Mutates <paramref name="tables"/> in place.
+    /// </summary>
+    private void AddKeywordMatchedTables(string question, List<InferredTable> tables)
+    {
+        if (string.IsNullOrWhiteSpace(question)) return;
+        var entities = _semanticLayer.Config.Entities;
+        if (entities is null || entities.Count == 0) return;
+
+        // Lowercase + whitespace-padded question so whole-word boundary checks work without
+        // a full regex (cheaper). " how many meter readings do we have " — substring search
+        // for " meter reading " finds whole-word match without misfiring on "thermometer".
+        var q = " " + question.ToLowerInvariant().Replace('\n', ' ').Replace('\r', ' ') + " ";
+
+        // Strip punctuation that touches word boundaries (e.g. "outages," → "outages ").
+        // INCLUDES Arabic-specific punctuation:
+        //   ؟ U+061F Arabic question mark
+        //   ، U+060C Arabic comma
+        //   ؛ U+061B Arabic semicolon
+        //   ! U+FE57 Arabic exclamation (presentation form)
+        // Without these, "كم عدد أوامر العمل؟" keeps the ؟ attached to "العمل" and the
+        // whole-word match for synonym " العمل " fails. This was the Arabic-resolution bug.
+        var sb = new System.Text.StringBuilder(q.Length);
+        foreach (var ch in q)
+        {
+            if (ch == ',' || ch == '.' || ch == '!' || ch == '?' || ch == ';' || ch == ':' || ch == '"' || ch == '\''
+                || ch == '؟' || ch == '،' || ch == '؛' || ch == '﹗')
+                sb.Append(' ');
+            else sb.Append(ch);
+        }
+        q = sb.ToString();
+
+        foreach (var entity in entities)
+        {
+            if (string.IsNullOrEmpty(entity.Table)) continue;
+            if (IsHiddenFromRetriever(entity.Table)) continue;
+            if (tables.Any(t => string.Equals(t.Name, entity.Table, StringComparison.OrdinalIgnoreCase))) continue;
+            var schemaTable = _knowledge.AllTables.FirstOrDefault(t =>
+                string.Equals(t.Name, entity.Table, StringComparison.OrdinalIgnoreCase));
+            if (schemaTable is null) continue;
+
+            // Build the term list: canonical Name + Synonyms. Lowercase + whole-word wrapped.
+            var terms = new List<string>(1 + (entity.Synonyms?.Count ?? 0));
+            if (!string.IsNullOrEmpty(entity.Name)) terms.Add(entity.Name);
+            if (entity.Synonyms is not null) terms.AddRange(entity.Synonyms);
+
+            foreach (var term in terms)
+            {
+                if (string.IsNullOrWhiteSpace(term)) continue;
+                var needle = " " + term.ToLowerInvariant() + " ";
+                if (q.Contains(needle, StringComparison.Ordinal))
+                {
+                    tables.Add(schemaTable);
+                    _logger.LogDebug("[SpecExtractor] keyword-match added '{Table}' via synonym '{Term}'",
+                        entity.Table, term);
+                    break;
+                }
+            }
+        }
+    }
+
+    private static bool WildcardMatch(string pattern, string text)
+    {
+        if (string.IsNullOrEmpty(pattern)) return false;
+        // Translate * → .*  and anchor the regex; case-insensitive.
+        var rx = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$";
+        return System.Text.RegularExpressions.Regex.IsMatch(text, rx, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
     private List<InferredTable> ExpandWithNeighbors(List<InferredTable> seed, int maxTotal)
@@ -251,11 +404,17 @@ internal sealed class SpecExtractor : ISpecExtractor
     private string BuildUserPrompt(string question, IReadOnlyList<InferredTable> tables,
         QuerySpec? previousSpec = null, string? previousError = null, bool refinement = false,
         IReadOnlyList<PastQuestionMatch>? pastExamples = null,
-        IReadOnlyList<VerifiedMatch>? vqExamples = null)
+        IReadOnlyList<VerifiedMatch>? vqExamples = null,
+        SuperAdminCopilot.Grounding.QuestionGroundingContext? grounding = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Question: \"{question}\"");
         sb.AppendLine();
+
+        // Stage-1 grounded context — these are pre-resolved facts the LLM MUST use as ground
+        // truth. Putting them at the top of the prompt (before examples / rules / schema) makes
+        // them the dominant signal. The LLM is told: don't guess these; use them verbatim.
+        AppendGroundedContext(sb, grounding);
 
         // Detected-shape hints — surfaced at the top of the prompt before any examples so the
         // LLM picks the right pattern. Comparison hint text comes from CopilotTextCatalog so
@@ -352,127 +511,7 @@ internal sealed class SpecExtractor : ISpecExtractor
         sb.AppendLine("- Reference unknown columns via computed expressions if derivable (e.g. \"age\" → DATEDIFF from CreatedAt).");
         sb.AppendLine("- Use ISO dates or \"today\"/\"last_7_days\"/\"last_30_days\"/\"this_month\"/\"last_month\" for date filters.");
         sb.AppendLine();
-        sb.AppendLine("Worked examples (mimic the SHAPE; column names will differ for your schema):");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"how many tickets\"   <-- pure COUNT — empty select, aggregations only");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"how many open tickets\"   <-- COUNT + lookup filter. CRITICAL: keep select EMPTY even when adding a filter.");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[{\"column\":\"TicketStatuses.Name\",\"op\":\"eq\",\"value\":\"Open\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"how many rejected tickets\"   <-- same shape; the value is the LOOKUP NAME, not an ID");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[{\"column\":\"TicketStatuses.Name\",\"op\":\"eq\",\"value\":\"Rejected\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"users with no tickets\"   <-- ANTI-JOIN: \"with no / without / having no\" → kind:\"anti\", NO subquery, NO filter");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\",\"AspNetUsers.Email\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"Tickets\",\"kind\":\"anti\"}],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"tickets without any comments\"   <-- another anti-join example");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"TicketComments\",\"kind\":\"anti\"}],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"open tickets\"   <-- lookup VALUE \"Open\" → filter on lookup table's NAME column");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"TicketStatuses.Name\",\"op\":\"eq\",\"value\":\"Open\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"closed tickets\"");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"TicketStatuses.Name\",\"op\":\"eq\",\"value\":\"Closed\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"top 5 users by ticket count\"");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.Id\",\"alias\":\"TicketCount\"}],\"filters\":[],\"groupBy\":[\"AspNetUsers.UserName\"],\"orderBy\":[{\"column\":\"TicketCount\",\"direction\":\"desc\"}],\"limit\":5,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"show users and their roles\"   <-- many-to-many through a bridge; the compiler walks the FK graph");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\",\"AspNetRoles.Name\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"running total of tickets created over time\"   <-- WINDOW FUNCTION — use computed expression");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.CreatedAt\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"Tickets.CreatedAt\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"RunningCount\",\"expression\":\"COUNT(*) OVER (ORDER BY Tickets.CreatedAt)\"}],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"rank users by ticket count\"   <-- ROW_NUMBER / RANK via window function");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.Id\",\"alias\":\"TicketCount\"}],\"filters\":[],\"groupBy\":[\"AspNetUsers.UserName\"],\"orderBy\":[{\"column\":\"TicketCount\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"Rank\",\"expression\":\"ROW_NUMBER() OVER (ORDER BY COUNT(Tickets.Id) DESC)\"}],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"monthly ticket volume for the last 3 months\"   <-- DATE BUCKETING — use computed alias + raw expression in groupBy");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"TicketCount\"}],\"filters\":[{\"column\":\"Tickets.CreatedAt\",\"op\":\"gte\",\"value\":\"last_90_days\"}],\"groupBy\":[\"FORMAT(Tickets.CreatedAt, 'yyyy-MM')\"],\"orderBy\":[{\"column\":\"Month\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"Month\",\"expression\":\"FORMAT(Tickets.CreatedAt, 'yyyy-MM')\"}],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"tickets per priority and status\"   <-- MULTI-DIMENSION GROUP BY — both dimensions must appear in groupBy");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketPriorities.Name\",\"TicketStatuses.Name\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[],\"groupBy\":[\"TicketPriorities.Name\",\"TicketStatuses.Name\"],\"orderBy\":[{\"column\":\"Count\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"ticket count by category and source\"   <-- same shape, different dimensions — \"by X and Y\" and \"per X and Y\" both mean two groupBy entries");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketCategories.Name\",\"TicketSources.Name\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[],\"groupBy\":[\"TicketCategories.Name\",\"TicketSources.Name\"],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"daily ticket count for the last 14 days\"   <-- DAILY BUCKETING");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"TicketCount\"}],\"filters\":[{\"column\":\"Tickets.CreatedAt\",\"op\":\"gte\",\"value\":\"last_14_days\"}],\"groupBy\":[\"CAST(Tickets.CreatedAt AS DATE)\"],\"orderBy\":[{\"column\":\"Day\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"Day\",\"expression\":\"CAST(Tickets.CreatedAt AS DATE)\"}],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"average resolution time in hours\"   <-- DATEDIFF AS A METRIC — use aggregation with column as expression");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"AVG\",\"column\":\"DATEDIFF(hour, Tickets.CreatedAt, Tickets.ResolvedAt)\",\"alias\":\"AvgResolutionHours\"}],\"filters\":[{\"column\":\"Tickets.ResolvedAt\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"average resolution time in hours by priority\"   <-- DATEDIFF + GROUP BY LOOKUP");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketPriorities.Name\"],\"aggregations\":[{\"function\":\"AVG\",\"column\":\"DATEDIFF(hour, Tickets.CreatedAt, Tickets.ResolvedAt)\",\"alias\":\"AvgResolutionHours\"}],\"filters\":[{\"column\":\"Tickets.ResolvedAt\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[\"TicketPriorities.Name\"],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"average time to first response in hours, by priority\"   <-- AVG of DATEDIFF + GROUP BY — exact same shape as above");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketPriorities.Name\"],\"aggregations\":[{\"function\":\"AVG\",\"column\":\"DATEDIFF(hour, Tickets.CreatedAt, Tickets.FirstRespondedAt)\",\"alias\":\"AvgFirstResponseHours\"}],\"filters\":[{\"column\":\"Tickets.FirstRespondedAt\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[\"TicketPriorities.Name\"],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"latest ticket creation date\" / \"most recent ticket\"   <-- MAX on a date column — single-row aggregate, empty select");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"MAX\",\"column\":\"Tickets.CreatedAt\",\"alias\":\"LatestCreated\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"earliest ticket creation date\" / \"oldest ticket created\"   <-- MIN on a date column — single-row aggregate, empty select");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"MIN\",\"column\":\"Tickets.CreatedAt\",\"alias\":\"EarliestCreated\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"highest priority value\" / \"top priority weight\"   <-- MAX on a numeric column from a lookup table — single-row aggregate");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"TicketPriorities\",\"select\":[],\"aggregations\":[{\"function\":\"MAX\",\"column\":\"TicketPriorities.SortOrder\",\"alias\":\"MaxPriorityWeight\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"how many distinct users created tickets\" / \"number of unique creators\"   <-- COUNT DISTINCT — Distinct:true on the column, NOT *");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.CreatedByUserId\",\"alias\":\"DistinctCreators\",\"distinct\":true}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"how many different categories have tickets\"   <-- COUNT DISTINCT through a join");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.CategoryId\",\"alias\":\"DistinctCategories\",\"distinct\":true}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"show me all ticket information\" / \"show full details of ticket TCK-001\" / \"everything we know about this user\"   <-- ALL-COLUMNS — use the sentinel select:[\"*\"] and the enricher expands it to the entity's full content columns");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"*\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"show ticket age in days\"   <-- DATEDIFF COMPUTED COLUMN (per-row, not aggregate)");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"AgeInDays\",\"expression\":\"DATEDIFF(day, Tickets.CreatedAt, GETDATE())\"}],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"compare tickets this month vs last month\"   <-- PERIOD COMPARISON via conditional aggregation");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN Tickets.CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END\",\"alias\":\"ThisMonth\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN Tickets.CreatedAt >= DATEFROMPARTS(YEAR(DATEADD(month,-1,GETDATE())),MONTH(DATEADD(month,-1,GETDATE())),1) AND Tickets.CreatedAt < DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END\",\"alias\":\"LastMonth\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"tickets created today vs yesterday\"   <-- TODAY/YESTERDAY via conditional aggregation");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN CAST(Tickets.CreatedAt AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END\",\"alias\":\"Today\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN CAST(Tickets.CreatedAt AS DATE) = CAST(DATEADD(day,-1,GETDATE()) AS DATE) THEN 1 ELSE 0 END\",\"alias\":\"Yesterday\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"tickets resolved this year vs last year\"   <-- YEAR-OVER-YEAR via conditional aggregation");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN YEAR(Tickets.ResolvedAt) = YEAR(GETDATE()) THEN 1 ELSE 0 END\",\"alias\":\"ThisYear\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN YEAR(Tickets.ResolvedAt) = YEAR(GETDATE()) - 1 THEN 1 ELSE 0 END\",\"alias\":\"LastYear\"}],\"filters\":[{\"column\":\"Tickets.ResolvedAt\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"tickets created in 2025 vs 2024\"   <-- EXPLICIT YEARS via conditional aggregation");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN YEAR(Tickets.CreatedAt) = 2025 THEN 1 ELSE 0 END\",\"alias\":\"Y2025\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN YEAR(Tickets.CreatedAt) = 2024 THEN 1 ELSE 0 END\",\"alias\":\"Y2024\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"last 7 days vs the previous 7 days\"   <-- ROLLING-WINDOW COMPARISON via conditional aggregation");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN Tickets.CreatedAt >= DATEADD(day,-7,GETDATE()) THEN 1 ELSE 0 END\",\"alias\":\"Last7Days\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN Tickets.CreatedAt >= DATEADD(day,-14,GETDATE()) AND Tickets.CreatedAt < DATEADD(day,-7,GETDATE()) THEN 1 ELSE 0 END\",\"alias\":\"Previous7Days\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"what percentage of tickets are resolved or closed\"   <-- RATIO / PERCENTAGE via SUM(CASE) / COUNT(*)");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Total\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN TicketStatuses.Name IN ('Resolved','Closed') THEN 1 ELSE 0 END\",\"alias\":\"ResolvedOrClosed\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"PercentResolved\",\"expression\":\"100.0 * SUM(CASE WHEN TicketStatuses.Name IN ('Resolved','Closed') THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0)\"}],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"tickets created in April 2026\"   <-- SPECIFIC MONTH — use ISO date range filter");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"Tickets.CreatedAt\",\"op\":\"gte\",\"value\":\"2026-04-01\"},{\"column\":\"Tickets.CreatedAt\",\"op\":\"lt\",\"value\":\"2026-05-01\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"categories with more than 15 tickets\"   <-- HAVING — post-aggregation filter on a COUNT/SUM");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketCategories.Name\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"TicketCount\"}],\"filters\":[],\"groupBy\":[\"TicketCategories.Name\"],\"having\":[{\"function\":\"COUNT\",\"column\":\"*\",\"op\":\"gt\",\"value\":15}],\"orderBy\":[{\"column\":\"TicketCount\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"agents with more than 5 unresolved tickets\"   <-- HAVING combined with a filter");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"AspNetUsers\",\"select\":[\"AspNetUsers.UserName\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"Tickets.Id\",\"alias\":\"Unresolved\"}],\"filters\":[{\"column\":\"Tickets.ResolvedAt\",\"op\":\"is_null\",\"value\":null}],\"groupBy\":[\"AspNetUsers.UserName\"],\"having\":[{\"function\":\"COUNT\",\"column\":\"Tickets.Id\",\"op\":\"gt\",\"value\":5}],\"orderBy\":[{\"column\":\"Unresolved\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"distinct categories that have tickets\"   <-- DISTINCT — use distinct:true, omit aggregations");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"TicketCategories.Name\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"TicketCategories.Name\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"distinct\":true,\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"unassigned tickets\" / \"tickets without an owner\" / \"items with no assignee\"   <-- ABSENCE on an FK column → filter op:\"is_null\" on the FK column itself, no anti-join needed");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"Tickets.AssignedToUserId\",\"op\":\"is_null\",\"value\":null}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"child tickets with their parent ticket number\"   <-- SELF-REFERENCE: filter where ParentTicketId IS NOT NULL and SELECT both the child's TicketNumber AND the parent FK column. Full parent details (TicketNumber, Title) via self-join aren't supported yet — the user can resolve the parent in a follow-up question.");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\",\"Tickets.ParentTicketId\"],\"aggregations\":[],\"filters\":[{\"column\":\"Tickets.ParentTicketId\",\"op\":\"not_null\",\"value\":null}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"tickets matching 'login' in title or description\"   <-- CROSS-COLUMN TEXT SEARCH — use op:\"text_search\" so the compiler ORs over the entity's searchable columns");
-        sb.AppendLine("→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[\"Tickets.TicketNumber\",\"Tickets.Title\"],\"aggregations\":[],\"filters\":[{\"column\":\"Tickets\",\"op\":\"text_search\",\"value\":\"login\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"top tickets\"   <-- AMBIGUOUS: top by what? Ask before guessing.");
-        sb.AppendLine("→ {\"intent\":\"clarification\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"Top tickets by what? Options: created date (newest), priority, status, or assignee load.\"}");
-        sb.AppendLine();
-        sb.AppendLine("Q: \"recent stuff\"   <-- AMBIGUOUS: which entity? Ask.");
-        sb.AppendLine("→ {\"intent\":\"clarification\",\"root\":\"\",\"select\":[],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"Which data? Recent tickets, users, comments, or something else?\"}");
+        sb.AppendLine(_textCatalog.CurrentValue.SpecExtractorWorkedExamples);
         sb.AppendLine();
         // Reminders block — text comes from CopilotTextCatalog so operators can tune wording
         // per deployment. The relative-date keyword line is data-driven and stays inline so it
@@ -528,6 +567,84 @@ internal sealed class SpecExtractor : ISpecExtractor
         // this by ordering their config (creator first by convention).
         var defaultRole = patterns[0].Role;
         return $"- ★ FK ROLES: when a table has multiple FKs to the same target, each FK column carries a role= tag. MAP THE QUESTION'S VERB to the matching role: {verbToRole}. The DEFAULT when the question says just \"by X\" without a verb is the {defaultRole} FK. Pick the right FK column when joining — do NOT default to alphabetical order.";
+    }
+
+    /// <summary>
+    /// Emit the Stage-1 grounded context as a "Resolved context" block at the top of the prompt.
+    /// The LLM is told: these are pre-resolved facts. Use them verbatim. Don't guess values, don't
+    /// substitute different columns, don't omit them from the spec. Skips emitting anything when
+    /// the context is empty (legacy ungrounded flow). All sections are conditional — only included
+    /// when populated, to keep the prompt short for simple questions.
+    /// </summary>
+    private static void AppendGroundedContext(StringBuilder sb, SuperAdminCopilot.Grounding.QuestionGroundingContext? grounding)
+    {
+        if (grounding is null) return;
+        var hasAny = grounding.LinkedValues.Count > 0
+                     || grounding.LinkedNaturalKeys.Count > 0
+                     || grounding.LinkedTemporal.Count > 0
+                     || grounding.IsAllTimeIntent
+                     || grounding.IsDistinctCountIntent
+                     || !string.IsNullOrEmpty(grounding.DateRoleHint)
+                     || !string.IsNullOrEmpty(grounding.PromptShape);
+        if (!hasAny) return;
+
+        sb.AppendLine("Resolved context (pre-grounded facts — USE THESE VERBATIM, do NOT guess):");
+
+        if (!string.IsNullOrEmpty(grounding.PromptShape))
+            sb.Append("- Shape: ").AppendLine(grounding.PromptShape);
+
+        if (grounding.LinkedValues.Count > 0)
+        {
+            sb.AppendLine("- Required filter values (every one must appear in the WHERE clause):");
+            foreach (var v in grounding.LinkedValues)
+                sb.Append("    • ").Append(v.Table).Append('.').Append(v.Column).Append(" = '").Append(v.Value).AppendLine("'");
+        }
+
+        if (grounding.LinkedNaturalKeys.Count > 0)
+        {
+            sb.AppendLine("- Natural-key references (root MUST be the table below; filter MUST be the column):");
+            foreach (var k in grounding.LinkedNaturalKeys)
+                sb.Append("    • ").Append(k.Table).Append('.').Append(k.Column).Append(" = '").Append(k.Value).AppendLine("' (entity: ").Append(k.Entity).AppendLine(")");
+        }
+
+        if (grounding.LinkedTemporal.Count == 1)
+        {
+            var t = grounding.LinkedTemporal[0];
+            sb.Append("- Temporal slot: ");
+            if (t.EndToken is null)
+                sb.Append("date column ").Append(t.Op).Append(' ').AppendLine(t.StartToken);
+            else
+                sb.Append("date column in [").Append(t.StartToken).Append(", ").Append(t.EndToken).AppendLine(")");
+            sb.AppendLine("  Inject these as filters on the root entity's default date column.");
+        }
+        else if (grounding.LinkedTemporal.Count > 1)
+        {
+            sb.AppendLine("- Multi-period comparison (emit as periodComparisons array, NOT a single filter):");
+            foreach (var t in grounding.LinkedTemporal)
+            {
+                sb.Append("    • ").Append(t.Label).Append(" → ");
+                if (t.EndToken is null) sb.Append(t.Op).AppendLine(t.StartToken);
+                else sb.Append('[').Append(t.StartToken).Append(", ").Append(t.EndToken).AppendLine(")");
+            }
+        }
+
+        if (grounding.IsAllTimeIntent)
+            sb.AppendLine("- All-time intent: DO NOT add any default date filter; the user wants the full history.");
+
+        if (grounding.IsDistinctCountIntent)
+            sb.AppendLine("- Distinct-count intent: emit aggregation as COUNT with distinct=true on the natural-key column; do NOT use GROUP BY for this.");
+
+        if (grounding.DerivedMetricHints.Count > 0)
+        {
+            sb.AppendLine("- Derived-metric column hints (the LLM must AGGREGATE OVER these expressions, NOT raw columns like AffectedUsersCount):");
+            foreach (var m in grounding.DerivedMetricHints)
+                sb.Append("    • ").Append(m.MetricKeyword).Append(" → use ").Append(m.PreferredFunction).Append('(').Append(m.Expression).AppendLine(") as the aggregation");
+        }
+
+        if (!string.IsNullOrEmpty(grounding.DateRoleHint))
+            sb.Append("- Date-role hint: filter / order by the date column with role '").Append(grounding.DateRoleHint).AppendLine("' (from semantic-layer dateRoles).");
+
+        sb.AppendLine();
     }
 
     private static void AppendTable(StringBuilder sb, InferredTable t)
@@ -869,14 +986,15 @@ internal sealed class SpecExtractor : ISpecExtractor
         _ => baseDate.AddDays(amount),
     };
 
-    private QuerySpec? ParseSpec(string raw)
+    private QuerySpec? ParseSpec(string raw, string? question = null, IReadOnlyList<InferredTable>? candidateTables = null)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
-        var json = ExtractJsonObject(raw);
+        var json = ExtractJsonObject(raw) ?? RepairTruncatedJson(raw);
         if (json is null) return null;
         try
         {
-            return JsonSerializer.Deserialize<QuerySpec>(json, CopilotJson.Lenient);
+            var normalized = NormalizeSpecShape(json, question, candidateTables);
+            return JsonSerializer.Deserialize<QuerySpec>(normalized, CopilotJson.Lenient);
         }
         catch (Exception ex)
         {
@@ -885,11 +1003,355 @@ internal sealed class SpecExtractor : ISpecExtractor
         }
     }
 
-    // Local models sometimes wrap JSON in ```json fences or add prose. Pluck the first {...} block.
-    // Brace-balance scan is string-aware: braces inside JSON string literals are ignored, and
-    // \" inside a string doesn't close it. Without this, a value like
-    //   "clarificationQuestion": "Use {curly} as placeholder"
-    // would close the object early and the parser would fail.
+    // Shape-tolerant normalizer for common LLM output drifts that confuse the strict QuerySpec deserializer.
+    // Covers (a) snake_case keys (group_by → groupBy), (b) Select/GroupBy items as {table, column}-objects flattened to "Table.Column" strings, (c) Having as a single object wrapped into an array.
+    private static string NormalizeSpecShape(string json, string? question = null, IReadOnlyList<InferredTable>? candidateTables = null)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) return json;
+
+        var output = new System.Collections.Generic.Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in root.EnumerateObject())
+        {
+            var key = NormalizeKey(prop.Name);
+            // Special: when LLM emits `"limit": {"offset":20, "count":20}`, split into the two QuerySpec ints.
+            if (string.Equals(key, "limit", StringComparison.OrdinalIgnoreCase)
+                && prop.Value.ValueKind == JsonValueKind.Object)
+            {
+                if (prop.Value.TryGetProperty("count", out var cnt) && cnt.ValueKind == JsonValueKind.Number)
+                    output["limit"] = cnt.GetInt32();
+                else if (prop.Value.TryGetProperty("rows", out var rws) && rws.ValueKind == JsonValueKind.Number)
+                    output["limit"] = rws.GetInt32();
+                if (prop.Value.TryGetProperty("offset", out var off) && off.ValueKind == JsonValueKind.Number)
+                    output["offset"] = off.GetInt32();
+                else if (prop.Value.TryGetProperty("skip", out var skp) && skp.ValueKind == JsonValueKind.Number)
+                    output["offset"] = skp.GetInt32();
+                continue;
+            }
+            output[key] = NormalizeValue(key, prop.Value);
+        }
+        // Post-pass: hoist any inline-aggregate strings ("SUM(x) AS alias") that live in
+        // `select` into the `aggregations` list, and strip trailing " AS alias" from bare
+        // column refs so the compiler's TryFormatColumn doesn't reject them. Without this
+        // hoist, the LLM's `select:["Customers.FullNameEn AS customer","SUM(Bills.TotalAmount) AS total_billed"]`
+        // pattern (common when the LLM mimics SQL syntax instead of the QuerySpec form)
+        // leaves Aggregations.Count == 0, so SpecEnricher's "is aggregate?" guards all
+        // miss and add filter / orderBy columns to SELECT — producing SQL with a column
+        // not in GROUP BY that SQL Server rejects.
+        HoistInlineAggregatesFromSelect(output);
+        // Prefer a question-text match for root inference — if the user said "tickets" then
+        // root should be Tickets even when the LLM's column refs are all on the joined lookup.
+        EnsureRootFromQuestion(output, question, candidateTables);
+        // Infer missing root from the first qualified column reference we can find.
+        // The LLM sometimes omits root entirely when the spec is dominated by aggregations
+        // ("compare open vs closed tickets" → aggregations referencing TicketStatuses but
+        // no root field). Without this, the deserialized spec has Root="" and the compiler
+        // refuses with "unknown root table". Picking a referenced table is usually right;
+        // when the LLM picked a lookup-table column (e.g. TicketStatuses), the join graph
+        // resolver will pull in the actual root anyway via FK walk.
+        EnsureRootFromReferencedColumns(output);
+        return JsonSerializer.Serialize(output);
+    }
+
+    private static void EnsureRootFromQuestion(System.Collections.Generic.Dictionary<string, object?> output, string? question, IReadOnlyList<InferredTable>? candidateTables)
+    {
+        if (output.TryGetValue("root", out var rootObj) && rootObj is string rs && !string.IsNullOrWhiteSpace(rs))
+            return;
+        if (string.IsNullOrWhiteSpace(question) || candidateTables is null || candidateTables.Count == 0) return;
+        // Strip annotation lines (the entity-resolution + requested-columns hints appended after
+        // "\n-- "). Those mention table/lookup names that aren't part of the user's actual question
+        // and would bias the inference toward lookup tables (e.g. "TicketStatuses" in a resolved hint).
+        var qClean = question!;
+        var dashIdx = qClean.IndexOf("\n--", StringComparison.Ordinal);
+        if (dashIdx >= 0) qClean = qClean.Substring(0, dashIdx);
+        var qLower = qClean.ToLowerInvariant();
+        // Score each candidate by lowercase singular/plural match against the question.
+        // Pick the highest-scoring table whose name appears in the question.
+        string? best = null;
+        int bestScore = 0;
+        foreach (var t in candidateTables)
+        {
+            var name = t.Name;
+            if (string.IsNullOrEmpty(name)) continue;
+            var lower = name.ToLowerInvariant();
+            int score = 0;
+            if (qLower.Contains(lower)) score = lower.Length + 1;
+            else if (lower.EndsWith("s") && qLower.Contains(lower.Substring(0, lower.Length - 1)))
+                score = lower.Length; // singular form match
+            if (score > bestScore) { bestScore = score; best = name; }
+        }
+        if (best is not null) output["root"] = best;
+    }
+
+    private static void EnsureRootFromReferencedColumns(System.Collections.Generic.Dictionary<string, object?> output)
+    {
+        if (output.TryGetValue("root", out var rootObj) && rootObj is string rs && !string.IsNullOrWhiteSpace(rs))
+            return;
+        string? inferred = null;
+        // Aggregations first (CASE expressions name the dimension table) → select → groupBy → filters.
+        if (output.TryGetValue("aggregations", out var aggObj) && aggObj is System.Collections.Generic.IEnumerable<object?> aggList)
+        {
+            foreach (var a in aggList)
+            {
+                if (a is System.Collections.Generic.IDictionary<string, object?> ad && ad.TryGetValue("column", out var c) && c is string cs)
+                {
+                    inferred ??= ExtractTableHint(cs);
+                    if (inferred is not null) break;
+                }
+            }
+        }
+        foreach (var key in new[] { "select", "groupBy", "filters" })
+        {
+            if (inferred is not null) break;
+            if (!output.TryGetValue(key, out var v) || v is not System.Collections.Generic.IEnumerable<object?> list) continue;
+            foreach (var item in list)
+            {
+                string? colRef = item switch
+                {
+                    string s => s,
+                    System.Collections.Generic.IDictionary<string, object?> d when d.TryGetValue("column", out var col) && col is string cs => cs,
+                    _ => null,
+                };
+                inferred ??= ExtractTableHint(colRef);
+                if (inferred is not null) break;
+            }
+        }
+        if (inferred is not null) output["root"] = inferred;
+    }
+
+    // Pull a table hint from a "Table.Column" string or a CASE WHEN expression. For an
+    // expression, prefer the first "Word.Word" token we can find.
+    private static string? ExtractTableHint(string? colRef)
+    {
+        if (string.IsNullOrWhiteSpace(colRef)) return null;
+        var m = System.Text.RegularExpressions.Regex.Match(colRef, @"\b([A-Za-z_][A-Za-z0-9_]*)\.[A-Za-z_]");
+        return m.Success ? m.Groups[1].Value : null;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex InlineAggregateRegex =
+        new(@"^\s*(COUNT|SUM|AVG|MIN|MAX|COUNT_BIG)\s*\(\s*(DISTINCT\s+)?(.+?)\s*\)(?:\s+AS\s+\[?([A-Za-z_][A-Za-z0-9_]*)\]?)?\s*$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static readonly System.Text.RegularExpressions.Regex TrailingAliasRegex =
+        new(@"^\s*(.+?)\s+AS\s+\[?([A-Za-z_][A-Za-z0-9_]*)\]?\s*$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static void HoistInlineAggregatesFromSelect(System.Collections.Generic.Dictionary<string, object?> output)
+    {
+        if (!output.TryGetValue("select", out var selObj) || selObj is not System.Collections.Generic.IEnumerable<object?> selList) return;
+        var keptSelect = new System.Collections.Generic.List<object?>();
+        var newAggregations = new System.Collections.Generic.List<object?>();
+        foreach (var item in selList)
+        {
+            if (item is not string s || string.IsNullOrWhiteSpace(s)) { keptSelect.Add(item); continue; }
+            var m = InlineAggregateRegex.Match(s);
+            if (m.Success)
+            {
+                var fn = m.Groups[1].Value.ToUpperInvariant();
+                var distinct = m.Groups[2].Success;
+                var col = m.Groups[3].Value.Trim();
+                var alias = m.Groups[4].Success ? m.Groups[4].Value : null;
+                var agg = new System.Collections.Generic.Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["function"] = fn,
+                    ["column"] = col,
+                };
+                if (!string.IsNullOrEmpty(alias)) agg["alias"] = alias;
+                if (distinct) agg["distinct"] = true;
+                newAggregations.Add(agg);
+                continue;
+            }
+            // Strip a trailing " AS alias" on a bare-column ref so TryFormatColumn accepts it.
+            var am = TrailingAliasRegex.Match(s);
+            if (am.Success && !am.Groups[1].Value.Contains('('))
+            {
+                keptSelect.Add(am.Groups[1].Value.Trim());
+                continue;
+            }
+            keptSelect.Add(s);
+        }
+        if (newAggregations.Count == 0) return;
+        output["select"] = keptSelect;
+        // Merge into any existing aggregations rather than overwrite.
+        if (output.TryGetValue("aggregations", out var existing) && existing is System.Collections.Generic.IEnumerable<object?> existingList)
+        {
+            var merged = new System.Collections.Generic.List<object?>(existingList);
+            merged.AddRange(newAggregations);
+            output["aggregations"] = merged;
+        }
+        else
+        {
+            output["aggregations"] = newAggregations;
+        }
+    }
+
+    // snake_case → camelCase for known top-level keys; other keys pass through. Also: a few
+    // common alternate names the LLM occasionally emits (where→filters, group→groupBy, order→orderBy).
+    private static string NormalizeKey(string k) => k.ToLowerInvariant() switch
+    {
+        "group_by" => "groupBy",
+        "order_by" => "orderBy",
+        "clarification_question" => "clarificationQuestion",
+        "period_comparisons" => "periodComparisons",
+        "where" => "filters",
+        "group" => "groupBy",
+        "order" => "orderBy",
+        _ => k,
+    };
+
+    private static object? NormalizeValue(string key, JsonElement el)
+    {
+        switch (key.ToLowerInvariant())
+        {
+            case "select":
+            case "groupby":
+                // Accept either ["Table.Col", ...] or [{table:..,column:..}, ...] or even
+                // the object-form {"expr": "alias", ...} that some retries emit — last
+                // form gets flattened to its keys (compiler treats expressions as columns).
+                if (el.ValueKind == JsonValueKind.Object)
+                    return el.EnumerateObject().Select(p => (object?)p.Name).ToList();
+                if (el.ValueKind != JsonValueKind.Array) return ExtractRaw(el);
+                return el.EnumerateArray().Select(e =>
+                {
+                    if (e.ValueKind == JsonValueKind.String) return (object?)e.GetString();
+                    if (e.ValueKind == JsonValueKind.Object)
+                    {
+                        var t = TryGetString(e, "table") ?? TryGetString(e, "Table");
+                        var c = TryGetString(e, "column") ?? TryGetString(e, "Column");
+                        if (!string.IsNullOrEmpty(t) && !string.IsNullOrEmpty(c)) return $"{t}.{c}";
+                        var expr = TryGetString(e, "expression") ?? TryGetString(e, "Expression");
+                        return expr ?? (object?)ExtractRaw(e);
+                    }
+                    return ExtractRaw(e);
+                }).ToList();
+            case "aggregations":
+                // Normalize each entry's function name: "COUNT(DISTINCT)", "COUNT_DISTINCT",
+                // "COUNTDISTINCT", "COUNT DISTINCT" all become function="COUNT" + distinct=true.
+                // Without this, the compiler's strict NormalizeAggFn returns null and the
+                // aggregation is silently dropped, leaving a bare SELECT that fails the
+                // SqlIntentGuard's "aggregations + select but no GROUP BY" check.
+                if (el.ValueKind != JsonValueKind.Array) return ExtractRaw(el);
+                return el.EnumerateArray().Select(NormalizeAggregationEntry).ToList();
+            case "filters":
+                // Accept either [{...}, ...] or {col: val, ...} (object-form where-clause).
+                if (el.ValueKind == JsonValueKind.Object)
+                {
+                    return el.EnumerateObject().Select(p =>
+                    {
+                        var f = new System.Collections.Generic.Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                        f["column"] = p.Name;
+                        f["op"] = "eq";
+                        f["value"] = ExtractRaw(p.Value);
+                        return (object?)f;
+                    }).ToList();
+                }
+                if (el.ValueKind != JsonValueKind.Array) return ExtractRaw(el);
+                // Each filter entry: normalize {operator: "="} → {op: "eq"} and similar
+                // SQL-operator-in-the-op-field drift so the compiler's op lookup hits.
+                return el.EnumerateArray().Select(NormalizeFilterEntry).ToList();
+            case "having":
+                // Accept either [{...}, ...] or a single {...} → wrap to array.
+                if (el.ValueKind == JsonValueKind.Object) return new[] { ExtractRaw(el) };
+                return ExtractRaw(el);
+            default:
+                return ExtractRaw(el);
+        }
+    }
+
+    // Normalize a single filter entry: accept {operator: "="} as a synonym for {op: "eq"},
+    // and translate raw SQL comparison operators ("=", ">", "<", ">=", "<=", "!=", "<>")
+    // to the QuerySpec's symbolic ops. Universal: covers the LLM's tendency to emit SQL-
+    // shaped filters when the prompt is heavy on SQL examples.
+    private static object? NormalizeFilterEntry(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object) return ExtractRaw(el);
+        var dict = new System.Collections.Generic.Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in el.EnumerateObject())
+        {
+            var name = p.Name.ToLowerInvariant();
+            if (name == "operator")
+                dict["op"] = ExtractRaw(p.Value);
+            else
+                dict[p.Name] = ExtractRaw(p.Value);
+        }
+        if (dict.TryGetValue("op", out var opObj) && opObj is string op)
+        {
+            var mapped = op.Trim().ToLowerInvariant() switch
+            {
+                "=" or "==" => "eq",
+                "!=" or "<>" => "neq",
+                ">" => "gt",
+                ">=" => "gte",
+                "<" => "lt",
+                "<=" => "lte",
+                _ => op,
+            };
+            dict["op"] = mapped;
+        }
+        return dict;
+    }
+
+    // Normalize a single aggregation entry: extract distinct from variants like
+    // "COUNT(DISTINCT)" / "COUNT_DISTINCT" / "COUNTDISTINCT" / "COUNT DISTINCT" and
+    // peel "DISTINCT col" out of the column field too. Also handles distinct flag
+    // emitted as "distinct":true vs "isDistinct":true.
+    private static object? NormalizeAggregationEntry(JsonElement el)
+    {
+        if (el.ValueKind != JsonValueKind.Object) return ExtractRaw(el);
+        var dict = new System.Collections.Generic.Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        bool distinct = false;
+        foreach (var p in el.EnumerateObject())
+        {
+            var name = p.Name.ToLowerInvariant();
+            if (name is "distinct" or "isdistinct")
+            {
+                if (p.Value.ValueKind == JsonValueKind.True) distinct = true;
+                continue;
+            }
+            dict[p.Name] = ExtractRaw(p.Value);
+        }
+        if (dict.TryGetValue("function", out var fnObj) && fnObj is string fn && !string.IsNullOrWhiteSpace(fn))
+        {
+            var upper = fn.Trim().ToUpperInvariant();
+            if (upper.Contains("DISTINCT"))
+            {
+                distinct = true;
+                upper = upper.Replace("DISTINCT", "")
+                             .Replace("(", "").Replace(")", "")
+                             .Replace("_", "").Replace(" ", "");
+            }
+            dict["function"] = upper;
+        }
+        if (dict.TryGetValue("column", out var colObj) && colObj is string col && !string.IsNullOrWhiteSpace(col))
+        {
+            var trimmed = col.Trim();
+            if (trimmed.StartsWith("DISTINCT ", StringComparison.OrdinalIgnoreCase))
+            {
+                distinct = true;
+                dict["column"] = trimmed.Substring("DISTINCT ".Length).Trim();
+            }
+        }
+        if (distinct) dict["distinct"] = true;
+        return dict;
+    }
+
+    private static string? TryGetString(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    // Re-serialize an arbitrary JsonElement so it round-trips through the outer Dictionary cleanly.
+    private static object? ExtractRaw(JsonElement el) =>
+        el.ValueKind switch
+        {
+            JsonValueKind.String => el.GetString(),
+            JsonValueKind.Number => el.TryGetInt64(out var i) ? i : el.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            _ => JsonSerializer.Deserialize<object>(el.GetRawText()),
+        };
+
+    // Strict pass: pluck the first complete {...} block (string-aware brace balance). Returns null when EOF reached before the root object closed — caller falls back to RepairTruncatedJson.
     private static string? ExtractJsonObject(string raw)
     {
         var s = raw.AsSpan();
@@ -918,6 +1380,67 @@ internal sealed class SpecExtractor : ISpecExtractor
             }
         }
         return null;
+    }
+
+    // Repair pass for LLM output that ran out of tokens. Tracks the open structure (string, key-after-colon, object/array depth) and synthesizes a minimal valid tail: close any open string, drop a trailing comma/colon, append a null/empty-array placeholder, then emit balanced } and ] characters. The result may have less data than the LLM intended, but it deserializes and lets the downstream retry-with-error path produce a useful refinement instead of failing with "unparseable JSON".
+    private static string? RepairTruncatedJson(string raw)
+    {
+        var s = raw.AsSpan();
+        int start = -1, depth = 0;
+        var openStack = new System.Collections.Generic.Stack<char>();
+        bool inString = false, escape = false;
+        bool sawColonAwaitingValue = false;
+        int lastSignificantIdx = -1;
+        char lastSignificantCh = '\0';
+        for (int i = 0; i < s.Length; i++)
+        {
+            var ch = s[i];
+            if (inString)
+            {
+                if (escape) { escape = false; continue; }
+                if (ch == '\\') { escape = true; continue; }
+                if (ch == '"') inString = false;
+                continue;
+            }
+            if (ch == '"') { inString = true; sawColonAwaitingValue = false; continue; }
+            if (char.IsWhiteSpace(ch)) continue;
+            lastSignificantIdx = i; lastSignificantCh = ch;
+            if (ch == '{')
+            {
+                if (depth == 0) start = i;
+                openStack.Push('{'); depth++; sawColonAwaitingValue = false;
+            }
+            else if (ch == '[')
+            {
+                if (depth == 0) start = i;
+                openStack.Push('['); depth++; sawColonAwaitingValue = false;
+            }
+            else if (ch == '}' || ch == ']')
+            {
+                if (openStack.Count > 0) openStack.Pop();
+                depth--;
+                sawColonAwaitingValue = false;
+            }
+            else if (ch == ':') sawColonAwaitingValue = true;
+            else if (ch == ',') sawColonAwaitingValue = false;
+        }
+
+        if (start < 0 || openStack.Count == 0) return null;
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append(raw.AsSpan(start, lastSignificantIdx - start + 1));
+        // Close an unterminated string literal.
+        if (inString) sb.Append('"');
+        // Trailing comma or colon at end → add an empty placeholder and remove trailing comma.
+        if (lastSignificantCh == ',') { sb.Length--; }
+        else if (lastSignificantCh == ':' || sawColonAwaitingValue) sb.Append("null");
+        // Balance the stack from top down.
+        while (openStack.Count > 0)
+        {
+            var open = openStack.Pop();
+            sb.Append(open == '{' ? '}' : ']');
+        }
+        return sb.ToString();
     }
 
 }

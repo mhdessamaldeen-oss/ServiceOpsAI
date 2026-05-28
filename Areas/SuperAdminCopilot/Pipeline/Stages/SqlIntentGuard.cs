@@ -39,15 +39,83 @@ internal sealed class SqlIntentGuard : ISqlIntentGuard
 
     public SqlIntentGuardResult? Check(string question, QuerySpec spec, string compiledSql)
     {
-        // `question` is intentionally unused — see class doc for rationale.
-        _ = question;
         if (spec is null || string.IsNullOrWhiteSpace(compiledSql)) return null;
 
         return CheckLimitWithoutOrderBy(spec)
+            ?? CheckTopNCollapsedToCount(spec)
+            ?? CheckCountShapeOnNonCountQuestion(question, spec)
             ?? CheckDegenerateAggregationProjection(spec)
             ?? CheckAntiJoinFarSideFilter(spec)
             ?? CheckDistinctWithAggregations(spec)
             ?? CheckDegenerateGroupByRootPk(compiledSql);
+    }
+
+    // ── R1c. Question-aware shape mismatch: spec is a pure COUNT but the question doesn't
+    //         actually ask for a count. Diagnosed from session 3 trace mining — 37 of the 174
+    //         "no error" traces had this shape, the single largest silent-failure category.
+    //         Example: "5 longest outages" → SELECT TOP (5) COUNT(*) FROM [Outages] (got 1 row,
+    //         user wanted 5 rows of outage data).
+    //
+    //         This rule DOES inspect the question text — small departure from the class-doc
+    //         "no question inspection" principle, but justified by the magnitude of the
+    //         silent-failure rate. Detection is by the ABSENCE of count-intent markers across
+    //         the languages the deployment supports (EN + AR + common synonyms), not by an
+    //         enumerated list of "this means count" patterns — so it generalises rather than
+    //         pattern-matches.
+    private static readonly string[] CountIntentMarkers =
+    {
+        // English — count / quantity intent
+        "how many", "count", "number of", "total", "tally", "sum of",
+        // English — single-value computed metrics (legitimately produce one row)
+        "percentage", "percent", "%", "rate", "ratio", "proportion", "share",
+        "average", "avg", "mean", "median", "max", "maximum", "min", "minimum",
+        // Arabic — count / quantity
+        "عدد", "كم", "مجموع", "إجمالي", "اجمالي",
+        // Arabic — single-value metrics
+        "نسبة", "متوسط", "معدل", "أعلى", "أدنى",
+    };
+    private SqlIntentGuardResult? CheckCountShapeOnNonCountQuestion(string question, QuerySpec spec)
+    {
+        if (string.IsNullOrWhiteSpace(question)) return null;
+        // Only fire when the spec is a PURE count (no select cols, no group-by, all aggs are COUNT).
+        if (spec.GroupBy.Count > 0) return null;
+        if (spec.Select.Count > 0) return null;
+        if (spec.Aggregations.Count == 0) return null;
+        var allAggsAreCount = spec.Aggregations.All(a =>
+            string.Equals(a.Function, "COUNT", StringComparison.OrdinalIgnoreCase));
+        if (!allAggsAreCount) return null;
+
+        // If the question contains ANY count-intent marker (any language), the COUNT shape is
+        // legitimate. Only fire when no marker is present at all.
+        var lower = question.ToLowerInvariant();
+        foreach (var marker in CountIntentMarkers)
+        {
+            if (lower.Contains(marker, StringComparison.OrdinalIgnoreCase)) return null;
+        }
+
+        _logger.LogWarning("[SqlIntentGuard] pure COUNT spec but question has no count-intent markers — likely silent shape failure. Q='{Q}'",
+            question.Length > 80 ? question[..80] + "…" : question);
+        return new SqlIntentGuardResult(
+            "Spec produces a single COUNT row but the question does not ask for a count, total, or quantity. The query likely returns a number when the user wanted a list of rows.",
+            "Drop the COUNT aggregation and select the entity's display columns instead. If a limit is implied by the question (e.g. 'top 5'), add orderBy + limit. If the question asks for ALL items matching a filter, just SELECT the columns with the filter applied.");
+    }
+
+    // ── R1b. TOP-N with N > 1 collapsed to a single COUNT ⇒ "5 longest outages" shape failure.
+    //         The spec returns 1 row (the count) instead of N rows the user asked for. Pure
+    //         spec-shape check, no language assumptions. Diagnosed from session 3 silent
+    //         failures: 'SELECT TOP (5) COUNT(*) FROM [Outages]' for "5 longest outages".
+    private SqlIntentGuardResult? CheckTopNCollapsedToCount(QuerySpec spec)
+    {
+        if (!spec.Limit.HasValue || spec.Limit.Value <= 1) return null;
+        if (spec.GroupBy.Count > 0) return null;
+        if (spec.Select.Count > 0) return null;
+        var allAggsAreCount = spec.Aggregations.Count > 0
+            && spec.Aggregations.All(a => string.Equals(a.Function, "COUNT", StringComparison.OrdinalIgnoreCase));
+        if (!allAggsAreCount) return null;
+        _logger.LogWarning("[SqlIntentGuard] limit={Limit} with pure COUNT — N items collapsed to 1 row", spec.Limit);
+        return new SqlIntentGuardResult(
+            $"Spec requests TOP {spec.Limit} rows but produces a single COUNT — the query returns one number instead of {spec.Limit} items.",
+            "Replace the COUNT aggregation with the entity's display columns and keep limit + orderBy so the query returns the top-N rows of data, not a count of all rows.");
     }
 
     // ── R1. limit > 0 without orderBy ⇒ "top of WHAT?" — sort key is required for TOP-N. ────

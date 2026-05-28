@@ -1,0 +1,55 @@
+{
+  "name": "Quality Tier 5 — 3-table joins with lookup label resolution",
+  "version": "1.0.0",
+  "description": "Three-table joins where the LLM must resolve labels across the join chain. Tests the join-graph resolver + multi-FK disambiguation + label projection.",
+  "Scenarios": [
+    {
+      "Code": "QT5-TIX-CUST-REGION",
+      "Question": "list every ticket with the customer name and their region",
+      "Category": "T5-JOIN3-LIST",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedScalar": 83,
+      "ExpectedShape": "SELECT Tickets.* + Customers.FullNameEn + Regions.NameEn, JOIN Customers JOIN Regions",
+      "Notes": "3-table chain via FK. Every ticket has a customer who has a region — 83 rows.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT5-OUTAGE-SVC-DEPT",
+      "Question": "show every outage with its service type and responsible department",
+      "Category": "T5-JOIN3-LIST",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Outages",
+      "ExpectedScalar": 32,
+      "ExpectedShape": "SELECT Outages.* + ServiceTypes.NameEn + Departments.NameEn, JOIN both",
+      "Notes": "Outages have FKs to both ServiceType and Department. Resolver must walk both.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT5-TIX-PRIO-STATUS",
+      "Question": "list each ticket with its priority and its status",
+      "Category": "T5-JOIN3-LIST",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedScalar": 83,
+      "ExpectedShape": "SELECT Tickets.* + TicketPriorities.Name + TicketStatuses.Name, JOIN both lookups",
+      "Notes": "Two lookups off the same root. Both should be label-projected.",
+      "MaxLatencyMs": 60000
+    },
+    {
+      "Code": "QT5-HIGH-PRIO-TIX-CUSTOMER",
+      "Question": "high priority tickets with the customer's full name",
+      "Category": "T5-JOIN3-FILTERED",
+      "Difficulty": "Easy",
+      "ExpectedIntent": "DataQuery",
+      "EntityFocus": "Tickets",
+      "ExpectedScalar": 28,
+      "ExpectedShape": "SELECT Tickets.* + Customers.FullNameEn, JOIN TicketPriorities WHERE Name='High' (filter on joined lookup), JOIN Customers",
+      "Notes": "Filter on one joined lookup + label projection from another joined table.",
+      "MaxLatencyMs": 60000
+    }
+  ]
+}

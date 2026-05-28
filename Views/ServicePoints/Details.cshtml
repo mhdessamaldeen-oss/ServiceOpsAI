@@ -1,0 +1,24 @@
+@model ServiceOpsAI.Models.ServicePoint
+@{ ViewData["Title"] = "Service Point Details"; }
+
+<h2><i class="bi bi-geo-alt-fill"></i> @Model.PointCode</h2>
+
+<div class="card shadow-sm" style="background: var(--bg-card) !important; border: 1px solid var(--border-color) !important;">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Point Code</dt><dd class="col-sm-9"><code>@Model.PointCode</code></dd>
+            <dt class="col-sm-3">Region</dt><dd class="col-sm-9">@Model.Region?.NameEn / <span dir="rtl">@Model.Region?.NameAr</span></dd>
+            <dt class="col-sm-3">Address (EN)</dt><dd class="col-sm-9">@Model.AddressLineEn</dd>
+            <dt class="col-sm-3">Address (AR)</dt><dd class="col-sm-9" dir="rtl">@Model.AddressLineAr</dd>
+            <dt class="col-sm-3">Meter Number</dt><dd class="col-sm-9"><code>@Model.MeterNumber</code></dd>
+            <dt class="col-sm-3">Coordinates</dt><dd class="col-sm-9">@Model.Latitude?.ToString("N6") , @Model.Longitude?.ToString("N6")</dd>
+            <dt class="col-sm-3">Type</dt><dd class="col-sm-9">@Model.PointType</dd>
+            <dt class="col-sm-3">Installed</dt><dd class="col-sm-9">@Model.InstalledAt.ToString("yyyy-MM-dd")</dd>
+            <dt class="col-sm-3">Active?</dt><dd class="col-sm-9">@(Model.IsActive ? "Yes" : "No")</dd>
+        </dl>
+    </div>
+    <div class="card-footer">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to list</a>
+    </div>
+</div>

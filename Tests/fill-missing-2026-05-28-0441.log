@@ -1,0 +1,119 @@
+04:41:05 ▶ shapes/suite-shape-FILTER-2026-05-28.json
+04:41:05   sessionId=123 totalCases=16
+04:41:50   s=123 traces=1/16 stall=9s
+04:42:35   s=123 traces=2/16 stall=21s
+04:43:20   s=123 traces=3/16 stall=14s
+04:44:05   s=123 traces=4/16 stall=22s
+04:44:51   s=123 traces=6/16 stall=34s
+04:45:36   s=123 traces=9/16 stall=8s
+04:46:21   s=123 traces=11/16 stall=35s
+04:47:06   s=123 traces=12/16 stall=43s
+04:47:51   s=123 traces=13/16 stall=18s
+04:48:36   s=123 traces=13/16 stall=63s
+04:49:21   s=123 traces=14/16 stall=21s
+04:50:06   s=123 traces=14/16 stall=66s
+04:50:51   s=123 traces=16/16 stall=5s
+04:50:51   ✓ traces=16/16 fails=0
+04:51:01 ▶ shapes/suite-shape-TOPN-2026-05-28.json
+04:51:02   sessionId=124 totalCases=16
+04:51:47   s=124 traces=0/16 stall=833244707s
+04:52:32   s=124 traces=0/16 stall=833244752s
+04:53:17   s=124 traces=1/16 stall=39s
+04:54:02   s=124 traces=2/16 stall=36s
+04:54:47   s=124 traces=4/16 stall=8s
+04:55:32   s=124 traces=4/16 stall=53s
+04:56:17   s=124 traces=4/16 stall=98s
+04:57:02   s=124 traces=4/16 stall=143s
+04:57:47   s=124 traces=5/16 stall=22s
+04:58:32   s=124 traces=6/16 stall=26s
+04:59:18   s=124 traces=7/16 stall=29s
+05:00:03   s=124 traces=8/16 stall=20s
+05:00:48   s=124 traces=9/16 stall=21s
+05:01:33   s=124 traces=9/16 stall=66s
+05:02:18   s=124 traces=11/16 stall=9s
+05:03:03   s=124 traces=12/16 stall=8s
+05:03:48   s=124 traces=13/16 stall=0s
+05:04:33   s=124 traces=14/16 stall=41s
+05:05:18   s=124 traces=14/16 stall=86s
+05:06:03   s=124 traces=14/16 stall=131s
+05:06:48   s=124 traces=15/16 stall=37s
+05:07:33   s=124 traces=16/16 stall=41s
+05:07:33   ✓ traces=16/16 fails=0
+05:07:43 ▶ shapes/suite-shape-JOIN-2026-05-28.json
+05:07:44   sessionId=125 totalCases=15
+05:08:29   s=125 traces=1/15 stall=6s
+05:09:14   s=125 traces=2/15 stall=14s
+05:09:59   s=125 traces=5/15 stall=3s
+05:10:44   s=125 traces=7/15 stall=12s
+05:11:29   s=125 traces=8/15 stall=22s
+05:12:14   s=125 traces=9/15 stall=30s
+05:12:59   s=125 traces=10/15 stall=28s
+05:13:44   s=125 traces=11/15 stall=34s
+05:14:29   s=125 traces=13/15 stall=0s
+05:15:14   s=125 traces=15/15 stall=10s
+05:15:15   ✓ traces=15/15 fails=0
+05:15:25 ▶ shapes/suite-shape-COMPARE-2026-05-28.json
+05:15:25   sessionId=126 totalCases=16
+05:16:10   s=126 traces=0/16 stall=833246170s
+05:16:55   s=126 traces=0/16 stall=833246215s
+05:17:40   s=126 traces=0/16 stall=833246260s
+05:18:25   s=126 traces=1/16 stall=0s
+05:19:10   s=126 traces=1/16 stall=45s
+05:19:55   s=126 traces=2/16 stall=28s
+05:20:40   s=126 traces=4/16 stall=29s
+05:21:26   s=126 traces=5/16 stall=33s
+05:22:11   s=126 traces=8/16 stall=18s
+05:22:56   s=126 traces=11/16 stall=4s
+05:23:41   s=126 traces=13/16 stall=4s
+05:24:26   s=126 traces=13/16 stall=49s
+05:25:11   s=126 traces=16/16 stall=3s
+05:25:11   ✓ traces=16/16 fails=0
+05:25:21 ▶ shapes/suite-shape-EXISTS-2026-05-28.json
+05:25:21   sessionId=127 totalCases=10
+05:26:06   s=127 traces=0/10 stall=833246766s
+05:26:51   s=127 traces=1/10 stall=35s
+05:27:37   s=127 traces=2/10 stall=16s
+05:28:22   s=127 traces=2/10 stall=61s
+05:29:07   s=127 traces=3/10 stall=24s
+05:29:52   s=127 traces=4/10 stall=11s
+05:30:37   s=127 traces=5/10 stall=8s
+05:31:22   s=127 traces=5/10 stall=53s
+05:32:07   s=127 traces=9/10 stall=7s
+05:32:52   s=127 traces=10/10 stall=13s
+05:32:52   ✓ traces=10/10 fails=0
+05:33:02 ▶ shapes/suite-shape-SELFJOIN-2026-05-28.json
+05:33:03   sessionId=128 totalCases=6
+05:33:48   s=128 traces=1/6 stall=15s
+05:34:33   s=128 traces=2/6 stall=28s
+05:35:18   s=128 traces=3/6 stall=32s
+05:36:03   s=128 traces=4/6 stall=19s
+05:36:48   s=128 traces=4/6 stall=64s
+05:37:33   s=128 traces=5/6 stall=43s
+05:38:18   s=128 traces=6/6 stall=27s
+05:38:18   ✓ traces=6/6 fails=0
+05:38:28 ▶ shapes/suite-shape-RECURSIVE-2026-05-28.json
+05:38:28   sessionId=129 totalCases=7
+05:39:14   s=129 traces=1/7 stall=16s
+05:39:59   s=129 traces=2/7 stall=31s
+05:40:44   s=129 traces=4/7 stall=7s
+05:41:29   s=129 traces=4/7 stall=52s
+05:42:14   s=129 traces=5/7 stall=38s
+05:42:59   s=129 traces=6/7 stall=36s
+05:43:44   s=129 traces=7/7 stall=39s
+05:43:44   ✓ traces=7/7 fails=0
+05:43:54 ▶ shapes/suite-shape-SAFETY-2026-05-28.json
+05:43:54   sessionId= totalCases=
+05:44:40   ✗ Cannot convert value "Msg 102, Level 15, State 1, Server PC\SQLEXPRESS, Line 1" to type "System.Int32". Error: "The input string 'Msg 102, Level 15, State 1, Server PC\SQLEXPRESS, Line 1' was not in a correct format."
+05:44:50 ─── Done ──
+
+Suite                                        SessionId Traces Expected Failures
+-----                                        --------- ------ -------- --------
+shapes/suite-shape-FILTER-2026-05-28.json          123     16       16 0
+shapes/suite-shape-TOPN-2026-05-28.json            124     16       16 0
+shapes/suite-shape-JOIN-2026-05-28.json            125     15       15 0
+shapes/suite-shape-COMPARE-2026-05-28.json         126     16       16 0
+shapes/suite-shape-EXISTS-2026-05-28.json          127     10       10 0
+shapes/suite-shape-SELFJOIN-2026-05-28.json        128      6        6 0
+shapes/suite-shape-RECURSIVE-2026-05-28.json       129      7        7 0
+shapes/suite-shape-SAFETY-2026-05-28.json                   0       15 ERR
+

@@ -222,6 +222,8 @@ namespace ServiceOpsAI.Services.AI.Providers
         public int TimeoutSeconds { get; set; } = 1800;
         public int MaxPromptChars { get; set; } = 8000;
         public double Temperature { get; set; } = 0.1;
+        /// <summary>Maximum tokens Ollama may emit in a single response (<c>num_predict</c>). Ollama's default is 128 — far too low for SpecExtractor JSON outputs which routinely need 800-1500 tokens. Truncation manifests as "LLM produced unparseable JSON" because the JSON ends mid-field.</summary>
+        public int MaxOutputTokens { get; set; } = 2048;
     }
 }
 

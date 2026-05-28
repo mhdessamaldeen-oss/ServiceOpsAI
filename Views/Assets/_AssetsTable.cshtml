@@ -1,0 +1,43 @@
+@model ServiceOpsAI.Models.Common.PagedResult<ServiceOpsAI.Models.DTOs.AssetDto>
+
+<div class="table-responsive">
+    <table id="assetsTable" class="table table-hover align-middle mb-0 datatable-premium" data-column-search="true">
+        <thead>
+            <tr>
+                <th class="ps-4 py-3">Code</th>
+                <th class="py-3">Name</th>
+                <th class="py-3">Service</th>
+                <th class="py-3">Type</th>
+                <th class="py-3">Region</th>
+                <th class="py-3">Status</th>
+                <th class="py-3">Commissioned</th>
+                <th class="text-end pe-4 py-3 no-sort">Controls</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in Model.Items)
+            {
+                <tr>
+                    <td class="ps-4 fw-bold"><code style="color: var(--primary-color) !important;">@a.AssetCode</code></td>
+                    <td><div style="color: var(--text-main) !important;">@a.NameEn</div><div class="small text-muted" dir="rtl">@a.NameAr</div></td>
+                    <td>@a.ServiceType</td>
+                    <td class="small">@a.AssetType</td>
+                    <td>@a.RegionName</td>
+                    <td>
+                        @{ var (bg, fg) = a.Status switch { "Operational" => ("rgba(var(--primary-color-rgb),0.1)", "var(--primary-color)"), "UnderMaintenance" => ("rgba(245,158,11,0.1)", "#f59e0b"), "Faulty" => ("rgba(var(--danger-color-rgb),0.1)", "var(--danger-color)"), "Decommissioned" => ("rgba(148,163,184,0.1)", "#94a3b8"), _ => ("rgba(148,163,184,0.1)", "#94a3b8") }; }
+                        <span class="badge px-3 py-2 rounded-pill" style="background: @bg; color: @fg; border: 1px solid @fg;">@a.Status</span>
+                    </td>
+                    <td class="small text-muted">@a.CommissionedAt.ToString("yyyy")</td>
+                    <td class="text-end pe-4">
+                        <a asp-action="Details" asp-route-id="@a.Id" class="btn btn-sm btn-soft-info shadow-none"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@a.Id" class="btn btn-sm btn-soft-primary shadow-none"><i class="bi bi-pencil-square"></i></a>
+                        <form asp-action="Delete" asp-route-id="@a.Id" method="post" onsubmit="return confirm('Delete @a.AssetCode?');" class="d-inline">
+                            @Html.AntiForgeryToken()<button type="submit" class="btn btn-sm btn-soft-danger shadow-none"><i class="bi bi-trash-fill"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (!Model.Items.Any()) { <div class="text-center p-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><h6>No assets match the current filter.</h6></div> }
+</div>
