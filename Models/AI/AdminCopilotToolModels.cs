@@ -2,6 +2,12 @@ namespace ServiceOpsAI.Models.AI
 {
     public class AdminCopilotExecutionDetails
     {
+        /// <summary>Trace JSON schema version. Bumped when a structural change is made to
+        /// CopilotExecutionStep or its child types. The investigation page checks this to
+        /// know which renderer to use (legacy v1 traces won't have LlmCalls / Decisions /
+        /// PhaseDiagnostics; v2+ traces do).</summary>
+        public int TraceSchemaVersion { get; set; } = 2;
+
         public string DetectedIntent { get; set; } = "";
         public string RouteReason { get; set; } = "";
         public RoutingConfidence PlannerConfidence { get; set; } = RoutingConfidence.Medium;
@@ -70,6 +76,30 @@ namespace ServiceOpsAI.Models.AI
         public decimal? EstimatedCostUsd { get; set; }
         public string? LlmModelUsed { get; set; }
 
+        /// <summary>
+        /// One entry per LLM call this step fired (Decomposer always 1; SpecExtractor may
+        /// fire 2 under self-correction retry). Carries the prompt+response previews + tokens
+        /// + cost + latency so the investigation page can render "what did we send / what came
+        /// back" without log lookups. Null on non-LLM steps and pre-2026-05-29 traces.
+        /// </summary>
+        public List<TracedLlmCallRow>? LlmCalls { get; set; }
+
+        /// <summary>
+        /// Structured decision points emitted by routing stages (VerifiedQueryStore top-K,
+        /// IntentClassifier verdict + alternatives, ToolHandler ranking, Retriever top-K
+        /// scores). Lets the investigation page render "we picked X because score was 0.93,
+        /// runner-ups Y=0.81 Z=0.74". Null on stages that don't emit decisions.
+        /// </summary>
+        public List<TracedDecisionPoint>? Decisions { get; set; }
+
+        /// <summary>
+        /// SpecRepair phase-level diagnostics — one row per phase that fired and mutated the
+        /// spec. The orchestrator threads <c>SpecRepair.Apply()</c>'s return value here so
+        /// operators see "AutoQualifyColumns: qualified 3 refs", "EnsureDisplayColumns:
+        /// expanded +5 columns" etc. without grepping logs. Null on non-SpecRepair steps.
+        /// </summary>
+        public List<TracedPhaseDiagnostic>? PhaseDiagnostics { get; set; }
+
         public void AddSubStep(CopilotExecutionLayer layer, string action, string detail, CopilotStepStatus status = CopilotStepStatus.Ok, long elapsedMs = 0, string? technicalData = null, bool current = false, string? location = null)
         {
             var start = DateTime.UtcNow.AddMilliseconds(-elapsedMs);
@@ -87,6 +117,61 @@ namespace ServiceOpsAI.Models.AI
                 Location = location ?? "SuperAdminCopilot"
             });
         }
+    }
+
+    /// <summary>
+    /// One LLM call snapshot attached to a <see cref="CopilotExecutionStep"/>. Held in
+    /// <see cref="CopilotExecutionStep.LlmCalls"/>. The investigation page renders these as
+    /// expandable rows under the step ("Show prompt", "Show response").
+    /// </summary>
+    public class TracedLlmCallRow
+    {
+        public string Stage { get; set; } = "";
+        public string Provider { get; set; } = "";
+        public string? Model { get; set; }
+        public int? PromptTokens { get; set; }
+        public int? CompletionTokens { get; set; }
+        public long ElapsedMs { get; set; }
+        public decimal? EstimatedCostUsd { get; set; }
+        public bool Success { get; set; } = true;
+        public string? Error { get; set; }
+        /// <summary>Truncated prompt text. Full prompt length is in <see cref="PromptFullLength"/>.</summary>
+        public string? PromptPreview { get; set; }
+        /// <summary>Truncated response text. Full response length is in <see cref="ResponseFullLength"/>.</summary>
+        public string? ResponsePreview { get; set; }
+        public int? PromptFullLength { get; set; }
+        public int? ResponseFullLength { get; set; }
+        public int RetryAttempt { get; set; }
+    }
+
+    /// <summary>
+    /// One routing-decision capture. The "winner" is the actual choice taken (table
+    /// retrieved, intent class assigned, tool dispatched); <see cref="Alternatives"/> lists
+    /// the runner-ups with their scores so operators can see "did the winner barely beat
+    /// runner-up X, or was it the obvious choice".
+    /// </summary>
+    public class TracedDecisionPoint
+    {
+        public string DecisionType { get; set; } = "";   // "VerifiedQuery" | "IntentClassifier" | "Tool" | "Retriever"
+        public string WinnerName { get; set; } = "";
+        public double? WinnerScore { get; set; }
+        public string? Reason { get; set; }
+        public List<TracedAlternative>? Alternatives { get; set; }
+    }
+
+    public class TracedAlternative
+    {
+        public string Name { get; set; } = "";
+        public double? Score { get; set; }
+        public string? Note { get; set; }
+    }
+
+    /// <summary>One SpecRepair phase that ran and emitted a diagnostic.</summary>
+    public class TracedPhaseDiagnostic
+    {
+        public string PhaseName { get; set; } = "";
+        public string Detail { get; set; } = "";
+        public bool IsWarning { get; set; }
     }
 
     public enum CopilotFilterState

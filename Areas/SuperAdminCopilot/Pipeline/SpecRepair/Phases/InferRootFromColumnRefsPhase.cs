@@ -16,10 +16,10 @@ internal sealed class InferRootFromColumnRefsPhase : ISpecRepairPhase
     {
         if (!string.IsNullOrWhiteSpace(spec.Root)) return;
         string? hint = null;
-        foreach (var a in spec.Aggregations) { hint ??= Extract(a.Column); if (hint is not null) break; }
-        foreach (var s in spec.Select) { hint ??= Extract(s); if (hint is not null) break; }
-        foreach (var g in spec.GroupBy) { hint ??= Extract(g); if (hint is not null) break; }
-        foreach (var f in spec.Filters) { hint ??= Extract(f.Column); if (hint is not null) break; }
+        foreach (var a in spec.Aggregations.NotNull()) { hint ??= Extract(a.Column); if (hint is not null) break; }
+        foreach (var s in spec.Select.NotNull()) { hint ??= Extract(s); if (hint is not null) break; }
+        foreach (var g in spec.GroupBy.NotNull()) { hint ??= Extract(g); if (hint is not null) break; }
+        foreach (var f in spec.Filters.NotNull()) { hint ??= Extract(f.Column); if (hint is not null) break; }
         if (hint is not null)
         {
             spec.Root = hint;

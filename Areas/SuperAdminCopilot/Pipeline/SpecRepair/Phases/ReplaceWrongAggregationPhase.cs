@@ -26,6 +26,11 @@ internal sealed class ReplaceWrongAggregationPhase : ISpecRepairPhase
     public string Name => "ReplaceWrongAggregation";
     public string Covers => "Question wants AVG/SUM/MAX/MIN but spec emitted COUNT — swap the aggregation";
 
+    // Tier window override: weak-model crutch.
+    // English aggregate-verb regex to swap wrong COUNT for SUM/AVG. Strong NLU picks the right function.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
         if (spec.Aggregations.Count == 0) return;                                // sibling phase handles empty

@@ -13,12 +13,12 @@ internal sealed class StripQuotedFilterValuesPhase : ISpecRepairPhase
     {
         int mutated = 0;
         var delimiters = ctx.Options.QuotedValueDelimiters;
-        foreach (var f in spec.Filters)
+        foreach (var f in spec.Filters.NotNull())
         {
             var unquoted = Unquote(f.Value, delimiters);
             if (!ReferenceEquals(unquoted, f.Value)) { f.Value = unquoted; mutated++; }
         }
-        foreach (var h in spec.Having)
+        foreach (var h in spec.Having.NotNull())
         {
             var unquoted = Unquote(h.Value, delimiters);
             if (!ReferenceEquals(unquoted, h.Value)) { h.Value = unquoted; mutated++; }

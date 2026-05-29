@@ -16,6 +16,11 @@ internal sealed class ConvertTopNAggregationToListPhase : ISpecRepairPhase
     public string Name => "ConvertTopNAggregationToList";
     public string Covers => "Top-N list shape mis-emitted as scalar aggregation";
 
+    // Tier window override: weak-model crutch.
+    // 'top 10 highest bills' → row list. Strong planner emits the correct list-shape directly.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
         if (spec.Aggregations.Count != 1) return;

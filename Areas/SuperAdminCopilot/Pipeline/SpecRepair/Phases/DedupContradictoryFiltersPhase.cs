@@ -125,6 +125,23 @@ internal sealed class DedupContradictoryFiltersPhase : ISpecRepairPhase
     {
         if (a is null && b is null) return true;
         if (a is null || b is null) return false;
+        // Arrays must be compared element-by-element. `a.ToString()` on `string[]` yields
+        // "System.String[]" which makes any two arrays look equal (silently dropping
+        // legitimate distinct IN/NOT IN filters). Use ExtractStringValues to normalise both
+        // sides into ordered string sequences and compare set-style.
+        if (a is System.Collections.IEnumerable && a is not string)
+        {
+            if (b is not System.Collections.IEnumerable || b is string) return false;
+            var av = ExtractStringValues(a);
+            var bv = ExtractStringValues(b);
+            if (av.Length != bv.Length) return false;
+            var asorted = av.OrderBy(s => s, System.StringComparer.OrdinalIgnoreCase).ToArray();
+            var bsorted = bv.OrderBy(s => s, System.StringComparer.OrdinalIgnoreCase).ToArray();
+            for (int i = 0; i < asorted.Length; i++)
+                if (!string.Equals(asorted[i], bsorted[i], System.StringComparison.OrdinalIgnoreCase)) return false;
+            return true;
+        }
+        if (b is System.Collections.IEnumerable && b is not string) return false;
         return string.Equals(a.ToString(), b.ToString(), System.StringComparison.OrdinalIgnoreCase);
     }
 }

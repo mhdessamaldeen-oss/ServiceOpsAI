@@ -29,6 +29,11 @@ internal sealed class ApplyDerivedMetricHintPhase : ISpecRepairPhase
     public string Name => "ApplyDerivedMetricHint";
     public string Covers => "Override LLM's wrong aggregation column with the derived-metric hint (age / resolution-time / revenue / consumption / duration)";
 
+    // Tier window override: weak-model crutch.
+    // Derived-metric column override (age, MTTR, revenue …). Strong NLU picks the right aggregation column without hint.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
         if (spec.Aggregations.Count != 1) return;

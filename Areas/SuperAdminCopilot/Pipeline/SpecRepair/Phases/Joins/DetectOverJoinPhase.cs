@@ -35,16 +35,16 @@ internal sealed class DetectOverJoinPhase : ISpecRepairPhase
 
         var referenced = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { spec.Root };
 
-        foreach (var s in spec.Select) Collect(referenced, s);
-        foreach (var f in spec.Filters) Collect(referenced, f.Column);
-        foreach (var g in spec.GroupBy) Collect(referenced, g);
-        foreach (var o in spec.OrderBy) Collect(referenced, o.Column);
-        foreach (var c in spec.Computed) Collect(referenced, c.Expression);
-        foreach (var a in spec.Aggregations) Collect(referenced, a.Column);
-        foreach (var h in spec.Having) Collect(referenced, h.Column);
+        foreach (var s in spec.Select.NotNull()) Collect(referenced, s);
+        foreach (var f in spec.Filters.NotNull()) Collect(referenced, f.Column);
+        foreach (var g in spec.GroupBy.NotNull()) Collect(referenced, g);
+        foreach (var o in spec.OrderBy.NotNull()) Collect(referenced, o.Column);
+        foreach (var c in spec.Computed.NotNull()) Collect(referenced, c.Expression);
+        foreach (var a in spec.Aggregations.NotNull()) Collect(referenced, a.Column);
+        foreach (var h in spec.Having.NotNull()) Collect(referenced, h.Column);
 
         // Anti-join targets are deliberately unreferenced (their "presence" is the constraint).
-        foreach (var j in spec.Joins)
+        foreach (var j in spec.Joins.NotNull())
             if (string.Equals(j.Kind, "anti", System.StringComparison.OrdinalIgnoreCase))
                 referenced.Add(j.Table);
 

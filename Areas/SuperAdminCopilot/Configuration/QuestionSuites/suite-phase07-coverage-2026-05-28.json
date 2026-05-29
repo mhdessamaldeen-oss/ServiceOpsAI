@@ -1,0 +1,144 @@
+{
+  "name": "Suite Phase 07 — Coverage Matrix (2026-05-28)",
+  "version": "1.0",
+  "description": "Coverage eval for Phase 07. Every case has REAL data behind it (verified against seed in Phase C audit). Categorized by shape × difficulty × language. Failures get triaged into: engineering bug / LLM weakness / data gap. Run after every code change to catch regressions.",
+  "Scenarios": [
+    {
+      "Code": "P7-COUNT-001",
+      "Question": "how many open tickets",
+      "Category": "COUNT", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "58 Open tickets exist", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-COUNT-002",
+      "Question": "how many active customers",
+      "Category": "COUNT", "Difficulty": "Easy", "EntityFocus": "Customers",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "182 Active customers", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-COUNT-PHASE06-001",
+      "Question": "how many service accounts are active",
+      "Category": "COUNT", "Difficulty": "Easy", "EntityFocus": "ServiceAccounts",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "264 Active service accounts (Phase 06 entity)", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-COUNT-PHASE06-002",
+      "Question": "how many work orders are completed",
+      "Category": "COUNT", "Difficulty": "Easy", "EntityFocus": "WorkOrders",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "90 Completed work orders", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-COUNT-PHASE06-003",
+      "Question": "how many active technicians",
+      "Category": "COUNT", "Difficulty": "Easy", "EntityFocus": "Technicians",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "191 active technicians", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-LOOKUP-001",
+      "Question": "show me ticket TKT-00001",
+      "Category": "LOOKUP", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "_dataBacked": "Natural-key lookup", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-FILTER-001",
+      "Question": "tickets with critical priority",
+      "Category": "FILTER", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "_dataBacked": "Critical priority exists in TicketPriorities", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-TEMP-Q1-2025",
+      "Question": "How many bills issued in Q1 2025?",
+      "Category": "TEMP", "Difficulty": "Medium", "EntityFocus": "Bills",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "Bills 2025-01 to 2025-03: 507 × 3 = 1521 bills expected", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-TEMP-FEB-2026",
+      "Question": "Tickets created in February 2026",
+      "Category": "TEMP", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "_dataBacked": "9 tickets in Feb 2026", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-TEMP-IN-2025",
+      "Question": "Tickets in 2025",
+      "Category": "TEMP", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "_dataBacked": "20 tickets in 2025 (Nov+Dec)", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-TEMP-LAST30D",
+      "Question": "tickets in the last 30 days",
+      "Category": "TEMP", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "_dataBacked": "31 tickets in last 30 days", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-TEMP-COMPARE",
+      "Question": "How many tickets in Q1 2025 vs Q1 2026?",
+      "Category": "COMPARE", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "_dataBacked": "Q1 2025: 0, Q1 2026: 46 — multi-period UNION ALL", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-TEXT-WORKORDER",
+      "Question": "work orders about transformer",
+      "Category": "TEXT", "Difficulty": "Medium", "EntityFocus": "WorkOrders",
+      "_dataBacked": "4 WorkOrders mention transformer in Description/Title/ResolutionNotes", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-TEXT-TICKET",
+      "Question": "tickets about gas service",
+      "Category": "TEXT", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "_dataBacked": "Multiple tickets mention 'Gas service'", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-TOPN-001",
+      "Question": "top 5 customers by bill total",
+      "Category": "TOPN", "Difficulty": "Medium", "EntityFocus": "Customers",
+      "ExpectedMaxRows": 5,
+      "_dataBacked": "Multi-table JOIN + ORDER BY + LIMIT", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-AGG-001",
+      "Question": "total payments collected this month",
+      "Category": "AGG", "Difficulty": "Medium", "EntityFocus": "Payments",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "Payments with PaidAt in current month exist", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-JOIN-001",
+      "Question": "payments with their customer names",
+      "Category": "JOIN", "Difficulty": "Hard", "EntityFocus": "Payments",
+      "_dataBacked": "Payments → Bills → Customers multi-hop", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-AR-COUNT-001",
+      "Question": "كم عدد التذاكر المفتوحة",
+      "Category": "AR-COUNT", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "Arabic: 'how many open tickets' → 58", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-AR-COUNT-002",
+      "Question": "كم عدد الفنيين النشطين",
+      "Category": "AR-COUNT", "Difficulty": "Medium", "EntityFocus": "Technicians",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "Arabic: 'how many active technicians' → 191", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-AR-COUNT-003",
+      "Question": "كم عدد أوامر العمل المكتملة",
+      "Category": "AR-COUNT", "Difficulty": "Medium", "EntityFocus": "WorkOrders",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "Arabic: 'how many completed work orders' → 90", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "P7-AR-LIST",
+      "Question": "اظهر لي العملاء النشطين",
+      "Category": "AR-LIST", "Difficulty": "Medium", "EntityFocus": "Customers",
+      "_dataBacked": "Arabic: 'show me active customers' — 182 expected", "MaxLatencyMs": 180000
+    }
+  ]
+}

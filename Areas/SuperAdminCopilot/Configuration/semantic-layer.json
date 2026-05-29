@@ -2,6 +2,19 @@
   "defaults": {
     "labelColumnPreference": [
       "Name", "Title", "Code", "DisplayName", "UserName", "Label"
+    ],
+    "numericColumnPreference": [
+      "TotalAmount", "AmountInBase", "Amount", "BaseAmount", "UsageAmount",
+      "Total", "Quantity", "UsageQuantity", "Value",
+      "AffectedCustomerCount", "AffectedUsersCount", "DurationSeconds"
+    ],
+    "numericColumnHints": [
+      "amount", "total", "count", "price", "rate", "fee",
+      "quantity", "value", "balance", "duration"
+    ],
+    "auxiliaryTableSuffixes": [
+      "Histories", "History", "Audits", "Audit", "Logs", "Log",
+      "Notifications", "Snapshots", "Snapshot", "Changes", "Events"
     ]
   },
   "entities": [

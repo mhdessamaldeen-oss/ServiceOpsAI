@@ -29,6 +29,11 @@ internal sealed class InjectLookupValueFilterFromQuestionPhase : ISpecRepairPhas
     public string Name => "InjectLookupValueFilterFromQuestion";
     public string Covers => "Lookup value (Damascus / water / urgent / Open) in question + FK-reachable lookup → inject WHERE filter";
 
+    // Tier window override: weak-model crutch.
+    // Lookup-value scan (Damascus / Open / Critical). Strong NLU resolves these; Medium benefits from the safety net.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Medium;
+
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
         if (string.IsNullOrEmpty(spec.Root) || !ctx.Catalog.TableExists(spec.Root)) return;
@@ -69,21 +74,54 @@ internal sealed class InjectLookupValueFilterFromQuestionPhase : ISpecRepairPhas
         {
             var values = ctx.Catalog.GetAllLookupValues(lookupTable);
             if (values.Count == 0) continue;
-            // First match per (table, labelColumn) wins. The phase is defensive — over-firing
-            // would inject contradictory filters; conservative wins.
+
+            // Collect ALL value hits per (table, labelColumn). When the question contains an
+            // OR-list ("Damascus or Aleppo", "Critical or High", "EUR, USD, or AED") the user
+            // wants ALL of them — single-value match would drop the rest. Universal: works
+            // for any field, any number of values, any entity reachable from root via FK.
+            // Hits are grouped by labelColumn; we emit one filter per group (op=eq for one
+            // hit, op=in with array for two-or-more).
+            var hitsByLabel = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<string>>(
+                System.StringComparer.OrdinalIgnoreCase);
             foreach (var (labelCol, value) in values)
             {
                 if (value.Length < 2) continue;
                 var needle = " " + value.ToLowerInvariant() + " ";
                 if (!qLow.Contains(needle, System.StringComparison.Ordinal)) continue;
 
-                var qualified = $"{lookupTable}.{labelCol}";
-                if (existingFilterCols.Contains(qualified.ToLowerInvariant())) break;
+                if (!hitsByLabel.TryGetValue(labelCol, out var bucket))
+                {
+                    bucket = new System.Collections.Generic.List<string>();
+                    hitsByLabel[labelCol] = bucket;
+                }
+                // Dedup — the same value can appear twice if catalog has duplicates.
+                if (!bucket.Contains(value, System.StringComparer.OrdinalIgnoreCase))
+                    bucket.Add(value);
+            }
 
-                spec.Filters.Add(new FilterSpec { Column = qualified, Op = "eq", Value = value });
+            foreach (var (labelCol, hits) in hitsByLabel)
+            {
+                var qualified = $"{lookupTable}.{labelCol}";
+                if (existingFilterCols.Contains(qualified.ToLowerInvariant())) continue;
+
+                if (hits.Count == 1)
+                {
+                    spec.Filters.Add(new FilterSpec { Column = qualified, Op = "eq", Value = hits[0] });
+                    ctx.Diagnostics.Add(new(Name, $"injected {qualified} = '{hits[0]}' (matched in question)"));
+                }
+                else
+                {
+                    // OR-list shape — emit op=in with the array of values. Compiler renders
+                    // this as `Table.Column IN (@p0, @p1, ...)`.
+                    spec.Filters.Add(new FilterSpec
+                    {
+                        Column = qualified,
+                        Op = "in",
+                        Value = hits.ToArray()
+                    });
+                    ctx.Diagnostics.Add(new(Name, $"injected {qualified} IN ({string.Join(",", hits)}) — multi-value match"));
+                }
                 existingFilterCols.Add(qualified.ToLowerInvariant());
-                ctx.Diagnostics.Add(new(Name, $"injected {qualified} = '{value}' (matched in question)"));
-                break;
             }
         }
     }

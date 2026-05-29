@@ -417,6 +417,9 @@ namespace ServiceOpsAI.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("StepModelsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("TotalCompletionTokens")
                         .HasColumnType("int");
 
@@ -435,7 +438,13 @@ namespace ServiceOpsAI.Migrations
 
                     b.HasIndex("SessionId", "CaseCode", "CreatedAt");
 
+                    b.HasIndex(new[] { "CaseCode", "CreatedAt" }, "IX_CopilotTraceHistory_CaseCode_CreatedAt");
+
                     b.HasIndex(new[] { "EstimatedCostUsd", "CreatedAt" }, "IX_CopilotTraceHistory_Cost_CreatedAt");
+
+                    b.HasIndex(new[] { "PipelineTraceId" }, "IX_CopilotTraceHistory_PipelineTraceId");
+
+                    b.HasIndex(new[] { "SessionId", "CreatedAt" }, "IX_CopilotTraceHistory_Session_CreatedAt");
 
                     b.HasIndex(new[] { "SourceSuite", "CreatedAt" }, "IX_CopilotTraceHistory_SourceSuite_CreatedAt");
 

@@ -44,6 +44,7 @@ namespace ServiceOpsAI.Services.AI.Copilot.Trace
             int? totalPromptTokens = null,
             int? totalCompletionTokens = null,
             decimal? estimatedCostUsd = null,
+            string? stepModelsJson = null,
             CancellationToken cancellationToken = default)
         {
             // C2 hardening: single retry for transient DB failures (connection reset,
@@ -55,7 +56,7 @@ namespace ServiceOpsAI.Services.AI.Copilot.Trace
                     var result = await SaveCoreAsync(response, elapsedMs, sessionId, caseCode,
                         pipelineTraceId, generatedScript, errorMessage, sourceSuite, expectedScript,
                         llmCallCount, totalPromptTokens, totalCompletionTokens, estimatedCostUsd,
-                        cancellationToken);
+                        stepModelsJson, cancellationToken);
                     Interlocked.Exchange(ref _consecutiveFailures, 0);
                     return result;
                 }
@@ -94,6 +95,7 @@ namespace ServiceOpsAI.Services.AI.Copilot.Trace
             string? caseCode, string? pipelineTraceId, string? generatedScript,
             string? errorMessage, string? sourceSuite, string? expectedScript,
             int? llmCallCount, int? totalPromptTokens, int? totalCompletionTokens, decimal? estimatedCostUsd,
+            string? stepModelsJson,
             CancellationToken cancellationToken)
         {
             var executionDetails = CreateAuditSafeExecutionDetails(response.ExecutionDetails, _options);
@@ -156,7 +158,8 @@ namespace ServiceOpsAI.Services.AI.Copilot.Trace
                 LlmCallCount = llmCallCount,
                 TotalPromptTokens = totalPromptTokens,
                 TotalCompletionTokens = totalCompletionTokens,
-                EstimatedCostUsd = estimatedCostUsd
+                EstimatedCostUsd = estimatedCostUsd,
+                StepModelsJson = stepModelsJson,
             };
 
             context.CopilotTraceHistories.Add(historyRecord);

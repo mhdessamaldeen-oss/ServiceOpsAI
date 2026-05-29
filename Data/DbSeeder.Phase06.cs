@@ -642,13 +642,14 @@ public static partial class DbSeeder
             }
         }
 
-        // Preventive: a handful per asset.
+        // Preventive: a handful per asset. Bucketed so "preventive WOs today/this-week/last-year" hit.
+        int preventiveIdx = 0;
         foreach (var a in assets.Where(a => a.Status == AssetStatus.Operational))
         {
             if (rng.NextDouble() > 0.3) continue;
             idx++;
             var tech = techs[rng.Next(techs.Count)];
-            var created = DateTime.UtcNow.AddDays(-rng.Next(2, 365));
+            var created = Seed.TemporalBuckets.PickPast(rng, preventiveIdx++, maxDaysAgo: 540);
             var completed = created.AddHours(rng.Next(2, 9));
             orders.Add(new WorkOrder
             {

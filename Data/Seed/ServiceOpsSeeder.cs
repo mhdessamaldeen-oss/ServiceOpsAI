@@ -173,9 +173,9 @@ public static class ServiceOpsSeeder
             var gov = govs[rng.Next(govs.Count)];
             var svc = svcByCode[serviceCodes[rng.Next(serviceCodes.Length)]];
             if (!depts.TryGetValue((gov.Id, svc.Id), out var dept)) continue;
-            var startedDaysAgo = rng.Next(7, 700);
             var durationHours = rng.Next(1, 72);
-            var startedAt = SeedReferenceDate.AddDays(-startedDaysAgo);
+            // Bucketed so "outages today", "outages this week", "outages last year" all hit.
+            var startedAt = TemporalBuckets.PickPast(rng, i, maxDaysAgo: 700);
             outages.Add(new Outage
             {
                 OutageNumber          = $"OUT-{startedAt:yyyy-MM}-{seq++:000}",
@@ -443,7 +443,10 @@ public static class ServiceOpsSeeder
 
         var customers = new List<Customer>();
         var usedNationalIds = new HashSet<string>();
-        var signupCutoff = SeedReferenceDate.AddYears(-3);
+        // Customer counter that spans the whole seed (not per-governorate) so the
+        // bucket helper can place the first N rows in today/yesterday/this-week/…
+        // signup buckets — otherwise "customers who signed up this month" returns 0.
+        var customerSeqIndex = 0;
 
         foreach (var (govName, count) in distribution)
         {
@@ -452,6 +455,7 @@ public static class ServiceOpsSeeder
 
             for (int i = 0; i < count; i++)
             {
+                var signupIndex = customerSeqIndex++;
                 var gender = rng.Next(2) == 0 ? Gender.Male : Gender.Female;
                 var first = PickName(rng, gender);
                 var surname = PickSurname(rng);
@@ -472,9 +476,11 @@ public static class ServiceOpsSeeder
                 var status = statusRoll < 0.05 ? CustomerStatus.Suspended
                           : statusRoll < 0.10 ? CustomerStatus.Churned
                           : CustomerStatus.Active;
-                var signupAt = signupCutoff.AddDays(rng.Next(0, 365 * 2));
+                // Bucketed signup so every named period (today/this-week/last-month/last-year)
+                // has fresh customers to land on. Span up to ~3 years for the random tail.
+                var signupAt = TemporalBuckets.PickPast(rng, signupIndex, maxDaysAgo: 365 * 3);
                 DateTime? churnedAt = status == CustomerStatus.Churned
-                    ? SeedReferenceDate.AddDays(-rng.Next(1, 180))
+                    ? DateTime.UtcNow.AddDays(-rng.Next(1, 180))
                     : null;
 
                 customers.Add(new Customer
@@ -572,10 +578,26 @@ public static class ServiceOpsSeeder
                 var isBadDept = dept.Id == badDeptId;
                 var isStarDept = dept.Id == starDeptId;
 
-                for (int monthsAgo = BillHistoryMonths; monthsAgo >= 1; monthsAgo--)
+                // Loop from oldest history (24 months back) DOWN TO and INCLUDING
+                // the current calendar month (monthsAgo = 0), so "bills this month"
+                // and "payments this month" questions actually return rows.
+                for (int monthsAgo = BillHistoryMonths; monthsAgo >= 0; monthsAgo--)
                 {
-                    var periodStart = SeedReferenceDate.AddMonths(-monthsAgo);
-                    var periodEnd   = periodStart.AddMonths(1).AddDays(-1);
+                    DateTime periodStart, periodEnd, issuedAt;
+                    if (monthsAgo == 0)
+                    {
+                        // Partial current month — issue date is today (so the bill is "live").
+                        var today = DateTime.UtcNow.Date;
+                        periodStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                        periodEnd   = today; // through today, not end-of-month
+                        issuedAt    = today;
+                    }
+                    else
+                    {
+                        periodStart = SeedReferenceDate.AddMonths(-monthsAgo);
+                        periodEnd   = periodStart.AddMonths(1).AddDays(-1);
+                        issuedAt    = periodEnd;
+                    }
                     var month = periodStart.Month;
 
                     var seasonal = SeasonalMultiplier(svc.Code, month);
@@ -605,7 +627,21 @@ public static class ServiceOpsSeeder
                     BillStatus status;
                     DateTime? paidAt = null;
                     string? paymentMethod = null;
-                    if (monthsAgo == 1 && statusRoll < 0.15)
+                    if (monthsAgo == 0)
+                    {
+                        // Current month — bill just issued, ~25% paid early, rest still open.
+                        if (statusRoll < 0.25)
+                        {
+                            status = BillStatus.Paid;
+                            paidAt = DateTime.UtcNow.AddHours(-rng.Next(1, 200));
+                            paymentMethod = new[] { "Card", "Cash", "Transfer", "Wallet" }[rng.Next(4)];
+                        }
+                        else
+                        {
+                            status = BillStatus.Issued;
+                        }
+                    }
+                    else if (monthsAgo == 1 && statusRoll < 0.15)
                     {
                         status = BillStatus.Issued;
                     }
@@ -639,7 +675,7 @@ public static class ServiceOpsSeeder
                         UsageQuantity  = qty,
                         UsageUnit      = unit,
                         Status         = status,
-                        IssuedAt       = periodEnd,
+                        IssuedAt       = issuedAt,
                         DueDate        = dueDate,
                         PaidAt         = paidAt,
                         PaymentMethod  = paymentMethod,
@@ -879,6 +915,8 @@ public static class ServiceOpsSeeder
                 else resolutionId = resolvedId;
             }
 
+            // Bucketed CreatedAt so the same temporal buckets light up for ServiceOps tickets too.
+            var createdAt = TemporalBuckets.PickPast(rng, i, maxDaysAgo: 540);
             tickets.Add(new Ticket
             {
                 TicketNumber       = $"TKT-{ticketSeq++:00000}",
@@ -890,13 +928,13 @@ public static class ServiceOpsSeeder
                 SourceId           = sources[rng.Next(sources.Count)].Id,
                 DepartmentId       = dept.Id,
                 CreatedByUserId    = staffUserId,
-                CreatedAt          = SeedReferenceDate.AddDays(-rng.Next(1, 180)),
+                CreatedAt          = createdAt,
                 CustomerId         = c.Id,
                 RelatedBillId      = relatedBillId,
                 ComplaintTypeId    = complaint.Id,
                 ResolutionTypeId   = resolutionId,
                 RegionId           = c.RegionId,
-                ResolvedAt         = status.IsClosedState ? SeedReferenceDate.AddDays(-rng.Next(1, 90)) : null,
+                ResolvedAt         = status.IsClosedState ? createdAt.AddHours(rng.Next(4, 96)) : null,
             });
         }
 

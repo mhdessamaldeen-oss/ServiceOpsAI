@@ -38,6 +38,11 @@ internal sealed class InjectTimeSeriesBucketingPhase : ISpecRepairPhase
     public string Name => "InjectTimeSeriesBucketing";
     public string Covers => "TIMESERIES intent (by month / weekly / trend) without a date bucket → inject FORMAT/DATEADD + GROUP BY";
 
+    // Tier window override: weak-model crutch.
+    // TIMESERIES intent (by month / weekly / trend) → bucket + GROUP BY. Strong NLU emits the bucketing expression.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
         if (string.IsNullOrEmpty(spec.Root) || !ctx.Catalog.TableExists(spec.Root)) return;

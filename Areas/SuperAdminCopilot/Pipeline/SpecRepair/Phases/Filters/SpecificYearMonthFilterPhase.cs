@@ -25,6 +25,11 @@ internal sealed class SpecificYearMonthFilterPhase : ISpecRepairPhase
     public string Name => "SpecificYearMonthFilter";
     public string Covers => "Specific year ('in 2025') / month ('in March 2025') / since/before year → range filter on root date column";
 
+    // Tier window override: weak-model crutch.
+    // 'in 2025' / 'in March 2025' / 'since 2024' / 'before 2025' regex. Strong NLU + TimeIntent extractor are enough.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     private static readonly Regex MonthYearPattern = new(
         @"\bin\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{4})\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);

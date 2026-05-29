@@ -61,6 +61,113 @@ public sealed class LocaleCues
 
     /// <summary>Numeric range cues. Each entry is a regex with one or two capture groups for the numeric values.</summary>
     public RangeCues Range { get; set; } = new();
+
+    /// <summary>
+    /// Aggregate-verb vocabulary (count / sum / total / avg / mean / max / highest / min / oldest / …).
+    /// Each entry maps a question-text token to the SQL aggregate function the planner should emit.
+    /// Used by ForceNonCountAggregationPhase + ForceAggregationOnCountQuestionPhase.
+    /// </summary>
+    public List<AggregateVerbCue> AggregateVerbs { get; set; } = new();
+
+    /// <summary>
+    /// Possessive / definite / plain conjunction markers used to anchor "X and their Y" root inference.
+    /// Tiered: possessive markers win over definite, which win over plain. Used by InferRootFromQuestionPhase.
+    /// </summary>
+    public PossessiveCues Possessive { get; set; } = new();
+
+    /// <summary>
+    /// Intent-verb vocabulary for question shape detection (count / list / sum). Drives the
+    /// ArabicQuestionDispatchPhase (and its English equivalent if added later).
+    /// </summary>
+    public IntentVerbCues IntentVerbs { get; set; } = new();
+
+    /// <summary>
+    /// Vocabulary → canonical-value map for lifecycle / severity words.
+    /// e.g. "النشط" → (column=Status, value=Active). Used by ArabicQuestionDispatchPhase.
+    /// </summary>
+    public List<StatusValueCue> StatusValues { get; set; } = new();
+
+    /// <summary>
+    /// Anti-join trigger phrases ("without any X", "with no Y", "بدون X", "ليس لديهم X").
+    /// Used by InjectAntiJoinFromQuestionPhase.
+    /// </summary>
+    public List<string> AntiJoin { get; set; } = new();
+
+    /// <summary>
+    /// Ordering-intent markers (" first ", " ordered ", " sorted ", " list ", " show ").
+    /// Used by ForceNonCountAggregationPhase + ForceAggregationOnCountQuestionPhase to
+    /// distinguish "newest tickets first" (LIST) from "newest ticket date" (MAX). Markers
+    /// are space-padded substring tokens so a JSON entry of <c>" first "</c> only matches
+    /// the standalone word.
+    /// </summary>
+    public List<string> OrderingIntent { get; set; } = new();
+
+    /// <summary>
+    /// Compare-shape vocabulary used by VerifiedQueryStore to gate compare-shape verified
+    /// queries (don't return a "compare A vs B" template for a plain list query). Each
+    /// entry is a regex fragment compiled into a single alternation. Phrases without regex
+    /// metacharacters are wrapped with <c>\b</c> word boundaries.
+    /// </summary>
+    public List<string> CompareMarkers { get; set; } = new();
+
+    /// <summary>
+    /// Text-search trigger regexes. Each entry MUST contain a named capture group
+    /// <c>(?&lt;noun&gt;...)</c> for the search term. Used by InjectTextSearchFilterPhase
+    /// to detect "X containing Y" / "X about Y" / "X mentioning Y" / Arabic equivalents
+    /// and extract the noun (Y). The phase then emits a single FilterSpec with
+    /// <c>op=text_search</c> over the entity's <c>searchableColumns</c>.
+    /// </summary>
+    public List<string> TextSearchTriggers { get; set; } = new();
+}
+
+/// <summary>One aggregate-verb cue: a question-text trigger → the SQL aggregate to force.</summary>
+public sealed class AggregateVerbCue
+{
+    /// <summary>Trigger phrase (case-insensitive contains). Trailing spaces preserved as a word boundary if present in source.</summary>
+    public string Verb { get; set; } = "";
+
+    /// <summary>SQL aggregate function: COUNT / SUM / AVG / MAX / MIN.</summary>
+    public string Function { get; set; } = "";
+
+    /// <summary>
+    /// True when this verb is ambiguous between aggregation and ordering (e.g. "newest" can mean
+    /// MAX(date) OR ORDER BY date DESC). When set, ForceNonCountAggregationPhase skips it if the
+    /// question also contains an ordering marker (first / sorted / list / show).
+    /// </summary>
+    public bool AmbiguousWithOrderBy { get; set; } = false;
+}
+
+public sealed class PossessiveCues
+{
+    /// <summary>Strongest: "X and their Y" / "X with their Y" / "X and its Y" / "X with its Y".</summary>
+    public List<string> Possessive { get; set; } = new();
+    /// <summary>Medium: "X and the Y" / "X with the Y".</summary>
+    public List<string> Definite { get; set; } = new();
+    /// <summary>Weakest fallback: "X and Y" / "X with Y".</summary>
+    public List<string> Plain { get; set; } = new();
+}
+
+public sealed class IntentVerbCues
+{
+    /// <summary>Count-form triggers (regex). e.g. "كم\\s*عدد", "\\bhow\\s+many\\b".</summary>
+    public List<string> Count { get; set; } = new();
+    /// <summary>List-form triggers (regex). e.g. "اظهر|اعرض|show|list".</summary>
+    public List<string> List { get; set; } = new();
+    /// <summary>Sum-form triggers (regex). e.g. "إجمالي|مجموع|total\\s+of".</summary>
+    public List<string> Sum { get; set; } = new();
+}
+
+/// <summary>One status / severity / payment-state cue: a question-text trigger → (column, canonical value).</summary>
+public sealed class StatusValueCue
+{
+    /// <summary>Trigger phrase. Substring match (case-insensitive). Inflection-tolerant: "النشط" matches "النشطين"/"النشطون"/"النشطة".</summary>
+    public string Cue { get; set; } = "";
+
+    /// <summary>Target column on the root entity (Status / Severity / State).</summary>
+    public string Column { get; set; } = "";
+
+    /// <summary>Canonical English value to inject (Active / Open / Critical / …).</summary>
+    public string Value { get; set; } = "";
 }
 
 /// <summary>

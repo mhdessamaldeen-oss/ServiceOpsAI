@@ -49,10 +49,23 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
             PropertyNameCaseInsensitive = true,
             WriteIndented = true,
             ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
             Converters =
             {
                 new JsonStringEnumConverter()
             }
+        };
+
+        // JsonDocument.ParseAsync uses its OWN options struct, not JsonSerializerOptions —
+        // the default JsonDocumentOptions has CommentHandling = Disallow, so any /* */ in a
+        // suite file throws and the surrounding try/catch silently leaves the scenarios list
+        // empty. Every suite in QuestionSuites uses section-divider block comments, so the
+        // grid would always render zero rows under ?suite= selection. Mirror the serializer
+        // settings here so JsonDocument tolerates the same JSONC the suite-list path tolerates.
+        private static readonly JsonDocumentOptions _jsonDocumentOptions = new()
+        {
+            CommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
         };
 
         public CopilotAssessmentHandler(
@@ -761,7 +774,7 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                     try
                     {
                         await using var stream = File.OpenRead(path);
-                        using var doc = await JsonDocument.ParseAsync(stream);
+                        using var doc = await JsonDocument.ParseAsync(stream, _jsonDocumentOptions);
                         if (!doc.RootElement.TryGetProperty("Scenarios", out var scenariosEl)
                             && !doc.RootElement.TryGetProperty("scenarios", out scenariosEl))
                         {

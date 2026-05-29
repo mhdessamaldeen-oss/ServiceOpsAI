@@ -257,7 +257,16 @@ internal static class OrchestratorStepRecorder
                     mode = isRefinement ? "refinement" : "fresh",
                     candidateTables = extraction.CandidateTables,
                     specRoot = extraction.Spec.Root,
-                    spec = extraction.Spec
+                    spec = extraction.Spec,
+                    // SpecRepair phase mutations — one entry per phase that fired and reported
+                    // a diagnostic. The investigation page renders this as "Auto-fixes ran:
+                    // AutoQualifyColumns: qualified 3 refs; EnsureDisplayColumns: +5 columns".
+                    // Operators see what the pipeline corrected without grepping the log.
+                    repairDiagnostics = extraction.RepairDiagnostics?.Select(d => new
+                    {
+                        phase = d.PhaseName,
+                        detail = d.Detail,
+                    }).ToList()
                 }),
             kind: StageNames.KindLlmCall));
 

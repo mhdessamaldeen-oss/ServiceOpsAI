@@ -259,6 +259,153 @@
                 }
             }
 
+            @* ── Per-call LLM breakdown (v2 trace): one card per call this stage fired ─────
+                 Each card shows model + tokens + cost + elapsed PLUS prompt/response
+                 previews. Operators can see "what did we send / what came back" without
+                 grepping the log. Pre-2026-05-29 traces don't have this — silently skipped. *@
+            @if (Model.LlmCalls is { Count: > 0 })
+            {
+                <div class="runtrace-section">
+                    <div class="runtrace-section-label">
+                        <i class="bi bi-cpu"></i> LLM calls (@Model.LlmCalls.Count)
+                    </div>
+                    @foreach (var call in Model.LlmCalls)
+                    {
+                        var callOk = call.Success;
+                        var callTokens = (call.PromptTokens ?? 0) + (call.CompletionTokens ?? 0);
+                        <div class="runtrace-llm-call @(callOk ? "" : "failed")">
+                            <div class="runtrace-llm-call-head">
+                                <span class="runtrace-llm-stage">
+                                    <i class="bi @(callOk ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger")"></i>
+                                    @call.Stage
+                                    @if (call.RetryAttempt > 0)
+                                    {
+                                        <span class="runtrace-meta-chip small warn">retry @call.RetryAttempt</span>
+                                    }
+                                </span>
+                                @if (!string.IsNullOrEmpty(call.Model))
+                                {
+                                    <span class="runtrace-meta-chip small muted" title="model">@call.Model</span>
+                                }
+                                @if (callTokens > 0)
+                                {
+                                    <span class="runtrace-meta-chip small"><i class="bi bi-hash"></i>@($"{call.PromptTokens:N0}+{call.CompletionTokens:N0}")</span>
+                                }
+                                @if (call.EstimatedCostUsd is { } cc)
+                                {
+                                    <span class="runtrace-meta-chip small @(cc == 0 ? "free" : "")"><i class="bi bi-currency-dollar"></i>@CostString(cc)</span>
+                                }
+                                <span class="runtrace-meta-chip small @(call.ElapsedMs > 5000 ? "slow" : "muted")">
+                                    <i class="bi bi-stopwatch"></i>@FormatMs(call.ElapsedMs)
+                                </span>
+                            </div>
+                            @if (!callOk && !string.IsNullOrEmpty(call.Error))
+                            {
+                                <div class="runtrace-llm-error">
+                                    <i class="bi bi-exclamation-octagon"></i>
+                                    @call.Error
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(call.PromptPreview))
+                            {
+                                <details class="runtrace-llm-detail">
+                                    <summary>
+                                        <i class="bi bi-box-arrow-in-right"></i> Prompt
+                                        @if (call.PromptFullLength is { } pl && pl > (call.PromptPreview?.Length ?? 0))
+                                        {
+                                            <span class="runtrace-meta-chip small muted">truncated @($"{(call.PromptPreview?.Length ?? 0):N0}/{pl:N0}")</span>
+                                        }
+                                    </summary>
+                                    <pre class="runtrace-blob-pre">@call.PromptPreview</pre>
+                                </details>
+                            }
+                            @if (!string.IsNullOrEmpty(call.ResponsePreview))
+                            {
+                                <details class="runtrace-llm-detail">
+                                    <summary>
+                                        <i class="bi bi-box-arrow-right"></i> Response
+                                        @if (call.ResponseFullLength is { } rl && rl > (call.ResponsePreview?.Length ?? 0))
+                                        {
+                                            <span class="runtrace-meta-chip small muted">truncated @($"{(call.ResponsePreview?.Length ?? 0):N0}/{rl:N0}")</span>
+                                        }
+                                    </summary>
+                                    <pre class="runtrace-blob-pre">@call.ResponsePreview</pre>
+                                </details>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            @* ── SpecRepair phase diagnostics (v2 trace): which auto-fix phases ran ───── *@
+            @if (Model.PhaseDiagnostics is { Count: > 0 })
+            {
+                <div class="runtrace-section">
+                    <div class="runtrace-section-label">
+                        <i class="bi bi-magic"></i> Auto-fix phases (@Model.PhaseDiagnostics.Count)
+                    </div>
+                    <ul class="runtrace-phase-list">
+                        @foreach (var diag in Model.PhaseDiagnostics)
+                        {
+                            <li class="runtrace-phase-row @(diag.IsWarning ? "warn" : "ok")">
+                                <i class="bi @(diag.IsWarning ? "bi-exclamation-triangle-fill text-warning" : "bi-check2-circle text-success")"></i>
+                                <strong>@diag.PhaseName</strong>
+                                <span class="runtrace-phase-detail">@diag.Detail</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            @* ── Decision points (v2 trace): routing choices with alternatives ───── *@
+            @if (Model.Decisions is { Count: > 0 })
+            {
+                <div class="runtrace-section">
+                    <div class="runtrace-section-label">
+                        <i class="bi bi-signpost-split"></i> Decisions (@Model.Decisions.Count)
+                    </div>
+                    @foreach (var dec in Model.Decisions)
+                    {
+                        <div class="runtrace-decision">
+                            <div class="runtrace-decision-head">
+                                <span class="runtrace-meta-chip">@dec.DecisionType</span>
+                                <span class="runtrace-decision-winner">
+                                    <i class="bi bi-trophy-fill text-warning"></i>
+                                    <strong>@dec.WinnerName</strong>
+                                    @if (dec.WinnerScore is { } ws)
+                                    {
+                                        <span class="runtrace-meta-chip small">@ws.ToString("0.000")</span>
+                                    }
+                                </span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(dec.Reason))
+                            {
+                                <div class="runtrace-decision-reason">@dec.Reason</div>
+                            }
+                            @if (dec.Alternatives is { Count: > 0 })
+                            {
+                                <ol class="runtrace-decision-alts">
+                                    @foreach (var alt in dec.Alternatives)
+                                    {
+                                        <li>
+                                            <span>@alt.Name</span>
+                                            @if (alt.Score is { } s)
+                                            {
+                                                <span class="runtrace-meta-chip small muted">@s.ToString("0.000")</span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(alt.Note))
+                                            {
+                                                <span class="text-muted ms-1">— @alt.Note</span>
+                                            }
+                                        </li>
+                                    }
+                                </ol>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
             @* ── Sub-steps (recursive: each can have its own tech) ─────────── *@
             @* When the sub-step is the actual LLM call (e.g. "LLM call (Explainer)") it carries
                  model / tokens / cost / StepPayload-v1 prompt+response. Surface ALL of that here,

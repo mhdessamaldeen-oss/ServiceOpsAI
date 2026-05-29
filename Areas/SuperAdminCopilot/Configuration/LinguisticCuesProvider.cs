@@ -84,6 +84,16 @@ internal sealed class LinguisticCuesProvider : ILinguisticCuesProvider
                 RangeLt      = CompileRegexList(raw.Range?.Lt),
                 RangeLte     = CompileRegexList(raw.Range?.Lte),
                 RangeEq      = CompileRegexList(raw.Range?.Eq),
+                AggregateVerbs = (IReadOnlyList<AggregateVerbCue>)(raw.AggregateVerbs ?? new List<AggregateVerbCue>()),
+                Possessive     = raw.Possessive ?? new PossessiveCues(),
+                IntentCount    = CompileRegexList(raw.IntentVerbs?.Count),
+                IntentList     = CompileRegexList(raw.IntentVerbs?.List),
+                IntentSum      = CompileRegexList(raw.IntentVerbs?.Sum),
+                StatusValues   = (IReadOnlyList<StatusValueCue>)(raw.StatusValues ?? new List<StatusValueCue>()),
+                AntiJoin       = (IReadOnlyList<string>)(raw.AntiJoin ?? new List<string>()),
+                OrderingIntent = (IReadOnlyList<string>)(raw.OrderingIntent ?? new List<string>()),
+                CompareMarkersRegex = CompileAlternation(raw.CompareMarkers, wholeWord: true),
+                TextSearchTriggers  = CompileRegexList(raw.TextSearchTriggers),
             };
         }
         return new CompiledLinguisticCues
@@ -116,8 +126,12 @@ internal sealed class LinguisticCuesProvider : ILinguisticCuesProvider
 
     /// <summary>
     /// Compile a list of plain phrases (or regex fragments) into a single alternation regex.
-    /// When <paramref name="wholeWord"/> is true, phrases are wrapped with <c>\b…\b</c>; when
-    /// false, the phrases may contain spaces and are emitted as-is (case-insensitive substring).
+    /// When <paramref name="wholeWord"/> is true, phrases are wrapped with Unicode-aware
+    /// boundaries — for ASCII phrases, plain <c>\b…\b</c>; for phrases containing
+    /// non-ASCII letters (Arabic), <c>(?&lt;![\p{L}\p{N}])…(?![\p{L}\p{N}])</c>.
+    /// .NET's default <c>\b</c> recognises only ASCII word characters in `\w`, so a literal
+    /// `\bأعلى\b` matches ZERO Arabic-context positions — silently producing a regex that
+    /// never fires. The Unicode look-around variant fixes this without changing ASCII semantics.
     /// </summary>
     private static Regex? CompileAlternation(List<string>? phrases, bool wholeWord)
     {
@@ -129,13 +143,28 @@ internal sealed class LinguisticCuesProvider : ILinguisticCuesProvider
             // If the entry already looks like a regex (contains escape, char class, group), emit verbatim.
             var looksLikeRegex = p.Contains('\\') || p.Contains('[') || p.Contains('(') || p.Contains('?');
             var part = looksLikeRegex ? p : Regex.Escape(p);
-            if (wholeWord && !looksLikeRegex) part = $@"\b{part}\b";
+            if (wholeWord && !looksLikeRegex)
+            {
+                // Choose boundary style based on whether the phrase contains non-ASCII letters.
+                // Arabic / CJK / Cyrillic phrases need Unicode look-arounds because .NET's `\b`
+                // only triggers on ASCII `\w`. ASCII phrases keep the cheaper `\b…\b`.
+                if (ContainsNonAscii(p))
+                    part = $@"(?<![\p{{L}}\p{{N}}]){part}(?![\p{{L}}\p{{N}}])";
+                else
+                    part = $@"\b{part}\b";
+            }
             parts.Add(part);
         }
         if (parts.Count == 0) return null;
         var pattern = "(?:" + string.Join("|", parts) + ")";
         try { return new Regex(pattern, DefaultOptions); }
         catch (ArgumentException) { return null; }
+    }
+
+    private static bool ContainsNonAscii(string s)
+    {
+        foreach (var c in s) if (c > 127) return true;
+        return false;
     }
 
     /// <summary>Compile a list of full regex patterns to <see cref="Regex"/> objects, skipping malformed entries.</summary>

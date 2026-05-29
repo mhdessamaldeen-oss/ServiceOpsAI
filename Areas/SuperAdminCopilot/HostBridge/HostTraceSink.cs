@@ -43,6 +43,7 @@ internal sealed class HostTraceSink : ITraceSink
     private readonly IAiProviderFactory _providerFactory;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ServiceOpsAI.Services.AI.Cost.ICostCalculator _costCalculator;
+    private readonly ITraceWriteQueue _writeQueue;
     private readonly ILogger<HostTraceSink> _logger;
 
     public HostTraceSink(
@@ -50,12 +51,14 @@ internal sealed class HostTraceSink : ITraceSink
         IAiProviderFactory providerFactory,
         IServiceScopeFactory scopeFactory,
         ServiceOpsAI.Services.AI.Cost.ICostCalculator costCalculator,
+        ITraceWriteQueue writeQueue,
         ILogger<HostTraceSink> logger)
     {
         _store = store;
         _providerFactory = providerFactory;
         _scopeFactory = scopeFactory;
         _costCalculator = costCalculator;
+        _writeQueue = writeQueue;
         _logger = logger;
     }
 
@@ -114,40 +117,75 @@ internal sealed class HostTraceSink : ITraceSink
             // pipeline-step list by stage name, compute cost via ICostCalculator, and pass the
             // resulting map into MapStep so each step row gets stamped with its own tokens /
             // cost / model. Stage names are normalised (strip retry suffix) for the lookup.
+            // ALSO build a per-stage list of TracedLlmCallRow so each step carries one row per
+            // call — prompt/response previews live here so the investigation page renders
+            // "what we sent / what came back" without log lookups.
             var stepMetrics = new Dictionary<string, StepLlmMetric>(StringComparer.OrdinalIgnoreCase);
+            var stepCalls = new Dictionary<string, List<TracedLlmCallRow>>(StringComparer.OrdinalIgnoreCase);
             var scopeForSteps = SuperAdminCopilot.Abstractions.LlmCallScope.Current;
             if (scopeForSteps is not null && scopeForSteps.CallCount > 0)
             {
                 foreach (var r in scopeForSteps.Records)
                 {
-                    if (r.Usage is null) continue;
-                    var est = await _costCalculator.EstimateAsync(r.Provider, r.Model, r.Usage.Prompt, r.Usage.Completion, cancellationToken);
-                    // Some stages fire multiple LLM calls (Decomposer always; Planner under retry).
-                    // Accumulate across calls so the rendered row shows the stage's TOTAL cost.
-                    if (stepMetrics.TryGetValue(r.Stage, out var existingMetric))
+                    var promptT = r.Usage?.Prompt ?? 0;
+                    var completionT = r.Usage?.Completion ?? 0;
+                    var est = r.Usage is not null
+                        ? await _costCalculator.EstimateAsync(r.Provider, r.Model, promptT, completionT, cancellationToken)
+                        : new ServiceOpsAI.Services.AI.Cost.CostEstimate(0m, null);
+                    if (r.Usage is not null)
                     {
-                        stepMetrics[r.Stage] = existingMetric with
+                        // Some stages fire multiple LLM calls (Decomposer always; Planner under retry).
+                        // Accumulate across calls so the rendered row shows the stage's TOTAL cost.
+                        if (stepMetrics.TryGetValue(r.Stage, out var existingMetric))
                         {
-                            PromptTokens = existingMetric.PromptTokens + r.Usage.Prompt,
-                            CompletionTokens = existingMetric.CompletionTokens + r.Usage.Completion,
-                            EstimatedCostUsd = existingMetric.EstimatedCostUsd + est.CostUsd,
-                        };
+                            stepMetrics[r.Stage] = existingMetric with
+                            {
+                                PromptTokens = existingMetric.PromptTokens + promptT,
+                                CompletionTokens = existingMetric.CompletionTokens + completionT,
+                                EstimatedCostUsd = existingMetric.EstimatedCostUsd + est.CostUsd,
+                            };
+                        }
+                        else
+                        {
+                            stepMetrics[r.Stage] = new StepLlmMetric(
+                                PromptTokens: promptT,
+                                CompletionTokens: completionT,
+                                EstimatedCostUsd: est.CostUsd,
+                                ModelUsed: r.Model);
+                        }
                     }
-                    else
+                    // Always record the row regardless of usage availability — even a failed
+                    // call (no Usage) should appear in the investigation list so operators see
+                    // "this call failed with error X".
+                    if (!stepCalls.TryGetValue(r.Stage, out var rowList))
                     {
-                        stepMetrics[r.Stage] = new StepLlmMetric(
-                            PromptTokens: r.Usage.Prompt,
-                            CompletionTokens: r.Usage.Completion,
-                            EstimatedCostUsd: est.CostUsd,
-                            ModelUsed: r.Model);
+                        rowList = new List<TracedLlmCallRow>();
+                        stepCalls[r.Stage] = rowList;
                     }
+                    rowList.Add(new TracedLlmCallRow
+                    {
+                        Stage = r.Stage,
+                        Provider = r.Provider,
+                        Model = r.Model,
+                        PromptTokens = r.Usage is null ? null : promptT,
+                        CompletionTokens = r.Usage is null ? null : completionT,
+                        ElapsedMs = r.ElapsedMs,
+                        EstimatedCostUsd = r.Usage is null ? null : est.CostUsd,
+                        Success = r.Success,
+                        Error = r.Error,
+                        PromptPreview = r.PromptPreview,
+                        ResponsePreview = r.ResponsePreview,
+                        PromptFullLength = r.PromptFullLength,
+                        ResponseFullLength = r.ResponseFullLength,
+                        RetryAttempt = r.RetryAttempt,
+                    });
                 }
             }
 
             if (steps is { Count: > 0 })
             {
                 foreach (var s in steps)
-                    executionDetails.Steps.Add(MapStep(s, stepMetrics));
+                    executionDetails.Steps.Add(MapStep(s, stepMetrics, stepCalls));
             }
 
             var response = new CopilotChatResponse
@@ -249,33 +287,51 @@ internal sealed class HostTraceSink : ITraceSink
                 catch { /* config read shouldn't break trace save */ }
             }
 
-            var traceId = await _store.SaveAsync(
-                response,
-                elapsedMs,
-                sessionId: sessionId,
-                caseCode: caseCode,
-                generatedScript: sql,
-                errorMessage: error,
-                sourceSuite: suiteTag,
-                expectedScript: expectedSql,
-                llmCallCount: llmCallCount,
-                totalPromptTokens: totalPromptTokens,
-                totalCompletionTokens: totalCompletionTokens,
-                estimatedCostUsd: estimatedCostUsd,
-                cancellationToken: cancellationToken);
-
-            // Learning RAG: embed the question and write it back into the trace row when the run
-            // succeeded with a usable SQL. The embed call hits an LLM provider (typically
-            // 200-1000ms HTTP), so awaiting it on the response path adds noticeable latency to
-            // every successful question. Run it as a true fire-and-forget — TryEmbedAndPersistAsync
-            // creates its own DI scope (line 301) so it survives this method's scope disposal,
-            // and the inner try/catch swallows any failure. The user's response returns now;
-            // the past-question store picks up the embedding on its next cache refresh.
-            if (traceId is int id && string.IsNullOrEmpty(error) && !string.IsNullOrEmpty(sql))
+            // Per-step model JSON — one entry per pipeline stage that actually fired an LLM
+            // call. The pipeline has ~6 stages (Decomposer, SpecExtractor, Compiler, Executor,
+            // Validator, Explainer); each may use a DIFFERENT model (cloud planner +
+            // local-LLM compiler, etc.). Stored as a separate JSON column so the trace grid
+            // can display "which model did what" without parsing the full ExecutionPlan blob.
+            string? stepModelsJson = null;
+            if (stepMetrics.Count > 0)
             {
-                _ = Task.Run(() => TryEmbedAndPersistAsync(id, question, CancellationToken.None), CancellationToken.None);
+                var stepModels = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (stage, metric) in stepMetrics)
+                    stepModels[stage] = metric.ModelUsed;
+                stepModelsJson = System.Text.Json.JsonSerializer.Serialize(stepModels);
             }
-            return traceId;
+
+            // FIRE AND FORGET — enqueue the write; do NOT await DB I/O on the response path.
+            // The hosted TraceWriteHostedService drains the queue in its own DI scope, runs
+            // CopilotTraceHistoryStore.SaveAsync, and chains the embedding write after.
+            // Pipeline returns now → user sees the answer immediately.
+            var enqueued = _writeQueue.TryEnqueue(new TraceWriteRequest
+            {
+                Response = response,
+                ElapsedMs = elapsedMs,
+                SessionId = sessionId,
+                CaseCode = caseCode,
+                PipelineTraceId = null,
+                GeneratedScript = sql,
+                ErrorMessage = error,
+                SourceSuite = suiteTag,
+                ExpectedScript = expectedSql,
+                LlmCallCount = llmCallCount,
+                TotalPromptTokens = totalPromptTokens,
+                TotalCompletionTokens = totalCompletionTokens,
+                EstimatedCostUsd = estimatedCostUsd,
+                StepModelsJson = stepModelsJson,
+                ShouldEmbedQuestion = string.IsNullOrEmpty(error) && !string.IsNullOrEmpty(sql),
+                QuestionForEmbedding = question,
+            });
+            if (!enqueued)
+                _logger.LogWarning("[SuperAdminCopilot] Trace write queue refused enqueue (channel completed?).");
+            // We no longer return the assigned trace ID — the row hasn't been written yet.
+            // Callers that need to deep-link should switch to PipelineTraceId-based lookup
+            // (indexed for that purpose). Returning null preserves the signature; the UI
+            // path that read this value either (a) tolerated null already or (b) needs a
+            // separate hop via PipelineTraceId in a future refactor.
+            return null;
         }
         catch (Exception ex)
         {
@@ -353,7 +409,10 @@ internal sealed class HostTraceSink : ITraceSink
     /// Recursively maps any <see cref="PipelineStep.SubSteps"/> so the host UI's expandable
     /// sub-step rows populate (each with its own kind / prompt / response / ms).
     /// </summary>
-    private static CopilotExecutionStep MapStep(PipelineStep s, IReadOnlyDictionary<string, StepLlmMetric>? metrics = null)
+    private static CopilotExecutionStep MapStep(
+        PipelineStep s,
+        IReadOnlyDictionary<string, StepLlmMetric>? metrics = null,
+        IReadOnlyDictionary<string, List<TracedLlmCallRow>>? calls = null)
     {
         var mapped = new CopilotExecutionStep
         {
@@ -377,12 +436,34 @@ internal sealed class HostTraceSink : ITraceSink
             mapped.EstimatedCostUsd = metric.EstimatedCostUsd;
             mapped.LlmModelUsed = metric.ModelUsed;
         }
+        // Attach the per-call rows (prompt/response previews + tokens + cost per call). Same
+        // matching logic as metrics so SpecExtractor (retry 1) joins the right rows.
+        if (calls is not null && TryMatchCalls(s.Stage, calls, out var rowList) && rowList.Count > 0)
+        {
+            mapped.LlmCalls = rowList;
+        }
         if (s.SubSteps is { Count: > 0 })
         {
             foreach (var sub in s.SubSteps)
-                mapped.SubSteps.Add(MapStep(sub, metrics));
+                mapped.SubSteps.Add(MapStep(sub, metrics, calls));
         }
         return mapped;
+    }
+
+    /// <summary>Identical normalisation to <see cref="TryMatchMetric"/> but for the calls map.</summary>
+    private static bool TryMatchCalls(
+        string stage,
+        IReadOnlyDictionary<string, List<TracedLlmCallRow>> calls,
+        out List<TracedLlmCallRow> rows)
+    {
+        rows = new List<TracedLlmCallRow>();
+        if (string.IsNullOrEmpty(stage)) return false;
+        var key = stage;
+        var parenIdx = key.IndexOf(" (", StringComparison.Ordinal);
+        if (parenIdx > 0) key = key.Substring(0, parenIdx);
+        if (calls.TryGetValue(key, out var list)) { rows = list; return true; }
+        if (calls.TryGetValue("Step" + key, out list)) { rows = list; return true; }
+        return false;
     }
 
     /// <summary>Match a pipeline-step stage name against the LlmCallScope's recorded stage

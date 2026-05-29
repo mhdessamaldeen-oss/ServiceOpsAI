@@ -369,6 +369,7 @@ html.sidebar-collapsed .copilot-shell {
     display: flex;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;       /* don't let wide message content (tables) push the pane past its grid track */
     position: relative;
     overflow: hidden;
     /* Use the app's bg-main (NOT undefined --surface-v1, which fell back to white). */
@@ -379,19 +380,30 @@ html.sidebar-collapsed .copilot-shell {
 .copilot-thread {
     flex: 1;
     overflow-y: auto;
+    /* Vertical-only scroll. With overflow-y: auto alone the browser implicitly
+       lets overflow-x = auto too, so any transient horizontal overflow (e.g. the
+       user-bubble hover transform: scale(1.01), a wide inline table while the
+       bubble is mid-resize, an animation tick) flashes a horizontal scrollbar
+       across the whole chat area. Pin it to hidden — wide content inside a
+       bubble has its OWN .copilot-inline-table-scroll for sideways scrolling. */
+    overflow-x: hidden;
     padding: 1.5rem 0;
     display: flex;
     flex-direction: column;
     gap: 0.5rem; /* Gap is now small because margins are handled by messages */
     scroll-behavior: smooth;
     min-height: 0;
+    min-width: 0;       /* prevent intrinsic content width from expanding the thread past chat-pane */
 }
 
 .copilot-thread-container {
-    max-width: clamp(50rem, 90%, 85rem);
+    /* No upper cap — the container spans the full middle column so wide assistant
+       content (tables) can grow all the way to the right edge. Narrow text answers
+       still hug the left because .copilot-message uses width: fit-content. */
+    max-width: 100%;
     margin: 0 auto;
     width: 100%;
-    padding: 0 2rem;
+    padding: 0 1rem;
     display: flex;
     flex-direction: column;
     gap: 2rem;
@@ -447,12 +459,11 @@ html.sidebar-collapsed .copilot-shell {
 }
 
 .copilot-message {
-    /* Stable assistant card: wide enough that streaming text only grows the HEIGHT
-       (which is allowed to flow naturally), never the WIDTH. User bubbles override below.
-       Widened to 96rem so wide tables (10+ columns) and the full action toolbar fit
-       on a single row on 1440px+ monitors. min-width bumped so single-line answers
-       don't look like a tiny chip. */
-    max-width: min(98%, 96rem);
+    /* Stable assistant card: width: fit-content (below) makes narrow text answers
+       hug the left at min-width; max-width: 100% lets wide content (10+ column
+       tables) stretch all the way to the right edge of the thread column with no
+       hard cap. min-width keeps single-line answers from collapsing to a chip. */
+    max-width: 100%;
     width: fit-content;
     min-width: min(720px, 92%);
     flex-shrink: 0;            /* CRITICAL: prevents messages from collapsing when chat gets long */
@@ -472,6 +483,17 @@ html.sidebar-collapsed .copilot-shell {
     transition: opacity 0.25s ease, transform 0.2s ease, box-shadow 0.25s ease;
     animation: message-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     contain: layout;           /* layout containment: child reflows don't push siblings */
+}
+
+/* renderConversation() rebuilds the ENTIRE thread via host.innerHTML on every
+   call (and is called 10+ times per chat lifecycle — user send, polling tick,
+   typing start, typing end, persist restore, etc.). Each rebuild creates fresh
+   DOM nodes, which re-fires the `message-in` entry animation on every existing
+   message — the user-visible "flicker". The render loop stamps `.is-mounted`
+   on messages it has rendered before, so only genuinely-new messages animate
+   in; already-seen messages just appear in place. */
+.copilot-message.is-mounted {
+    animation: none;
 }
 
 @keyframes message-in {
@@ -521,7 +543,11 @@ html.sidebar-collapsed .copilot-shell {
 
 .copilot-message-assistant {
     align-self: flex-start;
-    align-items: flex-start;
+    /* `stretch` so the inner header / body / footer / table-wrap fill the bubble's
+       cross-axis width. Previously `flex-start` kept every child at its content
+       width, so when min-width: 50% pushed the bubble wide, a narrow table inside
+       stayed tiny and left a big empty gutter on the right of the bubble. */
+    align-items: stretch;
     margin-inline-start: 2rem;
     /* Theme-aware: use the app's defined variables, not the (undefined) --surface-v1. */
     background: var(--bg-card);
@@ -605,6 +631,11 @@ html.sidebar-collapsed .copilot-shell {
        still has overflow:auto for the table itself, so this only affects the dropdown. */
     overflow: visible;
     max-width: 100%;
+    /* Container query context — used below to collapse the footer toolbar buttons
+       from "icon + label" to "icon only" when the table-wrap gets too narrow to
+       fit them on a single row. Without this, the toolbar wrapped to two rows. */
+    container-type: inline-size;
+    container-name: tblwrap;
 }
 /* Inner scroll keeps the rounded corners clean by clipping its own contents only. */
 .copilot-inline-table-wrap .copilot-inline-table-scroll {
@@ -1240,13 +1271,14 @@ html.sidebar-collapsed .copilot-shell {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;       /* whole groups wrap to a new row when crowded */
+    flex-wrap: nowrap;     /* one row, always — user explicitly rejects "View as chart" wrapping to a 2nd row */
     gap: 0.5rem 0.75rem;   /* row-gap × column-gap */
     padding: 0.55rem 0.85rem;
     border-top: 1px solid var(--border-color);
     background: rgba(var(--primary-color-rgb), 0.04);
     font-size: 0.85rem;
     color: var(--text-muted);
+    min-width: 0;          /* allow children to compress instead of pushing the row to wrap */
 }
 
 .copilot-table-count {
@@ -1331,8 +1363,41 @@ html.sidebar-collapsed .copilot-shell {
 .copilot-table-actions {
     display: inline-flex;
     align-items: center;
-    flex-wrap: wrap;      /* on narrow viewports, wrap WHOLE buttons to a new row */
+    flex-wrap: nowrap;    /* never wrap — labels collapse to icon-only via container query below */
     gap: 0.4rem;
+    min-width: 0;         /* let buttons shrink (lose labels) instead of forcing wrap */
+}
+
+/* Footer-toolbar icon-only fallback.
+   When the table-wrap is too narrow to fit Explain / Follow-ups / Filter / Cols /
+   vs. period / Tools / Pin / Export / View as chart / Open Investigation with
+   their text labels on one row, drop the labels and keep just the icons so
+   everything still fits in a single row inside the table card border.
+   Threshold sized for the full action set (~10 action buttons + pager + count)
+   so labels collapse BEFORE the toolbar would overflow past the card edge.
+   Container queries (vs. media queries) so the fallback also triggers when the
+   chat column shrinks — not only when the whole window shrinks. */
+@container tblwrap (max-width: 1280px) {
+    .copilot-table-actions .copilot-table-export {
+        /* Hide text node by zeroing button font-size; restore icon size below. */
+        font-size: 0;
+        padding-inline: 0.55rem;
+    }
+    /* First icon: keep visible and readable (override inline Bootstrap me-1). */
+    .copilot-table-actions .copilot-table-export > i:first-child {
+        font-size: 0.95rem !important;
+        margin-inline-end: 0 !important;
+    }
+    /* Trailing caret on dropdown buttons (Cols ▾ / Tools ▾ / Export ▾) — drop it
+       when the label is gone so we don't show two stacked icons per button. */
+    .copilot-table-actions .copilot-table-export > i:not(:first-child) {
+        display: none;
+    }
+    /* Pager pieces ("Rows:" label, "1 / 6") read as noise without context. */
+    .copilot-table-actions .copilot-table-pagesize-label,
+    .copilot-table-actions .copilot-table-page-info {
+        display: none;
+    }
 }
 
 .copilot-table-export {

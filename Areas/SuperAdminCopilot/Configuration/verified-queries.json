@@ -183,6 +183,7 @@
         "today ticket count versus yesterday",
         "how many tickets today compared to yesterday"
       ],
+      "minSimilarity": 0.99,
       "sql": "SELECT SUM(CASE WHEN CAST(CreatedAt AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS Today, SUM(CASE WHEN CAST(CreatedAt AS DATE) = CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) THEN 1 ELSE 0 END) AS Yesterday FROM Tickets WHERE IsDeleted = 0",
       "shape": "PER",
       "verifiedAt": "2026-05-17",
@@ -204,7 +205,7 @@
         "month over month ticket comparison",
         "this month vs last month tickets"
       ],
-      "minSimilarity": 0.90,
+      "minSimilarity": 0.99,
       "sql": "SELECT SUM(CASE WHEN CreatedAt >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) AS ThisMonth, SUM(CASE WHEN CreatedAt >= DATEADD(MONTH,-1,DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1)) AND CreatedAt < DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END) AS LastMonth FROM Tickets WHERE IsDeleted = 0",
       "shape": "PER",
       "verifiedAt": "2026-05-17",
@@ -226,7 +227,7 @@
         "this year vs last year tickets",
         "year-over-year ticket comparison"
       ],
-      "minSimilarity": 0.90,
+      "minSimilarity": 0.99,
       "sql": "SELECT SUM(CASE WHEN YEAR(ResolvedAt) = YEAR(GETDATE()) THEN 1 ELSE 0 END) AS ThisYear, SUM(CASE WHEN YEAR(ResolvedAt) = YEAR(GETDATE())-1 THEN 1 ELSE 0 END) AS LastYear FROM Tickets WHERE ResolvedAt IS NOT NULL AND IsDeleted = 0",
       "shape": "PER",
       "verifiedAt": "2026-05-17",
@@ -242,6 +243,7 @@
         "2025 versus 2024 ticket creation count",
         "compare 2025 and 2024 ticket volume"
       ],
+      "minSimilarity": 0.99,
       "sql": "SELECT SUM(CASE WHEN YEAR(CreatedAt) = 2025 THEN 1 ELSE 0 END) AS Y2025, SUM(CASE WHEN YEAR(CreatedAt) = 2024 THEN 1 ELSE 0 END) AS Y2024 FROM Tickets WHERE IsDeleted = 0",
       "shape": "PER",
       "verifiedAt": "2026-05-17",
@@ -258,6 +260,7 @@
         "qoq ticket comparison",
         "current quarter compared to previous quarter tickets"
       ],
+      "minSimilarity": 0.99,
       "sql": "SELECT SUM(CASE WHEN CreatedAt >= DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE()), 0) THEN 1 ELSE 0 END) AS ThisQuarter, SUM(CASE WHEN CreatedAt >= DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE())-1, 0) AND CreatedAt < DATEADD(QUARTER, DATEDIFF(QUARTER, 0, GETDATE()), 0) THEN 1 ELSE 0 END) AS LastQuarter FROM Tickets WHERE IsDeleted = 0",
       "shape": "PER",
       "verifiedAt": "2026-05-17",
@@ -274,6 +277,7 @@
         "last 7 days vs previous 7 days ticket creation",
         "wow ticket trend"
       ],
+      "minSimilarity": 0.99,
       "sql": "SELECT SUM(CASE WHEN CreatedAt >= DATEADD(DAY,-7,GETDATE()) THEN 1 ELSE 0 END) AS Last7Days, SUM(CASE WHEN CreatedAt >= DATEADD(DAY,-14,GETDATE()) AND CreatedAt < DATEADD(DAY,-7,GETDATE()) THEN 1 ELSE 0 END) AS Previous7Days FROM Tickets WHERE IsDeleted = 0",
       "shape": "PER",
       "verifiedAt": "2026-05-17",
@@ -528,6 +532,39 @@
       "tags": ["cumulative", "window-function", "running-total"],
       "description": "Running total via SUM(...) OVER (ORDER BY ... ROWS UNBOUNDED PRECEDING). Wraps a daily-count subquery for clean partitioning."
     },
+    {
+      "id": "cumulative-running-total-by-month",
+      "question": "running total of tickets created by month",
+      "questionVariants": [
+        "monthly running total of tickets",
+        "cumulative ticket count by month",
+        "ticket creation cumulative month over month",
+        "running count of tickets per month"
+      ],
+      "sql": "SELECT MonthStart, MonthCount, SUM(MonthCount) OVER (ORDER BY MonthStart ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS RunningTotal FROM (SELECT DATEFROMPARTS(YEAR(CreatedAt), MONTH(CreatedAt), 1) AS MonthStart, COUNT(*) AS MonthCount FROM Tickets WHERE IsDeleted = 0 GROUP BY DATEFROMPARTS(YEAR(CreatedAt), MONTH(CreatedAt), 1)) m ORDER BY MonthStart",
+      "shape": "CUM",
+      "verifiedAt": "2026-05-29",
+      "verifiedBy": "essammas",
+      "useAsOnboarding": false,
+      "tags": ["cumulative", "window-function", "running-total", "monthly"],
+      "description": "Monthly running total: subquery aggregates by month-start, outer window accumulates. Pattern works for any fact table with a date column — swap Tickets/CreatedAt for the target entity."
+    },
+    {
+      "id": "cumulative-running-total-by-region-by-month",
+      "question": "running count of tickets by region by month",
+      "questionVariants": [
+        "monthly running ticket total per region",
+        "cumulative tickets per region per month",
+        "running count of tickets per region over time"
+      ],
+      "sql": "SELECT r.NameEn AS Region, MonthStart, MonthCount, SUM(MonthCount) OVER (PARTITION BY t.RegionId ORDER BY MonthStart ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS RunningTotal FROM (SELECT RegionId, DATEFROMPARTS(YEAR(CreatedAt), MONTH(CreatedAt), 1) AS MonthStart, COUNT(*) AS MonthCount FROM Tickets WHERE IsDeleted = 0 AND RegionId IS NOT NULL GROUP BY RegionId, DATEFROMPARTS(YEAR(CreatedAt), MONTH(CreatedAt), 1)) t LEFT JOIN Regions r ON r.Id = t.RegionId ORDER BY r.NameEn, MonthStart",
+      "shape": "CUM",
+      "verifiedAt": "2026-05-29",
+      "verifiedBy": "essammas",
+      "useAsOnboarding": false,
+      "tags": ["cumulative", "window-function", "running-total", "partition", "monthly", "regional"],
+      "description": "Region-partitioned monthly running total: PARTITION BY resets the cumulative sum per region. Pattern: subquery aggregates by (partition, time-bucket), outer window accumulates within partition. Swap Regions for Departments/Categories/etc. as needed."
+    },
 
     { "id": "list-ticket-numbers",
       "question": "list ticket numbers",
@@ -606,18 +643,18 @@
     { "id": "tickets-open-and-critical",
       "question": "tickets that are open and critical",
       "questionVariants": ["open critical tickets","critical and open tickets","open and critical priority tickets"],
-      "sql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE s.Name = 'Open' AND p.Name = 'Critical' AND t.IsDeleted = 0",
-      "shape": "FLT", "verifiedAt": "2026-05-17", "verifiedBy": "essammas",
-      "tags": ["filter","AND","double-lookup"],
-      "description": "Two lookup joins + AND filter on both status and priority."
+      "sql": "SELECT t.Id, t.TicketNumber, t.Title, s.Name AS Status, p.Name AS Priority, c.NameEn AS Category, t.CreatedAt FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId JOIN TicketPriorities p ON p.Id = t.PriorityId LEFT JOIN TicketCategories c ON c.Id = t.CategoryId WHERE s.Name = 'Open' AND p.Name = 'Critical' AND t.IsDeleted = 0",
+      "shape": "FLT", "verifiedAt": "2026-05-29", "verifiedBy": "essammas",
+      "tags": ["filter","AND","double-lookup","analyst-quality"],
+      "description": "Two lookup joins + AND filter on both status and priority. Updated 2026-05-29 to project analyst display set: Number, Title, Status, Priority, Category, CreatedAt."
     },
     { "id": "tickets-critical-or-high",
       "question": "tickets with critical or high priority",
       "questionVariants": ["high priority or critical tickets","tickets that are critical or high","critical/high tickets"],
-      "sql": "SELECT t.TicketNumber, t.Title FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE p.Name IN ('Critical','High') AND t.IsDeleted = 0",
-      "shape": "FLT", "verifiedAt": "2026-05-17", "verifiedBy": "essammas",
-      "tags": ["filter","IN","priority"],
-      "description": "IN clause on lookup column name."
+      "sql": "SELECT t.Id, t.TicketNumber, t.Title, s.Name AS Status, p.Name AS Priority, c.NameEn AS Category, t.CreatedAt FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId JOIN TicketStatuses s ON s.Id = t.StatusId LEFT JOIN TicketCategories c ON c.Id = t.CategoryId WHERE p.Name IN ('Critical','High') AND t.IsDeleted = 0",
+      "shape": "FLT", "verifiedAt": "2026-05-29", "verifiedBy": "essammas",
+      "tags": ["filter","IN","priority","analyst-quality"],
+      "description": "IN clause on lookup column name. Updated 2026-05-29 to project analyst display set."
     },
     { "id": "tickets-critical-priority",
       "question": "tickets with critical priority",
@@ -836,18 +873,18 @@
     { "id": "tickets-with-priority-name",
       "question": "tickets with their priority name",
       "questionVariants": ["tickets and their priority","each ticket with priority","ticket priority for each ticket"],
-      "sql": "SELECT t.TicketNumber, p.Name AS Priority FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId WHERE t.IsDeleted = 0",
-      "shape": "JOI", "verifiedAt": "2026-05-17", "verifiedBy": "essammas", "useAsOnboarding": true,
-      "tags": ["join","priority","name-projection"],
-      "description": "Two-table join projecting priority NAME (not Id). Addresses 'I see IDs not names' concern."
+      "sql": "SELECT t.Id, t.TicketNumber, t.Title, p.Name AS Priority, s.Name AS Status, c.NameEn AS Category, t.CreatedAt FROM Tickets t JOIN TicketPriorities p ON p.Id = t.PriorityId LEFT JOIN TicketStatuses s ON s.Id = t.StatusId LEFT JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0",
+      "shape": "JOI", "verifiedAt": "2026-05-29", "verifiedBy": "essammas", "useAsOnboarding": true,
+      "tags": ["join","priority","name-projection","analyst-quality"],
+      "description": "Projects analyst display set (Id, Number, Title, Priority, Status, Category, CreatedAt). Updated 2026-05-29."
     },
     { "id": "tickets-with-status-name",
       "question": "tickets with their status name",
       "questionVariants": ["tickets and their status","each ticket with status","ticket status for each ticket"],
-      "sql": "SELECT t.TicketNumber, s.Name AS Status FROM Tickets t JOIN TicketStatuses s ON s.Id = t.StatusId WHERE t.IsDeleted = 0",
-      "shape": "JOI", "verifiedAt": "2026-05-17", "verifiedBy": "essammas",
-      "tags": ["join","status","name-projection"],
-      "description": "Projects TicketStatuses.Name, not StatusId."
+      "sql": "SELECT t.Id, t.TicketNumber, t.Title, s.Name AS Status, p.Name AS Priority, c.NameEn AS Category, t.CreatedAt FROM Tickets t LEFT JOIN TicketStatuses s ON s.Id = t.StatusId LEFT JOIN TicketPriorities p ON p.Id = t.PriorityId LEFT JOIN TicketCategories c ON c.Id = t.CategoryId WHERE t.IsDeleted = 0",
+      "shape": "JOI", "verifiedAt": "2026-05-29", "verifiedBy": "essammas",
+      "tags": ["join","status","name-projection","analyst-quality"],
+      "description": "Projects analyst-quality display set: Number, Title, Status name, Priority name, Category name, CreatedAt. Updated 2026-05-29 from 2-col to full display set after column-completeness review."
     },
     { "id": "tickets-with-entity-name",
       "question": "tickets and their entity name",

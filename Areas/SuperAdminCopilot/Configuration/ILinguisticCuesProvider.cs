@@ -49,6 +49,35 @@ public sealed class CompiledLocaleCues
     public IReadOnlyList<Regex> RangeLt   { get; init; } = System.Array.Empty<Regex>();
     public IReadOnlyList<Regex> RangeLte  { get; init; } = System.Array.Empty<Regex>();
     public IReadOnlyList<Regex> RangeEq   { get; init; } = System.Array.Empty<Regex>();
+
+    /// <summary>Raw aggregate-verb entries (no regex compilation needed — phases do Contains/StartsWith).</summary>
+    public IReadOnlyList<AggregateVerbCue> AggregateVerbs { get; init; } = System.Array.Empty<AggregateVerbCue>();
+
+    /// <summary>Possessive markers (tiered: possessive / definite / plain).</summary>
+    public PossessiveCues Possessive { get; init; } = new();
+
+    /// <summary>Compiled intent-verb regexes.</summary>
+    public IReadOnlyList<Regex> IntentCount { get; init; } = System.Array.Empty<Regex>();
+    public IReadOnlyList<Regex> IntentList  { get; init; } = System.Array.Empty<Regex>();
+    public IReadOnlyList<Regex> IntentSum   { get; init; } = System.Array.Empty<Regex>();
+
+    /// <summary>Raw status-value cues. Phases do substring Contains against the cue.</summary>
+    public IReadOnlyList<StatusValueCue> StatusValues { get; init; } = System.Array.Empty<StatusValueCue>();
+
+    /// <summary>Anti-join trigger phrases (plain strings; phases do Contains).</summary>
+    public IReadOnlyList<string> AntiJoin { get; init; } = System.Array.Empty<string>();
+
+    /// <summary>Ordering-intent markers — space-padded substring tokens.</summary>
+    public IReadOnlyList<string> OrderingIntent { get; init; } = System.Array.Empty<string>();
+
+    /// <summary>Compiled compare-shape vocabulary (single alternation regex). Null when no entries.</summary>
+    public Regex? CompareMarkersRegex { get; init; }
+
+    /// <summary>
+    /// Compiled text-search trigger regexes — each MUST have a named capture group <c>noun</c>.
+    /// Phases iterate this list and use the captured value as the search term.
+    /// </summary>
+    public IReadOnlyList<Regex> TextSearchTriggers { get; init; } = System.Array.Empty<Regex>();
 }
 
 /// <summary>One compiled temporal cue. Identical shape to the JSON entry but with <see cref="Pattern"/> precompiled.</summary>

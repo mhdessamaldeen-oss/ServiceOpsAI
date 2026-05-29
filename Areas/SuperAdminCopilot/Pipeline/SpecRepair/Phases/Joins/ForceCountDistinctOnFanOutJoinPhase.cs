@@ -62,11 +62,11 @@ internal sealed class ForceCountDistinctOnFanOutJoinPhase : ISpecRepairPhase
     {
         var checkRefs = new System.Collections.Generic.List<string?>();
         checkRefs.AddRange(spec.Select);
-        foreach (var f in spec.Filters) checkRefs.Add(f.Column);
-        foreach (var g in spec.GroupBy) checkRefs.Add(g);
-        foreach (var o in spec.OrderBy) checkRefs.Add(o.Column);
-        foreach (var c in spec.Computed) checkRefs.Add(c.Expression);
-        foreach (var a in spec.Aggregations) checkRefs.Add(a.Column);
+        foreach (var f in spec.Filters.NotNull()) checkRefs.Add(f.Column);
+        foreach (var g in spec.GroupBy.NotNull()) checkRefs.Add(g);
+        foreach (var o in spec.OrderBy.NotNull()) checkRefs.Add(o.Column);
+        foreach (var c in spec.Computed.NotNull()) checkRefs.Add(c.Expression);
+        foreach (var a in spec.Aggregations.NotNull()) checkRefs.Add(a.Column);
 
         foreach (var r in checkRefs)
         {

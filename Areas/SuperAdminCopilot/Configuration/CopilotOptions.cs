@@ -50,6 +50,18 @@ public sealed class CopilotOptions
     /// values live in <c>copilot-options.json</c>. Wildcard syntax: <c>*</c> matches any sequence.</summary>
     public List<string> RetrieverHiddenTablePatterns { get; set; } = new();
 
+    /// <summary>
+    /// Cosine-score penalty subtracted from auxiliary/satellite tables during schema retrieval.
+    /// "Auxiliary" is determined by <c>semanticLayer.defaults.auxiliaryTableSuffixes</c>
+    /// (Histories / Notifications / Audits / Logs / Snapshots / …). The penalty must be small
+    /// enough to leave a clear cosine win untouched but large enough to break near-ties in
+    /// favour of the main entity ("Outages" should beat "OutageHistories" for "show me outages").
+    /// Default 0.05 — change in <c>copilot-options.json</c> to tune routing behaviour without
+    /// recompiling. Set to 0 to disable the penalty entirely.
+    /// </summary>
+    [Range(0.0, 1.0, ErrorMessage = "AuxiliaryTableScorePenalty must be 0.0..1.0.")]
+    public double AuxiliaryTableScorePenalty { get; set; } = 0.05;
+
     /// <summary>Path to the semantic-layer JSON config (entities, metrics, dimensions, synonyms).</summary>
     [Required]
     public string SemanticLayerPath { get; set; } = "Areas/SuperAdminCopilot/Configuration/semantic-layer.json";
@@ -436,6 +448,25 @@ public sealed class CopilotOptions
     /// <summary>Selects a Profile preset block from copilot-options.json to overlay thresholds.</summary>
     public string? Profile { get; set; }
 
+    /// <summary>
+    /// Planner capability tier. Drives which SpecRepair phases fire. Default <c>Weak</c>
+    /// preserves the current behaviour (every phase fires) — flipping to <c>Medium</c> or
+    /// <c>Strong</c> skips phases that exist only to compensate for weak local NLU (Arabic
+    /// dispatch, English aggregate-verb regex, possessive markers, anti-join cues, etc.).
+    /// Set this via the active <see cref="Profile"/> preset; see <c>copilot-options.json</c>.
+    /// </summary>
+    public PlannerCapabilityTier PlannerCapabilityTier { get; set; } = PlannerCapabilityTier.Weak;
+
+    /// <summary>
+    /// Maximum characters of each LLM prompt + response captured into the trace's
+    /// <c>LlmCalls[]</c> entries so the investigation page can render "what did we send /
+    /// what came back" without per-call log lookups. Truncated beyond this cap; full lengths
+    /// are recorded separately so the UI can flag truncation. Set to 0 to disable preview
+    /// capture entirely (PII-sensitive deployments).
+    /// </summary>
+    [Range(0, 64_000, ErrorMessage = "LlmTracePreviewMaxChars must be 0..64000.")]
+    public int LlmTracePreviewMaxChars { get; set; } = 4000;
+
     // ── Magic-number replacements promoted to options (Phase 3) ─────────────────────────────
     // Previously hardcoded in pipeline code. Defaults match the prior literal values so the
     // behaviour change is purely "tuneable from one place" — no functional drift.
@@ -470,6 +501,24 @@ public enum TableExposureMode
 {
     AllExceptBlocked = 0,
     ConfiguredOnly = 1,
+}
+
+/// <summary>
+/// Capability tier of the active planner LLM. Used by the SpecRepair orchestrator to skip
+/// phases whose only purpose is patching weak-model NLU gaps. Ordering is
+/// <c>Weak &lt; Medium &lt; Strong</c> — phases declare a maximum tier above which they
+/// stop firing.
+/// </summary>
+public enum PlannerCapabilityTier
+{
+    /// <summary>Local 7B class (qwen2.5-coder:7b). All crutch phases fire.</summary>
+    Weak = 0,
+    /// <summary>Local 14B-32B class (Qwen2.5-Coder-32B, OmniSQL, DeepSeek-Coder-V2-Lite). The
+    /// language-pattern crutches stop; structural and FK-enrichment phases continue.</summary>
+    Medium = 1,
+    /// <summary>Frontier-class (Claude Sonnet/Opus, GPT-4o, DeepSeek-V3). Only universal
+    /// schema/safety/structural phases fire — all language-vocab crutches are skipped.</summary>
+    Strong = 2,
 }
 
 /// <summary>How the orchestrator reacts to a CoverageChecker-detected gap. See

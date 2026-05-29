@@ -33,6 +33,12 @@
     "UsePastQuestionRag": false,
     "RetrieverTopK":      5,
     "FewShotTopK":        3,
+    // Cosine penalty applied to satellite/auxiliary tables (suffix list lives in
+    // semantic-layer.json.defaults.auxiliaryTableSuffixes — Histories / Notifications /
+    // Audits / Logs / Snapshots / …). 0.05 breaks near-ties in favour of the main entity
+    // ("Outages" beats "OutageHistories" / "OutageNotifications" for "show me outages")
+    // without overriding a clear cosine win. Set to 0 to disable.
+    "AuxiliaryTableScorePenalty": 0.05,
     "SpecPromptMaxTables":      6,        // Phase 3: was hardcoded in SpecExtractor:149
     "VqFewShotMinSimilarity":   0.65,     // Phase 3: was hardcoded in SpecExtractor:181
     "VqFewShotTopK":            3,        // Phase 3: was hardcoded in SpecExtractor:181
@@ -40,7 +46,7 @@
 
     // ── Limits ───────────────────────────────────────────────────────────────────
     "MaxRows":                     1000,
-    "CommandTimeoutSeconds":       30,
+    "CommandTimeoutSeconds":       120,
     "MaxLlmCallsPerQuestion":      7,
     "MaxQuestionWallClockSeconds": 1800,
     "LlmCallTimeoutSeconds":       900,
@@ -119,20 +125,36 @@
     // the explicit values above. Leaves anything not listed alone. Add new profiles
     // (e.g., "LocalTiny") by adding new keys to this block — no code change.
     "Profiles": {
+      // Cloud frontier models (Claude Sonnet/Opus, GPT-4o, DeepSeek-V3) — strong NLU,
+      // language-vocab crutches auto-skip via PlannerCapabilityTier=Strong.
       "Cloud": {
         "IntentClassifierDecisiveConfidence": 0.90,
         "VerifiedQueryMinSimilarity":         0.90,
-        "PastQuestionRagMinSimilarity":       0.82
+        "PastQuestionRagMinSimilarity":       0.82,
+        "PlannerCapabilityTier":              "Strong"
       },
+      // Mid-tier local (current qwen2.5-coder:7b). Crutches still fire — this 7B needs them.
+      // To migrate to a 32B-class model, switch the active Profile to "LocalMedium32B" below.
       "LocalMedium": {
         "IntentClassifierDecisiveConfidence": 0.78,
-        "VerifiedQueryMinSimilarity":         0.88,
-        "PastQuestionRagMinSimilarity":       0.72
+        "VerifiedQueryMinSimilarity":         0.97,
+        "PastQuestionRagMinSimilarity":       0.72,
+        "PlannerCapabilityTier":              "Weak"
       },
+      // 14-32B-class local (Qwen2.5-Coder-32B, OmniSQL-14B, DeepSeek-Coder-V2-Lite).
+      // Language-vocab crutches stop firing; structural + FK-enrichment phases still run.
+      "LocalMedium32B": {
+        "IntentClassifierDecisiveConfidence": 0.82,
+        "VerifiedQueryMinSimilarity":         0.92,
+        "PastQuestionRagMinSimilarity":       0.75,
+        "PlannerCapabilityTier":              "Medium"
+      },
+      // Small local (smaller-than-7B sweep). All crutches fire.
       "LocalSmall": {
         "IntentClassifierDecisiveConfidence": 0.65,
         "VerifiedQueryMinSimilarity":         0.70,
-        "PastQuestionRagMinSimilarity":       0.65
+        "PastQuestionRagMinSimilarity":       0.65,
+        "PlannerCapabilityTier":              "Weak"
       }
     }
   }

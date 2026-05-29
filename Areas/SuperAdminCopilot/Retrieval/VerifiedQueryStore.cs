@@ -171,6 +171,7 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
     private readonly ITextEmbedder _embedder;
     private readonly IMemoryCache _cache;
     private readonly IOptions<CopilotOptions> _options;
+    private readonly ILinguisticCuesProvider _cues;
     private readonly ILogger<VerifiedQueryMatcher> _logger;
     private readonly SemaphoreSlim _primingLock = new(1, 1);
 
@@ -179,12 +180,14 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
         ITextEmbedder embedder,
         IMemoryCache cache,
         IOptions<CopilotOptions> options,
+        ILinguisticCuesProvider cues,
         ILogger<VerifiedQueryMatcher> logger)
     {
         _store = store;
         _embedder = embedder;
         _cache = cache;
         _options = options;
+        _cues = cues;
         _logger = logger;
     }
 
@@ -208,6 +211,14 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
             // Same guard rejects the inverse (cached aggregation when user wants a list).
             var questionWantsAggregation = QuestionImpliesAggregation(question);
 
+            // Shape-shape gate: a verified-query tagged with shape="COMPARE" produces
+            // period-comparison SQL (SUM CASE WHEN this_month UNION SUM CASE WHEN last_month).
+            // Cosine similarity treats "tickets this month" as close to "compare tickets this
+            // month vs last month" — and the user gets a comparison row instead of a list.
+            // Universal: when the cached entry's shape is COMPARE, the question must contain
+            // a compare-marker ("vs", "versus", "compared to", "against", "or", "diff").
+            var questionHasCompareMarker = QuestionHasCompareMarker(question);
+
             VerifiedMatch? best = null;
             foreach (var (vq, vec) in vectors)
             {
@@ -219,6 +230,13 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
                 if (questionWantsAggregation && !SqlHasAggregation(vq.Sql))
                 {
                     _logger.LogDebug("[VerifiedQueryMatcher] rejecting match — question implies aggregation but cached SQL has none. Q='{Q}' cached='{C}'", question, vq.Question);
+                    continue;
+                }
+                // Compare-shape guard — reject if the cached entry is a period comparison but
+                // the user's question doesn't signal comparison intent.
+                if (IsCompareShape(vq) && !questionHasCompareMarker)
+                {
+                    _logger.LogDebug("[VerifiedQueryMatcher] rejecting compare-shape match — question has no compare marker. Q='{Q}' cached='{C}' shape='{S}'", question, vq.Question, vq.Shape);
                     continue;
                 }
                 if (best is null || score > best.Similarity) best = new VerifiedMatch(vq, score);
@@ -245,6 +263,47 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
 
     private static bool SqlHasAggregation(string? sql)
         => !string.IsNullOrWhiteSpace(sql) && AggregationSqlRegex.IsMatch(sql);
+
+    /// <summary>
+    /// Compare-shape markers come from <c>linguistic-cues.json</c>'s <c>compareMarkers</c>
+    /// section per locale (en/ar/…). Each locale's entries are compiled by
+    /// <see cref="LinguisticCuesProvider"/> into <see cref="CompiledLocaleCues.CompareMarkersRegex"/>.
+    /// We test the question against every locale's regex — first hit wins. Universal: new
+    /// dialect / synonym = JSON edit, no recompile.
+    /// </summary>
+    private bool QuestionHasCompareMarker(string question)
+    {
+        if (string.IsNullOrWhiteSpace(question)) return false;
+        if (_cues?.Compiled?.Locales is null) return false;
+        foreach (var (_, locale) in _cues.Compiled.Locales)
+        {
+            if (locale?.CompareMarkersRegex is null) continue;
+            if (locale.CompareMarkersRegex.IsMatch(question)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>True when the verified-query entry is a period/category comparison shape.
+    /// Detected via the entry's Shape tag (case-insensitive contains "compare", "vs",
+    /// "comparison") OR via the SQL itself containing UNION ALL of CASE-WHEN aggregates — the
+    /// canonical comparison emission shape. Universal: works for any future compare entry
+    /// without naming it.</summary>
+    private static bool IsCompareShape(VerifiedQuery vq)
+    {
+        if (vq is null) return false;
+        var shape = (vq.Shape ?? "").ToLowerInvariant();
+        if (shape.Contains("compare") || shape.Contains("comparison") || shape == "vs" || shape == "cmp") return true;
+        // SQL-shape fallback: the canonical "compare X vs Y" emission uses SUM(CASE WHEN ...)
+        // for each period. Match conservatively to avoid false positives.
+        var sql = vq.Sql ?? "";
+        if (sql.Length == 0) return false;
+        bool hasUnionAll = sql.IndexOf("UNION ALL", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        bool hasCaseWhen = sql.IndexOf("CASE WHEN", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        // Multiple SUM(CASE WHEN ...) AS X is the strongest signal — at least two such legs.
+        int sumCaseHits = System.Text.RegularExpressions.Regex.Matches(sql, @"SUM\s*\(\s*CASE\s+WHEN",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Count;
+        return (hasUnionAll && hasCaseWhen) || sumCaseHits >= 2;
+    }
 
     public async Task<float> MaxSimilarityAsync(string question, CancellationToken cancellationToken = default)
     {

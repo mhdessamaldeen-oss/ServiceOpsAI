@@ -1,6 +1,7 @@
 namespace SuperAdminCopilot.Pipeline.SpecRepair.Phases.Aggregation;
 
 using System.Text.RegularExpressions;
+using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 
 /// <summary>
@@ -24,16 +25,20 @@ using SuperAdminCopilot.Models;
 /// </summary>
 internal sealed class StripUnsolicitedStatusOnSuperlativePhase : ISpecRepairPhase
 {
+    private readonly ILinguisticCuesProvider _cues;
+
+    public StripUnsolicitedStatusOnSuperlativePhase(ILinguisticCuesProvider cues)
+    {
+        _cues = cues;
+    }
+
     public string Name => "StripUnsolicitedStatusOnSuperlative";
     public string Covers => "Superlative AGG ('largest X', 'smallest Y') with auto-added Status filter not justified by question → strip the Status filter";
 
-    private static readonly Regex SuperlativeCue = new(
-        @"\b(?:largest|biggest|maximum|max\s+(?:single|amount|value)?|highest|peak|smallest|minimum|lowest|shortest|longest|earliest|latest|oldest|newest|most|least|fewest)\b",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex ExplicitStatusCue = new(
-        @"\b(?:open|closed|paid|unpaid|issued|overdue|resolved|active|ongoing|cancelled|disputed|pending|new)\b",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    // Tier window override: weak-model crutch.
+    // Superlative + status detection now ENTIRELY from linguistic-cues.json — NO hardcoded
+    // vocab in this file. Strong NLU doesn't auto-add the filter, hence tier window.
+    public PlannerCapabilityTier MaxTierToRun => PlannerCapabilityTier.Medium;
 
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
@@ -47,8 +52,8 @@ internal sealed class StripUnsolicitedStatusOnSuperlativePhase : ISpecRepairPhas
         var dashIdx = q.IndexOf("\n--", System.StringComparison.Ordinal);
         if (dashIdx >= 0) q = q.Substring(0, dashIdx);
 
-        if (!SuperlativeCue.IsMatch(q)) return;
-        if (ExplicitStatusCue.IsMatch(q)) return;     // user explicitly named a status — leave it
+        if (!HasSuperlativeCue(q, _cues)) return;
+        if (HasExplicitStatusCue(q, _cues)) return;     // user explicitly named a status — leave it
 
         // Strip Status-shaped filters.
         var removed = spec.Filters.RemoveAll(f =>
@@ -62,5 +67,46 @@ internal sealed class StripUnsolicitedStatusOnSuperlativePhase : ISpecRepairPhas
         });
         if (removed > 0)
             ctx.Diagnostics.Add(new(Name, $"stripped {removed} unsolicited Status filter(s) on superlative aggregate"));
+    }
+
+    /// <summary>
+    /// True when ANY locale's compiled superlative/recency regex matches the question. Driven
+    /// by linguistic-cues.json `superlative.{top,bottom,max,min}` + `recency.{desc,asc}`.
+    /// </summary>
+    private static bool HasSuperlativeCue(string question, ILinguisticCuesProvider cues)
+    {
+        if (string.IsNullOrWhiteSpace(question) || cues?.Compiled?.Locales is null) return false;
+        foreach (var (_, locale) in cues.Compiled.Locales)
+        {
+            if (locale is null) continue;
+            if (locale.SuperlativeTopRegex?.IsMatch(question) == true) return true;
+            if (locale.SuperlativeBottomRegex?.IsMatch(question) == true) return true;
+            if (locale.SuperlativeMaxRegex?.IsMatch(question) == true) return true;
+            if (locale.SuperlativeMinRegex?.IsMatch(question) == true) return true;
+            if (locale.RecencyDescRegex?.IsMatch(question) == true) return true;
+            if (locale.RecencyAscRegex?.IsMatch(question) == true) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// True when the question contains any status / severity cue from
+    /// linguistic-cues.json `statusValues[].cue` across any locale. Operator adds new dialect
+    /// status words via JSON only.
+    /// </summary>
+    private static bool HasExplicitStatusCue(string question, ILinguisticCuesProvider cues)
+    {
+        if (string.IsNullOrWhiteSpace(question) || cues?.Compiled?.Locales is null) return false;
+        var qLower = question.ToLowerInvariant();
+        foreach (var (_, locale) in cues.Compiled.Locales)
+        {
+            if (locale?.StatusValues is null) continue;
+            foreach (var sv in locale.StatusValues)
+            {
+                if (string.IsNullOrEmpty(sv?.Cue)) continue;
+                if (qLower.Contains(sv.Cue.ToLowerInvariant())) return true;
+            }
+        }
+        return false;
     }
 }

@@ -107,7 +107,40 @@ public sealed record PipelineStep(
     int? PromptTokens = null,
     int? CompletionTokens = null,
     decimal? EstimatedCostUsd = null,
-    string? LlmModelUsed = null);
+    string? LlmModelUsed = null,
+    // Per-step LLM trace payload — populated by HostTraceSink when the step has at least one
+    // LLM call. Each entry mirrors one LlmCallRecord (incl. prompt + response preview) so the
+    // investigation page can render "what we sent, what came back" without grepping the log.
+    // Null on non-LLM steps. May contain multiple entries when a step fires multiple calls
+    // (e.g. SpecExtractor with self-correction retries).
+    IReadOnlyList<TracedLlmCall>? LlmCalls = null,
+    // Schema-versioning hint for forward compatibility. Phases that emit new payload shapes
+    // bump this. Investigation deserialiser uses it to apply per-version migrations.
+    int TraceSchemaVersion = 2);
+
+/// <summary>
+/// Verbatim summary of one LLM call attached to a pipeline step. The
+/// <see cref="PromptPreview"/> and <see cref="ResponsePreview"/> fields hold up to a few
+/// thousand characters each (the bridge truncates beyond a configurable cap so the trace
+/// JSON stays bounded). <see cref="PromptFullLength"/> / <see cref="ResponseFullLength"/>
+/// tell the UI when truncation happened — operators can fetch the full text from the log
+/// using the timestamp + stage name when needed.
+/// </summary>
+public sealed record TracedLlmCall(
+    string Stage,
+    string Provider,
+    string? Model,
+    int? PromptTokens,
+    int? CompletionTokens,
+    long ElapsedMs,
+    decimal? EstimatedCostUsd,
+    bool Success,
+    string? Error,
+    string? PromptPreview,
+    string? ResponsePreview,
+    int? PromptFullLength,
+    int? ResponseFullLength,
+    int RetryAttempt);
 
 public sealed record SchemaSlice(
     IReadOnlyList<string> Tables,

@@ -46,6 +46,14 @@ public sealed class SpecExtractionResult
     /// <summary>Full prompt sent to the LLM. Populated for traceability — when output is wrong
     /// the developer can inspect exactly what context the LLM had.</summary>
     public string? Prompt { get; init; }
+    /// <summary>
+    /// SpecRepair phase diagnostics — one entry per phase that mutated the spec. Threaded
+    /// through to the orchestrator's step recorder so the investigation page can show "what
+    /// auto-fixes ran" alongside the LLM call. Empty when SpecRepair didn't run or made no
+    /// changes.
+    /// </summary>
+    public IReadOnlyList<Pipeline.SpecRepair.SpecRepairDiagnostic> RepairDiagnostics { get; init; }
+        = Array.Empty<Pipeline.SpecRepair.SpecRepairDiagnostic>();
 }
 
 internal sealed class SpecExtractor : ISpecExtractor
@@ -265,13 +273,14 @@ internal sealed class SpecExtractor : ISpecExtractor
             // Consolidated LLM-output mutation pipeline. Owns column auto-qualification,
             // function-name normalization, root inference, etc. The compiler trusts the spec
             // that comes out of this. See Areas/SuperAdminCopilot/Pipeline/SpecRepair/README.md.
-            _specRepair.Apply(spec, question, tables);
+            var repairDiagnostics = _specRepair.Apply(spec, question, tables);
             return new SpecExtractionResult
             {
                 Spec = spec,
                 CandidateTables = tables.Select(t => t.Name).ToList(),
                 RawLlmOutput = raw,
                 Prompt = prompt,
+                RepairDiagnostics = repairDiagnostics,
             };
         }
         catch (Exception ex)

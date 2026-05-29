@@ -211,11 +211,24 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+    var dbContext = services.GetRequiredService<ApplicationDbContext>();
+
+    // Optional fresh-seed: when Seed:ForceReseed is true, wipe the seed-managed
+    // tables BEFORE the seeders run so the AnyAsync() guards return false and
+    // every entity is repopulated from scratch (picks up new temporal-bucket
+    // distribution, refreshed bill periods, etc.). Identity, lookups, copilot
+    // trace history, and the migration ledger are preserved.
+    var forceReseed = builder.Configuration.GetValue<bool>("Seed:ForceReseed");
+    if (forceReseed)
+    {
+        await dbContext.Database.MigrateAsync(); // ensure tables exist before DELETE
+        await ServiceOpsAI.Data.Seed.SeedReset.WipeAsync(dbContext);
+    }
+
     await DbSeeder.InitializeCoreAsync(services, userManager, roleManager);
 
     // Phase 06: utility-domain seeder (Syrian customers, bills, departments, tickets).
     // Idempotent — no-ops if Customers already populated.
-    var dbContext = services.GetRequiredService<ApplicationDbContext>();
     await ServiceOpsAI.Data.Seed.ServiceOpsSeeder.SeedAsync(dbContext);
 
     // Phase 06 depth (billing layer + field ops + customer voice). Runs AFTER the

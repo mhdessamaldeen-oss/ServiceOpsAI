@@ -62,7 +62,11 @@ public sealed class LlmCallScope : IDisposable
 
 /// <summary>A single LLM call's telemetry. The orchestrator records one of these per call.
 /// <c>Stage</c> matches the pipeline-step name (e.g. <c>StepSpecExtractor</c>) so per-call
-/// rows can be joined back to the originating pipeline step in the investigation UI.</summary>
+/// rows can be joined back to the originating pipeline step in the investigation UI.
+/// <para>The full prompt and response are captured (truncated by the bridge if they exceed
+/// <c>PromptCaptureMaxChars</c>) so the investigation page can show "what did we send and
+/// what came back" without operators having to grep the log file. NULL preview fields mean
+/// the value wasn't captured (operator opted out OR the response failed before completing).</para></summary>
 public sealed record LlmCallRecord(
     string Stage,
     string Provider,
@@ -70,7 +74,12 @@ public sealed record LlmCallRecord(
     TokenUsage? Usage,
     long ElapsedMs,
     bool Success,
-    string? Error = null);
+    string? Error = null,
+    string? PromptPreview = null,
+    string? ResponsePreview = null,
+    int? PromptFullLength = null,
+    int? ResponseFullLength = null,
+    int RetryAttempt = 0);
 
 /// <summary>
 /// Stage hint propagated via <c>AsyncLocal</c> so callers can label LLM calls without

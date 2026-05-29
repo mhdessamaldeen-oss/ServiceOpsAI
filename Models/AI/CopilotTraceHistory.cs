@@ -12,8 +12,15 @@ namespace ServiceOpsAI.Models.AI
     // window. EstimatedCostUsd alone would seek; pairing with CreatedAt lets one composite
     // index cover both "top expensive last week" and "spend by day" queries.
     // CaseCode is already implicitly indexed via the existing grid-query path — leaving alone.
+    // Additional indexes added 2026-05-29 to back the investigation page lookups:
+    //  • CaseCode + CreatedAt: assessment grid "open this case" navigation (was table-scanning).
+    //  • PipelineTraceId: deep-link / X-correlation lookups (one row per pipeline run).
+    //  • SessionId + CreatedAt: chat-history-by-session retrieval (the chat sidebar).
     [Index(nameof(SourceSuite), nameof(CreatedAt), Name = "IX_CopilotTraceHistory_SourceSuite_CreatedAt")]
     [Index(nameof(EstimatedCostUsd), nameof(CreatedAt), Name = "IX_CopilotTraceHistory_Cost_CreatedAt")]
+    [Index(nameof(CaseCode), nameof(CreatedAt), Name = "IX_CopilotTraceHistory_CaseCode_CreatedAt")]
+    [Index(nameof(PipelineTraceId), Name = "IX_CopilotTraceHistory_PipelineTraceId")]
+    [Index(nameof(SessionId), nameof(CreatedAt), Name = "IX_CopilotTraceHistory_Session_CreatedAt")]
     public class CopilotTraceHistory
     {
         public int Id { get; set; }
@@ -29,6 +36,15 @@ namespace ServiceOpsAI.Models.AI
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public string? ModelName { get; set; }
+
+        /// <summary>
+        /// Per-pipeline-step model usage. JSON object keyed by stage name (e.g.
+        /// <c>{"IntentClassifier":"qwen2.5-coder:7b","SpecExtractor":"qwen2.5-coder:7b","Decomposer":"gpt-4o-mini","Compiler":null,"Executor":null,"Explainer":"qwen2.5-coder:7b"}</c>).
+        /// Lets the trace grid show "which model did what" without parsing ExecutionPlan.
+        /// Null for legacy rows + for traces with no LLM call data.
+        /// </summary>
+        public string? StepModelsJson { get; set; }
+
         public long TotalElapsedMs { get; set; }
         
         public int? SessionId { get; set; }

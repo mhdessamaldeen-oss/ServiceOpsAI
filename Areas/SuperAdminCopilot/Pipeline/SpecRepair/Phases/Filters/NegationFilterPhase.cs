@@ -1,6 +1,7 @@
 namespace SuperAdminCopilot.Pipeline.SpecRepair.Phases.Filters;
 
 using System.Text.RegularExpressions;
+using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 using SpecConst = SuperAdminCopilot.Models.SpecConstants;
 
@@ -20,15 +21,19 @@ using SpecConst = SuperAdminCopilot.Models.SpecConstants;
 /// </summary>
 internal sealed class NegationFilterPhase : ISpecRepairPhase
 {
+    private readonly ILinguisticCuesProvider _cues;
+
+    public NegationFilterPhase(ILinguisticCuesProvider cues)
+    {
+        _cues = cues;
+    }
+
     public string Name => "NegationFilter";
     public string Covers => "Negation cue near filter value (not in Damascus / except gas / excluding X) → flip eq/in to neq/notin";
 
-    // Negation cues that scope to the IMMEDIATELY following noun. Order: most-specific first.
-    private static readonly Regex NegationCueEn = new(
-        @"\b(?:not\s+in|not\s+from|except(?:\s+for)?|excluding|other\s+than|apart\s+from|outside\s+of|aside\s+from)\b",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex NegationCueAr = new(@"ليس\s+في|باستثناء|ما\s+عدا|بخلاف|غير\s+", RegexOptions.Compiled);
+    // Tier window override: weak-model crutch.
+    // Negation cues come from linguistic-cues.json `negation` block per locale.
+    public PlannerCapabilityTier MaxTierToRun => PlannerCapabilityTier.Weak;
 
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
@@ -40,9 +45,17 @@ internal sealed class NegationFilterPhase : ISpecRepairPhase
         var dashIdx = q.IndexOf("\n--", System.StringComparison.Ordinal);
         if (dashIdx >= 0) q = q.Substring(0, dashIdx);
 
-        var negationHits = NegationCueEn.Matches(q).Cast<Match>()
-            .Concat(NegationCueAr.Matches(q).Cast<Match>())
-            .ToList();
+        // Aggregate every locale's compiled negation matches against the question.
+        var negationHits = new System.Collections.Generic.List<Match>();
+        if (_cues?.Compiled?.Locales is not null)
+        {
+            foreach (var (_, locale) in _cues.Compiled.Locales)
+            {
+                if (locale?.NegationRegex is null) continue;
+                foreach (Match m in locale.NegationRegex.Matches(q))
+                    negationHits.Add(m);
+            }
+        }
         if (negationHits.Count == 0) return;
 
         var flipped = 0;

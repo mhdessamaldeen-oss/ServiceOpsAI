@@ -2,6 +2,7 @@ namespace SuperAdminCopilot.Pipeline.SpecRepair;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 using SuperAdminCopilot.Schema;
 using SuperAdminCopilot.Semantic;
@@ -20,6 +21,7 @@ internal sealed class SpecRepair : ISpecRepair
 {
     private readonly IReadOnlyList<ISpecRepairPhase> _phases;
     private readonly IOptionsMonitor<SpecRepairOptions> _options;
+    private readonly IOptionsMonitor<CopilotOptions> _copilotOptions;
     private readonly IEntityCatalog _catalog;
     private readonly ISemanticLayer _semanticLayer;
     private readonly ILogger<SpecRepair> _logger;
@@ -27,12 +29,14 @@ internal sealed class SpecRepair : ISpecRepair
     public SpecRepair(
         IEnumerable<ISpecRepairPhase> phases,
         IOptionsMonitor<SpecRepairOptions> options,
+        IOptionsMonitor<CopilotOptions> copilotOptions,
         IEntityCatalog catalog,
         ISemanticLayer semanticLayer,
         ILogger<SpecRepair> logger)
     {
         _phases = phases.ToList();
         _options = options;
+        _copilotOptions = copilotOptions;
         _catalog = catalog;
         _semanticLayer = semanticLayer;
         _logger = logger;
@@ -55,8 +59,21 @@ internal sealed class SpecRepair : ISpecRepair
             SemanticLayer = _semanticLayer,
             Options = _options.CurrentValue,
         };
+        // Planner-capability gate. Phases declare a [MinTierRequired, MaxTierToRun] window;
+        // anything outside the active tier is skipped. Default phase window is [Weak, Strong]
+        // — so existing phases without overrides keep firing at every tier. Weak-model
+        // crutches (Arabic vocab, English aggregate-verb regex, possessive markers, etc.)
+        // override MaxTierToRun=Weak so they vanish the moment the planner is upgraded.
+        var currentTier = _copilotOptions.CurrentValue.PlannerCapabilityTier;
         foreach (var phase in _phases)
         {
+            if (currentTier < phase.MinTierRequired || currentTier > phase.MaxTierToRun)
+            {
+                _logger.LogDebug(
+                    "[SpecRepair] skip {Phase} (tier={Tier}, window={Min}..{Max})",
+                    phase.Name, currentTier, phase.MinTierRequired, phase.MaxTierToRun);
+                continue;
+            }
             try { phase.Apply(spec, ctx); }
             catch (Exception ex)
             {
@@ -69,6 +86,9 @@ internal sealed class SpecRepair : ISpecRepair
             _logger.LogInformation("[SpecRepair] {Count} mutations: {Phases}",
                 ctx.Diagnostics.Count,
                 string.Join(", ", ctx.Diagnostics.Select(d => d.PhaseName)));
+            // Detail-level trace for debugging gating issues.
+            foreach (var d in ctx.Diagnostics)
+                _logger.LogInformation("  ├─ {Phase}: {Detail}", d.PhaseName, d.Detail);
         }
         return ctx.Diagnostics;
     }

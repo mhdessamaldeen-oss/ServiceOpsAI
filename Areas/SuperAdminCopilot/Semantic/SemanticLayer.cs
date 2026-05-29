@@ -439,6 +439,42 @@ internal sealed class SemanticLayer : ISemanticLayer
                 : (object)false;
         }
 
+        // DisplayColumns — analyst's default projection set. Synthesised heuristically so the
+        // EnsureDisplayColumnsPhase has something to expand for auto-discovered entities
+        // (WorkOrders, Payments, ServiceAccounts, etc.). Order: Id → NaturalKey → LabelColumn →
+        // first dated column (CreatedAt / IssuedAt / StartedAt). Skipped when those slots are
+        // unfilled. Manual semantic-layer.json entries continue to override.
+        var displayCols = new List<string>();
+        if (t.Columns.Any(c => string.Equals(c.Name, "Id", System.StringComparison.OrdinalIgnoreCase)))
+            displayCols.Add("Id");
+        if (!string.IsNullOrEmpty(t.Roles.NaturalKey) && !displayCols.Contains(t.Roles.NaturalKey, StringComparer.OrdinalIgnoreCase))
+            displayCols.Add(t.Roles.NaturalKey);
+        if (!string.IsNullOrEmpty(t.Roles.LabelColumn) && !displayCols.Contains(t.Roles.LabelColumn, StringComparer.OrdinalIgnoreCase))
+            displayCols.Add(t.Roles.LabelColumn);
+        // Add common bilingual title columns if present.
+        foreach (var titleVariant in new[] { "TitleEn", "Title", "NameEn", "Name" })
+        {
+            if (displayCols.Contains(titleVariant, StringComparer.OrdinalIgnoreCase)) continue;
+            if (t.Columns.Any(c => string.Equals(c.Name, titleVariant, System.StringComparison.OrdinalIgnoreCase)))
+            {
+                displayCols.Add(titleVariant);
+                break;
+            }
+        }
+        // Add a Status / State column if present — analysts always want lifecycle state.
+        foreach (var stateVariant in new[] { "Status", "State", "Severity" })
+        {
+            if (displayCols.Contains(stateVariant, StringComparer.OrdinalIgnoreCase)) continue;
+            if (t.Columns.Any(c => string.Equals(c.Name, stateVariant, System.StringComparison.OrdinalIgnoreCase)))
+            {
+                displayCols.Add(stateVariant);
+                break;
+            }
+        }
+        // Add the first date column (created/issued/started) so timeline ordering is visible.
+        if (!string.IsNullOrEmpty(defaultDateColumn) && !displayCols.Contains(defaultDateColumn, StringComparer.OrdinalIgnoreCase))
+            displayCols.Add(defaultDateColumn);
+
         return new EntityDefinition
         {
             Name = t.Name,
@@ -450,6 +486,7 @@ internal sealed class SemanticLayer : ISemanticLayer
             SearchableColumns = searchable,
             NaturalKeyColumn = t.Roles.NaturalKey,
             LabelColumn = t.Roles.LabelColumn,
+            DisplayColumns = displayCols,
             DateRoles = dateRoles,
             Description = $"Auto-synthesized from schema-inferred.json. " +
                           "Add a manual entry in semantic-layer.json (Arabic synonyms, custom metrics) to override.",

@@ -42,6 +42,7 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
     private readonly ITextEmbedder _embedder;
     private readonly IMemoryCache _cache;
     private readonly Microsoft.Extensions.Options.IOptionsMonitor<Configuration.CopilotOptions> _options;
+    private readonly Semantic.ISemanticLayer _semanticLayer;
     private readonly ILogger<SchemaSemanticRetriever> _logger;
     private readonly SemaphoreSlim _primingLock = new(1, 1);
 
@@ -50,13 +51,31 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
         ITextEmbedder embedder,
         IMemoryCache cache,
         Microsoft.Extensions.Options.IOptionsMonitor<Configuration.CopilotOptions> options,
+        Semantic.ISemanticLayer semanticLayer,
         ILogger<SchemaSemanticRetriever> logger)
     {
         _knowledge = knowledge;
         _embedder = embedder;
         _options = options;
         _cache = cache;
+        _semanticLayer = semanticLayer;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// True when the table's name ends with any of the operator-configured auxiliary
+    /// suffixes (Histories / Notifications / Audits / Logs / Snapshots / …). Used by the
+    /// retriever to apply a small score penalty so main entities outrank their satellites.
+    /// </summary>
+    private static bool IsAuxiliaryTable(string? tableName, System.Collections.Generic.List<string> suffixes)
+    {
+        if (string.IsNullOrEmpty(tableName) || suffixes is null || suffixes.Count == 0) return false;
+        foreach (var sfx in suffixes)
+        {
+            if (string.IsNullOrEmpty(sfx)) continue;
+            if (tableName.EndsWith(sfx, System.StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
     }
 
     public bool IsAvailable =>
@@ -76,11 +95,28 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
             var queryVec = await _embedder.EmbedAsync(question, cancellationToken);
             if (queryVec.Length == 0) return new SchemaSemanticRetrieval();
 
+            // Load the auxiliary-table-suffix list once per call. Empty by default; operators
+            // add suffixes via semantic-layer.json. Tables ending in any of these get a small
+            // score penalty so main entities outrank their satellites ("Outages" beats
+            // "OutageHistories" / "OutageNotifications" for "show me outages"). Universal —
+            // applies to any future satellite without naming it.
+            var auxSuffixes = _semanticLayer?.Config?.Defaults?.AuxiliaryTableSuffixes
+                ?? new System.Collections.Generic.List<string>();
+            // Penalty comes from CopilotOptions — operators tune via copilot-options.json
+            // without recompiling. Default 0.05 keeps a clear cosine win intact while
+            // breaking near-ties toward the main entity. Set to 0 to disable.
+            var auxPenalty = (float)_options.CurrentValue.AuxiliaryTableScorePenalty;
+
             var scored = new List<TableMatch>(tableVecs.Count);
             foreach (var (table, vec) in tableVecs)
             {
                 if (vec.Length != queryVec.Length) continue;
-                scored.Add(new TableMatch(table, Cosine(queryVec, vec)));
+                var rawScore = Cosine(queryVec, vec);
+                if (IsAuxiliaryTable(table.Name, auxSuffixes))
+                {
+                    rawScore -= auxPenalty;
+                }
+                scored.Add(new TableMatch(table, rawScore));
             }
             scored.Sort((a, b) => b.Score.CompareTo(a.Score));
             return new SchemaSemanticRetrieval { Tables = scored.Take(topK).ToList() };

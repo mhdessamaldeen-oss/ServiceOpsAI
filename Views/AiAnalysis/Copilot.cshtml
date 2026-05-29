@@ -1179,17 +1179,22 @@
         let typingMessage = null;
 
         copilotHistory.forEach((m, idx) => {
+            // Suppress the entry fade-in for messages that have already been mounted
+            // in a previous renderConversation() pass. Without this every full render
+            // (typewriter end, polling tick, persist restore, …) re-fires `message-in`
+            // on every existing message, which the user sees as flicker.
+            const mountedClass = m._mounted ? ' is-mounted' : '';
             if (m.role === 'user') {
                 const status = m.isQueued ? 'QUEUED' : 'YOU';
                 const opacity = m.isQueued ? 'opacity-50' : '';
-                messageElements.push(`<div class="copilot-message copilot-message-user ${opacity}">
+                messageElements.push(`<div class="copilot-message copilot-message-user ${opacity}${mountedClass}">
                             <div class="small fw-bold text-uppercase opacity-75 mb-2 d-flex justify-content-end align-items-center gap-2" style="width: 100%;">
                                 <button type="button" class="btn btn-link btn-sm p-0 lh-1 text-muted copilot-copy-btn" onclick="copyCopilotQuestion(${idx}, this)" title="Copy question" aria-label="Copy question"><i class="bi bi-clipboard"></i></button>
                                 <span style="width: max-content;">${status}</span>
                             </div>
                             <div class="copilot-message-body">${formatMessageBody(m.content)}</div>
                         </div>`);
-                
+
                 if (m.isActive && copilotPending) {
                     messageElements.push(thinkingHtml);
                     thinkingInserted = true;
@@ -1197,17 +1202,20 @@
             } else {
                 const isLatest = idx === copilotHistory.length - 1;
                 const bodyId = `msg-body-${idx}`;
-                
+
                 if (isLatest && m.isTyping) {
                     typingMessage = m;
-                    messageElements.push(`<div class="copilot-message copilot-message-assistant animate__animated animate__fadeInUp">
+                    messageElements.push(`<div class="copilot-message copilot-message-assistant animate__animated animate__fadeInUp${mountedClass}">
                                 <div class="small fw-bold text-uppercase opacity-75 mb-2" style="letter-spacing: 0.12em; color: var(--text-muted); width: max-content;">AI COPILOT</div>
                                 <div class="copilot-message-body" id="${bodyId}"></div>
                             </div>`);
                 } else {
                     const collapsed = !!m.isCollapsed;
+                    const expanded = !!m.isExpanded;
                     const collapseTitle = collapsed ? 'Expand response' : 'Collapse response';
                     const chevron = collapsed ? 'down' : 'up';
+                    const expandTitle = expanded ? 'Reset width' : 'Expand to full width';
+                    const expandIcon = expanded ? 'fullscreen-exit' : 'arrows-fullscreen';
                     // Elapsed-time pill rendered inline beside the "AI COPILOT" label so the
                     // user sees end-to-end latency without scrolling to the footer. Reads the
                     // same ExecutionDetails.TotalElapsedMs stamped by HostTraceSink — degrades
@@ -1217,20 +1225,25 @@
                     const headerElapsedPill = headerElapsedTxt
                         ? `<span class="copilot-header-elapsed" title="End-to-end pipeline time"><i class="bi bi-clock-history"></i> ${headerElapsedTxt}</span>`
                         : '';
-                    messageElements.push(`<div class="copilot-message copilot-message-assistant ${collapsed ? 'copilot-message-collapsed' : ''}" data-msg-idx="${idx}">
+                    messageElements.push(`<div class="copilot-message copilot-message-assistant ${collapsed ? 'copilot-message-collapsed' : ''}${expanded ? ' copilot-message-expanded' : ''}${mountedClass}" data-msg-idx="${idx}">
                                 <div class="copilot-message-header">
                                     <span class="copilot-header-left d-inline-flex align-items-center gap-2">
                                         <span class="small fw-bold text-uppercase opacity-75" style="letter-spacing: 0.12em; color: var(--text-muted);">AI COPILOT</span>
                                         ${headerElapsedPill}
                                     </span>
-                                    <button type="button" class="copilot-collapse-btn" onclick="toggleAssistantCollapse(${idx})" aria-expanded="${!collapsed}" title="${collapseTitle}" aria-label="${collapseTitle}">
-                                        <i class="bi bi-chevron-${chevron}"></i>
-                                    </button>
+                                    <span class="d-inline-flex align-items-center gap-1">
+                                        <button type="button" class="copilot-collapse-btn copilot-expand-btn" onclick="toggleAssistantExpand(${idx})" aria-pressed="${expanded}" title="${expandTitle}" aria-label="${expandTitle}">
+                                            <i class="bi bi-${expandIcon}"></i>
+                                        </button>
+                                        <button type="button" class="copilot-collapse-btn" onclick="toggleAssistantCollapse(${idx})" aria-expanded="${!collapsed}" title="${collapseTitle}" aria-label="${collapseTitle}">
+                                            <i class="bi bi-chevron-${chevron}"></i>
+                                        </button>
+                                    </span>
                                 </div>
                                 <div class="copilot-message-body">${formatMessageBody(m.content)}</div>
                                 ${m.id ? `<div class="mt-2 d-flex justify-content-between align-items-center gap-2 copilot-message-footer">
                                     <div class="copilot-cost-badges">${renderCostBadges(m.executionDetails)}</div>
-                                    <button class="btn btn-outline-primary btn-sm rounded-pill" onclick="openInvestigationTracePage('${m.id}')">Open Investigation</button>
+                                    <button class="btn btn-outline-primary btn-sm rounded-pill" onclick="openInvestigationTracePage('${m.id}')"><i class="bi bi-search me-1"></i>Open Investigation</button>
                                 </div>` : ''}
                             </div>`);
                 }
@@ -1242,6 +1255,15 @@
         }
 
         host.innerHTML = messageElements.join('');
+
+        // Stamp every history item as mounted so the next renderConversation() call
+        // emits `.is-mounted` on them and the message-in entry animation does NOT
+        // re-fire. The typewriter message is a special case: its _mounted flag is
+        // set after typewriterEffect completes (see below) so the fadeInUp entrance
+        // plays once on first appearance and is then suppressed on subsequent renders.
+        copilotHistory.forEach(m => {
+            if (!m.isTyping) m._mounted = true;
+        });
 
         // ── Consolidate per-message action buttons into a single toolbar row ─────────
         // After the message HTML is rendered, every assistant message with a result table
@@ -1316,6 +1338,11 @@
             if (el) {
                 typingMessage.isTyping = false; // Prevent re-triggering
                 typewriterEffect(el, typingMessage.content, () => {
+                    // The typewriter has finished. Mark this message as mounted so the
+                    // upcoming renderConversation() emits `.is-mounted` on it — that
+                    // suppresses the message-in fade-in re-fire (the flicker) when the
+                    // DOM node is recreated by the innerHTML swap below.
+                    typingMessage._mounted = true;
                     // Final re-render to add buttons etc.
                     renderConversation();
                     persistCopilotState();
@@ -4438,13 +4465,41 @@
         const msg = document.querySelector(`.copilot-message-assistant[data-msg-idx="${idx}"]`);
         if (!msg) { renderConversation(); return; }
         msg.classList.toggle('copilot-message-collapsed', !!m.isCollapsed);
-        const btn = msg.querySelector('.copilot-collapse-btn');
+        // Scope to the chevron specifically — there are now TWO .copilot-collapse-btn
+        // siblings in the header (the chevron and the new width-expand button which
+        // shares the same visual class), so use the chevron's distinguishing aria attr.
+        const btn = msg.querySelector('.copilot-collapse-btn[aria-expanded]');
         if (btn) {
             const title = m.isCollapsed ? 'Expand response' : 'Collapse response';
             btn.setAttribute('aria-expanded', String(!m.isCollapsed));
             btn.setAttribute('title', title);
             btn.setAttribute('aria-label', title);
             btn.innerHTML = `<i class="bi bi-chevron-${m.isCollapsed ? 'down' : 'up'}"></i>`;
+        }
+    }
+
+    // Width expand / reset for a single assistant response. Default sizing is
+    // `min-width: 50%; width: fit-content`, which compacts narrow results. The
+    // arrows-fullscreen toggle in the header flips a `.copilot-message-expanded`
+    // class on the bubble that forces 100% width — handy when the user wants a
+    // narrow table to spread out and use the full chat column. Toggled in-place
+    // (no full re-render) so scroll position and inline-table state are preserved.
+    function toggleAssistantExpand(idx) {
+        const m = copilotHistory[idx];
+        if (!m || m.role !== 'assistant') return;
+        m.isExpanded = !m.isExpanded;
+        persistCopilotState();
+        const msg = document.querySelector(`.copilot-message-assistant[data-msg-idx="${idx}"]`);
+        if (!msg) { renderConversation(); return; }
+        msg.classList.toggle('copilot-message-expanded', !!m.isExpanded);
+        const btn = msg.querySelector('.copilot-expand-btn');
+        if (btn) {
+            const title = m.isExpanded ? 'Reset width' : 'Expand to full width';
+            const icon = m.isExpanded ? 'fullscreen-exit' : 'arrows-fullscreen';
+            btn.setAttribute('aria-pressed', String(!!m.isExpanded));
+            btn.setAttribute('title', title);
+            btn.setAttribute('aria-label', title);
+            btn.innerHTML = `<i class="bi bi-${icon}"></i>`;
         }
     }
 

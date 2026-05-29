@@ -16,17 +16,68 @@
 
 .copilot-message-user,
 .copilot-message-assistant {
-    /* Shared cap so both sides have predictable widths inside one column.    */
-    max-width: min(96%, 80rem) !important;
-    min-width: 0 !important;
     box-sizing: border-box;
 }
 
+/* User bubble stays a compact chip — questions are short, no reason to stretch. */
+.copilot-message-user {
+    min-width: 0 !important;
+    max-width: min(96%, 80rem) !important;
+}
+
+/* Assistant bubble: floor at ~70% of the chat-thread width so the inline-table
+   toolbar (Explain, Follow-ups, Filter, Cols, vs. period, Tools, Pin, Export,
+   View as chart, Open Investigation, plus the pager) has enough horizontal
+   room to render its buttons WITHIN the table card border. At 50% the toolbar
+   was forced into icon-only mode on most cards; 70% gives wide-screen users
+   the full-label layout while still letting narrow content visually compact.
+   Above this floor the bubble grows freely via width: fit-content up to 100%. */
+.copilot-message-assistant {
+    min-width: 70% !important;
+    max-width: 100% !important;
+}
+
+/* User-driven width expand: the expand toggle in the response header (next to
+   the collapse chevron) flips this class on. While active the bubble is forced
+   to fill the entire thread column, overriding the default fit-content sizing.
+   Click again to reset back to default behavior. */
+.copilot-message-assistant.copilot-message-expanded {
+    min-width: 100% !important;
+    width: 100% !important;
+}
+
+/* When expanded, the user explicitly asked for a no-scroll, fit-the-screen
+   table — the bubble already takes the full chat column, so any horizontal
+   scrollbar on the inner table reads as "this still doesn't fit". Drop the
+   scrollbar and let cell content wrap onto multiple lines so every column
+   stays visible. Reset behavior (toggle off) restores the default scroll. */
+.copilot-message-expanded .copilot-inline-table-scroll {
+    overflow-x: hidden;
+}
+.copilot-message-expanded .copilot-inline-table {
+    /* `fixed` layout distributes the bubble width across columns proportionally
+       to their declared widths (or evenly if none), preventing any single column
+       from demanding more space than the bubble can give. */
+    table-layout: fixed;
+}
+.copilot-message-expanded .copilot-inline-table th,
+.copilot-message-expanded .copilot-inline-table td {
+    /* Override the default nowrap on truncatable / sort-header cells so content
+       can break onto multiple lines instead of pushing the column wider than
+       its share of the bubble. */
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
 /* Assistant: anchor LEFT (or right in RTL) so the answer sits opposite the
-   question. width:100% keeps it wide enough for tables.                       */
+   question. width: fit-content lets short text answers stay compact at the
+   bubble's min-width floor, while wide content (tables) is free to stretch
+   up to max-width: 100% (capped at the thread column edge by the min-width: 0
+   chain on .copilot-chat-pane/.copilot-thread).                              */
 .copilot-message-assistant {
     align-self: flex-start !important;
-    width: 100% !important;
+    width: fit-content !important;
     margin-inline-start: 1.5rem !important;
     margin-inline-end: auto !important;
 }

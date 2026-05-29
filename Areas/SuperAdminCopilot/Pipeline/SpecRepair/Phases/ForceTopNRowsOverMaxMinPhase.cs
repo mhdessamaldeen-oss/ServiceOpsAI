@@ -27,6 +27,11 @@ internal sealed class ForceTopNRowsOverMaxMinPhase : ISpecRepairPhase
     public string Name => "ForceTopNRowsOverMaxMin";
     public string Covers => "TOPN intent + MAX/MIN aggregation + Limit set → swap to TOP-N rows ORDER BY metric";
 
+    // Tier window override: weak-model crutch.
+    // Heuristic to flip MAX/MIN back to row listing — strong planner doesn't get the shape wrong in the first place.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     private static readonly Regex AscCue = new(
         @"\b(?:bottom|least|lowest|smallest|shortest|fewest|min|minimum)\s+\d+\b|\b\d+\s+(?:bottom|least|lowest|smallest|shortest|fewest)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);

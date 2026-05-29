@@ -52,27 +52,67 @@ internal sealed class TimeIntentSpecRepairPhase : ISpecRepairPhase
 
         var qualifiedCol = $"{spec.Root}.{dateCol}";
 
-        // If the LLM ALREADY emitted a filter on this date column, leave it alone — we only
-        // fill the slot when it's empty. Compares both qualified and bare forms.
-        foreach (var f in spec.Filters)
-        {
-            if (string.IsNullOrEmpty(f.Column)) continue;
-            if (string.Equals(f.Column, qualifiedCol, System.StringComparison.OrdinalIgnoreCase)) return;
-            if (f.Column.EndsWith("." + dateCol, System.StringComparison.OrdinalIgnoreCase)) return;
-            if (string.Equals(f.Column, dateCol, System.StringComparison.OrdinalIgnoreCase)) return;
-        }
+        // ─────────────────────────────────────────────────────────────────────────────
+        // AUTHORITATIVE policy (Phase D — admin-approved): TimeIntent is the source of
+        // truth for the question's temporal scope. When intent is definite, we REMOVE any
+        // pre-existing date filter the LLM produced on the same column and replace it.
+        // Solves: LLM emits `CreatedAt = pointvalue` for "Feb 2026" — wrong; LLM emits
+        // `>= 2026-01-01` for "in 2025" — wrong year; LLM emits two PeriodComparisons
+        // legs for "Q1 2025" — duplicate. TimeIntent overwrites all of those.
+        // ─────────────────────────────────────────────────────────────────────────────
+        var stripped = StripExistingDateFilters(spec, dateCol);
+        if (stripped > 0)
+            ctx.Diagnostics.Add(new(typeof(TimeIntentSpecRepairPhase).Name,
+                $"TimeIntent OVERRIDE: removed {stripped} pre-existing filter(s) on {dateCol}"));
 
         switch (intent.Kind)
         {
             case TimeIntentKind.Absolute:
             case TimeIntentKind.Relative:
+                // Single-period: ALSO clear any LLM PeriodComparisons. The LLM often emits
+                // a ghost leg ("Q1" anchored to current year) alongside the real one — Q1
+                // 2025 returned 2 rows ("Q1 2025" + "Q1") instead of 1 because of this.
+                // TimeIntent authoritative = clear ALL competing PeriodComparisons.
+                if (spec.PeriodComparisons.Count > 0)
+                {
+                    ctx.Diagnostics.Add(new(typeof(TimeIntentSpecRepairPhase).Name,
+                        $"TimeIntent OVERRIDE: cleared {spec.PeriodComparisons.Count} stray PeriodComparisons for single-period intent"));
+                    spec.PeriodComparisons.Clear();
+                }
                 if (intent.Range is not null) ApplySingleRange(spec, qualifiedCol, intent.Range, ctx);
                 break;
 
             case TimeIntentKind.MultiPeriod:
+                // For multi-period, also clear the LLM's PeriodComparisons (often have a
+                // ghost current-year leg next to the real ones). TimeIntent's periods win.
+                if (spec.PeriodComparisons.Count > 0)
+                {
+                    ctx.Diagnostics.Add(new(typeof(TimeIntentSpecRepairPhase).Name,
+                        $"TimeIntent OVERRIDE: cleared {spec.PeriodComparisons.Count} pre-existing PeriodComparisons"));
+                    spec.PeriodComparisons.Clear();
+                }
                 ApplyMultiPeriod(spec, qualifiedCol, intent.Periods, ctx);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Remove any FilterSpec whose column refers to the same date column as the
+    /// authoritative TimeIntent. Mutates spec.Filters; returns removed count for trace.
+    /// Compares qualified, prefix-qualified, and bare forms.
+    /// </summary>
+    private static int StripExistingDateFilters(QuerySpec spec, string dateCol)
+    {
+        int removed = 0;
+        for (int i = spec.Filters.Count - 1; i >= 0; i--)
+        {
+            var f = spec.Filters[i];
+            if (string.IsNullOrEmpty(f.Column)) continue;
+            bool matches = string.Equals(f.Column, dateCol, System.StringComparison.OrdinalIgnoreCase)
+                        || f.Column.EndsWith("." + dateCol, System.StringComparison.OrdinalIgnoreCase);
+            if (matches) { spec.Filters.RemoveAt(i); removed++; }
+        }
+        return removed;
     }
 
     /// <summary>Single-period intent → two FilterSpec entries (gte, lt) directly on the spec.</summary>

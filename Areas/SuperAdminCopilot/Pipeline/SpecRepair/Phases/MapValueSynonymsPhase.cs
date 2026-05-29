@@ -11,7 +11,7 @@ internal sealed class MapValueSynonymsPhase : ISpecRepairPhase
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
         int mutated = 0;
-        foreach (var f in spec.Filters)
+        foreach (var f in spec.Filters.NotNull())
         {
             if (string.IsNullOrEmpty(f.Column)) continue;
             var current = f.Value?.ToString();
@@ -19,7 +19,7 @@ internal sealed class MapValueSynonymsPhase : ISpecRepairPhase
             var canonical = ctx.SemanticLayer.ResolveSynonymValue(f.Column, current);
             if (!string.Equals(canonical, current, System.StringComparison.Ordinal)) { f.Value = canonical; mutated++; }
         }
-        foreach (var h in spec.Having)
+        foreach (var h in spec.Having.NotNull())
         {
             if (string.IsNullOrEmpty(h.Column)) continue;
             var current = h.Value?.ToString();

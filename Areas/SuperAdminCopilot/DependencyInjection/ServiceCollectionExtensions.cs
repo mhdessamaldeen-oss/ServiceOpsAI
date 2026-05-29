@@ -87,6 +87,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITextEmbedder>(sp => new CachingTextEmbedder(sp.GetRequiredService<HostAiProviderEmbedder>()));
         services.AddScoped<ISemanticSearch, HostSemanticSearchBridge>();
         services.AddScoped<ITraceSink, HostTraceSink>();
+        // Async fire-and-forget trace persistence — the pipeline enqueues; the hosted
+        // service drains and writes to its own DbContext. Removes ~100-500ms of synchronous
+        // DB I/O from the user's response path. See TraceWriteQueue / TraceWriteHostedService.
+        services.AddSingleton<HostBridge.ITraceWriteQueue, HostBridge.TraceWriteQueue>();
+        services.AddHostedService<HostBridge.TraceWriteHostedService>();
         // Phase 6 portability hook — abstracts chat-message persistence so the API controller
         // no longer reaches into the host's DbContext directly. Replace HostConversationPersister
         // when porting the copilot to a host with a different conversation schema.
@@ -128,6 +133,12 @@ public static class ServiceCollectionExtensions
         // full phase table and what bug class each covers.
         services.Configure<Pipeline.SpecRepair.SpecRepairOptions>(
             configuration.GetSection("SpecRepair"));
+        // Phase 07.δ — Arabic question dispatcher. Fires FIRST. Detects "كم عدد X", "اظهر X",
+        // "إجمالي X" and authoritatively sets spec.Root + clears the LLM's Customer-default
+        // Select / Joins / Filters. Closes the 8-fail Arabic routing cluster from the heavy
+        // 101-case suite. Schema-driven via semantic-layer entity synonyms — no entity names
+        // hardcoded.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ArabicQuestionDispatchPhase>();
         services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.HoistInlineAggregatesPhase>();
         services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.NormalizeAggregationFunctionPhase>();
         services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.NormalizeFilterOperatorPhase>();
@@ -161,6 +172,22 @@ public static class ServiceCollectionExtensions
         // counts bills (325). Swap root to the outer entity from the question text and force
         // COUNT(DISTINCT outer.Id). Driven by semantic-layer entity synonym lookup.
         services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.EnforceCountOuterEntityPhase>();
+        // Phase 07.β — analyst-quality output enrichment. Auto-projects label columns when
+        // SELECT references an FK (so "CategoryId" gets joined with "TicketCategories.Name").
+        // Solves the "I don't want raw IDs" complaint: every FK reference brings in its
+        // human-readable counterpart automatically.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.EnrichSelectWithLabelsPhase>();
+        // NOTE: EnsureDisplayColumnsPhase moved later in the pipeline (after natural-key /
+        // root-inference phases) so spec.Root is guaranteed set before the expansion runs.
+        // Phase 07.γ — anti-join detection from question text. Closes the "without any X"
+        // failure where the LLM emits no join and returns everything. Multilingual: handles
+        // English "without any / with no / missing" + Arabic "بدون / ليس لديهم".
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InjectAntiJoinFromQuestionPhase>();
+        // Phase 08 — universal text-search filter. Detects "X containing Y" / "X about Y" /
+        // "X mentioning Y" (EN + AR triggers) and emits LIKE against every column in the
+        // resolved entity's semantic-layer.json `searchableColumns`. No keyword list in code;
+        // adding a new entity = one JSON edit. Weak-tier crutch — auto-skips on stronger models.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InjectTextSearchFilterPhase>();
         // ReplaceWrongAggregation: question says AVG/SUM/MAX/MIN but spec emitted COUNT(*).
         // Sibling to ForceAggregationOnCount — that one fires when aggregations is empty;
         // this one fires when it's non-empty but wrong. MUST run before ForceAggregationOnCount
@@ -197,16 +224,21 @@ public static class ServiceCollectionExtensions
         // drops the time constraint entirely (e.g. "bills issued this week" → returns all
         // Issued-status bills regardless of date).
         services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InjectTemporalFilterFromQuestionPhase>();
+        // RewriteEmptyToIsNull: question contains "no X" / "without X" / "missing X" AND the LLM
+        // emitted a `column = ''` filter on a nullable column → rewrite to `column IS NULL`.
+        // Also injects the IS NULL filter when no filter on the absence-noun column exists, AND
+        // strips dangling hallucinated filters on unmentioned tables.
+        // ORDER: MUST run BEFORE InjectLookupValueFilter — otherwise Pass-3 would strip a
+        // freshly-injected lookup-name filter on a table the user didn't name (e.g. "open
+        // tickets without email" — TicketStatuses.Name='Open' would be dropped because the
+        // user said "open" not "TicketStatuses").
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.RewriteEmptyToIsNullPhase>();
         // InjectLookupValueFilterFromQuestion: scan question text for whole-word matches against
         // the actual values of FK-reachable lookup tables (Damascus / Aleppo / Water / Critical /
         // Open, etc.) → inject WHERE LookupTable.LabelCol = value when no such filter exists.
         // Catches dropped categorical constraints the LLM forgets to emit. Schema-driven via
         // EntityCatalog.GetAllLookupValues and the FK graph — no hardcoded entity names.
         services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.InjectLookupValueFilterFromQuestionPhase>();
-        // RewriteEmptyToIsNull: question contains "no X" / "without X" / "missing X" AND the LLM
-        // emitted a `column = ''` filter on a nullable column → rewrite to `column IS NULL`.
-        // Also injects the IS NULL filter when no filter on the absence-noun column exists.
-        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.RewriteEmptyToIsNullPhase>();
         // ForceCountDistinctOnDistinctQuestion: question contains "how many distinct/unique X"
         // → ensure aggregation is COUNT(DISTINCT col), not COUNT(*) or GROUP BY. Picks the column
         // from the existing aggregation, the entity's natural-key, or "Id" in that order.
@@ -292,6 +324,22 @@ public static class ServiceCollectionExtensions
         // can pick the right column to aggregate against. Covers the "paraphrased aggregation"
         // class: "largest bill we ever sent" → MAX, "peak meter reading" → MAX, etc.
         services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ForceAggregationOnCountQuestionPhase>();
+        // Phase 07.γ — sibling to the count-question coercion. Catches non-count aggregate
+        // verbs (sum / total / average / max / min / highest / lowest, EN + AR) when the
+        // LLM emits raw rows instead of aggregated. Solves: "total bill amount" → 1000 rows
+        // becomes 1 row with SUM(TotalAmount). Universal, no entity hardcoding.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ForceNonCountAggregationPhase>();
+        // Phase 07.γ — ensure top N / first N / bottom N translates to LIMIT N (EN + AR).
+        // Closes the LIM-TOP family where local LLM forgets to emit a LIMIT clause and the
+        // result returns 1000 rows (default cap) instead of N. Universal pattern detector.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.ForceTopNLimitPhase>();
+        // Phase 07.ε — analyst-quality column completeness. Registered LAST so spec.Root is
+        // guaranteed set (by InferRootFromQuestion / InjectNaturalKeyFilter / EnforceCountOuter
+        // etc.) before column expansion runs. For LIST-shape queries with empty or narrow
+        // projection, expand SELECT to the entity's displayColumns + auto-project FK label
+        // names via LEFT JOINs. Universal, driven by config + FK naming patterns — no entity
+        // names hardcoded.
+        services.AddSingleton<Pipeline.SpecRepair.ISpecRepairPhase, Pipeline.SpecRepair.Phases.EnsureDisplayColumnsPhase>();
         services.AddSingleton<Pipeline.SpecRepair.ISpecRepair, Pipeline.SpecRepair.SpecRepair>();
         // Escape valve — when form-filling QuerySpec can't express the shape (window funcs,
         // recursive CTEs, complex analytics), ask the LLM to write raw T-SQL. Output still

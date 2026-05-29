@@ -119,12 +119,16 @@ internal sealed class ApplyConceptPatternsPhase : ISpecRepairPhase
     {
         var set = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrEmpty(spec.Root)) set.Add(spec.Root);
-        foreach (var c in spec.Select) Add(set, c);
-        foreach (var c in spec.GroupBy) Add(set, c);
-        foreach (var f in spec.Filters) Add(set, f.Column ?? "");
-        foreach (var o in spec.OrderBy) Add(set, o.Column ?? "");
-        foreach (var j in spec.Joins)
-            if (!string.IsNullOrEmpty(j.Table)) set.Add(j.Table);
+        if (spec.Select is not null)
+            foreach (var c in spec.Select) Add(set, c);
+        if (spec.GroupBy is not null)
+            foreach (var c in spec.GroupBy) Add(set, c);
+        if (spec.Filters is not null)
+            foreach (var f in spec.Filters) { if (f is null) continue; Add(set, f.Column ?? ""); }
+        if (spec.OrderBy is not null)
+            foreach (var o in spec.OrderBy) { if (o is null) continue; Add(set, o.Column ?? ""); }
+        if (spec.Joins is not null)
+            foreach (var j in spec.Joins) { if (j is null) continue; if (!string.IsNullOrEmpty(j.Table)) set.Add(j.Table); }
         return set;
     }
 

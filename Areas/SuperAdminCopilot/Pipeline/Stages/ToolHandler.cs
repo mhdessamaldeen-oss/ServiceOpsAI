@@ -444,7 +444,13 @@ internal sealed class ToolHandler : IToolHandler
 
             foreach (var kw in SplitTerms(tool.KeywordHints))
             {
-                if (qNorm.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                // Single-word keywords must match on word boundaries, not raw substrings.
+                // Without this, "nation" matches "national IDs" (in a DB-shape question about
+                // payments), and the tool dispatcher fires on a country-profile tool.
+                bool hit = kw.Contains(' ')
+                    ? qNorm.Contains(kw, StringComparison.OrdinalIgnoreCase)
+                    : Regex.IsMatch(qNorm, @"\b" + Regex.Escape(kw) + @"\b", RegexOptions.IgnoreCase);
+                if (hit)
                 {
                     c.Score += kw.Contains(' ') ? 7 : 5;
                     c.MatchedTerms.Add(kw);

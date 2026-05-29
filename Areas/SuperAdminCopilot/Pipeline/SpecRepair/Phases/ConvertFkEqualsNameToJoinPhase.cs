@@ -13,7 +13,7 @@ internal sealed class ConvertFkEqualsNameToJoinPhase : ISpecRepairPhase
     {
         if (spec.Filters.Count == 0) return;
         int mutated = 0;
-        foreach (var f in spec.Filters)
+        foreach (var f in spec.Filters.NotNull())
         {
             if (string.IsNullOrEmpty(f.Column)) continue;
             if (!string.Equals(f.Op, "eq", System.StringComparison.OrdinalIgnoreCase)) continue;

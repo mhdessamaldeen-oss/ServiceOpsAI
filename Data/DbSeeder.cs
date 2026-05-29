@@ -1163,7 +1163,9 @@ namespace ServiceOpsAI.Data
             for (int sequence = startSequence; sequence <= sequenceEnd; sequence++)
             {
                 var status = statuses[rng.Next(statuses.Count)];
-                var createdAt = DateTime.UtcNow.AddDays(-rng.Next(1, 120)).AddHours(-rng.Next(1, 24));
+                // Bucketed CreatedAt — first N rows hit today/yesterday/this-week/.../last-year
+                // so temporal questions ("tickets today", "tickets last year") always have data.
+                var createdAt = Seed.TemporalBuckets.PickPast(rng, sequence - startSequence);
                 var firstResponseDue = createdAt.AddHours(4);
                 var resolutionDue = createdAt.AddDays(2);
 

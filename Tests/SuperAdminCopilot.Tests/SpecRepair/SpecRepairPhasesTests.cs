@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
+using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 using SuperAdminCopilot.Pipeline.SpecRepair;
 using SuperAdminCopilot.Pipeline.SpecRepair.Phases;
@@ -236,7 +237,7 @@ public class SpecRepairPhasesTests
         };
         // "compare open vs closed ticket counts" contains "ticket" (singular for Tickets)
         var ctx = Ctx(question: "compare open vs closed ticket counts", tables: tables);
-        new InferRootFromQuestionPhase().Apply(spec, ctx);
+        new InferRootFromQuestionPhase(StubCues()).Apply(spec, ctx);
 
         // Tickets should win over TicketStatuses despite TicketStatuses being referenced in
         // the aggregation expression, because the question-text match is more reliable.
@@ -252,7 +253,7 @@ public class SpecRepairPhasesTests
         var tables = new[] { MkTable("Tickets"), MkTable("TicketStatuses") };
         var question = "compare open vs closed ticket counts\n-- resolved: 'open' = TicketStatuses.Name 'Open'\n-- requested columns: open, closed";
         var ctx = Ctx(question: question, tables: tables);
-        new InferRootFromQuestionPhase().Apply(spec, ctx);
+        new InferRootFromQuestionPhase(StubCues()).Apply(spec, ctx);
 
         Assert.Equal("Tickets", spec.Root);
     }
@@ -263,7 +264,7 @@ public class SpecRepairPhasesTests
         // LLM picked Bills; question mentions "tickets" but only single-word match — keep LLM choice.
         var spec = new QuerySpec { Root = "Bills" };
         var ctx = Ctx(question: "how many tickets", tables: new[] { MkTable("Tickets") });
-        new InferRootFromQuestionPhase().Apply(spec, ctx);
+        new InferRootFromQuestionPhase(StubCues()).Apply(spec, ctx);
 
         Assert.Equal("Bills", spec.Root);
     }
@@ -277,7 +278,7 @@ public class SpecRepairPhasesTests
         var spec = new QuerySpec { Root = "Tickets" };
         var tables = new[] { MkTable("Tickets"), MkTable("TicketCategories"), MkTable("TicketPriorities") };
         var ctx = Ctx(question: "how many ticket categories", tables: tables);
-        new InferRootFromQuestionPhase().Apply(spec, ctx);
+        new InferRootFromQuestionPhase(StubCues()).Apply(spec, ctx);
 
         Assert.Equal("TicketCategories", spec.Root);
         Assert.Single(ctx.Diagnostics);
@@ -607,7 +608,7 @@ public class SpecRepairPhasesTests
             SemanticLayer = sl.Object,
             Options = DefaultOptions(),
         };
-        new InferRootFromQuestionPhase().Apply(spec, ctx);
+        new InferRootFromQuestionPhase(StubCues()).Apply(spec, ctx);
 
         Assert.Equal("CsatResponses", spec.Root);
     }
@@ -619,4 +620,16 @@ public class SpecRepairPhasesTests
         Name = name,
         Schema = "dbo",
     };
+
+    /// <summary>
+    /// Empty linguistic-cues stub. InferRootFromQuestionPhase uses cues only for the
+    /// possessive-marker path; tests in this file exercise other paths (compare/strip/multi-word
+    /// PascalCase), so an empty cue set leaves their behaviour unchanged.
+    /// </summary>
+    private static ILinguisticCuesProvider StubCues()
+    {
+        var m = new Mock<ILinguisticCuesProvider>();
+        m.SetupGet(p => p.Compiled).Returns(CompiledLinguisticCues.Empty);
+        return m.Object;
+    }
 }

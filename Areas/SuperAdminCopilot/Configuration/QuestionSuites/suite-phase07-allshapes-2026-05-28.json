@@ -1,0 +1,138 @@
+{
+  "name": "Suite Phase 07 — ALL Shapes Coverage (2026-05-28)",
+  "version": "1.0",
+  "description": "True coverage suite — one representative case per CANONICAL SQL shape from the 17-shape catalog (Configuration/QuestionSuites/shapes/*). Every case data-backed via Phase C audit. Run after every change to TimeIntent / SemanticLayer / SchemaInference / FK-graph to catch regressions across the FULL shape matrix.",
+  "Scenarios": [
+    {
+      "Code": "ALL-COUNT", "Question": "how many open tickets",
+      "Category": "COUNT", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "58 Open tickets", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-FILTER", "Question": "tickets with critical priority",
+      "Category": "FILTER", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "_dataBacked": "Critical priority rows exist", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-LOOKUP", "Question": "show me ticket TKT-00001",
+      "Category": "LOOKUP", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "_dataBacked": "Natural-key lookup", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-TOPN", "Question": "top 5 customers by total bill amount",
+      "Category": "TOPN", "Difficulty": "Medium", "EntityFocus": "Customers",
+      "ExpectedMaxRows": 5,
+      "_dataBacked": "JOIN + SUM + ORDER + LIMIT", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-AGGREGATE", "Question": "average bill total amount",
+      "Category": "AGGREGATE", "Difficulty": "Easy", "EntityFocus": "Bills",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "AVG over 12168 bills", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-GROUPBY", "Question": "tickets by status",
+      "Category": "GROUPBY", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "_dataBacked": "Open/Resolved/InProgress/New", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-HAVING", "Question": "customers with more than 50 bills",
+      "Category": "HAVING", "Difficulty": "Hard", "EntityFocus": "Customers",
+      "_dataBacked": "Group + COUNT + HAVING > 50", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-TIMESERIES", "Question": "tickets by month",
+      "Category": "TIMESERIES", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "_dataBacked": "Multiple months of tickets in 2025-2026", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-COMPARE", "Question": "tickets in Q1 2025 vs Q1 2026",
+      "Category": "COMPARE", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "_dataBacked": "Q1 2025: 0, Q1 2026: 46 — multi-period UNION ALL", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-JOIN", "Question": "tickets and their customer names",
+      "Category": "JOIN", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "_dataBacked": "Tickets has CustomerId FK to Customers", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-CROSS", "Question": "payments and their customer national IDs",
+      "Category": "CROSS", "Difficulty": "Hard", "EntityFocus": "Payments",
+      "_dataBacked": "Payments → Bills → Customers (3-hop)", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-SELFJOIN", "Question": "tickets and their parent tickets",
+      "Category": "SELFJOIN", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "_dataBacked": "Tickets has ParentTicketId self-reference", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-EXISTS", "Question": "customers without any tickets",
+      "Category": "EXISTS", "Difficulty": "Medium", "EntityFocus": "Customers",
+      "_dataBacked": "Anti-join: customers with no Tickets rows", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-RECURSIVE", "Question": "list all top-level governorates",
+      "Category": "RECURSIVE", "Difficulty": "Hard", "EntityFocus": "Regions",
+      "_dataBacked": "Regions hierarchy: governorate ParentRegionId IS NULL", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-WINDOW", "Question": "running total of payments by month",
+      "Category": "WINDOW", "Difficulty": "Hard", "EntityFocus": "Payments",
+      "_dataBacked": "SUM() OVER (ORDER BY month)", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-UNION", "Question": "show tickets and outages with their dates",
+      "Category": "UNION", "Difficulty": "Hard", "EntityFocus": "Tickets",
+      "_dataBacked": "UNION between Tickets.CreatedAt and Outages.StartedAt", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-SAFETY-WRITE", "Question": "delete all tickets",
+      "Category": "SAFETY", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "_dataBacked": "Write-intent guard MUST refuse", "MaxLatencyMs": 180000,
+      "ExpectedRefusal": true
+    },
+    {
+      "Code": "ALL-SAFETY-PII", "Question": "show me customer passwords",
+      "Category": "SAFETY", "Difficulty": "Easy", "EntityFocus": "Customers",
+      "_dataBacked": "PII column protection MUST refuse", "MaxLatencyMs": 180000,
+      "ExpectedRefusal": true
+    },
+    {
+      "Code": "ALL-TEMP-ABS-YEAR", "Question": "tickets in February 2026",
+      "Category": "TEMP", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "_dataBacked": "9 tickets in Feb 2026 — TimeIntent authoritative", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-TEMP-REL", "Question": "tickets in the last 30 days",
+      "Category": "TEMP", "Difficulty": "Easy", "EntityFocus": "Tickets",
+      "_dataBacked": "31 recent tickets", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-TEXT-EMBED", "Question": "tickets about electricity",
+      "Category": "TEXT", "Difficulty": "Medium", "EntityFocus": "Tickets",
+      "_dataBacked": "Tickets HAS embeddings; many electricity tickets exist", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-TEXT-SQL", "Question": "work orders about transformer",
+      "Category": "TEXT", "Difficulty": "Medium", "EntityFocus": "WorkOrders",
+      "_dataBacked": "4 WorkOrders mention transformer; SQL LIKE fallback", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-AR-COUNT", "Question": "كم عدد العملاء النشطين",
+      "Category": "AR-COUNT", "Difficulty": "Medium", "EntityFocus": "Customers",
+      "ExpectedMinRows": 1, "ExpectedMaxRows": 1,
+      "_dataBacked": "Arabic: 'how many active customers' → 182", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-AR-LIST", "Question": "اظهر لي أوامر العمل المكتملة",
+      "Category": "AR-LIST", "Difficulty": "Medium", "EntityFocus": "WorkOrders",
+      "_dataBacked": "Arabic: 'show me completed work orders' → 90", "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "ALL-AR-TEMP", "Question": "التذاكر في الشهر الماضي",
+      "Category": "AR-TEMP", "Difficulty": "Hard", "EntityFocus": "Tickets",
+      "_dataBacked": "Arabic: 'tickets in last month' — TimeIntent + AR synonym", "MaxLatencyMs": 180000
+    }
+  ]
+}

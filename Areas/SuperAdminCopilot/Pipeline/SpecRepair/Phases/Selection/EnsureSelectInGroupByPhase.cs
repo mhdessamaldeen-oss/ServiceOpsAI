@@ -37,7 +37,7 @@ internal sealed class EnsureSelectInGroupByPhase : ISpecRepairPhase
         var added = 0;
 
         // SELECT items — bare column references like "Tickets.CreatedAt".
-        foreach (var sel in spec.Select)
+        foreach (var sel in spec.Select.NotNull())
         {
             var n = Normalise(sel);
             // Skip if already in GROUP BY OR if it's an aggregation column (COUNT(*)/etc.).
@@ -53,7 +53,7 @@ internal sealed class EnsureSelectInGroupByPhase : ISpecRepairPhase
         }
 
         // Computed expressions that aren't aggregations or date buckets.
-        foreach (var c in spec.Computed)
+        foreach (var c in spec.Computed.NotNull())
         {
             if (string.IsNullOrEmpty(c.Expression)) continue;
             var n = Normalise(c.Expression);
@@ -72,7 +72,7 @@ internal sealed class EnsureSelectInGroupByPhase : ISpecRepairPhase
 
         // ORDER BY columns also need to be in GROUP BY (or be aggregations). Same reconciliation
         // logic as SELECT. Caught HAV-AR-1 in session 121 where ORDER BY Tickets.RegionId failed.
-        foreach (var o in spec.OrderBy)
+        foreach (var o in spec.OrderBy.NotNull())
         {
             if (string.IsNullOrEmpty(o.Column)) continue;
             var n = Normalise(o.Column);

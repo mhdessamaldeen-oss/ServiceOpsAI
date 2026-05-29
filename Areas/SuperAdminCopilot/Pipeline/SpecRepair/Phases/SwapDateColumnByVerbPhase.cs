@@ -24,6 +24,11 @@ internal sealed class SwapDateColumnByVerbPhase : ISpecRepairPhase
     public string Name => "SwapDateColumnByVerb";
     public string Covers => "Question verb implies a specific date role (resolved/closed/created/issued/etc.) → swap any date filter/orderby to the verb's column";
 
+    // Tier window override: weak-model crutch.
+    // Lifecycle verb → date role (resolved / closed / issued / paid). Strong NLU picks the right date column; Medium needs the hint.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Medium;
+
     // Maps verb keyword → semantic-layer role. "Volume" and "count" don't imply a role —
     // they default to creation, which most entities already use as default. We only fire on
     // explicit lifecycle verbs.
@@ -73,7 +78,7 @@ internal sealed class SwapDateColumnByVerbPhase : ISpecRepairPhase
         if (otherDateCols.Count == 0) return;
 
         var swaps = 0;
-        foreach (var f in spec.Filters)
+        foreach (var f in spec.Filters.NotNull())
         {
             var (tbl, col) = SplitQualified(f.Column);
             if (!string.Equals(tbl, spec.Root, System.StringComparison.OrdinalIgnoreCase)) continue;
@@ -81,7 +86,7 @@ internal sealed class SwapDateColumnByVerbPhase : ISpecRepairPhase
             f.Column = targetQualified;
             swaps++;
         }
-        foreach (var o in spec.OrderBy)
+        foreach (var o in spec.OrderBy.NotNull())
         {
             var (tbl, col) = SplitQualified(o.Column);
             if (!string.Equals(tbl, spec.Root, System.StringComparison.OrdinalIgnoreCase)) continue;

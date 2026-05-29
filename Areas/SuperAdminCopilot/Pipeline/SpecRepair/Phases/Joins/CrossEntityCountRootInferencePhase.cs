@@ -26,6 +26,11 @@ internal sealed class CrossEntityCountRootInferencePhase : ISpecRepairPhase
     public string Name => "CrossEntityCountRootInference";
     public string Covers => "'how many CUSTOMERS who [did X]' → COUNT(DISTINCT CustomerId) over the FACT table, not the dimension";
 
+    // Tier window override: weak-model crutch.
+    // 'how many CUSTOMERS who …' → COUNT(DISTINCT Customer.Id) on the FACT table. Strong NLU resolves the dimension/fact split natively.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     private static readonly Regex CountWhoPattern = new(
         @"\bhow\s+many\s+(customers?|users?|agents?|departments?|regions?|service\s+types?|categories?)\s+(?:who|that|with)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);

@@ -1,6 +1,7 @@
 namespace SuperAdminCopilot.Pipeline.SpecRepair.Phases;
 
 using System.Text.RegularExpressions;
+using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 
 /// <summary>
@@ -17,14 +18,19 @@ using SuperAdminCopilot.Models;
 /// </summary>
 internal sealed class ForceCountDistinctOnDistinctQuestionPhase : ISpecRepairPhase
 {
+    private readonly ILinguisticCuesProvider _cues;
+
+    public ForceCountDistinctOnDistinctQuestionPhase(ILinguisticCuesProvider cues)
+    {
+        _cues = cues;
+    }
+
     public string Name => "ForceCountDistinctOnDistinctQuestion";
     public string Covers => "'how many distinct/unique X' → ensure COUNT(DISTINCT col), not COUNT(*) / GROUP BY";
 
-    private static readonly Regex DistinctCueEn = new(
-        @"\b(?:how\s+many\s+|number\s+of\s+|count\s+of\s+)(?:distinct|unique|different)\b|\bdistinct\s+(?:customers|users|tickets|bills|outages|regions|services|service\s+types|categories|departments)\b|\bunique\s+(?:customers|users|tickets|bills|outages|regions|services|service\s+types|categories|departments)\b",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex DistinctCueAr = new(@"كم\s+عدد\s+.*?(?:المختلفين|المختلفة|المتفردين)|عدد\s+.*?(?:مختلف|متفرد)", RegexOptions.Compiled);
+    // Tier window override: weak-model crutch.
+    // Distinct/unique cues come from linguistic-cues.json `distinct` block per locale.
+    public PlannerCapabilityTier MaxTierToRun => PlannerCapabilityTier.Weak;
 
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
@@ -35,7 +41,7 @@ internal sealed class ForceCountDistinctOnDistinctQuestionPhase : ISpecRepairPha
         var dashIdx = q.IndexOf("\n--", System.StringComparison.Ordinal);
         if (dashIdx >= 0) q = q.Substring(0, dashIdx);
 
-        if (!DistinctCueEn.IsMatch(q) && !DistinctCueAr.IsMatch(q)) return;
+        if (!QuestionHasDistinctCue(q, _cues)) return;
 
         // Already correct? Bail.
         if (spec.Aggregations.Any(a => a.Distinct
@@ -105,6 +111,22 @@ internal sealed class ForceCountDistinctOnDistinctQuestionPhase : ISpecRepairPha
         spec.Distinct = false;
 
         ctx.Diagnostics.Add(new(Name, $"forced COUNT(DISTINCT {targetCol}); dropped {droppedGroupBy} non-bucket GroupBy row(s)"));
+    }
+
+    /// <summary>
+    /// True when ANY locale's compiled distinct-cue regex matches the question. Vocab lives
+    /// entirely in <c>linguistic-cues.json.locales[*].distinct</c>; no hardcoded English or
+    /// Arabic words in this file. Operator adds dialects via JSON.
+    /// </summary>
+    private static bool QuestionHasDistinctCue(string question, ILinguisticCuesProvider cues)
+    {
+        if (string.IsNullOrWhiteSpace(question) || cues?.Compiled?.Locales is null) return false;
+        foreach (var (_, locale) in cues.Compiled.Locales)
+        {
+            if (locale?.DistinctRegex is null) continue;
+            if (locale.DistinctRegex.IsMatch(question)) return true;
+        }
+        return false;
     }
 
     private static string StripTable(string qualified)

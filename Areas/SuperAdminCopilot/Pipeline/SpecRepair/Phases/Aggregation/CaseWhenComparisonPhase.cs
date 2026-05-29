@@ -27,6 +27,11 @@ internal sealed class CaseWhenComparisonPhase : ISpecRepairPhase
     public string Name => "CaseWhenComparison";
     public string Covers => "Comparison-shape question with wrong aggregate shape → flag (LLM grounding handles the rewrite up-front)";
 
+    // Tier window override: weak-model crutch.
+    // COMPARE-shape detection for SUM(CASE WHEN). Strong NLU emits the conditional aggregation directly.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     private static readonly Regex CompareCue = new(
         @"\b(?:vs\.?|versus|compared\s+to|compare(?:d)?|comparison\s+of|side\s+by\s+side|against)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);

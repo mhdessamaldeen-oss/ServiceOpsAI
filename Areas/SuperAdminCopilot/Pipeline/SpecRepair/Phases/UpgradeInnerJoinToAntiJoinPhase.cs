@@ -9,6 +9,11 @@ internal sealed class UpgradeInnerJoinToAntiJoinPhase : ISpecRepairPhase
     public string Name => "UpgradeInnerJoinToAntiJoin";
     public string Covers => "LLM emits INNER JOIN for anti-join phrasings";
 
+    // Tier window override: weak-model crutch.
+    // Heuristic to flip INNER JOIN to anti-join. Strong NLU emits the anti-join directly.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
         if (spec.Joins.Count == 0) return;
@@ -28,7 +33,7 @@ internal sealed class UpgradeInnerJoinToAntiJoinPhase : ISpecRepairPhase
         if (!matched) return;
 
         int upgraded = 0;
-        foreach (var j in spec.Joins)
+        foreach (var j in spec.Joins.NotNull())
         {
             if (string.IsNullOrEmpty(j.Table)) continue;
             if (string.Equals(j.Kind, "anti", System.StringComparison.OrdinalIgnoreCase)) continue;

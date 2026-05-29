@@ -30,6 +30,11 @@ internal sealed class RangeFilterFromQuestionPhase : ISpecRepairPhase
     public string Name => "RangeFilterFromQuestion";
     public string Covers => "'between X and Y' / 'over X' / 'less than X' → inject range filter on root numeric column";
 
+    // Tier window override: weak-model crutch.
+    // 'between X and Y' / 'over X' / 'less than X' regex. Strong NLU emits the range filter directly.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     private static readonly Regex BetweenPattern = new(
         @"\b(?:between|from)\s+([\d,]+(?:\.\d+)?)\s+(?:and|to|-)\s+([\d,]+(?:\.\d+)?)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);

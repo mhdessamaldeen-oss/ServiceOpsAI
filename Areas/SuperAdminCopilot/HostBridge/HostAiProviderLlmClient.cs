@@ -99,6 +99,25 @@ internal sealed class HostAiProviderLlmClient : ILlmClient
             // Best-effort capture into the per-question scope. Never throw from here.
             try
             {
+                // Capture prompt + response previews for the investigation page so operators
+                // can answer "what did we send" and "what came back" without grepping logs.
+                // The full text is truncated to a per-field cap from CopilotOptions; full
+                // lengths are recorded so the UI shows "shown 4000 of 12345 chars".
+                var cap = System.Math.Max(0, opts.LlmTracePreviewMaxChars);
+                string? promptPreview = null; int? promptLen = null;
+                if (cap > 0 && !string.IsNullOrEmpty(combinedPrompt))
+                {
+                    promptLen = combinedPrompt.Length;
+                    promptPreview = combinedPrompt.Length > cap ? combinedPrompt.Substring(0, cap) : combinedPrompt;
+                }
+                var responseText = result?.ResponseText;
+                string? respPreview = null; int? respLen = null;
+                if (cap > 0 && !string.IsNullOrEmpty(responseText))
+                {
+                    respLen = responseText.Length;
+                    respPreview = responseText.Length > cap ? responseText.Substring(0, cap) : responseText;
+                }
+
                 LlmCallScope.Current?.Record(new LlmCallRecord(
                     Stage: stage,
                     Provider: result?.ProviderType.ToString() ?? "unknown",
@@ -106,7 +125,12 @@ internal sealed class HostAiProviderLlmClient : ILlmClient
                     Usage: result?.Usage,
                     ElapsedMs: sw.ElapsedMilliseconds,
                     Success: result?.Success ?? false,
-                    Error: error));
+                    Error: error,
+                    PromptPreview: promptPreview,
+                    ResponsePreview: respPreview,
+                    PromptFullLength: promptLen,
+                    ResponseFullLength: respLen,
+                    RetryAttempt: 0));
             }
             catch { /* swallow */ }
         }

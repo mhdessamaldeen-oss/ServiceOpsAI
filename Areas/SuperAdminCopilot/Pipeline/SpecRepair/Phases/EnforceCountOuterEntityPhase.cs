@@ -13,6 +13,11 @@ internal sealed class EnforceCountOuterEntityPhase : ISpecRepairPhase
     public string Name => "EnforceCountOuterEntity";
     public string Covers => "'how many X have Y' counts Y instead of distinct X";
 
+    // Tier window override: weak-model crutch.
+    // 'how many X have Y' English regex. Strong NLU swaps root correctly.
+    public SuperAdminCopilot.Configuration.PlannerCapabilityTier MaxTierToRun =>
+        SuperAdminCopilot.Configuration.PlannerCapabilityTier.Weak;
+
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
         if (string.IsNullOrWhiteSpace(ctx.Question)) return;

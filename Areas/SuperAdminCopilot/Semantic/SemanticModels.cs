@@ -48,6 +48,31 @@ public sealed class SemanticDefaults
     /// won't get FK-name rewrite or default-label SELECT (safe degradation, not a crash).</para>
     /// </summary>
     public List<string> LabelColumnPreference { get; set; } = new();
+
+    /// <summary>
+    /// Ordered preference list for picking a numeric column to aggregate (SUM/AVG/MAX/MIN)
+    /// when the planner didn't specify. First column from this list that exists on the root
+    /// wins. Lives in <c>semantic-layer.json</c>'s <c>defaults.numericColumnPreference</c>.
+    /// Edit there to teach the pipeline about new financial / measurement columns; no recompile.
+    /// </summary>
+    public List<string> NumericColumnPreference { get; set; } = new();
+
+    /// <summary>
+    /// Substring hints (case-insensitive contains) that signal a column probably holds a
+    /// numeric value. Used as a fallback when nothing from <see cref="NumericColumnPreference"/>
+    /// matches. Lives in <c>semantic-layer.json</c>'s <c>defaults.numericColumnHints</c>.
+    /// </summary>
+    public List<string> NumericColumnHints { get; set; } = new();
+
+    /// <summary>
+    /// Table-name suffixes that mark a table as auxiliary / satellite (history, audit, log,
+    /// notification, snapshot, event). Schema retrievers apply a small score penalty to these
+    /// so that when the user asks "show me outages", the main <c>Outages</c> entity ranks
+    /// above <c>OutageHistories</c> / <c>OutageNotifications</c>. Lives in
+    /// <c>semantic-layer.json</c>'s <c>defaults.auxiliaryTableSuffixes</c>. Universal —
+    /// works for any future satellite table without naming it in code.
+    /// </summary>
+    public List<string> AuxiliaryTableSuffixes { get; set; } = new();
 }
 
 /// <summary>

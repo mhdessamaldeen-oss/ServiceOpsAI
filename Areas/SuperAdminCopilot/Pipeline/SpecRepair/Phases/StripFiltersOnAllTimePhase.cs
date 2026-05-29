@@ -1,6 +1,7 @@
 namespace SuperAdminCopilot.Pipeline.SpecRepair.Phases;
 
 using System.Text.RegularExpressions;
+using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 
 /// <summary>
@@ -18,14 +19,19 @@ using SuperAdminCopilot.Models;
 /// </summary>
 internal sealed class StripFiltersOnAllTimePhase : ISpecRepairPhase
 {
+    private readonly ILinguisticCuesProvider _cues;
+
+    public StripFiltersOnAllTimePhase(ILinguisticCuesProvider cues)
+    {
+        _cues = cues;
+    }
+
     public string Name => "StripFiltersOnAllTime";
     public string Covers => "'ever' / 'all time' / 'in history' → strip date filter on root date column + status narrowing";
 
-    private static readonly Regex AllTimeCueEn = new(
-        @"\b(?:ever|of\s+all\s+time|all\s+time|in\s+history|since\s+the\s+beginning|since\s+inception|since\s+ever|at\s+any\s+time)\b",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex AllTimeCueAr = new(@"على\s+الإطلاق|في\s+التاريخ|منذ\s+البداية|في\s+أي\s+وقت", RegexOptions.Compiled);
+    // Tier window override: weak-model crutch.
+    // All-time cues come from linguistic-cues.json `allTime` block per locale.
+    public PlannerCapabilityTier MaxTierToRun => PlannerCapabilityTier.Weak;
 
     public void Apply(QuerySpec spec, SpecRepairContext ctx)
     {
@@ -36,7 +42,7 @@ internal sealed class StripFiltersOnAllTimePhase : ISpecRepairPhase
         var dashIdx = q.IndexOf("\n--", System.StringComparison.Ordinal);
         if (dashIdx >= 0) q = q.Substring(0, dashIdx);
 
-        if (!AllTimeCueEn.IsMatch(q) && !AllTimeCueAr.IsMatch(q)) return;
+        if (!QuestionHasAllTimeCue(q, _cues)) return;
 
         var dateCol = ctx.SemanticLayer.GetDateColumn(spec.Root, role: null);
         var dateColQualified = string.IsNullOrEmpty(dateCol) ? null : $"{spec.Root}.{dateCol}";
@@ -55,6 +61,17 @@ internal sealed class StripFiltersOnAllTimePhase : ISpecRepairPhase
         });
         if (removed > 0)
             ctx.Diagnostics.Add(new(Name, $"stripped {removed} filter(s) — 'all-time' cue in question (date column and/or status narrowing removed)"));
+    }
+
+    private static bool QuestionHasAllTimeCue(string question, ILinguisticCuesProvider cues)
+    {
+        if (string.IsNullOrWhiteSpace(question) || cues?.Compiled?.Locales is null) return false;
+        foreach (var (_, locale) in cues.Compiled.Locales)
+        {
+            if (locale?.AllTimeRegex is null) continue;
+            if (locale.AllTimeRegex.IsMatch(question)) return true;
+        }
+        return false;
     }
 
     private static (string table, string column) SplitQualified(string qualified)

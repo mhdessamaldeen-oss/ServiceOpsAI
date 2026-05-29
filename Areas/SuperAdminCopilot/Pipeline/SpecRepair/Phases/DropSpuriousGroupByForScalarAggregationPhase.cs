@@ -41,6 +41,14 @@ internal sealed class DropSpuriousGroupByForScalarAggregationPhase : ISpecRepair
         if (bare.EndsWith("Id", System.StringComparison.OrdinalIgnoreCase)) return true;
         if (bare.EndsWith("Number", System.StringComparison.OrdinalIgnoreCase)) return true;
         if (bare.EndsWith("Code", System.StringComparison.OrdinalIgnoreCase)) return true;
+        // Reference / Ref — natural-key suffix used by PaymentReference, CallReference,
+        // OutageRef, etc. Each row is unique by reference, so grouping by it is degenerate.
+        if (bare.EndsWith("Reference", System.StringComparison.OrdinalIgnoreCase)) return true;
+        if (bare.EndsWith("Ref", System.StringComparison.OrdinalIgnoreCase)) return true;
+        // GUID / UUID / Key — additional natural-key shapes.
+        if (bare.EndsWith("Guid", System.StringComparison.OrdinalIgnoreCase)) return true;
+        if (bare.EndsWith("Uuid", System.StringComparison.OrdinalIgnoreCase)) return true;
+        if (bare.EndsWith("Key", System.StringComparison.OrdinalIgnoreCase)) return true;
         return false;
     }
 }

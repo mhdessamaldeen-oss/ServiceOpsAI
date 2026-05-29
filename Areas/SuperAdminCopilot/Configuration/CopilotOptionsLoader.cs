@@ -88,5 +88,22 @@ internal static class CopilotOptionsLoader
         if (double.TryParse(pq, System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out var pqVal))
             options.PastQuestionRagMinSimilarity = pqVal;
+
+        // Planner capability tier overlay. Profile presets advertise the model strength
+        // the operator is running ("Weak" for local 7B, "Medium" for local 32B, "Strong"
+        // for cloud Claude / GPT-4o). SpecRepair phases use this to auto-skip the
+        // language-pattern crutches once the planner is strong enough to handle the
+        // intent natively. A typo here silently leaves Weak in effect on a cloud profile —
+        // exactly the bug that's expensive to catch in benchmarks. Fail-fast instead.
+        var tier = profileSection["PlannerCapabilityTier"];
+        if (!string.IsNullOrWhiteSpace(tier))
+        {
+            if (System.Enum.TryParse<PlannerCapabilityTier>(tier, ignoreCase: true, out var tierVal))
+                options.PlannerCapabilityTier = tierVal;
+            else
+                throw new InvalidDataException(
+                    $"Profile '{profileName}' has invalid PlannerCapabilityTier '{tier}'. " +
+                    $"Valid values: {string.Join(", ", System.Enum.GetNames<PlannerCapabilityTier>())}.");
+        }
     }
 }
