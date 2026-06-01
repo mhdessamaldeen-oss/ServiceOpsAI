@@ -87,7 +87,7 @@ internal sealed class PastQuestionStore : IPastQuestionStore
             // Vectors from different embedders aren't comparable. Skip cross-model matches.
             if (!string.Equals(entry.ModelName, modelName, StringComparison.OrdinalIgnoreCase)) continue;
 
-            var sim = Cosine(queryVec, entry.Vector);
+            var sim = VectorMath.Cosine(queryVec, entry.Vector);
             if (sim < minSimilarity) continue;
 
             // Don't echo the user's own re-asked question back at them as an example.
@@ -99,12 +99,21 @@ internal sealed class PastQuestionStore : IPastQuestionStore
         // Dedupe by (Question, GeneratedScript): the corpus often contains retries of the same
         // case, which surfaced as e.g. "Earliest ticket created date" appearing twice in the
         // hits list. Keep the highest-similarity copy of each (question, sql) pair.
-        return matches
+        var result = matches
             .GroupBy(m => (m.Question, m.GeneratedScript), new QuestionScriptComparer())
             .Select(g => g.OrderByDescending(m => m.Similarity).First())
             .OrderByDescending(m => m.Similarity)
             .Take(topK)
             .ToList();
+
+        // Hit-rate telemetry — tagged [copilot.rag_lookup] for log-based aggregation. Operators
+        // can answer "what % of questions return at least one past-question RAG hit?" without
+        // any code change. Pair with the verified-query log line in VerifiedQueryStore.
+        _logger.LogInformation("[copilot.rag_lookup] source=past_question outcome={Outcome} hits={Hits} topScore={Score:F2}",
+            result.Count == 0 ? "miss" : "hit",
+            result.Count,
+            result.Count == 0 ? 0f : result[0].Similarity);
+        return result;
     }
 
     private sealed class QuestionScriptComparer : IEqualityComparer<(string Question, string GeneratedScript)>
@@ -191,20 +200,6 @@ internal sealed class PastQuestionStore : IPastQuestionStore
         _cache.Set(CacheKey, (IReadOnlyList<CorpusEntry>)corpus, CacheTtl);
         _logger.LogInformation("[PastQuestionStore] Cached {Count} past questions for RAG (TTL {Ttl}m).", corpus.Count, CacheTtl.TotalMinutes);
         return corpus;
-    }
-
-    private static float Cosine(float[] a, float[] b)
-    {
-        if (a.Length != b.Length || a.Length == 0) return 0;
-        float dot = 0, magA = 0, magB = 0;
-        for (int i = 0; i < a.Length; i++)
-        {
-            dot += a[i] * b[i];
-            magA += a[i] * a[i];
-            magB += b[i] * b[i];
-        }
-        if (magA == 0 || magB == 0) return 0;
-        return dot / ((float)Math.Sqrt(magA) * (float)Math.Sqrt(magB));
     }
 
     private sealed record CorpusEntry(string Question, string GeneratedScript, float[] Vector, string ModelName);

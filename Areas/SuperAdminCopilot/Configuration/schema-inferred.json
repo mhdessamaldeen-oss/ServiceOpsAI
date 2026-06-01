@@ -1,7 +1,7 @@
 {
   "Version": "2.0",
-  "GeneratedAt": "2026-05-28T13:40:03.5563169+00:00",
-  "SchemaHash": "B563C128D9E0008096099E07A06F4794A80F0768958BB664475B60F8D5AB23EF",
+  "GeneratedAt": "2026-05-29T22:32:10.3683746+00:00",
+  "SchemaHash": "312A320B110409A55E365DBE5FE77C1972741DD2726951AF1792B780CD7293CD",
   "Tables": [
     {
       "Name": "__EFMigrationsHistory",
@@ -2042,6 +2042,15 @@
           "IsPii": false,
           "Synonyms": [
             "total prompt tokens"
+          ]
+        },
+        {
+          "Name": "StepModelsJson",
+          "Type": "nvarchar(max)",
+          "Nullable": true,
+          "IsPii": false,
+          "Synonyms": [
+            "step models json"
           ]
         }
       ],

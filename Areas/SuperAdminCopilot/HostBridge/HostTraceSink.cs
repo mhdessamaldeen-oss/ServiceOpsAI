@@ -301,37 +301,45 @@ internal sealed class HostTraceSink : ITraceSink
                 stepModelsJson = System.Text.Json.JsonSerializer.Serialize(stepModels);
             }
 
-            // FIRE AND FORGET — enqueue the write; do NOT await DB I/O on the response path.
-            // The hosted TraceWriteHostedService drains the queue in its own DI scope, runs
-            // CopilotTraceHistoryStore.SaveAsync, and chains the embedding write after.
-            // Pipeline returns now → user sees the answer immediately.
-            var enqueued = _writeQueue.TryEnqueue(new TraceWriteRequest
+            // Persist the trace row SYNCHRONOUSLY so the caller gets the auto-assigned Id back —
+            // the chat UI uses this id to wire the "Open Investigation" button on the result
+            // bubble (Copilot.cshtml line 1244 reads m.id from the response; null id ⇒ button
+            // suppressed, the user-visible regression we fixed here). DB write is ~10-50ms,
+            // negligible vs the 1-5s LLM call that produced the answer.
+            //
+            // The EMBEDDING work (question vector + model name) stays async — that's the part
+            // worth the 50-200ms ollama round-trip the original "fire and forget" was avoiding.
+            int? traceId = null;
+            try
             {
-                Response = response,
-                ElapsedMs = elapsedMs,
-                SessionId = sessionId,
-                CaseCode = caseCode,
-                PipelineTraceId = null,
-                GeneratedScript = sql,
-                ErrorMessage = error,
-                SourceSuite = suiteTag,
-                ExpectedScript = expectedSql,
-                LlmCallCount = llmCallCount,
-                TotalPromptTokens = totalPromptTokens,
-                TotalCompletionTokens = totalCompletionTokens,
-                EstimatedCostUsd = estimatedCostUsd,
-                StepModelsJson = stepModelsJson,
-                ShouldEmbedQuestion = string.IsNullOrEmpty(error) && !string.IsNullOrEmpty(sql),
-                QuestionForEmbedding = question,
-            });
-            if (!enqueued)
-                _logger.LogWarning("[SuperAdminCopilot] Trace write queue refused enqueue (channel completed?).");
-            // We no longer return the assigned trace ID — the row hasn't been written yet.
-            // Callers that need to deep-link should switch to PipelineTraceId-based lookup
-            // (indexed for that purpose). Returning null preserves the signature; the UI
-            // path that read this value either (a) tolerated null already or (b) needs a
-            // separate hop via PipelineTraceId in a future refactor.
-            return null;
+                traceId = await _store.SaveAsync(
+                    response, elapsedMs,
+                    sessionId: sessionId,
+                    caseCode: caseCode,
+                    pipelineTraceId: null,
+                    generatedScript: sql,
+                    errorMessage: error,
+                    sourceSuite: suiteTag,
+                    expectedScript: expectedSql,
+                    llmCallCount: llmCallCount,
+                    totalPromptTokens: totalPromptTokens,
+                    totalCompletionTokens: totalCompletionTokens,
+                    estimatedCostUsd: estimatedCostUsd,
+                    stepModelsJson: stepModelsJson,
+                    cancellationToken: cancellationToken);
+            }
+            catch (Exception saveEx)
+            {
+                _logger.LogWarning(saveEx, "[SuperAdminCopilot] Trace row save failed; question still answered.");
+            }
+
+            // Fire-and-forget the embedding write so the user-visible response isn't blocked
+            // on ollama. The trace row already exists; the embedding column gets backfilled.
+            if (traceId is int id && string.IsNullOrEmpty(error) && !string.IsNullOrEmpty(sql))
+            {
+                _ = Task.Run(() => TryEmbedAndPersistAsync(id, question, CancellationToken.None));
+            }
+            return traceId;
         }
         catch (Exception ex)
         {

@@ -61,6 +61,25 @@
         catch { return (null, null, null, null, null); }
     };
 
+    // Lightweight language sniffer — same logic as the Run-trace row partial — so the
+    // compiler's SQL / the spec-extractor's JSON get Prism token colors instead of a flat
+    // dump. Returns a Prism language slug or null for prose (left un-highlighted).
+    Func<string?, string?> guessLang = raw =>
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var t = raw!.TrimStart();
+        if (t.StartsWith("{") || t.StartsWith("["))
+        {
+            try { using var _ = System.Text.Json.JsonDocument.Parse(raw); return "json"; }
+            catch { /* fall through */ }
+        }
+        var head = (t.Length > 400 ? t.Substring(0, 400) : t).ToUpperInvariant();
+        if ((head.Contains("SELECT ") || head.StartsWith("WITH ") || head.Contains("SELECT\n"))
+            && (head.Contains(" FROM ") || head.Contains("\nFROM ")))
+            return "sql";
+        return null;
+    };
+
     // Truncating <pre> with a "show full" toggle. Keeps the panel scannable when an LLM
     // prompt is 5KB+ of system instructions. Decision locked in the plan: cap at 2 KB.
     const int BlobTruncateChars = 2048;
@@ -68,9 +87,17 @@
     {
         if (string.IsNullOrEmpty(raw)) return string.Empty;
         var encoded = System.Net.WebUtility.HtmlEncode(raw);
+        var lang = guessLang(raw);
+        var preCls = lang is null ? "wfdetail-blob-pre" : $"wfdetail-blob-pre runtrace-code language-{lang}";
+        var codeOpen = lang is null ? "" : $"<code class='language-{lang}'>";
+        var codeClose = lang is null ? "" : "</code>";
         var sb = new System.Text.StringBuilder();
         sb.Append($@"<div class='wfdetail-blob' data-truncated='{(raw.Length > BlobTruncateChars ? "true" : "false")}'>");
-        sb.Append($@"<pre class='wfdetail-blob-pre'>{encoded}</pre>");
+        if (lang is not null)
+        {
+            sb.Append($@"<span class='runtrace-code-lang'>{lang}</span>");
+        }
+        sb.Append($@"<pre class='{preCls}'>{codeOpen}{encoded}{codeClose}</pre>");
         if (raw.Length > BlobTruncateChars)
         {
             sb.Append($@"<button type='button' class='wfdetail-blob-toggle' onclick=""(function(b){{var p=b.parentElement;var on=p.getAttribute('data-truncated')==='true';p.setAttribute('data-truncated',on?'false':'true');b.textContent=on?'Show less':'Show full ({raw.Length:N0} chars)';}})(this)"">Show full ({raw.Length:N0} chars)</button>");
@@ -160,6 +187,12 @@
     //      horizontal width for its details (sub-steps, prompts, SQL, verdict) instead
     //      of being squeezed into a 20%-wide branch column.
     var detailPool = new Dictionary<string, string>();   // stepId → detail HTML
+    // stepId → the step itself, so the detail-pool template can render the shared
+    // recursive _InvestigationStepMeta partial for the full metadata tree (LlmCalls,
+    // Decisions, PhaseDiagnostics, Where-&-when, recursive sub-steps) instead of the
+    // hand-built string sections this Func used to emit. The detail string carries a
+    // "<!--WFMETA-->" marker where that partial's output is spliced in at render time.
+    var poolSteps = new Dictionary<string, CopilotExecutionStep>();
 
     Func<CopilotExecutionStep, int, string> renderStep = (step, stepNum) =>
     {
@@ -258,169 +291,13 @@
                 </div>");
         }
 
-        // LLM-call breakdown (only for LLM stages).
-        if (isLlm)
-        {
-            det.Append($@"
-                <div class='wfdetail-section'>
-                    <div class='wfdetail-section-label'><i class='bi bi-cpu'></i> LLM call</div>
-                    <div class='wfdetail-llm-grid'>
-                        <div><span class='wfdetail-k'>Model</span><span class='wfdetail-v'>{System.Net.WebUtility.HtmlEncode(step.LlmModelUsed ?? "—")}</span></div>
-                        <div><span class='wfdetail-k'>Prompt</span><span class='wfdetail-v'>{(step.PromptTokens ?? 0):N0} tok</span></div>
-                        <div><span class='wfdetail-k'>Completion</span><span class='wfdetail-v'>{(step.CompletionTokens ?? 0):N0} tok</span></div>
-                        <div><span class='wfdetail-k'>Total tokens</span><span class='wfdetail-v'>{tokensSum:N0}</span></div>
-                        <div><span class='wfdetail-k'>Cost</span><span class='wfdetail-v'>{(step.EstimatedCostUsd.HasValue ? (step.EstimatedCostUsd.Value == 0 ? "free" : (step.EstimatedCostUsd.Value >= 0.01m ? $"${step.EstimatedCostUsd.Value:F4}" : $"${step.EstimatedCostUsd.Value:F6}")) : "—")}</span></div>
-                        <div><span class='wfdetail-k'>Elapsed</span><span class='wfdetail-v'>{formatMs(step.ElapsedMs)}</span></div>
-                    </div>
-                </div>");
-        }
-
-        // Structured payload (input / output / reason / details). When the orchestrator wrote
-        // a StepPayload v1 into TechnicalData, render labeled sections instead of one opaque
-        // pre-box. Legacy traces (plain-text TechnicalData) return null from parsePayload and
-        // simply don't render the technical sections — per the approved plan.
-        var payload = parsePayload(step.TechnicalData);
-        if (payload.Kind is not null)
-        {
-            if (!string.IsNullOrEmpty(payload.Reason))
-            {
-                det.Append($@"
-                    <div class='wfdetail-section'>
-                        <div class='wfdetail-section-label'><i class='bi bi-signpost-split'></i> Decision rationale</div>
-                        <div class='wfdetail-desc'>{System.Net.WebUtility.HtmlEncode(payload.Reason)}</div>
-                    </div>");
-            }
-            if (!string.IsNullOrEmpty(payload.Input))
-            {
-                det.Append($@"
-                    <div class='wfdetail-section'>
-                        <div class='wfdetail-section-label'><i class='bi bi-box-arrow-in-right'></i> Input</div>
-                        {renderBlob("Input", payload.Input!)}
-                    </div>");
-            }
-            if (!string.IsNullOrEmpty(payload.Output))
-            {
-                det.Append($@"
-                    <div class='wfdetail-section'>
-                        <div class='wfdetail-section-label'><i class='bi bi-box-arrow-right'></i> Output</div>
-                        {renderBlob("Output", payload.Output!)}
-                    </div>");
-            }
-            if (!string.IsNullOrEmpty(payload.DetailsJson))
-            {
-                det.Append($@"
-                    <div class='wfdetail-section'>
-                        <div class='wfdetail-section-label'><i class='bi bi-braces'></i> Details</div>
-                        {renderBlob("Details", payload.DetailsJson!)}
-                    </div>");
-            }
-        }
-
-        // Sub-steps (nested events recorded inside this stage). For an LLM-call sub-step
-        // (e.g. "LLM call (Explainer)") surface the same structured payload — model + tokens
-        // + cost + Input/Output/Reason/Details — as the parent step. The old layout dumped
-        // sub.TechnicalData as raw JSON, which hid the prompt/response from the user.
-        if (step.SubSteps is { Count: > 0 })
-        {
-            det.Append($@"
-                <div class='wfdetail-section'>
-                    <div class='wfdetail-section-label'><i class='bi bi-diagram-2'></i> Sub-steps ({step.SubSteps.Count})</div>
-                    <ol class='wfdetail-substeps'>");
-            foreach (var sub in step.SubSteps)
-            {
-                var subOk = sub.Status == CopilotStepStatus.Ok;
-                var subTokens = (sub.PromptTokens ?? 0) + (sub.CompletionTokens ?? 0);
-                var subIsLlm = subTokens > 0 || !string.IsNullOrEmpty(sub.LlmModelUsed);
-                det.Append($@"<li class='wfdetail-substep {(subOk ? "ok" : "err")}'>
-                    <div class='wfdetail-substep-row'>
-                        <i class='bi {(subOk ? "bi-check-circle text-success" : "bi-x-circle text-danger")}'></i>
-                        <span class='wfdetail-substep-name'>{System.Net.WebUtility.HtmlEncode(sub.Action)}</span>");
-                if (!string.IsNullOrWhiteSpace(sub.Detail))
-                {
-                    det.Append($@"<span class='wfdetail-substep-detail'>— {System.Net.WebUtility.HtmlEncode(sub.Detail)}</span>");
-                }
-                if (!string.IsNullOrEmpty(sub.LlmModelUsed))
-                {
-                    det.Append($@"<span class='wfdetail-chip small' title='model used'><i class='bi bi-box'></i> {System.Net.WebUtility.HtmlEncode(sub.LlmModelUsed)}</span>");
-                }
-                if (subTokens > 0)
-                {
-                    det.Append($@"<span class='wfdetail-chip tokens small'><i class='bi bi-hash'></i> {subTokens:N0} tok</span>");
-                }
-                if (sub.EstimatedCostUsd.HasValue)
-                {
-                    var sc = sub.EstimatedCostUsd.Value;
-                    var scStr = sc == 0 ? "free" : (sc >= 0.01m ? $"${sc:F4}" : $"${sc:F6}");
-                    det.Append($@"<span class='wfdetail-chip cost small {(sc == 0 ? "free" : "")}'><i class='bi bi-currency-dollar'></i> {scStr}</span>");
-                }
-                det.Append($@"<span class='wfdetail-substep-time'>{formatMs(sub.ElapsedMs)}</span>
-                    </div>");
-
-                // LLM-call grid (model + tokens + cost + elapsed) when the sub-step is an LLM call.
-                if (subIsLlm)
-                {
-                    var subCostStr = sub.EstimatedCostUsd.HasValue
-                        ? (sub.EstimatedCostUsd.Value == 0
-                            ? "free"
-                            : (sub.EstimatedCostUsd.Value >= 0.01m ? $"${sub.EstimatedCostUsd.Value:F4}" : $"${sub.EstimatedCostUsd.Value:F6}"))
-                        : "—";
-                    det.Append($@"
-                        <div class='wfdetail-llm-grid wfdetail-substep-llm'>
-                            <div><span class='wfdetail-k'>Model</span><span class='wfdetail-v'>{System.Net.WebUtility.HtmlEncode(sub.LlmModelUsed ?? "—")}</span></div>
-                            <div><span class='wfdetail-k'>Prompt</span><span class='wfdetail-v'>{(sub.PromptTokens ?? 0):N0} tok</span></div>
-                            <div><span class='wfdetail-k'>Completion</span><span class='wfdetail-v'>{(sub.CompletionTokens ?? 0):N0} tok</span></div>
-                            <div><span class='wfdetail-k'>Total tokens</span><span class='wfdetail-v'>{subTokens:N0}</span></div>
-                            <div><span class='wfdetail-k'>Cost</span><span class='wfdetail-v'>{subCostStr}</span></div>
-                            <div><span class='wfdetail-k'>Elapsed</span><span class='wfdetail-v'>{formatMs(sub.ElapsedMs)}</span></div>
-                        </div>");
-                }
-
-                // Structured payload sections — same as the parent step. Legacy / non-v1
-                // payloads fall through to the raw pre-block so older traces aren't blanked.
-                var subPayload = parsePayload(sub.TechnicalData);
-                if (subPayload.Kind is not null)
-                {
-                    if (!string.IsNullOrEmpty(subPayload.Reason))
-                    {
-                        det.Append($@"
-                            <div class='wfdetail-section wfdetail-substep-section'>
-                                <div class='wfdetail-section-label'><i class='bi bi-signpost-split'></i> Decision rationale</div>
-                                <div class='wfdetail-desc'>{System.Net.WebUtility.HtmlEncode(subPayload.Reason)}</div>
-                            </div>");
-                    }
-                    if (!string.IsNullOrEmpty(subPayload.Input))
-                    {
-                        det.Append($@"
-                            <div class='wfdetail-section wfdetail-substep-section'>
-                                <div class='wfdetail-section-label'><i class='bi bi-box-arrow-in-right'></i> Input</div>
-                                {renderBlob("Input", subPayload.Input!)}
-                            </div>");
-                    }
-                    if (!string.IsNullOrEmpty(subPayload.Output))
-                    {
-                        det.Append($@"
-                            <div class='wfdetail-section wfdetail-substep-section'>
-                                <div class='wfdetail-section-label'><i class='bi bi-box-arrow-right'></i> Output</div>
-                                {renderBlob("Output", subPayload.Output!)}
-                            </div>");
-                    }
-                    if (!string.IsNullOrEmpty(subPayload.DetailsJson))
-                    {
-                        det.Append($@"
-                            <div class='wfdetail-section wfdetail-substep-section'>
-                                <div class='wfdetail-section-label'><i class='bi bi-braces'></i> Details</div>
-                                {renderBlob("Details", subPayload.DetailsJson!)}
-                            </div>");
-                    }
-                }
-                else if (!string.IsNullOrWhiteSpace(sub.TechnicalData))
-                {
-                    det.Append($@"<pre class='wfdetail-tech wfdetail-tech-sub'>{System.Net.WebUtility.HtmlEncode(sub.TechnicalData)}</pre>");
-                }
-                det.Append("</li>");
-            }
-            det.Append("</ol></div>");
-        }
+        // Full metadata tree (Where & when, LLM-call grid, structured payload, per-call
+        // LLM cards, auto-fix phases, routing decisions, and recursive sub-steps) is
+        // rendered by the shared _InvestigationStepMeta partial. We can't call a partial
+        // from inside this string-building Func, so we drop a marker here and splice the
+        // partial's server-rendered output in at the detail-pool <template> below. This
+        // is what brings the Workflow tab to exact parity with the Run trace tab.
+        det.Append("<!--WFMETA-->");
 
         // Verdict (one-line takeaway).
         det.Append($@"
@@ -430,6 +307,7 @@
             </div>");
 
         detailPool[rowId] = det.ToString();
+        poolSteps[rowId] = step;   // lets the <template> splice in the shared meta partial
         return row.ToString();
     };
 
@@ -560,18 +438,33 @@
 
 <div class="investigation-workflow">
 
-    @* ── How-to-read banner — single compact line. Three tiny chips on one row
-         so the legend is always visible but takes minimal vertical space. *@
-    <div class="workflow-howto">
-        <span class="workflow-howto-item">
-            <span class="workflow-step-num workflow-howto-num">1</span> execution order
-        </span>
-        <span class="workflow-howto-item">
-            <span class="workflow-howto-swatch active"></span> ran
-        </span>
-        <span class="workflow-howto-item">
-            <span class="workflow-howto-swatch inactive"></span> didn't run
-        </span>
+    @* ── How-to-read banner + zoom controls. Banner left, zoom right.
+         Zoom buttons apply CSS zoom to .workflow-rail only — the legend and
+         step-detail panel below stay at normal size so they remain readable
+         while the user shrinks the rail to see the whole pipeline at once. *@
+    <div class="workflow-meta-bar">
+        <div class="workflow-howto">
+            <span class="workflow-howto-item">
+                <span class="workflow-step-num workflow-howto-num">1</span> execution order
+            </span>
+            <span class="workflow-howto-item">
+                <span class="workflow-howto-swatch active"></span> ran
+            </span>
+            <span class="workflow-howto-item">
+                <span class="workflow-howto-swatch inactive"></span> didn't run
+            </span>
+        </div>
+        <div class="workflow-zoom-toolbar" role="group" aria-label="Workflow zoom">
+            <button type="button" class="workflow-zoom-btn" data-zoom="out" title="Zoom out" aria-label="Zoom out">
+                <i class="bi bi-dash-lg"></i>
+            </button>
+            <button type="button" class="workflow-zoom-btn workflow-zoom-reset" data-zoom="reset" title="Reset zoom (100%)" aria-label="Reset zoom">
+                <span class="workflow-zoom-level">100%</span>
+            </button>
+            <button type="button" class="workflow-zoom-btn" data-zoom="in" title="Zoom in" aria-label="Zoom in">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        </div>
     </div>
 
     @* ── Top rail: Question → Operational Guard → Write-Intent Guard → Router → Decomposer
@@ -935,7 +828,23 @@
     <div class="wfdetail-pool" hidden>
         @foreach (var kv in detailPool)
         {
-            <template id="wfdetail-tpl-@kv.Key">@Html.Raw(kv.Value)</template>
+            @* Splice the shared metadata partial in at the "<!--WFMETA-->" marker so each
+               step's detail carries the full recursive metadata tree. Entries without a
+               marker (router decision, skipped-stage nodes) render their string as-is. *@
+            var parts = kv.Value.Split("<!--WFMETA-->", 2, StringSplitOptions.None);
+            <template id="wfdetail-tpl-@kv.Key">
+                @Html.Raw(parts[0])
+                @if (parts.Length > 1 && poolSteps.TryGetValue(kv.Key, out var poolStep))
+                {
+                    <div class="wfdetail-meta">
+                        <partial name="_InvestigationStepMeta" model="poolStep" />
+                    </div>
+                }
+                @if (parts.Length > 1)
+                {
+                    @Html.Raw(parts[1])
+                }
+            </template>
         }
     </div>
 </div>
@@ -962,8 +871,56 @@
         body.hidden = false;
         panel.removeAttribute('data-empty');
 
+        // Re-run Prism over the just-injected detail. The page's initial highlightAll()
+        // ran before this click, and the detail HTML lived inert inside a <template>, so
+        // its SQL / JSON code blocks aren't tokenised yet. Highlight just this subtree.
+        if (window.Prism && Prism.highlightAllUnder) {
+            try { Prism.highlightAllUnder(body); } catch (e) { /* non-fatal */ }
+        }
+
         // Smooth scroll the panel into view so the user actually sees the change.
         // Anchor at the top so the header + chips are visible above the fold.
         panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
+
+    // ── Workflow rail zoom ────────────────────────────────────────────────────
+    // Three-button toolbar (− / level / +) applies CSS zoom to .workflow-rail
+    // so the user can fit the full pipeline on screen at one glance. CSS `zoom`
+    // (not transform:scale) is intentional — zoom resizes the layout box too,
+    // so the rail's overflow-x scrollbar and horizontal centring keep working
+    // as expected. State is persisted in localStorage per browser.
+    (function () {
+        var rail = document.querySelector('.workflow-rail');
+        var levelEl = document.querySelector('.workflow-zoom-level');
+        var buttons = document.querySelectorAll('.workflow-zoom-btn');
+        if (!rail || !levelEl || !buttons.length) return;
+
+        var STORAGE_KEY = 'sf-workflow-zoom';
+        var MIN = 0.5, MAX = 1.5, STEP = 0.1;
+        var current = 1;
+
+        try {
+            var stored = parseFloat(localStorage.getItem(STORAGE_KEY));
+            if (!isNaN(stored) && stored >= MIN && stored <= MAX) current = stored;
+        } catch (e) { /* localStorage may be unavailable */ }
+
+        function apply() {
+            current = Math.round(current * 10) / 10; // avoid 0.7999999... drift
+            rail.style.zoom = current;
+            levelEl.textContent = Math.round(current * 100) + '%';
+            try { localStorage.setItem(STORAGE_KEY, String(current)); } catch (e) { }
+        }
+
+        apply();
+
+        buttons.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var action = btn.getAttribute('data-zoom');
+                if (action === 'in')        current = Math.min(MAX, current + STEP);
+                else if (action === 'out')  current = Math.max(MIN, current - STEP);
+                else if (action === 'reset') current = 1;
+                apply();
+            });
+        });
+    })();
 </script>

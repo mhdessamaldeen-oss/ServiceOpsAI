@@ -79,7 +79,14 @@ public sealed record CopilotResponse(
     // names a column/filter that didn't make it into the SQL (e.g. unknown column, rejected
     // placeholder value). UI should render these inline so the user knows the answer didn't
     // fully honor their question. Null/empty = clean compilation.
-    IReadOnlyList<Abstractions.CopilotWarning>? Warnings = null);
+    IReadOnlyList<Abstractions.CopilotWarning>? Warnings = null,
+    // End-to-end pipeline elapsed time, measured by the orchestrator's totalSw and stamped
+    // in PersistAsync. Null until set; the host bridge surfaces this on the live chat
+    // ExecutionDetails so the in-message latency pill (Copilot.cshtml:1223 "headerElapsedRaw")
+    // renders for the just-answered turn — not just for history loaded via HostTraceSink.
+    // Same value persisted to CopilotTraceHistories.TotalElapsedMs — single measurement,
+    // single source of truth.
+    long? TotalElapsedMs = null);
 
 /// <summary>
 /// One stage of the orchestrator pipeline (Preflight, Retriever, Planner, Compiler, Validator,
@@ -220,6 +227,51 @@ public sealed class QuerySpec
     /// of running SQL. Empty string when the planner doesn't need to clarify.
     /// </summary>
     public string ClarificationQuestion { get; set; } = "";
+
+    /// <summary>
+    /// Deterministic 16-hex-char SHA-256 fingerprint of every structurally-relevant field. Used
+    /// by the repair bus's <c>DiagnosisRecord</c> to mark before/after states across runs so
+    /// trace analysers can see which rules actually changed the spec. Ported from the v3
+    /// immutable spec as part of the 2026-06-01 single-spec collapse.
+    /// </summary>
+    public string StructuralHash()
+    {
+        var sb = new System.Text.StringBuilder(512);
+        sb.Append("R=").Append(Root).Append('|');
+        sb.Append("I=").Append(Intent).Append('|');
+        sb.Append("S=");
+        foreach (var s in Select) sb.Append(s).Append(',');
+        sb.Append('|').Append("F=");
+        foreach (var f in Filters) sb.Append(f.Column).Append('/').Append(f.Op).Append('/').Append(f.Value).Append(',');
+        sb.Append('|').Append("A=");
+        foreach (var a in Aggregations) sb.Append(a.Function).Append('(').Append(a.Column)
+                                          .Append(',').Append(a.Distinct).Append("),");
+        sb.Append('|').Append("G=");
+        foreach (var g in GroupBy) sb.Append(g).Append(',');
+        sb.Append('|').Append("H=");
+        foreach (var h in Having) sb.Append(h.Function).Append('(').Append(h.Column).Append(')')
+                                    .Append(h.Op).Append(h.Value).Append(',');
+        sb.Append('|').Append("O=");
+        foreach (var o in OrderBy) sb.Append(o.Column).Append(' ').Append(o.Direction).Append(',');
+        sb.Append('|').Append("J=");
+        foreach (var j in Joins) sb.Append(j.Table).Append('(').Append(j.Kind).Append('/').Append(j.Alias).Append("),");
+        sb.Append('|').Append("C=");
+        foreach (var c in Computed) sb.Append(c.Alias).Append('=').Append(c.Expression).Append(',');
+        sb.Append('|').Append("P=");
+        foreach (var p in PeriodComparisons) sb.Append(p.Label).Append(':').Append(p.Filters.Count).Append(',');
+        sb.Append('|').Append("L=").Append(Limit);
+        sb.Append('|').Append("X=").Append(Offset);
+        sb.Append('|').Append("D=").Append(Distinct);
+        sb.Append('|').Append("T=").Append(TimeIntent?.Kind);
+        sb.Append('|').Append("Q=").Append(ClarificationQuestion);
+
+        System.Span<byte> hash = stackalloc byte[32];
+        System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(sb.ToString()), hash);
+        var first8 = hash.Slice(0, 8);
+        var hex = new System.Text.StringBuilder(16);
+        for (var i = 0; i < first8.Length; i++) hex.Append(first8[i].ToString("x2"));
+        return hex.ToString();
+    }
 }
 
 /// <summary>
@@ -247,6 +299,11 @@ public sealed class JoinSpec
 {
     public string Table { get; set; } = "";
     public string Kind { get; set; } = "inner";
+    /// <summary>Optional alias. When non-empty AND distinct from <see cref="Table"/>, the
+    /// compiler emits the join with <c>AS [Alias]</c>. Required for self-joins (the same
+    /// table appears twice with different aliases). Empty default keeps existing behaviour
+    /// byte-identical for non-aliased joins.</summary>
+    public string Alias { get; set; } = "";
 }
 
 /// <summary>

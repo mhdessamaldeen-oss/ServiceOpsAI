@@ -94,6 +94,8 @@ internal sealed class LinguisticCuesProvider : ILinguisticCuesProvider
                 OrderingIntent = (IReadOnlyList<string>)(raw.OrderingIntent ?? new List<string>()),
                 CompareMarkersRegex = CompileAlternation(raw.CompareMarkers, wholeWord: true),
                 TextSearchTriggers  = CompileRegexList(raw.TextSearchTriggers),
+                KnowledgeQuestionRegex = CompileKnowledgeQuestionRegex(raw.KnowledgeQuestion?.Verbs),
+                AggregateMarkerRegex   = CompileAlternation(raw.AggregateMarkers, wholeWord: false),
             };
         }
         return new CompiledLinguisticCues
@@ -165,6 +167,31 @@ internal sealed class LinguisticCuesProvider : ILinguisticCuesProvider
     {
         foreach (var c in s) if (c > 127) return true;
         return false;
+    }
+
+    /// <summary>
+    /// Build a single anchored knowledge-question regex from a verb list. Pattern:
+    /// <c>^\s*(?:VERBS)\s+(?:(?:a|an|the)\s+)?(?&lt;term&gt;TOKEN(?:\s+TOKEN){0,2})[?؟.\s]*$</c>
+    /// where TOKEN is <c>[\p{L}_][\p{L}\p{Nd}_-]*</c> (Unicode-aware so Arabic and English both match).
+    /// Returns null when the verb list is empty.
+    /// </summary>
+    private static Regex? CompileKnowledgeQuestionRegex(List<string>? verbs)
+    {
+        if (verbs is null || verbs.Count == 0) return null;
+        var escapedVerbs = new List<string>(verbs.Count);
+        foreach (var v in verbs)
+        {
+            if (string.IsNullOrWhiteSpace(v)) continue;
+            // Each verb can be a phrase ("tell me about", "أخبرني عن") — escape literal, collapse runs of spaces.
+            var trimmed = Regex.Replace(v.Trim(), @"\s+", @"\s+");
+            escapedVerbs.Add(trimmed);
+        }
+        if (escapedVerbs.Count == 0) return null;
+        var verbAlt = string.Join("|", escapedVerbs);
+        const string token = @"[\p{L}_][\p{L}\p{Nd}_-]*";
+        var pattern = $@"^\s*(?:{verbAlt})\s+(?:(?:a|an|the)\s+)?(?<term>{token}(?:\s+{token}){{0,2}})[?؟.\s]*$";
+        try { return new Regex(pattern, DefaultOptions); }
+        catch (ArgumentException) { return null; }
     }
 
     /// <summary>Compile a list of full regex patterns to <see cref="Regex"/> objects, skipping malformed entries.</summary>

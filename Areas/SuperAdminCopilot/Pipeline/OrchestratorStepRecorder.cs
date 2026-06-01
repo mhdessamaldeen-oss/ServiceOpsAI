@@ -145,17 +145,23 @@ internal static class OrchestratorStepRecorder
             kind: StageNames.KindToolDispatch));
     }
 
-    // Step 14 escape valve — record the LLM-direct-SQL fallback. Fires only on the path
-    // where form-filling exhausted retries and the emitter produced a runnable SQL.
+    // Escape valve — record the raw-SQL emitter. Fires when form-filling can't express the
+    // question (window function / subquery comparison / recursive) — either because it exhausted
+    // retries OR because the CoverageChecker judged the form-filling answer incomplete and
+    // escalated (the 2026-06-01 coverage-gap retry). When this step runs, ITS SQL is the FINAL
+    // answer — the earlier Executor step's form-filling SQL is superseded.
     public static void RecordLlmDirectSql(this BroadcastingStepList steps, string question,
         string sql, long elapsedMs) =>
         steps.Add(Step(StageNames.StepLlmDirectSql, StageNames.StatusOk, elapsedMs,
-            "raw SQL emitted (form-filling exhausted)",
+            "✓ FINAL ANSWER — raw SQL (escape valve); supersedes the form-filling Executor above",
             technical: StepPayload.Of(StepPayloadKinds.LlmCall,
                 input: question,
                 output: sql,
-                reason: "Form-filling QuerySpec couldn't produce runnable SQL after retries. Asked the LLM to emit T-SQL directly. Output still passes the same Validator + read-only Executor guards.",
-                details: new { sql }),
+                reason: "Form-filling QuerySpec couldn't express this question (window function / " +
+                        "subquery comparison / recursive), so the LLM emitted T-SQL directly. THIS SQL " +
+                        "produced the final answer — the earlier Executor step's SQL was superseded. " +
+                        "Output still passes the same Validator + read-only Executor guards.",
+                details: new { sql, isFinalAnswer = true, supersedesFormFilling = true }),
             kind: StageNames.KindLlmCall));
 
     public static void RecordVerifiedQuery(this BroadcastingStepList steps, string question,
@@ -443,6 +449,21 @@ internal static class OrchestratorStepRecorder
                 output: gap.RawLlmOutput ?? $"MISSING: {gap.Missing}",
                 reason: "Post-Explainer verification flagged coverage gaps. The reply has been prefixed with a warning so the user sees the missing aspects explicitly. The pipeline doesn't retry — visibility is the win.",
                 details: new { missingAspects = gap.Missing }),
+            kind: StageNames.KindLlmCall));
+
+    /// <summary>Records that the coverage check could not RUN (verifier timeout / rate-limit /
+    /// provider error) — distinct from a real gap. The answer is escalated to the escape valve and,
+    /// failing that, presented flagged-as-unverified; it is NEVER shown as COMPLETE. Added 2026-06-02
+    /// with the CoverageChecker catch split (the silent unverified→COMPLETE fix).</summary>
+    public static void RecordCoverageCheckUnverified(this BroadcastingStepList steps, string question,
+        CoverageGap gap, long elapsedMs) =>
+        steps.Add(Step(StageNames.StepCoverageCheck, StageNames.StatusWarn, elapsedMs,
+            "UNVERIFIED — verifier unavailable",
+            technical: StepPayload.Of(StepPayloadKinds.LlmCall,
+                input: gap.Prompt ?? question,
+                output: gap.RawLlmOutput ?? "UNVERIFIED (verifier timed out or was unavailable)",
+                reason: "The coverage verifier could not run (per-call timeout, rate-limit, or provider error) while the request was still alive. Rather than silently treat the answer as COMPLETE, the pipeline escalates to the escape valve and, failing that, flags the answer as unverified. Fixes the silent unverified→COMPLETE bug.",
+                details: new { degraded = true }),
             kind: StageNames.KindLlmCall));
 
     /// <summary>Records that the coverage check was deliberately skipped (trivial-answer fast-path).</summary>

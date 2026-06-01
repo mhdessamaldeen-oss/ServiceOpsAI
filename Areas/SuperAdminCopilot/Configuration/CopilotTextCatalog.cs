@@ -10,6 +10,13 @@ namespace SuperAdminCopilot.Configuration;
 /// <see cref="Microsoft.Extensions.Options.IOptionsMonitor{TOptions}"/> and read
 /// <c>.CurrentValue</c> on every access so edits take effect without a process restart.</para>
 ///
+/// <para><b>Hot-reload contract — STRICT</b>: consumers MUST read <c>_textCatalog.CurrentValue</c>
+/// INLINE on every use. Storing it in a field or local at construction time CAPTURES the value
+/// at that moment and silently breaks hot-reload — the operator's edit will not take effect
+/// until the process restarts. If a consumer needs to share the snapshot across a single
+/// operation, read once at the operation boundary and pass the value down explicitly (don't
+/// cache in instance state).</para>
+///
 /// <para><b>Defaults</b>: every property has a sensible default value, so missing/empty JSON
 /// doesn't break the build. The JSON only needs to contain the entries an admin wants to
 /// override; everything else falls back to the in-code default.</para>
@@ -21,74 +28,6 @@ public sealed class CopilotTextCatalog
 {
     public const string SectionName = "SuperAdminCopilot:Text";
 
-    // Phase 3 Step 12 — Question Shape Classifier complex-analytics hints. When a question
-    // contains any of these phrases (case-insensitive), the orchestrator routes it straight
-    // to the LlmDirectSqlEmitter escape valve instead of trying form-filling first.
-    // Operators tune per deployment (industry-specific phrasing) by editing
-    // copilot-text.json. Defaults below are the universal set; operators can override OR
-    // append. Empty list = no classifier hints (deactivates the fast-route to escape valve).
-    // NO hardcoded fallback in code — this catalog field is the single source of truth.
-    public List<string> QuestionShapeComplexHints { get; set; } = new()
-    {
-        // ── Window functions (B-WIN: rank / running / lag) ──────────────────────────────
-        "running total", "running sum", "cumulative", "cumulative count", "cumulative sum",
-        "rank ", "ranked ", "ranking", "ranks ",
-        "percentile", "median", "p50", "p95", "p99",
-        "row_number", "over (",
-        "year over year", "month over month", "quarter over quarter",
-        "rolling average", "moving average",
-        "lag ", "lead ",
-        "compared to the previous", "vs previous", "change from previous", "change vs",
-
-        // ── Recursive CTEs (B-REC: parent chain / children / ancestor) ──────────────────
-        "recursive", "with cte",
-        "all child", "all children", "child tickets", "children of",
-        "parent chain", "parent of", "ancestor", "ancestors of",
-        "descendant", "descendants of",
-        "the hierarchy", "down to", "all the way up",
-
-        // ── Self-join (B-SELF: other X from same Y as Z) ────────────────────────────────
-        "other tickets from the same",
-        "other bills from the same",
-        "other customers in the same",
-        "same customer as",
-        "same region as",
-        "same department as",
-        "same service type as",
-
-        // ── EXISTS / NOT EXISTS (B-EX) ──────────────────────────────────────────────────
-        "have at least one",
-        "have at least",
-        "with at least one",
-        "who have any",
-        "where the customer also has",
-        "where the ticket also has",
-        "have ever had",
-        "ever filed",
-        "ever issued",
-        "never filed",
-        "never had",
-        "without any",                       // "customers without any bills" — anti-join shape
-
-        // ── UNION (B-UNION: everything across multiple tables) ──────────────────────────
-        "everything created today",
-        "everything from today",
-        "combined activity",
-        "all activity from",
-        "tickets and bills and outages",
-        "across tickets bills outages",
-
-        // ── HAVING multi-aggregate (B-HAV: regions with >5 tickets AND >3 outages) ──────
-        "with more than",                    // ambiguous — also fires for numeric range; benign overlap
-        "with at least",                     // same
-        "with fewer than",
-        "with less than",
-        " and more than ",                   // "regions with more than 5 tickets AND more than 3 outages"
-        " and at least ",
-        " and fewer than ",
-
-        // ── Median / percentile (already above, kept for stability) ─────────────────────
-    };
 
     // ── SpecExtractor prompt fragments ────────────────────────────────────
     // The planner's system prompt + the conditional hint/preamble/reminder blocks the
@@ -133,18 +72,39 @@ public sealed class CopilotTextCatalog
         "REFINEMENT MODE: the user is modifying their PREVIOUS QUERY. Start from the previous spec below and adjust ONLY what the new question changes (add/remove a filter, change limit, swap ordering, etc.). Keep the same root unless the user explicitly switches entity.\n" +
         "Previous spec: {0}";
 
+    /// <summary>Extra prompt guidance appended to the SpecExtractor system prompt. Empty by
+    /// default; populated via <c>copilot-text.json</c> so iteration-level prompt tweaks land
+    /// without a code change or restart (hot-reloads via <c>IOptionsMonitor</c>). Use this to
+    /// add new bullet-style rules for the planner LLM during quality-loop iterations.</summary>
+    public string SpecExtractorExtraGuidance { get; set; } = "";
+
+    /// <summary>Aggregation-shape guidance ★ bullets — instructs the LLM how to map natural-language
+    /// aggregation verbs onto QuerySpec shape. Kept here (data-driven) so admins can tune the
+    /// wording per deployment without recompiling. Migrated out of SpecExtractor.cs in Batch 5
+    /// of the spaghetti cleanup so all multi-locale vocab + LLM-teaching phrases live as data,
+    /// not code.</summary>
+    public string SpecExtractorAggregationGuidance { get; set; } =
+        "- ★ STRUCTURAL: \"single-row aggregate\" (COUNT/SUM/AVG/MIN/MAX of all rows, optionally filtered) → select MUST be []; aggregations[] MUST have the metric; groupBy MUST be []. Empty select is REQUIRED for a pure single-row aggregate. Adding a filter does NOT change this — keep select EMPTY even when filtering.\n" +
+        "- ★ \"how many X\" / \"count of X\" / \"number of X\" / \"total X\" → COUNT(*) aggregation; if user said \"distinct\" or \"unique\" → COUNT(DISTINCT <col>) via Distinct:true.\n" +
+        "- ★ \"average X\" / \"avg X\" / \"mean X\" / \"X time\" (when X is a duration) → AVG aggregation. For time durations, the column expression is DATEDIFF(hour|day|minute, <start>, <end>). Never use COUNT for an average. Never omit the AVG aggregation. \"average X by Y\" → AVG + groupBy [Y].\n" +
+        "- ★ \"max X\" / \"highest X\" / \"largest X\" / \"latest X\" (when X is a date) → MAX aggregation on the column. \"max X by Y\" → MAX + groupBy [Y].\n" +
+        "- ★ \"min X\" / \"lowest X\" / \"smallest X\" / \"earliest X\" (when X is a date) → MIN aggregation on the column. \"min X by Y\" → MIN + groupBy [Y].\n" +
+        "- ★ \"sum X\" / \"total X\" (when X is a numeric metric, not just a row count) → SUM aggregation on the column.\n" +
+        "- ★ \"distinct X\" / \"unique X\" / \"how many different X\" → COUNT with Distinct:true on the column (NOT the * column).\n" +
+        "- \"list X\" / \"show X\" / \"give X\" → select with the label column, no aggregations.";
+
     /// <summary>Bottom-of-prompt reminder bullets. The recency-weighted reminders models attend
     /// to most strongly. Kept schema-agnostic — references "lookup table" / "label column" rather
     /// than specific names.</summary>
     public string SpecExtractorReminders { get; set; } =
         "IMPORTANT REMINDERS:\n" +
-        "- FK→NAME REDIRECT: when the user names a related entity (e.g. \"tickets for customer Houri\", \"bills for region Damascus\"), NEVER emit a filter like CustomerId='Houri'. Add the target table to joins[] (kind:\"inner\") and filter on its label column with op:\"like\" value:\"%Name%\". Same rule for ServiceTypes, Regions, TicketCategories, Departments.\n" +
+        "- GROUP BY LABEL, NOT FK ID: when aggregating + grouping by an FK column, project + group by the TARGET label column (Customers.FullNameEn, TicketPriorities.Name, Regions.NameEn), not the FK id. Users read names, not ids.\n" +
+        "- FK→NAME REDIRECT: when the user names a related entity (\"tickets for customer Houri\"), JOIN to the target and filter its label column with op:\"like\" value:\"%Houri%\". Never CustomerId='Houri'.\n" +
         "- CROSS-FACT-TABLE NAVIGATION: queries like \"meter readings for customer X\" or \"complaints from customer Y\" span Customer + a fact table. Root is the fact table (MeterReadings, Tickets, Bills, CsatResponses, Outages); add Customers to joins[] with the label-column LIKE filter. Project both fact + customer label columns.\n" +
         "- NOTATION NOISE TOLERANCE: users sometimes type SQL-like syntax — brackets [Bills].[Status], dashes Bills-Status, commas \"Bills, Status, Paid\", or quoted column lists \"users(name, email)\". Strip the notation, interpret the intent. Brackets / dashes / commas are NEVER part of a real value; they delimit columns or table names. Treat \"[Tables].[Column] = 'Value'\" as \"Tables.Column = 'Value'\".\n" +
         "- The \"Values:\" line under a lookup table is REFERENCE ONLY — a vocabulary of valid names. NEVER add a filter for those values unless the user's question explicitly mentions one or more of them. \"count tickets per status\" → groupBy only, NO filter. \"count tickets per status, open ones\" → groupBy + filter for \"Open\".\n" +
         "- Status / priority / category VALUES (lookup-row names) are NAMES, not IDs. Filter on the LOOKUP TABLE's label column, NOT on the FK Id column.\n" +
         "- For \"X and their Y\" through a bridge: just SELECT columns from both X and Y — the compiler resolves joins via FK graph.\n" +
-        "- NEVER write SQL subqueries or SQL expressions (DATEADD, GETDATE, etc.) inside filter `value`. Use LITERAL values only. For FK filters with a name (e.g. \"bills for service Electricity\"), do NOT emit value:\"(SELECT Id FROM ServiceTypes WHERE Code='ELEC')\" — emit a JOIN to ServiceTypes and filter on ServiceTypes.NameEn = 'Electricity'.\n" +
         "- DATE TOKENS for relative time: use one of the supported @-tokens as the filter value, NEVER a phrase like \"this month\" or \"current year\". Supported tokens: @today, @yesterday, @tomorrow, @week_start, @month_start, @year_start, @quarter_start, @last_week_start, @last_month_start, @last_year_start, @last_quarter_start. Span tokens: @days:-N, @months:-N, @years:-N (negative N for past).\n" +
         "- DATE RANGE EXAMPLES: \"this month\" → [{op:\"gte\",value:\"@month_start\"}]. \"this year\" → [{op:\"gte\",value:\"@year_start\"}]. \"last 7 days\" → [{op:\"gte\",value:\"@days:-7\"}]. \"last month\" → [{op:\"gte\",value:\"@last_month_start\"},{op:\"lt\",value:\"@month_start\"}]. NEVER emit absolute literal dates from your own knowledge — use tokens.\n" +
         "- For \"in the last N days\" → op:\"gte\" with value:\"@days:-N\". For \"older than N days\" → op:\"lt\" with value:\"@days:-N\".\n" +

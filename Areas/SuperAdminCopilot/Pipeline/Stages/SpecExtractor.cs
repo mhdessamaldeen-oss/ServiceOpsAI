@@ -59,6 +59,8 @@ public sealed class SpecExtractionResult
 internal sealed class SpecExtractor : ISpecExtractor
 {
     private readonly ISchemaSemanticRetriever _retriever;
+    private readonly IColumnSemanticRetriever _columnRetriever;
+    private readonly IEntitySemanticRetriever _entityRetriever;
     private readonly ISchemaKnowledge _knowledge;
     private readonly ILlmClient _llm;
     private readonly IPastQuestionStore _pastQuestions;
@@ -75,6 +77,8 @@ internal sealed class SpecExtractor : ISpecExtractor
 
     public SpecExtractor(
         ISchemaSemanticRetriever retriever,
+        IColumnSemanticRetriever columnRetriever,
+        IEntitySemanticRetriever entityRetriever,
         ISchemaKnowledge knowledge,
         ServiceOpsAI.Services.AI.Providers.Roles.IRoleBoundLlmClientFactory llmFactory,
         IPastQuestionStore pastQuestions,
@@ -90,6 +94,8 @@ internal sealed class SpecExtractor : ISpecExtractor
         ILogger<SpecExtractor> logger)
     {
         _retriever = retriever;
+        _columnRetriever = columnRetriever;
+        _entityRetriever = entityRetriever;
         _knowledge = knowledge;
         // Use the QuerySpecComposer role binding so the SpecExtractor can be pointed at a
         // bigger / code-specialized model (e.g. qwen2.5-coder:7b) independently of the rest
@@ -159,6 +165,36 @@ internal sealed class SpecExtractor : ISpecExtractor
             // fall below the retriever's similarity threshold. Keyword matching is exact; combined
             // with the retriever's fuzzy match, recall is dramatically higher. Cheap O(N synonyms).
             AddKeywordMatchedTables(question, tables);
+
+            // Slice 2 (2026-05-30 close-out) — entity-level SEMANTIC match. Embeds the
+            // domain description + synonyms from semantic-layer.json, so paraphrases that
+            // miss the keyword scan AND the schema-shape retriever ("complaints" → Tickets,
+            // Arabic "تذاكر" → Tickets) still surface the right root entity. Fail-open:
+            // empty result on embedder failure → tables stay as-is.
+            try
+            {
+                if (_entityRetriever.IsAvailable)
+                {
+                    var entityRetrieval = await _entityRetriever.RetrieveAsync(
+                        question, topK: 5, minSimilarity: 0.45f, cancellationToken);
+                    foreach (var em in entityRetrieval.Entities)
+                    {
+                        if (string.IsNullOrEmpty(em.Table)) continue;
+                        if (IsHiddenFromRetriever(em.Table)) continue;
+                        if (tables.Any(t => string.Equals(t.Name, em.Table, StringComparison.OrdinalIgnoreCase))) continue;
+                        var schemaTable = _knowledge.AllTables.FirstOrDefault(t =>
+                            string.Equals(t.Name, em.Table, StringComparison.OrdinalIgnoreCase));
+                        if (schemaTable is null) continue;
+                        tables.Add(schemaTable);
+                        _logger.LogDebug("[SpecExtractor] entity-semantic added '{Table}' (score={Score:F2}).",
+                            em.Table, em.Score);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[SpecExtractor] entity semantic retrieval failed; continuing with existing candidates.");
+            }
 
             if (tables.Count == 0)
             {
@@ -243,7 +279,29 @@ internal sealed class SpecExtractor : ISpecExtractor
                 grounding = SuperAdminCopilot.Grounding.QuestionGroundingContext.Empty;
             }
 
-            var prompt = BuildUserPrompt(question, tables, previousSpec, previousError, refinement, pastExamples, vqExamples, grounding);
+            // Slice 1 — column-level semantic matching. Pre-compute the top-K columns whose
+            // embedding cosine-matches the question, restricted to the candidate tables already
+            // chosen by the schema retriever. The result is injected into the prompt as a
+            // "Semantically relevant columns" block — gives the LLM explicit, ranked hints
+            // instead of a wall of column names to guess from. Fail-open: empty result on any
+            // embedder/retrieval failure → prompt assembly continues without the block.
+            IReadOnlyList<ColumnMatch> columnHints = Array.Empty<ColumnMatch>();
+            try
+            {
+                if (_columnRetriever.IsAvailable)
+                {
+                    var tableNames = tables.Select(t => t.Name).ToList();
+                    var columnRetrieval = await _columnRetriever.RetrieveAsync(
+                        question, tableNames, topK: 8, minSimilarity: 0.50f, cancellationToken);
+                    columnHints = columnRetrieval.Columns;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[SpecExtractor] column semantic retrieval failed; continuing without column hints.");
+            }
+
+            var prompt = BuildUserPrompt(question, tables, previousSpec, previousError, refinement, pastExamples, vqExamples, grounding, columnHints);
 
             using var hint = Abstractions.LlmCallStageHint.Use(refinement ? "SpecRefine" : "SpecExtractor");
             var raw = await _llm.GenerateJsonAsync(_textCatalog.CurrentValue.SpecExtractorSystemPrompt, prompt, cancellationToken);
@@ -273,7 +331,7 @@ internal sealed class SpecExtractor : ISpecExtractor
             // Consolidated LLM-output mutation pipeline. Owns column auto-qualification,
             // function-name normalization, root inference, etc. The compiler trusts the spec
             // that comes out of this. See Areas/SuperAdminCopilot/Pipeline/SpecRepair/README.md.
-            var repairDiagnostics = _specRepair.Apply(spec, question, tables);
+            var repairDiagnostics = _specRepair.Apply(spec, question, tables, promptShape.ToString());
             return new SpecExtractionResult
             {
                 Spec = spec,
@@ -414,7 +472,8 @@ internal sealed class SpecExtractor : ISpecExtractor
         QuerySpec? previousSpec = null, string? previousError = null, bool refinement = false,
         IReadOnlyList<PastQuestionMatch>? pastExamples = null,
         IReadOnlyList<VerifiedMatch>? vqExamples = null,
-        SuperAdminCopilot.Grounding.QuestionGroundingContext? grounding = null)
+        SuperAdminCopilot.Grounding.QuestionGroundingContext? grounding = null,
+        IReadOnlyList<ColumnMatch>? columnHints = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Question: \"{question}\"");
@@ -424,6 +483,7 @@ internal sealed class SpecExtractor : ISpecExtractor
         // truth. Putting them at the top of the prompt (before examples / rules / schema) makes
         // them the dominant signal. The LLM is told: don't guess these; use them verbatim.
         AppendGroundedContext(sb, grounding);
+        AppendSemanticColumnHints(sb, columnHints);
 
         // Detected-shape hints — surfaced at the top of the prompt before any examples so the
         // LLM picks the right pattern. Comparison hint text comes from CopilotTextCatalog so
@@ -503,14 +563,7 @@ internal sealed class SpecExtractor : ISpecExtractor
         sb.AppendLine();
         sb.AppendLine("Rules:");
         sb.AppendLine("- ALWAYS qualify columns as \"Table.Column\" (never bare).");
-        sb.AppendLine("- ★ STRUCTURAL: \"single-row aggregate\" (COUNT/SUM/AVG/MIN/MAX of all rows, optionally filtered) → select MUST be []; aggregations[] MUST have the metric; groupBy MUST be []. Empty select is REQUIRED for a pure single-row aggregate. Adding a filter does NOT change this — keep select EMPTY even when filtering.");
-        sb.AppendLine("- ★ \"how many X\" / \"count of X\" / \"number of X\" / \"total X\" → COUNT(*) aggregation; if user said \"distinct\" or \"unique\" → COUNT(DISTINCT <col>) via Distinct:true.");
-        sb.AppendLine("- ★ \"average X\" / \"avg X\" / \"mean X\" / \"X time\" (when X is a duration) → AVG aggregation. For time durations, the column expression is DATEDIFF(hour|day|minute, <start>, <end>). Never use COUNT for an average. Never omit the AVG aggregation. \"average X by Y\" → AVG + groupBy [Y].");
-        sb.AppendLine("- ★ \"max X\" / \"highest X\" / \"largest X\" / \"latest X\" (when X is a date) → MAX aggregation on the column. \"max X by Y\" → MAX + groupBy [Y].");
-        sb.AppendLine("- ★ \"min X\" / \"lowest X\" / \"smallest X\" / \"earliest X\" (when X is a date) → MIN aggregation on the column. \"min X by Y\" → MIN + groupBy [Y].");
-        sb.AppendLine("- ★ \"sum X\" / \"total X\" (when X is a numeric metric, not just a row count) → SUM aggregation on the column.");
-        sb.AppendLine("- ★ \"distinct X\" / \"unique X\" / \"how many different X\" → COUNT with Distinct:true on the column (NOT the * column).");
-        sb.AppendLine("- \"list X\" / \"show X\" / \"give X\" → select with the label column, no aggregations.");
+        sb.AppendLine(_textCatalog.CurrentValue.SpecExtractorAggregationGuidance);
         sb.AppendLine("- \"top N X\" or \"first N X\" → set limit: N. \"top N X by Y\" → ALSO orderBy Y desc.");
         sb.AppendLine("- \"X by <lookup-dimension>\" (status / category / priority / region / type / etc.) → filter on the LOOKUP table's label column (e.g. \"<LookupTable>.Name\" eq \"<value>\"), and groupBy the same column when aggregating.");
         sb.AppendLine("- \"X with no Y\" / \"X without any Y\" → joins:[{table:Y, kind:\"anti\"}].");
@@ -526,6 +579,13 @@ internal sealed class SpecExtractor : ISpecExtractor
         // per deployment. The relative-date keyword line is data-driven and stays inline so it
         // always reflects the live RelativeDateKeywords config.
         sb.AppendLine(_textCatalog.CurrentValue.SpecExtractorReminders);
+        // Iteration-loop extra guidance — populated from copilot-text.json so prompt tweaks
+        // during the quality loop don't need a code change or restart. Empty by default.
+        var extra = _textCatalog.CurrentValue.SpecExtractorExtraGuidance;
+        if (!string.IsNullOrWhiteSpace(extra))
+        {
+            sb.AppendLine(extra);
+        }
         sb.Append("  Relative-date keywords: ");
         var relDateKeywords = _textCatalog.CurrentValue?.RelativeDateKeywords;
         if (relDateKeywords is { Count: > 0 })
@@ -653,6 +713,27 @@ internal sealed class SpecExtractor : ISpecExtractor
         if (!string.IsNullOrEmpty(grounding.DateRoleHint))
             sb.Append("- Date-role hint: filter / order by the date column with role '").Append(grounding.DateRoleHint).AppendLine("' (from semantic-layer dateRoles).");
 
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// Slice 1 — embedding-driven column hints. Emit a "Semantically relevant columns" block
+    /// listing the top-K (Table.Column, description) pairs whose embedding cosine-matches the
+    /// user's question. Gives the LLM a ranked, semantically-anchored set of columns instead
+    /// of having to guess from column NAMES alone. The LLM still chooses; this is a hint, not
+    /// a hard constraint — the 22 typed repair rules remain the deterministic safety net.
+    /// </summary>
+    private static void AppendSemanticColumnHints(StringBuilder sb, IReadOnlyList<ColumnMatch>? columnHints)
+    {
+        if (columnHints is null || columnHints.Count == 0) return;
+        sb.AppendLine("Semantically relevant columns for this question (use these as your primary candidates; pick the best fit):");
+        foreach (var c in columnHints)
+        {
+            sb.Append("  • ").Append(c.TableDotColumn);
+            if (!string.IsNullOrEmpty(c.SqlType)) sb.Append(" (").Append(c.SqlType).Append(')');
+            if (!string.IsNullOrEmpty(c.Description)) sb.Append(" — ").Append(c.Description);
+            sb.AppendLine();
+        }
         sb.AppendLine();
     }
 

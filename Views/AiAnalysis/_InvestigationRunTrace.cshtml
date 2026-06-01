@@ -133,6 +133,97 @@
         </div>
     </div>
 
+    @* ── Run metadata + generated query ──────────────────────────────────
+         Everything the timeline rows can't carry: the routing verdict + why,
+         answer provenance/confidence, and the actual SQL the pipeline emitted
+         (plus the curated reference query, when this trace came from the
+         assessment lab). Collapsed by default so the timeline stays the focus. *@
+    @{
+        bool HasMeta() =>
+            !string.IsNullOrWhiteSpace(Model.RouteReason)
+            || !string.IsNullOrWhiteSpace(Model.Provenance)
+            || Model.Confidence.HasValue
+            || !string.IsNullOrWhiteSpace(Model.SearchQuery)
+            || !string.IsNullOrWhiteSpace(Model.Brain);
+        var hasSql = !string.IsNullOrWhiteSpace(trace?.GeneratedScript);
+        var hasExpected = !string.IsNullOrWhiteSpace(trace?.ExpectedScript);
+    }
+    @if (HasMeta() || hasSql || hasExpected)
+    {
+        <details class="runtrace-meta-panel" open>
+            <summary>
+                <i class="bi bi-info-square"></i>
+                <span>Run metadata &amp; generated query</span>
+                <i class="bi bi-chevron-down runtrace-meta-chevron"></i>
+            </summary>
+            <div class="runtrace-meta-body">
+                @if (HasMeta())
+                {
+                    <div class="runtrace-facts-grid runtrace-meta-facts">
+                        @if (!string.IsNullOrWhiteSpace(Model.DetectedIntent))
+                        {
+                            <div><span class="runtrace-k">Intent</span><span class="runtrace-v">@Model.DetectedIntent</span></div>
+                        }
+                        <div><span class="runtrace-k">Planner confidence</span><span class="runtrace-v">@Model.PlannerConfidence</span></div>
+                        @if (!string.IsNullOrWhiteSpace(Model.Provenance))
+                        {
+                            <div><span class="runtrace-k">Provenance</span><span class="runtrace-v">@Model.Provenance</span></div>
+                        }
+                        @if (Model.Confidence is { } conf)
+                        {
+                            <div><span class="runtrace-k">Confidence</span><span class="runtrace-v">@conf.ToString("0.00")</span></div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.Brain))
+                        {
+                            <div><span class="runtrace-k">Brain</span><span class="runtrace-v">@Model.Brain</span></div>
+                        }
+                        @if (Model.PromptLength is { } pl && pl > 0)
+                        {
+                            <div><span class="runtrace-k">Prompt length</span><span class="runtrace-v">@($"{pl:N0}") chars</span></div>
+                        }
+                        @if (Model.ResultCount is { } rc)
+                        {
+                            <div><span class="runtrace-k">Result rows</span><span class="runtrace-v">@rc@(Model.IsTruncated ? " (truncated)" : "")</span></div>
+                        }
+                        <div><span class="runtrace-k">Trace schema</span><span class="runtrace-v">v@(Model.TraceSchemaVersion)</span></div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.RouteReason))
+                    {
+                        <div class="runtrace-section">
+                            <div class="runtrace-section-label"><i class="bi bi-signpost-2"></i> Why this route</div>
+                            <div class="runtrace-desc">@Model.RouteReason</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.SearchQuery))
+                    {
+                        <div class="runtrace-section">
+                            <div class="runtrace-section-label"><i class="bi bi-search"></i> Search query</div>
+                            <div class="runtrace-desc">@Model.SearchQuery</div>
+                        </div>
+                    }
+                }
+                @if (hasSql)
+                {
+                    <div class="runtrace-section">
+                        <div class="runtrace-section-label">
+                            <i class="bi bi-filetype-sql"></i> Generated SQL
+                            <button type="button" class="runtrace-copy-btn"
+                                    onclick="navigator.clipboard.writeText(this.closest('.runtrace-section').querySelector('code').innerText);this.classList.add('copied');this.textContent='Copied';setTimeout(()=>{this.classList.remove('copied');this.textContent='Copy';},1400);">Copy</button>
+                        </div>
+                        <pre class="runtrace-blob-pre runtrace-code language-sql"><code class="language-sql">@trace!.GeneratedScript</code></pre>
+                    </div>
+                }
+                @if (hasExpected)
+                {
+                    <div class="runtrace-section">
+                        <div class="runtrace-section-label"><i class="bi bi-check2-square"></i> Reference SQL (expected)</div>
+                        <pre class="runtrace-blob-pre runtrace-code language-sql"><code class="language-sql">@trace!.ExpectedScript</code></pre>
+                    </div>
+                }
+            </div>
+        </details>
+    }
+
     @* ── Main timeline ───────────────────────────────────────────────── *@
     <div class="runtrace-timeline">
         @{

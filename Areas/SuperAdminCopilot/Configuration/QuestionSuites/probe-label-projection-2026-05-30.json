@@ -1,0 +1,69 @@
+{
+  "name": "Label-projection probe (post ProjectLabelForFkGroupByRule)",
+  "version": "1.0",
+  "description": "5 cases that failed missing-expected-column in baseline 190. Each one is the aggregate-with-FK-groupBy shape the new rule targets. If the rule fires, the SQL should now project the label column (Customers.FullName, Departments.NameEn, etc.) instead of just the FK id.",
+  "Scenarios": [
+    {
+      "Code": "PROBE-LBL-001",
+      "Question": "top 5 customers by total bill amount",
+      "Shape": "LIM-TOP",
+      "Difficulty": "medium",
+      "Locale": "en",
+      "ExpectedColumns": ["FullName","Total"],
+      "ExpectedRowCountDirection": "many",
+      "ExpectedRowCount": 5,
+      "EntityFocus": "Customers",
+      "Notes": "From B-LIM-001 of baseline 190. Without the rule, SQL projected Bills.CustomerId. With the rule, should project Customers.FullName.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-LBL-002",
+      "Question": "total bills by service type",
+      "Shape": "GRP-AGG",
+      "Difficulty": "medium",
+      "Locale": "en",
+      "ExpectedColumns": ["NameEn","TotalAmount"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Bills",
+      "Notes": "Bills.ServiceTypeId aggregation. Rule should swap for ServiceTypes.NameEn.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-LBL-003",
+      "Question": "count of tickets per priority",
+      "Shape": "GRP-COUNT",
+      "Difficulty": "medium",
+      "Locale": "en",
+      "ExpectedColumns": ["Name","Count"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Tickets",
+      "Notes": "Tickets.PriorityId aggregation. Rule should swap for TicketPriorities.Name.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-LBL-004",
+      "Question": "average outage duration by region",
+      "Shape": "GRP-AGG",
+      "Difficulty": "medium",
+      "Locale": "en",
+      "ExpectedColumns": ["NameEn","Average"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Outages",
+      "Notes": "Outages.RegionId aggregation. Rule should swap for Regions.NameEn.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-LBL-005",
+      "Question": "top 3 departments by bill count",
+      "Shape": "LIM-TOP",
+      "Difficulty": "medium",
+      "Locale": "en",
+      "ExpectedColumns": ["NameEn","Count"],
+      "ExpectedRowCountDirection": "many",
+      "ExpectedRowCount": 3,
+      "EntityFocus": "Departments",
+      "Notes": "Bills.DepartmentId aggregation. Rule should swap for Departments.NameEn.",
+      "MaxLatencyMs": 180000
+    }
+  ]
+}

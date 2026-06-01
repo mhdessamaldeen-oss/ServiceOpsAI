@@ -163,6 +163,7 @@ namespace ServiceOpsAI.Controllers.Admin
             var dbRagModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.RagWorkloadModel);
             var dbCopilotModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.CopilotWorkloadModel);
             var dbClassifierModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.ClassifierWorkloadModel);
+            var dbDefaultModel = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == SettingKeys.DefaultWorkloadModel);
             // Per-role provider + model overrides (each stage of the SuperAdminCopilot pipeline
             // can pick its own provider + model — see RoleBoundLlmClientFactory). Empty = inherit
             // CopilotProvider / CopilotWorkloadModel pair.
@@ -194,6 +195,7 @@ namespace ServiceOpsAI.Controllers.Admin
             ViewBag.DbRagModel = dbRagModel?.Value ?? "";
             ViewBag.DbCopilotModel = dbCopilotModel?.Value ?? "";
             ViewBag.DbClassifierModel = dbClassifierModel?.Value ?? "";
+            ViewBag.DbDefaultModel = dbDefaultModel?.Value ?? "";
             ViewBag.DbDecomposerProvider = dbDecomposerProvider?.Value ?? "";
             ViewBag.DbDecomposerModel = dbDecomposerModel?.Value ?? "";
             ViewBag.DbSchemaLinkerProvider = dbSchemaLinkerProvider?.Value ?? "";
@@ -238,6 +240,23 @@ namespace ServiceOpsAI.Controllers.Admin
             ViewBag.CopilotMaxEstimatedQueryCost = await GetSystemSettingAsync(SettingKeys.CopilotMaxEstimatedQueryCost) ?? _copilotOptions.MaxEstimatedQueryCost.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ViewBag.CopilotAmbiguityClarificationThreshold = await GetSystemSettingAsync(SettingKeys.CopilotAmbiguityClarificationThreshold) ?? _copilotOptions.AmbiguityClarificationThreshold.ToString(System.Globalization.CultureInfo.InvariantCulture);
             ViewBag.CopilotResolverMinConfidence = await GetSystemSettingAsync(SettingKeys.CopilotResolverMinConfidence) ?? _copilotOptions.ResolverMinConfidence.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            // Planner capability tier. The stored override ("" = Auto). The auto-derived tier
+            // (and the model it came from) is shown read-only so the operator can SEE what
+            // "Auto" resolves to — closing the silent "model changed but crutches still fire" gap.
+            var tierOverride = await GetSystemSettingAsync(SettingKeys.CopilotPlannerCapabilityTier) ?? "";
+            ViewBag.CopilotPlannerCapabilityTier = tierOverride;
+            var copilotModelForTier = await GetSystemSettingAsync(SettingKeys.CopilotWorkloadModel)
+                ?? await GetSystemSettingAsync(SettingKeys.GeminiModel)
+                ?? await GetSystemSettingAsync(SettingKeys.CloudModel)
+                ?? await GetSystemSettingAsync(SettingKeys.DefaultWorkloadModel)
+                ?? "";
+            ViewBag.CopilotActiveModelForTier = copilotModelForTier;
+            ViewBag.CopilotDerivedTier = SuperAdminCopilot.Configuration.PlannerTierDeriver
+                .FromModel(copilotModelForTier).ToString();
+            ViewBag.CopilotEffectiveTier = string.IsNullOrWhiteSpace(tierOverride)
+                ? ViewBag.CopilotDerivedTier
+                : tierOverride;
 
             ViewBag.DbActiveProvider = _providerFactory.ActiveProviderType;
             ViewBag.DbDockerBaseUrl = dbDockerBaseUrl?.Value ?? _providerSettings.DockerLocal.BaseUrl;
@@ -722,6 +741,9 @@ namespace ServiceOpsAI.Controllers.Admin
             await UpsertSystemSettingAsync(SettingKeys.CopilotUseLlmExplainer, Bool(form, "useLlmExplainer"));
             await UpsertSystemSettingAsync(SettingKeys.CopilotMaxLlmCallsPerQuestion, Text(form, "maxLlmCallsPerQuestion", _copilotOptions.MaxLlmCallsPerQuestion.ToString()));
             await UpsertSystemSettingAsync(SettingKeys.CopilotMaxSelfCorrectionRetries, Text(form, "maxSelfCorrectionRetries", _copilotOptions.MaxSelfCorrectionRetries.ToString()));
+            // Planner capability tier override. Empty string = "Auto" (derive from the active
+            // model). A specific Weak/Medium/Strong value pins the tier for testing.
+            await UpsertSystemSettingAsync(SettingKeys.CopilotPlannerCapabilityTier, Text(form, "plannerCapabilityTier"));
             await UpsertSystemSettingAsync(SettingKeys.CopilotLlmCallTimeoutSeconds, Text(form, "llmCallTimeoutSeconds", _copilotOptions.LlmCallTimeoutSeconds.ToString()));
             await UpsertSystemSettingAsync(SettingKeys.CopilotMaxQuestionWallClockSeconds, Text(form, "maxQuestionWallClockSeconds", _copilotOptions.MaxQuestionWallClockSeconds.ToString()));
             await UpsertSystemSettingAsync(SettingKeys.CopilotMaxRows, Text(form, "maxRows", _copilotOptions.MaxRows.ToString()));
@@ -851,7 +873,7 @@ namespace ServiceOpsAI.Controllers.Admin
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SaveWorkloadRouting(
-            string activeProvider,
+            string activeProvider, string? defaultModel,
             string analysisProvider, string? analysisModel,
             string ragProvider, string? ragModel,
             string copilotProvider, string? copilotModel,
@@ -865,6 +887,7 @@ namespace ServiceOpsAI.Controllers.Admin
             string? explainerProvider = null, string? explainerModel = null)
         {
             await UpsertSystemSettingAsync(SettingKeys.AiActiveProvider, activeProvider ?? "");
+            await UpsertSystemSettingAsync(SettingKeys.DefaultWorkloadModel, defaultModel ?? "");
             await UpsertSystemSettingAsync(SettingKeys.AiAnalysisProvider, analysisProvider ?? "");
             await UpsertSystemSettingAsync(SettingKeys.AiRagProvider, ragProvider ?? "");
             await UpsertSystemSettingAsync(SettingKeys.AiCopilotProvider, copilotProvider ?? "");

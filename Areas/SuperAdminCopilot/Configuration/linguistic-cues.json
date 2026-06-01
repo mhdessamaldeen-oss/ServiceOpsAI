@@ -44,6 +44,23 @@
         "since the beginning", "since inception", "since ever", "at any time"
       ],
 
+      "knowledgeQuestion": {
+        "verbs": [
+          "what is", "what are", "what does",
+          "explain", "tell me about", "describe", "define"
+        ]
+      },
+
+      "aggregateMarkers": [
+        "average", "avg", "mean", "median",
+        "total", "sum", "sum of", "tally",
+        "count", "number of", "how many",
+        "min", "minimum", "max", "maximum",
+        "distinct", "unique",
+        "percentage", "percent", "%", "rate", "ratio", "proportion", "share", "difference between",
+        "top"
+      ],
+
       "distinct": [
         "how many distinct", "how many unique", "how many different",
         "number of distinct", "number of unique", "number of different",
@@ -232,6 +249,20 @@
       "absence": [ "بدون", "ما عنده", "بلا", "من غير" ],
 
       "allTime": [ "على الإطلاق", "في التاريخ", "منذ البداية", "في أي وقت" ],
+
+      "knowledgeQuestion": {
+        "verbs": [
+          "ما هو", "ما هي", "ما هما",
+          "اشرح", "أخبرني عن", "وضح", "عرّف", "عرف"
+        ]
+      },
+
+      "aggregateMarkers": [
+        "متوسط", "إجمالي", "اجمالي", "مجموع",
+        "عدد", "كم", "كم عدد",
+        "أعلى", "اعلى", "أدنى", "ادنى",
+        "نسبة", "معدل"
+      ],
 
       "distinct": [ "كم عدد المختلفين", "كم عدد المختلفة", "كم عدد المتفردين" ],
 

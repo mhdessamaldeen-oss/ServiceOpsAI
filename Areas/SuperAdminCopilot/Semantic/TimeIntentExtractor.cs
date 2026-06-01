@@ -2,6 +2,7 @@ namespace SuperAdminCopilot.Semantic;
 
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 
 /// <summary>
@@ -26,10 +27,12 @@ internal sealed class TimeIntentExtractor : ITimeIntentExtractor
 {
     private readonly ILogger<TimeIntentExtractor> _logger;
     private readonly ITemporalParser _parser;
+    private readonly ILinguisticCuesProvider _cues;
 
-    public TimeIntentExtractor(ITemporalParser parser, ILogger<TimeIntentExtractor> logger)
+    public TimeIntentExtractor(ITemporalParser parser, ILinguisticCuesProvider cues, ILogger<TimeIntentExtractor> logger)
     {
         _parser = parser;
+        _cues = cues;
         _logger = logger;
     }
 
@@ -76,24 +79,8 @@ internal sealed class TimeIntentExtractor : ITimeIntentExtractor
         @"\b(?:q([1-4])|(first|second|third|fourth)\s+quarter)\b(?!\s+(?:of\s+|in\s+)?\d{4})",  // not followed by a year (those go to YearQuarterRx)
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    // Multi-period composition pattern — detects "X and Y" / "X vs Y" / "X compared to Y" /
-    // Arabic "X و Y" / "X مقابل Y". Used to split a single question into multiple TimeRanges.
-    private static readonly Regex MultiPeriodSplitRx = new(
-        @"\b(?:and|or|vs|versus|compared\s+to|against)\b|و|مقابل",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    // Arabic temporal phrases. Map to relative ranges anchored to "now".
-    private static readonly (Regex Match, Func<TimeRange> BuildRange)[] ArabicRelativePatterns =
-    {
-        (new Regex(@"اليوم", RegexOptions.Compiled), () => DayRange(0, "اليوم")),
-        (new Regex(@"(?:أمس|امس)", RegexOptions.Compiled), () => DayRange(-1, "أمس")),
-        (new Regex(@"(?:هذا\s*الأسبوع|هذا\s*الاسبوع|هالأسبوع)", RegexOptions.Compiled), () => WeekRange(0, "هذا الأسبوع")),
-        (new Regex(@"الأسبوع\s*الماضي|الاسبوع\s*الماضي", RegexOptions.Compiled), () => WeekRange(-1, "الأسبوع الماضي")),
-        (new Regex(@"(?:هذا\s*الشهر|هالشهر)", RegexOptions.Compiled), () => MonthRange(0, "هذا الشهر")),
-        (new Regex(@"الشهر\s*الماضي", RegexOptions.Compiled), () => MonthRange(-1, "الشهر الماضي")),
-        (new Regex(@"(?:هذا\s*العام|هذه\s*السنة|هالسنة)", RegexOptions.Compiled), () => YearRange(0, "هذه السنة")),
-        (new Regex(@"العام\s*الماضي|السنة\s*الماضية", RegexOptions.Compiled), () => YearRange(-1, "العام الماضي")),
-    };
+    // Arabic temporal patterns are NOT inlined here — they come from linguistic-cues.json
+    // via ILinguisticCuesProvider. See LinkExternalLocaleTemporal() below.
 
     private static readonly Dictionary<string, int> WordQuarter = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -258,16 +245,10 @@ internal sealed class TimeIntentExtractor : ITimeIntentExtractor
             MarkConsumed(consumed, m.Index, m.Length);
         }
 
-        // 9. Arabic relative phrases.
-        foreach (var (pat, build) in ArabicRelativePatterns)
-        {
-            var m = pat.Match(question);
-            if (!m.Success) continue;
-            if (RangeAlreadyConsumed(consumed, m.Index, m.Length)) continue;
-            hits.Add(build());
-            sourcePhrases.Add(m.Value);
-            MarkConsumed(consumed, m.Index, m.Length);
-        }
+        // 9. Non-English locale temporal phrases sourced from linguistic-cues.json
+        //    (Arabic today, ar.temporal "اليوم", etc.). The English path above handles "en";
+        //    here we iterate every OTHER locale's compiled patterns and map @-tokens → DateTime.
+        LinkExternalLocaleTemporal(question, hits, sourcePhrases, consumed);
 
         // Deduplicate by (Start, End, Label) so a phrase that matches via two paths only
         // produces one range. Ordering: keep first-occurrence order so the explainer's
@@ -310,6 +291,123 @@ internal sealed class TimeIntentExtractor : ITimeIntentExtractor
             Periods = hits,
             SourcePhrase = string.Join(" + ", sourcePhrases),
         };
+    }
+
+    // ── External-locale temporal extraction ──────────────────────────────────────────
+    // Iterate every non-"en" locale block from linguistic-cues.json and apply its compiled
+    // temporal regexes against the question. Each match's start/end @-tokens are resolved
+    // to a concrete DateTime range via ResolveAtTokenRange. This keeps Arabic (and any future
+    // dialect) vocab in JSON, not C#.
+    private void LinkExternalLocaleTemporal(
+        string question,
+        List<TimeRange> hits,
+        List<string> sourcePhrases,
+        bool[] consumed)
+    {
+        var locales = _cues.Compiled.Locales;
+        if (locales is null) return;
+        foreach (var (code, locale) in locales)
+        {
+            if (string.Equals(code, "en", StringComparison.OrdinalIgnoreCase)) continue;   // English handled above by typed regexes
+            if (locale?.Temporal is null) continue;
+            foreach (var cue in locale.Temporal)
+            {
+                if (cue?.Pattern is null) continue;
+                var m = cue.Pattern.Match(question);
+                if (!m.Success) continue;
+                if (RangeAlreadyConsumed(consumed, m.Index, m.Length)) continue;
+                var captured = m.Groups.Count > 1 && m.Groups[1].Success ? m.Groups[1].Value : null;
+                var range = ResolveAtTokenRange(cue.Start, cue.End, captured, cue.Label);
+                if (range is null) continue;
+                hits.Add(range);
+                sourcePhrases.Add(m.Value);
+                MarkConsumed(consumed, m.Index, m.Length);
+            }
+        }
+    }
+
+    // Map the planner's @-token vocabulary to concrete DateTime ranges. Same tokens that the
+    // SQL compiler binds at execution time. Returns null when the token combo is unrecognized.
+    private static TimeRange? ResolveAtTokenRange(string startToken, string? endToken, string? captured, string label)
+    {
+        if (string.IsNullOrEmpty(startToken)) return null;
+        var start = ResolveAtToken(startToken, captured);
+        if (start is null) return null;
+        DateTime end;
+        if (string.IsNullOrEmpty(endToken))
+        {
+            // Single-bound (e.g. @days:-7 with no end) → end at "now"
+            end = DateTime.UtcNow;
+        }
+        else
+        {
+            var resolvedEnd = ResolveAtToken(endToken, captured);
+            if (resolvedEnd is null) return null;
+            end = resolvedEnd.Value;
+        }
+        return new TimeRange { Start = start.Value, End = end, Label = label ?? "" };
+    }
+
+    private static DateTime? ResolveAtToken(string token, string? captured)
+    {
+        // Numeric span tokens: @days:-{0}, @hours:-N, @months:-3 etc.
+        // Boundary tokens: @today, @yesterday, @tomorrow, @week_start, @month_start, …
+        if (token.StartsWith("@days:", StringComparison.Ordinal)) return ShiftToday(token, captured, d => DateTime.UtcNow.AddDays(d));
+        if (token.StartsWith("@hours:", StringComparison.Ordinal)) return ShiftToday(token, captured, h => DateTime.UtcNow.AddHours(h));
+        if (token.StartsWith("@weeks:", StringComparison.Ordinal)) return ShiftToday(token, captured, w => DateTime.UtcNow.AddDays(w * 7));
+        if (token.StartsWith("@months:", StringComparison.Ordinal)) return ShiftToday(token, captured, m => DateTime.UtcNow.AddMonths(m));
+        if (token.StartsWith("@years:", StringComparison.Ordinal)) return ShiftToday(token, captured, y => DateTime.UtcNow.AddYears(y));
+        if (token.StartsWith("@quarters:", StringComparison.Ordinal)) return ShiftToday(token, captured, q => DateTime.UtcNow.AddMonths(q * 3));
+
+        var today = DateTime.Today;
+        return token switch
+        {
+            "@today"               => today,
+            "@yesterday"           => today.AddDays(-1),
+            "@tomorrow"            => today.AddDays(1),
+            "@week_start"          => WeekStart(today, 0),
+            "@last_week_start"     => WeekStart(today, -1),
+            "@month_start"         => new DateTime(today.Year, today.Month, 1),
+            "@last_month_start"    => new DateTime(today.Year, today.Month, 1).AddMonths(-1),
+            "@year_start"          => new DateTime(today.Year, 1, 1),
+            "@last_year_start"     => new DateTime(today.Year - 1, 1, 1),
+            "@quarter_start"       => QuarterStart(today, 0),
+            "@last_quarter_start"  => QuarterStart(today, -1),
+            "@q1_start"            => new DateTime(today.Year, 1, 1),
+            "@q2_start"            => new DateTime(today.Year, 4, 1),
+            "@q3_start"            => new DateTime(today.Year, 7, 1),
+            "@q4_start"            => new DateTime(today.Year, 10, 1),
+            "@q1_end"              => new DateTime(today.Year, 4, 1),
+            "@q2_end"              => new DateTime(today.Year, 7, 1),
+            "@q3_end"              => new DateTime(today.Year, 10, 1),
+            "@q4_end"              => new DateTime(today.Year + 1, 1, 1),
+            _                      => null,
+        };
+    }
+
+    private static DateTime? ShiftToday(string token, string? captured, Func<int, DateTime> apply)
+    {
+        // Token form: "@unit:-N" (literal N) or "@unit:-{0}" (with captured value).
+        var colon = token.IndexOf(':');
+        if (colon < 0) return null;
+        var amount = token.Substring(colon + 1);
+        if (amount.Contains("{0}"))
+            amount = amount.Replace("{0}", captured ?? "0");
+        if (!int.TryParse(amount, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var n))
+            return null;
+        return apply(n);
+    }
+
+    private static DateTime WeekStart(DateTime today, int weekOffset)
+    {
+        int dow = ((int)today.DayOfWeek + 6) % 7;   // ISO: Monday-anchored
+        return today.AddDays(-dow + (weekOffset * 7));
+    }
+
+    private static DateTime QuarterStart(DateTime today, int qOffset)
+    {
+        int q = (today.Month - 1) / 3;
+        return new DateTime(today.Year, q * 3 + 1, 1).AddMonths(qOffset * 3);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────────────

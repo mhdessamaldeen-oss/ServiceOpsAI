@@ -1,0 +1,68 @@
+{
+  "name": "Count-question single-value probe (iter 5)",
+  "version": "1.0",
+  "description": "Tests the COUNT QUESTIONS MUST PRODUCE A SINGLE-VALUE SPEC prompt clause (hot-reloaded into copilot-text.json). 3 cases that previously failed with wrong-rowcount-direction (got many rows when count expected) + 2 cumulative controls.",
+  "Scenarios": [
+    {
+      "Code": "PROBE-CNT-001",
+      "Question": "how many open tickets",
+      "Shape": "AGG-COUNT-FILT",
+      "Difficulty": "easy",
+      "Locale": "en",
+      "ExpectedColumns": ["Count"],
+      "ExpectedRowCountDirection": "single",
+      "EntityFocus": "Tickets",
+      "Notes": "From B-AGG-002. Previously returned a list of 78 tickets. With the new clause, MUST produce empty select + COUNT(*) aggregation = 1 row.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-CNT-002",
+      "Question": "كم عدد الانقطاعات الحرجة",
+      "Shape": "AR-COUNT",
+      "Difficulty": "easy",
+      "Locale": "ar",
+      "ExpectedColumns": ["Count"],
+      "ExpectedRowCountDirection": "single",
+      "EntityFocus": "Outages",
+      "Notes": "From B-AR-COUNT-006 (how many critical outages). Arabic count verb 'كم عدد' must trigger same single-value shape.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-CNT-003",
+      "Question": "how many completed work orders",
+      "Shape": "AGG-COUNT-FILT",
+      "Difficulty": "easy",
+      "Locale": "en",
+      "ExpectedColumns": ["Count"],
+      "ExpectedRowCountDirection": "single",
+      "EntityFocus": "WorkOrders",
+      "Notes": "From B-AGG-004. Same single-count shape.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-CNT-CTRL-1",
+      "Question": "top 5 customers by total bill amount",
+      "Shape": "LIM-TOP",
+      "Difficulty": "medium",
+      "Locale": "en",
+      "ExpectedColumns": ["FullName","Total"],
+      "ExpectedRowCountDirection": "many",
+      "ExpectedRowCount": 5,
+      "EntityFocus": "Customers",
+      "Notes": "Cumulative control — iter 1 label fix + ranked aggregate must still produce 5 rows.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-CNT-CTRL-2",
+      "Question": "show me tickets",
+      "Shape": "SEL",
+      "Difficulty": "easy",
+      "Locale": "en",
+      "ExpectedColumns": ["TicketNumber","Title","Status"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Tickets",
+      "Notes": "Control — basic LIST shape must NOT become a COUNT. The clause only fires for explicit count verbs.",
+      "MaxLatencyMs": 180000
+    }
+  ]
+}

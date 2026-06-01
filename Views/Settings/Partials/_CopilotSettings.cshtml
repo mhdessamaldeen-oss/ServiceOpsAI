@@ -17,6 +17,65 @@
             </button>
         </div>
 
+        @{
+            var derivedTier = ValueOf("CopilotDerivedTier");
+            var tierOverrideVal = ValueOf("CopilotPlannerCapabilityTier");
+            var effectiveTier = ValueOf("CopilotEffectiveTier");
+            var tierModel = ValueOf("CopilotActiveModelForTier");
+            string TierBadge(string t) => t switch
+            {
+                "Strong" => "bg-success",
+                "Medium" => "bg-info text-dark",
+                _ => "bg-warning text-dark",
+            };
+        }
+        <section class="app-card p-3 mb-3 border-start border-4 border-primary">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                    <h6 class="fw-bold mb-1"><i class="bi bi-cpu me-1"></i>Planner Capability Tier</h6>
+                    <p class="text-muted small mb-0" style="max-width: 640px;">
+                        Controls which weak-model "crutches" (deterministic language heuristics, spec
+                        fix-up rules) run. A stronger model needs fewer crutches. The tier
+                        <strong>auto-derives from the active Copilot model</strong> — leave the override on
+                        <em>Auto</em> in production so switching models updates it for you.
+                    </p>
+                </div>
+                <div class="text-end">
+                    <div class="small text-muted mb-1">Currently effective</div>
+                    <span class="badge @TierBadge(effectiveTier) fs-6">@effectiveTier</span>
+                </div>
+            </div>
+
+            <div class="row g-2 mt-1 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label small fw-semibold">Tier override</label>
+                    <select class="form-select form-select-sm" name="plannerCapabilityTier">
+                        <option value="" selected="@(string.IsNullOrWhiteSpace(tierOverrideVal))">Auto (derive from model) — recommended</option>
+                        <option value="Weak" selected="@(tierOverrideVal == "Weak")">Weak — all crutches on (local 7B)</option>
+                        <option value="Medium" selected="@(tierOverrideVal == "Medium")">Medium — structural fixes only (Flash / 14-32B)</option>
+                        <option value="Strong" selected="@(tierOverrideVal == "Strong")">Strong — crutches off (Sonnet / GPT-4o / Pro)</option>
+                    </select>
+                </div>
+                <div class="col-md-7">
+                    <div class="small text-muted">
+                        Active model:
+                        <code>@(string.IsNullOrWhiteSpace(tierModel) ? "(unset)" : tierModel)</code>
+                        &rarr; auto-derives to
+                        <span class="badge @TierBadge(derivedTier)">@derivedTier</span>
+                        @if (!string.IsNullOrWhiteSpace(tierOverrideVal))
+                        {
+                            <span class="text-warning ms-1">(overridden to <strong>@tierOverrideVal</strong>)</span>
+                        }
+                        <div class="mt-1">
+                            <span class="badge bg-warning text-dark">Weak</span> all heuristics &nbsp;
+                            <span class="badge bg-info text-dark">Medium</span> language crutches skip &nbsp;
+                            <span class="badge bg-success">Strong</span> all crutches skip
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <div class="row g-3">
             <div class="col-xl-6">
                 <section class="app-card p-3 h-100">

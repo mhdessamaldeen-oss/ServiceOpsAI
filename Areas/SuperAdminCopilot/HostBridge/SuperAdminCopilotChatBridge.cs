@@ -208,6 +208,11 @@ internal sealed class SuperAdminCopilotChatBridge : ISuperAdminCopilotChatBridge
                 RouteReason = result.Trace ?? (hadError ? "error" : "ok"),
                 Provenance = result.Provenance,
                 Confidence = result.Confidence,
+                // End-to-end pipeline time stamped by the orchestrator. Without this, the chat
+                // UI's in-message latency pill (Copilot.cshtml:1223) renders blank for the just-
+                // answered turn — only history rows (which read it from CopilotTraceHistories
+                // via HostTraceSink) showed a value. Now live + history both display correctly.
+                TotalElapsedMs = result.TotalElapsedMs ?? 0,
             },
         };
 

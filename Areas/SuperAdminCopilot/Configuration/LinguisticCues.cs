@@ -118,6 +118,28 @@ public sealed class LocaleCues
     /// <c>op=text_search</c> over the entity's <c>searchableColumns</c>.
     /// </summary>
     public List<string> TextSearchTriggers { get; set; } = new();
+
+    /// <summary>
+    /// Knowledge-question verbs ("what is", "explain", "tell me about", "ما هو", "اشرح"). When the
+    /// question STARTS with one of these and is followed by a 1-3 token noun, the request is a
+    /// knowledge / glossary lookup rather than a data query. Consumed by KnowledgeMatchHandler via
+    /// ILinguisticRegistry.LooksLikeKnowledgeQuestion.
+    /// </summary>
+    public KnowledgeQuestionCues KnowledgeQuestion { get; set; } = new();
+
+    /// <summary>
+    /// Aggregate-marker phrases ("average", "count", "how many", "متوسط", "عدد"). When ANY appears
+    /// in the question, the request is a data query — used by KnowledgeMatchHandler to refuse
+    /// knowledge-routing and by SqlIntentGuard to confirm SQL intent. Consumed via
+    /// ILinguisticRegistry.LooksLikeAggregateQuery.
+    /// </summary>
+    public List<string> AggregateMarkers { get; set; } = new();
+}
+
+public sealed class KnowledgeQuestionCues
+{
+    /// <summary>Verb / verb-phrase prefixes that introduce a knowledge question.</summary>
+    public List<string> Verbs { get; set; } = new();
 }
 
 /// <summary>One aggregate-verb cue: a question-text trigger → the SQL aggregate to force.</summary>

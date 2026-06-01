@@ -64,6 +64,13 @@ ehthumbs.db
 Desktop.ini
 .DS_Store
 
+# Crash dumps
+*.stackdump
+*.dmp
+*.mdmp
+core
+hs_err_pid*
+
 # Project-specific runtime / data / scratch
 artifacts/
 brain/
@@ -74,6 +81,16 @@ run_*.bat
 *.tmp
 *.bak
 *.swp
+
+# Local test / run output (logs, csv, run-state scratch). Anchored to the
+# specific locations these land in so seed-data .log attachments under
+# Data/SeedData/attachments and wwwroot/uploads/seed stay tracked.
+/Tests/*.log
+/Tests/*.err
+/Tests/*.out
+/Tests/*.csv
+/Tests/current-run-id.txt
+/seed-run*.log
 
 # Secrets / local overrides
 appsettings.*.Local.json

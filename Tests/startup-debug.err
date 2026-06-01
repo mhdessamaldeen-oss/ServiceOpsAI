@@ -1,4 +1,0 @@
-A fatal error was encountered. The library 'hostpolicy.dll' required to execute the application was not found in 'C:\Program Files\dotnet\'.
-Failed to run as a self-contained app.
-  - The application was run as a self-contained app because 'C:\Work\Lern\Improve\v2\AISupportAnalysisPlatform\bin\Debug\net10.0\ServiceOpsAI.runtimeconfig.json' was not found.
-  - If this should be a framework-dependent app, add the 'C:\Work\Lern\Improve\v2\AISupportAnalysisPlatform\bin\Debug\net10.0\ServiceOpsAI.runtimeconfig.json' file and specify the appropriate framework.

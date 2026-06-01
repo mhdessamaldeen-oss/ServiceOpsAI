@@ -35,12 +35,15 @@ internal sealed class HostCopilotOptionsConfigurator : IPostConfigureOptions<Cop
         {
             using var scope = _services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            // Load both the "Copilot*" overlay keys AND the "Ai*" model keys (the latter drive
+            // the model→tier derivation below). One query, filtered to the two prefixes we use.
             var settings = db.SystemSettings
                 .AsNoTracking()
-                .Where(s => s.Key.StartsWith("Copilot"))
+                .Where(s => s.Key.StartsWith("Copilot") || s.Key.StartsWith("Ai"))
                 .ToDictionary(s => s.Key, s => s.Value, StringComparer.OrdinalIgnoreCase);
 
             Apply(settings, options);
+            ApplyPlannerTier(settings, options);
         }
         catch (Exception ex)
         {
@@ -82,6 +85,57 @@ internal sealed class HostCopilotOptionsConfigurator : IPostConfigureOptions<Cop
         SetDouble(settings, SettingKeys.CopilotMaxEstimatedQueryCost, 0.01, 100_000, v => options.MaxEstimatedQueryCost = v);
         SetDouble(settings, SettingKeys.CopilotAmbiguityClarificationThreshold, 0.0, 1.0, v => options.AmbiguityClarificationThreshold = v);
         SetDouble(settings, SettingKeys.CopilotResolverMinConfidence, 0.0, 1.0, v => options.ResolverMinConfidence = v);
+    }
+
+    /// <summary>
+    /// 2026-06-01 — derive the planner-capability tier from the active Copilot model so the
+    /// weak-model crutches turn OFF automatically on a capable cloud model. Fixes the
+    /// "operator switched to Gemini but the tier stayed at the local default" silent bug. An
+    /// explicit <c>CopilotPlannerCapabilityTier</c> SystemSettings row still overrides (testing).
+    /// </summary>
+    private void ApplyPlannerTier(IReadOnlyDictionary<string, string> settings, CopilotOptions options)
+    {
+        if (TryGet(settings, SettingKeys.CopilotPlannerCapabilityTier, out var rawTier)
+            && Enum.TryParse<PlannerCapabilityTier>(rawTier, ignoreCase: true, out var explicitTier))
+        {
+            options.PlannerCapabilityTier = explicitTier;
+            _logger.LogInformation(
+                "[SuperAdminCopilot] Planner tier = {Tier} (explicit CopilotPlannerCapabilityTier override).",
+                explicitTier);
+            return;
+        }
+
+        var model = ResolveCopilotModel(settings);
+        var derived = PlannerTierDeriver.FromModel(model);
+        options.PlannerCapabilityTier = derived;
+        var crutchState = derived switch
+        {
+            PlannerCapabilityTier.Strong => "all language-vocab crutches skipped",
+            PlannerCapabilityTier.Medium => "language-pattern crutches skipped; structural fixes on",
+            _ => "all crutches active",
+        };
+        _logger.LogInformation(
+            "[SuperAdminCopilot] Planner tier = {Tier} (derived from Copilot model '{Model}'). {Crutches}.",
+            derived, model ?? "(unset)", crutchState);
+    }
+
+    /// <summary>Resolve the model name QuerySpecComposer actually runs on: the role-level
+    /// <c>AiCopilotModel</c> if set, else the active provider's configured model, else the
+    /// global default model.</summary>
+    private static string? ResolveCopilotModel(IReadOnlyDictionary<string, string> s)
+    {
+        if (TryGet(s, SettingKeys.CopilotWorkloadModel, out var roleModel)) return roleModel;
+
+        TryGet(s, SettingKeys.AiCopilotProvider, out var provider);
+        var providerModelKey = (provider ?? "").ToLowerInvariant() switch
+        {
+            "gemini" => SettingKeys.GeminiModel,
+            "cloud" => SettingKeys.CloudModel,
+            _ => SettingKeys.DefaultWorkloadModel,
+        };
+        if (TryGet(s, providerModelKey, out var pm)) return pm;
+        if (TryGet(s, SettingKeys.DefaultWorkloadModel, out var dm)) return dm;
+        return null;
     }
 
     private static bool TryGet(IReadOnlyDictionary<string, string> settings, string key, out string value) =>

@@ -10,45 +10,39 @@ using SuperAdminCopilot.Models;
 using SuperAdminCopilot.Pipeline.Stages;
 
 /// <summary>
-/// Entry-point orchestrator. AskAsync routes through preflight guards → fast paths (conversational,
-/// knowledge, semantic, tool, verified-query) → IntentClassifier → ScopeConfidenceGate → Decomposer,
-/// then dispatches to RunSingleAsync or RunDecomposedAsync.
+/// Entry-point orchestrator. <see cref="AskAsync"/> routes through preflight guards → fast paths
+/// (conversational, knowledge, semantic, tool, verified-query) → IntentClassifier →
+/// ScopeConfidenceGate → Decomposer, then dispatches to <see cref="ISingleQuestionExecutor"/>
+/// or <see cref="RunDecomposedAsync"/>.
+///
+/// <para>2026-06-01 — single-question execution loop extracted to <see cref="ISingleQuestionExecutor"/>;
+/// trace persistence extracted to <see cref="IResponsePersister"/>. This class is now a thin
+/// dispatcher: ~160 LOC of routing / preflight / fast-path logic, zero SQL-compilation concern.</para>
 /// </summary>
-// Class split across 3 partial files:
-//   - CopilotOrchestrator.cs           : AskAsync, fields, ctor, shared helpers (TimedAsync, PersistAsync)
-//   - CopilotOrchestrator.RunSingle.cs : single-question execution loop + spec retry helpers
+// Class split across 2 partial files:
+//   - CopilotOrchestrator.cs           : AskAsync, fields, ctor, shared helpers (TimedAsync)
 //   - CopilotOrchestrator.Decomposed.cs: multi-sub-question fan-out (parallel + sequential)
 internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
 {
+    // ── Preflight / fast-path stages ────────────────────────────────────────────────────────────
     private readonly Stages.IConversationalHandler _conversational;
-    private readonly Stages.IIntentClassifier _intentClassifier;
-    private readonly Retrieval.ISchemaSemanticRetriever _schemaRetriever;
-    private readonly Pipeline.EntityResolution.IFuzzyEntityResolver _entityResolver;
-    private readonly Pipeline.Stages.Decomposed.IStructuralCueParser _cueParser;
-    private readonly Stages.IScopeConfidenceGate _scopeConfidenceGate;
     private readonly Stages.IKnowledgeMatchHandler _knowledge;
     private readonly Stages.IWriteIntentGuard _writeIntentGuard;
-    private readonly Stages.ICoverageChecker _coverageChecker;
+    private readonly Stages.IIntentClassifier _intentClassifier;
+    private readonly Retrieval.ISchemaSemanticRetriever _schemaRetriever;
+    private readonly Stages.IScopeConfidenceGate _scopeConfidenceGate;
     private readonly Stages.ISemanticSearchHandler _semanticSearch;
     private readonly Stages.IToolHandler _toolHandler;
     private readonly Stages.IDecomposer _regexDecomposer;
     private readonly Stages.ILlmDecomposer _llmDecomposer;
-    private readonly Stages.ISpecExtractor _specExtractor;
-    private readonly Stages.ILlmDirectSqlEmitter _directSqlEmitter;
-    private readonly Stages.IQuestionShapeClassifier _shapeClassifier;
-    private readonly Stages.IMetadataHandler _metadataHandler;
-    private readonly Stages.IConversationSpecMemory _specMemory;
-    private readonly Stages.IRefinementDetector _refinementDetector;
-    private readonly Stages.IChartTypeSuggester _chartSuggester;
-    private readonly Stages.ISpecEnricher _specEnricher;
     private readonly Retrieval.IVerifiedQueryMatcher _verifiedQueryMatcher;
-    private readonly ICompiler _compiler;
     private readonly IValidator _validator;
-    private readonly Stages.ISqlIntentGuard _sqlIntentGuard;
-    private readonly Stages.IQuerySpecAccessPolicyValidator _accessPolicy;
     private readonly IExecutor _executor;
     private readonly IExplainer _explainer;
-    private readonly ITraceSink _traceSink;
+
+    // ── Dispatcher deps ─────────────────────────────────────────────────────────────────────────
+    private readonly ISingleQuestionExecutor _singleExecutor;
+    private readonly IResponsePersister _persister;
     private readonly IOperationalGuard _operationalGuard;
     private readonly IRetryBudget _retryBudget;
     private readonly IPipelineStepProgressSink _progress;
@@ -62,30 +56,17 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
         Stages.IWriteIntentGuard writeIntentGuard,
         Stages.IIntentClassifier intentClassifier,
         Retrieval.ISchemaSemanticRetriever schemaRetriever,
-        Pipeline.EntityResolution.IFuzzyEntityResolver entityResolver,
-        Pipeline.Stages.Decomposed.IStructuralCueParser cueParser,
         Stages.IScopeConfidenceGate scopeConfidenceGate,
-        Stages.ICoverageChecker coverageChecker,
         Stages.ISemanticSearchHandler semanticSearch,
         Stages.IToolHandler toolHandler,
         Stages.IDecomposer regexDecomposer,
         Stages.ILlmDecomposer llmDecomposer,
-        Stages.ISpecExtractor specExtractor,
-        Stages.ILlmDirectSqlEmitter directSqlEmitter,
-        Stages.IQuestionShapeClassifier shapeClassifier,
-        Stages.IMetadataHandler metadataHandler,
-        Stages.IConversationSpecMemory specMemory,
-        Stages.IRefinementDetector refinementDetector,
-        Stages.IChartTypeSuggester chartSuggester,
-        Stages.ISpecEnricher specEnricher,
         Retrieval.IVerifiedQueryMatcher verifiedQueryMatcher,
-        ICompiler compiler,
         IValidator validator,
-        Stages.ISqlIntentGuard sqlIntentGuard,
-        Stages.IQuerySpecAccessPolicyValidator accessPolicy,
         IExecutor executor,
         IExplainer explainer,
-        ITraceSink traceSink,
+        ISingleQuestionExecutor singleExecutor,
+        IResponsePersister persister,
         IOperationalGuard operationalGuard,
         IRetryBudget retryBudget,
         IPipelineStepProgressSink progress,
@@ -98,30 +79,17 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
         _writeIntentGuard = writeIntentGuard;
         _intentClassifier = intentClassifier;
         _schemaRetriever = schemaRetriever;
-        _entityResolver = entityResolver;
-        _cueParser = cueParser;
         _scopeConfidenceGate = scopeConfidenceGate;
-        _coverageChecker = coverageChecker;
         _semanticSearch = semanticSearch;
         _toolHandler = toolHandler;
         _regexDecomposer = regexDecomposer;
         _llmDecomposer = llmDecomposer;
-        _specExtractor = specExtractor;
-        _directSqlEmitter = directSqlEmitter;
-        _shapeClassifier = shapeClassifier;
-        _metadataHandler = metadataHandler;
-        _specMemory = specMemory;
-        _refinementDetector = refinementDetector;
-        _chartSuggester = chartSuggester;
-        _specEnricher = specEnricher;
         _verifiedQueryMatcher = verifiedQueryMatcher;
-        _compiler = compiler;
         _validator = validator;
-        _sqlIntentGuard = sqlIntentGuard;
-        _accessPolicy = accessPolicy;
         _executor = executor;
         _explainer = explainer;
-        _traceSink = traceSink;
+        _singleExecutor = singleExecutor;
+        _persister = persister;
         _operationalGuard = operationalGuard;
         _retryBudget = retryBudget;
         _progress = progress;
@@ -130,10 +98,7 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
         _logger = logger;
     }
 
-    // Hot-reloadable text catalog; always read CurrentValue at the call site.
     private CopilotTextCatalog Text => _textCatalog.CurrentValue;
-
-    // Prefer the SignalR connection id (known on tab-open) over the conversation-id group (only joined after first reply).
     private static Abstractions.ProgressTarget TargetFor(CopilotRequest r) =>
         new(r.SignalRConnectionId, r.ConversationId);
 
@@ -143,7 +108,6 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
         activity?.SetTag("copilot.conversation_id", request.ConversationId);
         activity?.SetTag("copilot.question_length", (request.Question ?? "").Length);
 
-        // Per-question scopes: retry budget reset, LLM metrics, embedding cache (all AsyncLocal so decomposer fan-out propagates).
         _retryBudget.Reset();
         using var llmScope = Abstractions.LlmCallScope.Begin();
         using var embedScope = Abstractions.QuestionEmbeddingScope.Begin();
@@ -152,55 +116,55 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
         var progressTarget = new Abstractions.ProgressTarget(request.SignalRConnectionId, request.ConversationId);
         var steps = new BroadcastingStepList(_progress, progressTarget);
 
-        // Canonical question for downstream stages; raw text stays on request for trace/UI display.
         var question = Internal.QuestionTextNormalizer.Normalize(request.Question);
         if (string.IsNullOrEmpty(question))
             return new CopilotResponse(Reply: Text.EmptyQuestion, Error: "empty question");
 
-        // ── Operational guard ────────────────────────────────────────────
+        // ── Operational guard ────────────────────────────────────────────────
         var guardRefusal = _operationalGuard.CheckOrRefuse(request.ConversationId);
         if (guardRefusal is not null)
         {
             steps.RecordOperationalGuardRefusal(question, guardRefusal);
-            return (await PersistAsync(request, totalSw, steps,
+            return (await _persister.PersistAsync(request, totalSw, steps,
                 reply: string.Format(Text.OperationalGuardRefusalTemplate, guardRefusal),
                 error: guardRefusal, cancellationToken: cancellationToken))
                 with { Trace = StageNames.PreflightRefused, Provenance = "refusal", Confidence = 1.0 };
         }
         steps.RecordOperationalGuardPassed(question);
 
-        // ── Write-intent preflight ───────────────────────────────────────
-        // Deterministic refuse for delete/drop/insert/update/alter/... before any LLM call; multi-language (EN+AR).
+        // ── Write-intent preflight ───────────────────────────────────────────
         var writeIntent = _writeIntentGuard.Check(question);
         if (writeIntent is not null)
         {
             steps.RecordWriteIntentRefusal(question, writeIntent);
-            return (await PersistAsync(request, totalSw, steps,
+            return (await _persister.PersistAsync(request, totalSw, steps,
                 reply: writeIntent.Reason,
                 error: writeIntent.Reason, cancellationToken: cancellationToken))
                 with { Provenance = "refusal", Confidence = 1.0, Trace = StageNames.PreflightRefused };
         }
         steps.RecordWriteIntentPassed(question);
 
-        // ── Conversational fast-path (greetings, "what can you do", thanks) ──
+        // ── Conversational fast-path ─────────────────────────────────────────
         var convReply = _conversational.TryHandle(question);
         if (convReply is not null)
         {
             steps.RecordConversational(question, convReply);
-            return (await PersistAsync(request, totalSw, steps,
-                reply: convReply.Reply, cancellationToken: cancellationToken)) with { Provenance = "conversational", Confidence = 1.0 };
+            return (await _persister.PersistAsync(request, totalSw, steps,
+                reply: convReply.Reply, cancellationToken: cancellationToken))
+                with { Provenance = "conversational", Confidence = 1.0 };
         }
 
-        // ── Knowledge-match fast-path (concept questions like "what is a ticket") ──
+        // ── Knowledge-match fast-path ────────────────────────────────────────
         var kmReply = _knowledge.TryHandle(question);
         if (kmReply is not null)
         {
             steps.RecordKnowledgeMatch(question, kmReply);
-            return (await PersistAsync(request, totalSw, steps,
-                reply: kmReply.Reply, cancellationToken: cancellationToken)) with { Provenance = "knowledge", Confidence = 1.0 };
+            return (await _persister.PersistAsync(request, totalSw, steps,
+                reply: kmReply.Reply, cancellationToken: cancellationToken))
+                with { Provenance = "knowledge", Confidence = 1.0 };
         }
 
-        // ── Semantic search fast-path ("tickets similar to TCK-X" / "tickets about login") ──
+        // ── Semantic search fast-path ────────────────────────────────────────
         var (semResult, semElapsed) = await TimedAsync(request, StageNames.StepSemanticSearch,
             ct => _semanticSearch.TryHandleAsync(question, ct), cancellationToken);
         if (semResult is not null)
@@ -208,7 +172,7 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
             steps.RecordSemanticSearchHit(question, semResult, semElapsed);
             var semExplain = await _explainer.ExplainAsync(question, semResult.Result,
                 new CompiledSql(semResult.Sql, new Dictionary<string, object?>()), cancellationToken);
-            return await PersistAsync(request, totalSw, steps,
+            return await _persister.PersistAsync(request, totalSw, steps,
                 reply: semExplain.Reply,
                 sql: semResult.Sql,
                 rowCount: semResult.Result.RowCount,
@@ -217,7 +181,7 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
                 cancellationToken: cancellationToken);
         }
 
-        // ── Tool dispatch (external knowledge: weather, FX, country lookup, etc) ──
+        // ── Tool dispatch ────────────────────────────────────────────────────
         var (toolResult, toolElapsed) = await TimedAsync(request, StageNames.StepToolDispatch,
             ct => _toolHandler.TryHandleAsync(question, ct), cancellationToken);
         if (toolResult is not null)
@@ -225,14 +189,14 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
             steps.RecordToolDispatch(question, toolResult, toolElapsed);
             if (!string.IsNullOrWhiteSpace(toolResult.ClarificationQuestion))
             {
-                return await PersistAsync(request, totalSw, steps,
+                return await _persister.PersistAsync(request, totalSw, steps,
                     reply: toolResult.ClarificationQuestion!,
                     sql: toolResult.Sql,
                     cancellationToken: cancellationToken);
             }
             var toolExplain = await _explainer.ExplainAsync(question, toolResult.Result,
                 new CompiledSql(toolResult.Sql, new Dictionary<string, object?>()), cancellationToken);
-            return await PersistAsync(request, totalSw, steps,
+            return await _persister.PersistAsync(request, totalSw, steps,
                 reply: toolExplain.Reply,
                 sql: toolResult.Sql,
                 rowCount: toolResult.Result.RowCount,
@@ -241,7 +205,7 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
                 cancellationToken: cancellationToken);
         }
 
-        // ── Verified-query fast-path (Snowflake pattern: hand-curated Q→SQL pairs) ──
+        // ── Verified-query fast-path ─────────────────────────────────────────
         if (_verifiedQueryMatcher.IsAvailable)
         {
             var (vqMatch, vqElapsed) = await TimedAsync(request, StageNames.StepVerifiedQuery,
@@ -250,7 +214,6 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
             {
                 steps.RecordVerifiedQuery(question, vqMatch, vqElapsed);
                 var compiled = new CompiledSql(vqMatch.Query.Sql, new Dictionary<string, object?>());
-                // Still through validator + executor for safety (read-only enforcement, etc).
                 var v = _validator.Validate(compiled);
                 if (v.IsValid)
                 {
@@ -266,9 +229,10 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
                         var exp = await _explainer.ExplainAsync(question, er, compiled, cancellationToken);
                         expSw.Stop();
                         steps.RecordExplainer(question, compiled, er, exp, expSw.ElapsedMilliseconds);
-                        return (await PersistAsync(request, totalSw, steps,
+                        return (await _persister.PersistAsync(request, totalSw, steps,
                             reply: exp.Reply, sql: compiled.Sql, rowCount: er.RowCount, rows: er.Rows,
-                            cancellationToken: cancellationToken)) with { Provenance = "verified", Confidence = (double)vqMatch.Similarity };
+                            cancellationToken: cancellationToken))
+                            with { Provenance = "verified", Confidence = (double)vqMatch.Similarity };
                     }
                     _logger.LogWarning("[VerifiedQuery] match {Id} executed with error '{Err}' — falling through.",
                         vqMatch.Query.Id, er.Error);
@@ -281,12 +245,11 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
             }
         }
 
-        // ── Intent classifier (LLM router) — used to skip the ScopeGate on high-confidence SQL.
-        // Note: the OOS refusal branch was removed — small classifier models over-flagged entity-heavy data questions as opinion/prediction (e.g., "bills issued by Aleppo electricity department"). Refusal is now the sole responsibility of the better-calibrated ScopeConfidenceGate. ──
+        // ── Intent classifier ────────────────────────────────────────────────
         var intentResult = await _intentClassifier.ClassifyAsync(question, cancellationToken);
         var decisiveConf = _options.Value.IntentClassifierDecisiveConfidence;
 
-        // ── Scope-confidence gate — residual OOS check. Skipped on high-confidence SQL verdict to avoid embedder-flap false refusals. ──
+        // ── Scope-confidence gate ────────────────────────────────────────────
         Stages.OutOfScopeResult? scopeRefusal = null;
         if (intentResult.Intent != Stages.ClassifierIntent.Sql || intentResult.Confidence < decisiveConf)
         {
@@ -297,14 +260,13 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
             activity?.SetTag("copilot.outcome", "refused.out_of_scope");
             activity?.SetTag("copilot.refusal_pattern", scopeRefusal.MatchedPattern);
             steps.RecordOutOfScopeRefusal(question, scopeRefusal);
-            return (await PersistAsync(request, totalSw, steps,
+            return (await _persister.PersistAsync(request, totalSw, steps,
                 reply: scopeRefusal.Reason,
                 error: scopeRefusal.Reason, cancellationToken: cancellationToken))
                 with { Provenance = "refusal", Confidence = 1.0, Trace = StageNames.PreflightRefused };
         }
 
-        // ── Decompose ────────────────────────────────────────────────────
-        // LLM-first; regex decomposer opt-in via EnableHeuristicDecomposer (English-only fallback).
+        // ── Decompose ────────────────────────────────────────────────────────
         _progress.NotifyStepStarting(TargetFor(request), StageNames.StepDecomposer);
         var decompSw = Stopwatch.StartNew();
         IReadOnlyList<string>? subQuestions = null;
@@ -344,10 +306,9 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
             steps.RecordDecomposerAtomic(question, decomposerSource, llmPrompt, llmRaw, decompSw.ElapsedMilliseconds);
         }
 
-        return await RunSingleAsync(request, question, totalSw, steps, cancellationToken);
+        // ── Dispatch to single-question executor ─────────────────────────────
+        return await _singleExecutor.ExecuteAsync(request, question, totalSw, steps, cancellationToken);
     }
-
-    // ── Shared helpers ────────────────────────────────────────────────────────────
 
     // Wraps progress-notify + stopwatch around an async dispatch; returns (result, elapsedMs).
     private async Task<(T Result, long ElapsedMs)> TimedAsync<T>(
@@ -359,51 +320,5 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
         var result = await dispatch(cancellationToken);
         sw.Stop();
         return (result, sw.ElapsedMilliseconds);
-    }
-
-    private async Task<CopilotResponse> PersistAsync(
-        CopilotRequest request, Stopwatch totalSw, List<PipelineStep> steps,
-        string reply, string? sql = null, int? rowCount = null,
-        IReadOnlyList<IReadOnlyDictionary<string, object?>>? rows = null,
-        string? error = null, string? chartType = null,
-        IReadOnlyList<Abstractions.SemanticSearchHit>? similarEntities = null,
-        IReadOnlyList<Abstractions.CopilotWarning>? warnings = null,
-        CancellationToken cancellationToken = default)
-    {
-        totalSw.Stop();
-        var response = new CopilotResponse(
-            Reply: reply,
-            Sql: sql,
-            RowCount: rowCount,
-            Rows: rows,
-            Trace: error is null ? StageNames.StatusOk : StageNames.StatusFailed,
-            Error: error,
-            Steps: steps,
-            SimilarEntities: similarEntities,
-            SuggestedChartType: chartType,
-            Warnings: warnings);
-        try
-        {
-            var traceId = await _traceSink.RecordAsync(
-                question: request.Question ?? "",
-                sql: sql,
-                rowCount: rowCount,
-                elapsedMs: totalSw.ElapsedMilliseconds,
-                error: error,
-                reply: reply,
-                caseCode: request.CaseCode,
-                sourceSuite: request.SourceSuite,
-                sessionId: int.TryParse(request.ConversationId, out var sid) ? sid : (int?)null,
-                rows: rows,
-                steps: steps,
-                expectedSql: request.ExpectedSql,
-                cancellationToken: cancellationToken);
-            response = response with { TraceId = traceId };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "[CopilotOrchestrator] trace persist failed (non-fatal).");
-        }
-        return response;
     }
 }

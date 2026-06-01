@@ -42,7 +42,7 @@ internal sealed partial class SqlCompiler
                 }
 
                 // Rewrite BEFORE formatting so a lookup-name filter (StatusId='Closed' → TicketStatuses.Name='Closed') gets the new column path.
-                var rewritten = ApplyFilterRewrite(filter);
+                var rewritten = _filterValueRewriter.Rewrite(filter);
                 if (!TryFormatColumn(rewritten.Column, out var col))
                 {
                     _warnings.Add(Abstractions.CopilotWarning.UnknownColumn(rewritten.Column));
@@ -56,7 +56,7 @@ internal sealed partial class SqlCompiler
             }
 
             // Multi-filter group on same column+op: emit "(c1 OR c2 OR c3)".
-            var firstRewritten = ApplyFilterRewrite(group[0]);
+            var firstRewritten = _filterValueRewriter.Rewrite(group[0]);
             if (!TryFormatColumn(firstRewritten.Column, out var sharedCol))
             {
                 _warnings.Add(Abstractions.CopilotWarning.UnknownColumn(firstRewritten.Column));
@@ -65,7 +65,7 @@ internal sealed partial class SqlCompiler
             var sub = new List<string>();
             foreach (var filter in group)
             {
-                var rewritten = CoerceValueByColumnType(ApplyFilterRewrite(filter));
+                var rewritten = CoerceValueByColumnType(_filterValueRewriter.Rewrite(filter));
                 var clause = BuildFilterClause(sharedCol, rewritten, parameters, ref paramIndex, _dialect);
                 if (!string.IsNullOrEmpty(clause)) sub.Add(clause);
             }
@@ -92,92 +92,9 @@ internal sealed partial class SqlCompiler
         sb.Append("WHERE ").AppendLine(string.Join(" AND ", pieces));
     }
 
-    /// <summary>Apply value-synonym rewrite ("urgent" → "Critical") for column-context synonyms. No-op for null/array/@-token.</summary>
-    private FilterSpec ApplySynonymRewrite(FilterSpec filter)
-    {
-        if (filter.Value is not string sv || sv.Length == 0 || sv[0] == '@') return filter;
-        var canonical = _semanticLayer.ResolveSynonymValue(filter.Column, sv);
-        if (ReferenceEquals(canonical, sv) || string.Equals(canonical, sv, StringComparison.Ordinal))
-            return filter;
-        return new FilterSpec { Column = filter.Column, Op = filter.Op, Value = canonical };
-    }
-
-    /// <summary>
-    /// Combined filter rewrite: value-synonym + lookup-name rewrite (#5) + drop string-literal column refs (#6).
-    /// All callers should use this; ApplySynonymRewrite is preserved as the last step.
-    /// </summary>
-    private FilterSpec ApplyFilterRewrite(FilterSpec filter)
-    {
-        if (filter is null) return filter!;
-
-        // #6 — string-literal column reference: drop the filter when value is "Table.Column" and both halves resolve.
-        if (filter.Value is string svRef)
-        {
-            if (Regex.IsMatch(svRef, @"^[A-Za-z_]\w*\.[A-Za-z_]\w*$"))
-            {
-                var (refTable, refCol) = SplitQualified(svRef);
-                if (!string.IsNullOrEmpty(refTable) && !string.IsNullOrEmpty(refCol)
-                    && _catalog.ColumnExists(refTable, refCol))
-                {
-                    // Drop via the @-placeholder path; the relationship is already wired by the join graph.
-                    return new FilterSpec { Column = filter.Column, Op = SpecConst.FilterOps.Eq, Value = "@drop_columnref" };
-                }
-            }
-        }
-
-        // #5 — lookup-name filter rewrite. Match shape "<T>.<X>Id" where X is alphabetic.
-        if (filter.Value is string svLookup && svLookup.Length > 0 && svLookup[0] != '@')
-        {
-            var rewritten = TryRewriteLookupNameFilter(filter, svLookup);
-            if (rewritten is not null) return ApplySynonymRewrite(rewritten);
-        }
-
-        return ApplySynonymRewrite(filter);
-    }
-
-    /// <summary>Rewrite "<T>.<X>Id eq '<name>'" → "<RefTable>.<LabelCol> eq '<name>'" when the FK exists and RefTable has a label column. Null = no rewrite.</summary>
-    private FilterSpec? TryRewriteLookupNameFilter(FilterSpec filter, string stringValue)
-    {
-        var (table, col) = SplitQualified(filter.Column);
-        if (string.IsNullOrEmpty(table) || string.IsNullOrEmpty(col)) return null;
-        if (!col.EndsWith("Id", StringComparison.OrdinalIgnoreCase)) return null;
-        if (!_catalog.TableExists(table)) return null;
-        // Numeric value? Don't rewrite — user filtered by ID directly.
-        if (long.TryParse(stringValue, out _)) return null;
-
-        // Locate the FK with this column on the parent side.
-        var fk = _catalog.Snapshot.ForeignKeys.FirstOrDefault(f =>
-            string.Equals(f.ParentTable, table, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(f.ParentColumn, col, StringComparison.OrdinalIgnoreCase));
-        if (fk is null) return null;
-        if (!_catalog.TableExists(fk.ReferencedTable)) return null;
-
-        // Find a label column on the referenced table. Prefer the entity's explicit LabelColumn;
-        // otherwise walk the semantic-layer Defaults.LabelColumnPreference fallback list.
-        string? labelCol = null;
-        var refEntity = _semanticLayer.GetEntityForTable(fk.ReferencedTable);
-        if (refEntity is not null && !string.IsNullOrEmpty(refEntity.LabelColumn)
-            && _catalog.ColumnExists(fk.ReferencedTable, refEntity.LabelColumn))
-        {
-            labelCol = refEntity.LabelColumn;
-        }
-        if (labelCol is null)
-        {
-            foreach (var candidate in _semanticLayer.Config.Defaults.LabelColumnPreference)
-            {
-                if (string.IsNullOrEmpty(candidate)) continue;
-                if (_catalog.ColumnExists(fk.ReferencedTable, candidate)) { labelCol = candidate; break; }
-            }
-        }
-        if (labelCol is null) return null;
-
-        return new FilterSpec
-        {
-            Column = $"{fk.ReferencedTable}.{labelCol}",
-            Op = filter.Op,
-            Value = stringValue,
-        };
-    }
+    // ApplyFilterRewrite + ApplySynonymRewrite + TryRewriteLookupNameFilter moved to
+    // IFilterValueRewriter (2026-06-01). Callers use _filterValueRewriter.Rewrite(filter).
+    // See Compilation/IFilterValueRewriter.cs.
 
     /// <summary>Group adjacent filters that share (Column, Op) so they can render as a single OR group. Only LIKE/eq/neq are grouped.</summary>
     private static List<List<FilterSpec>> OrGroupFilters(List<FilterSpec> filters)
@@ -234,7 +151,7 @@ internal sealed partial class SqlCompiler
         return clauses.Count == 1 ? clauses[0] : "(" + string.Join(" OR ", clauses) + ")";
     }
 
-    private static string? BuildFilterClause(
+    private string? BuildFilterClause(
         string col, FilterSpec f, Dictionary<string, object?> parameters, ref int paramIndex,
         Dialects.ISqlDialect dialect)
     {
@@ -292,7 +209,7 @@ internal sealed partial class SqlCompiler
                 };
                 var v = ExtractValues(f.Value).FirstOrDefault();
                 // Temporal tokens expand to inline dialect-specific date math — not parameterized.
-                if (v is string s && TryExpandTemporalToken(s, dialect, out var sqlExpr))
+                if (v is string s && _temporalTokenizer.TryExpand(s, dialect, out var sqlExpr))
                     return $"{col} {sqlOp} {sqlExpr}";
                 if (IsPlaceholderToken(v)) return null;
                 var p = "@p" + paramIndex++;
@@ -301,6 +218,14 @@ internal sealed partial class SqlCompiler
             }
         }
     }
+
+    // 2026-06-01 — REVERTED hierarchical-lookup expansion. It fired on ANY equality on a
+    // self-FK table, including the auto-injected soft-delete filter (Tickets.IsDeleted = 0,
+    // because Tickets has a ParentTicketId self-FK), wrapping it in a 3-level subquery. One
+    // test query ran for 181 seconds. It also never helped its intended "tickets in Damascus"
+    // case (the planner filtered the region with LIKE on a joined table, which the eq-only
+    // expansion never touched). Net-negative; removed. Region-hierarchy traversal, if needed,
+    // belongs in a targeted + unit-tested repair rule, not a blanket compiler expansion.
 
     /// <summary>
     /// Wrap a LIKE pattern with leading/trailing <c>%</c> when it has no wildcards. The LLM
@@ -478,105 +403,7 @@ internal sealed partial class SqlCompiler
         return false;
     }
 
-    /// <summary>
-    /// Expand a planner-emitted '@'-token (today/yesterday/week_start/days:-7/etc.) to an inline
-    /// dialect-specific date expression. False = unrecognized, parameterize as string.
-    ///
-    /// Every emission routes through <see cref="Dialects.ISqlDialect"/>, so the same token
-    /// expands to T-SQL on MSSQL (e.g. <c>DATEADD(day, -1, CAST(GETDATE() AS DATE))</c>) and to
-    /// Postgres on PG (<c>(CURRENT_DATE + INTERVAL '-1 day')</c>) without changing this method.
-    /// </summary>
-    private static bool TryExpandTemporalToken(string token, Dialects.ISqlDialect dialect, out string sqlExpr)
-    {
-        sqlExpr = "";
-        if (string.IsNullOrEmpty(token) || token[0] != '@') return false;
-        var t = token.AsSpan(1).Trim().ToString().ToLowerInvariant();
-
-        var now = dialect.NowExpression;
-        var today = dialect.CurrentDateExpression;
-
-        switch (t)
-        {
-            case "now":           sqlExpr = now; return true;
-            case "today":         sqlExpr = today; return true;
-            case "yesterday":     sqlExpr = dialect.DateAdd("day", -1, today); return true;
-            case "tomorrow":      sqlExpr = dialect.DateAdd("day",  1, today); return true;
-            case "today_start":
-            case "day_start":     sqlExpr = today; return true;
-
-            case "week_start":    sqlExpr = dialect.DateTrunc("week",    now); return true;
-            case "month_start":   sqlExpr = dialect.DateTrunc("month",   now); return true;
-            case "year_start":    sqlExpr = dialect.DateTrunc("year",    now); return true;
-            case "quarter_start": sqlExpr = dialect.DateTrunc("quarter", now); return true;
-
-            case "last_week_start":    sqlExpr = dialect.DateAdd("week",    -1, dialect.DateTrunc("week",    now)); return true;
-            case "last_month_start":   sqlExpr = dialect.DateAdd("month",   -1, dialect.DateTrunc("month",   now)); return true;
-            case "last_year_start":    sqlExpr = dialect.DateAdd("year",    -1, dialect.DateTrunc("year",    now)); return true;
-            case "last_quarter_start": sqlExpr = dialect.DateAdd("quarter", -1, dialect.DateTrunc("quarter", now)); return true;
-
-            // Named quarter starts/ends, anchored to the current year. Used by the
-            // InjectTemporalFilterFromQuestion phase when the question says "Q1 of this year" /
-            // "first quarter". q{N}_start = first day of quarter N this year. q{N}_end = first
-            // day of quarter N+1 (half-open interval). Q4_end rolls into the next year so a
-            // "Q4" range remains valid.
-            case "q1_start": sqlExpr = dialect.DateFromParts(dialect.DatePart("year", now), "1",  "1"); return true;
-            case "q1_end":   sqlExpr = dialect.DateFromParts(dialect.DatePart("year", now), "4",  "1"); return true;
-            case "q2_start": sqlExpr = dialect.DateFromParts(dialect.DatePart("year", now), "4",  "1"); return true;
-            case "q2_end":   sqlExpr = dialect.DateFromParts(dialect.DatePart("year", now), "7",  "1"); return true;
-            case "q3_start": sqlExpr = dialect.DateFromParts(dialect.DatePart("year", now), "7",  "1"); return true;
-            case "q3_end":   sqlExpr = dialect.DateFromParts(dialect.DatePart("year", now), "10", "1"); return true;
-            case "q4_start": sqlExpr = dialect.DateFromParts(dialect.DatePart("year", now), "10", "1"); return true;
-            case "q4_end":   sqlExpr = dialect.DateFromParts($"({dialect.DatePart("year", now)} + 1)", "1", "1"); return true;
-        }
-
-        // Year-specific anchor: "@yearmonth:YYYY:M" → first day of month M in year YYYY.
-        // Solves the "Q1 2027 vs Feb 2019" problem — the InjectTemporalFilterFromQuestion
-        // phase detects an explicit year in the question and emits this token instead of the
-        // year-anchored q{N}_start (which silently uses YEAR(GETDATE())). Half-open ranges
-        // become [yearmonth:Y:M, yearmonth:Y:M+1) — the phase emits both legs.
-        if (t.StartsWith("yearmonth:", StringComparison.Ordinal))
-        {
-            var parts = t.Substring("yearmonth:".Length).Split(':');
-            if (parts.Length == 2
-                && int.TryParse(parts[0], out var ym_year)
-                && int.TryParse(parts[1], out var ym_month)
-                && ym_year >= 1900 && ym_year <= 2200
-                && ym_month >= 1 && ym_month <= 12)
-            {
-                sqlExpr = dialect.DateFromParts(ym_year.ToString(), ym_month.ToString(), "1");
-                return true;
-            }
-        }
-
-        // "days:-7" / "hours:-24" / "weeks:-2" / "months:-3" / "years:-1"
-        var colonIdx = t.IndexOf(':');
-        if (colonIdx > 0 && colonIdx < t.Length - 1)
-        {
-            var unit = t[..colonIdx];
-            if (int.TryParse(t[(colonIdx + 1)..], out var offset))
-            {
-                var sqlUnit = unit switch
-                {
-                    "second" or "seconds" or "sec" => "second",
-                    "minute" or "minutes" or "min" => "minute",
-                    "hour" or "hours" or "hr"      => "hour",
-                    "day" or "days"                => "day",
-                    "week" or "weeks" or "wk"      => "week",
-                    "month" or "months" or "mo"    => "month",
-                    "year" or "years" or "yr"      => "year",
-                    _ => null
-                };
-                if (sqlUnit is not null)
-                {
-                    // Day-or-coarser offsets anchor on midnight (CURRENT_DATE on PG, CAST(GETDATE() AS DATE) on MSSQL)
-                    // so range comparisons against datetime columns include the full day.
-                    var baseExpr = sqlUnit is "second" or "minute" or "hour" ? now : today;
-                    sqlExpr = dialect.DateAdd(sqlUnit, offset, baseExpr);
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
+    // TryExpandTemporalToken moved to ITemporalTokenizer / TemporalTokenizer (2026-06-01).
+    // Both WHERE-builder and QualifyColumnsInExpression call _temporalTokenizer.TryExpand —
+    // single source of truth for the grammar. See Compilation/ITemporalTokenizer.cs.
 }

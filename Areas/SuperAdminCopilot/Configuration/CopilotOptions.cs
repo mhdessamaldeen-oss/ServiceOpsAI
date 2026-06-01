@@ -3,10 +3,22 @@ namespace SuperAdminCopilot.Configuration;
 using System.ComponentModel.DataAnnotations;
 
 /// <summary>
-/// Top-level configuration for the in-host copilot. Bound from the
-/// <c>SuperAdminCopilot</c> section in appsettings.json. The host build does NOT use
-/// ConnectionString or Llm subsections — those are sourced from the host (host's
-/// ConnectionStrings:DefaultConnection + host's WorkloadAwareProvider for the Copilot workload).
+/// Top-level configuration for the in-host copilot. Bound from the <c>SuperAdminCopilot</c>
+/// section of <c>Areas/SuperAdminCopilot/Configuration/copilot-options.json</c> — NOT
+/// appsettings.json (locked principle: this file is the single source of runtime knobs).
+/// The host build does NOT use ConnectionString or Llm subsections — those are sourced from
+/// the host (host's ConnectionStrings:DefaultConnection + host's WorkloadAwareProvider for
+/// the Copilot workload).
+///
+/// <para><b>Config-source hierarchy</b> (highest priority last — later overrides earlier):</para>
+/// <list type="number">
+///   <item>C# defaults declared on each property below (lowest).</item>
+///   <item>Values bound from <c>copilot-options.json</c> at startup.</item>
+///   <item>Profile preset overlay (PostConfigure step in DI; selected via the
+///         <c>Profile</c> field in copilot-options.json — "Cloud" | "LocalMedium" | "LocalSmall").</item>
+///   <item>SystemSettings DB table overlay (<c>HostCopilotOptionsConfigurator</c>) — highest priority,
+///         lets admins toggle behavior from the UI without redeploying.</item>
+/// </list>
 ///
 /// <para><b>Validation:</b> Bounds enforced at startup via DataAnnotations + ValidateOnStart.
 /// Misconfigured values (e.g. MaxRows=0, negative timeouts) fail fast at app boot rather than
@@ -35,6 +47,7 @@ public sealed class CopilotOptions
     /// </summary>
     [Range(0, 5, ErrorMessage = "MaxSelfCorrectionRetries must be 0..5.")]
     public int MaxSelfCorrectionRetries { get; set; } = 1;
+
 
     /// <summary>Phase 6 schema-drift safety. When true, the SchemaDriftLinter throws at
     /// startup if it finds JSON-config table/column references that no longer exist in the
@@ -168,9 +181,9 @@ public sealed class CopilotOptions
     /// calls fire — the budget is exhausted. The currently-running request still completes,
     /// but if it depends on more LLM work it surfaces with trace token RetryBudgetExhausted.
     /// 0 disables the cap.
-    /// <para>Default 60s (was 30s) covers the cold-start case: first scenario after a host
-    /// restart pays the embedder priming + entity-vector caching + first LLM provider warm-up.
-    /// Steady-state per-question wall-clock is ~10-15s, so this is a 4× ceiling, not a target.</para>
+    /// <para>Default 1800s (30 min) covers cold-start + worst-case retry chains. Steady-state
+    /// per-question wall-clock is ~10–15s, so this is a generous ceiling, not a target.
+    /// Must be ≥ <see cref="LlmCallTimeoutSeconds"/>.</para>
     /// </summary>
     [Range(0, 3600, ErrorMessage = "MaxQuestionWallClockSeconds must be 0..3600 (1h).")]
     public int MaxQuestionWallClockSeconds { get; set; } = 1800;
@@ -178,8 +191,8 @@ public sealed class CopilotOptions
     /// <summary>
     /// Per-LLM-call timeout in seconds. Wraps every provider GenerateAsync / GenerateJsonAsync
     /// so a hung model deployment can't block the eval-runner or a user request indefinitely.
-    /// Default 45s. Lower for fast small models; raise for large hosted models. Always less than
-    /// or equal to <see cref="MaxQuestionWallClockSeconds"/> to make sense.
+    /// Default 900s (15 min) — generous for large hosted models; lower for fast small ones.
+    /// Must be ≤ <see cref="MaxQuestionWallClockSeconds"/>.
     /// </summary>
     [Range(5, 1800, ErrorMessage = "LlmCallTimeoutSeconds must be 5..1800 (30min).")]
     public int LlmCallTimeoutSeconds { get; set; } = 900;
@@ -250,6 +263,20 @@ public sealed class CopilotOptions
     public CoverageCheckMode CoverageCheckMode { get; set; } = CoverageCheckMode.Warn;
 
     /// <summary>
+    /// When true (default), a coverage-checker gap triggers a one-shot RETRY through the raw-SQL
+    /// escape valve (<c>LlmDirectSqlEmitter</c>). This is the 2026-06-01 replacement for the
+    /// brittle phrase-matching shape router: instead of guessing from English keywords whether
+    /// the form-filling QuerySpec can express the question, we run form-filling, let the
+    /// multilingual semantic coverage checker judge the ACTUAL answer, and escalate to raw SQL
+    /// only when it finds a gap (subquery comparison, window function, recursive shape the form
+    /// can't express). Detection over prediction; multilingual; no hardcoded vocab.
+    ///
+    /// <para>Cost: one extra escape-valve LLM call ONLY on the questions where coverage finds a
+    /// gap (~5–10% of analytical traffic). Set false to keep the old warn-only behavior.</para>
+    /// </summary>
+    public bool EnableCoverageEscapeRetry { get; set; } = true;
+
+    /// <summary>
     /// Max number of CoverageChecker LLM calls per question. Tracked in a SEPARATE counter from
     /// the main planner/explainer retry budget so coverage verification stays reliable on hard
     /// questions where the planner has already burned its budget. Default 1 — only one audit
@@ -258,8 +285,33 @@ public sealed class CopilotOptions
     [Range(0, 5, ErrorMessage = "CoverageCheckMaxCallsPerQuestion must be 0..5.")]
     public int CoverageCheckMaxCallsPerQuestion { get; set; } = 1;
 
-    /// <summary>Skip the CoverageChecker on first-attempt single-root specs with no joins/group-by and ≤1 filter/aggregation. Joined / grouped / retry-recovered specs still go through it.</summary>
+    /// <summary>Skip the CoverageChecker on first-attempt single-root specs with no joins/group-by and ≤<see cref="TrivialAnswerMaxFilters"/> filter/≤<see cref="TrivialAnswerMaxAggregations"/> aggregation. Joined / grouped / retry-recovered specs still go through it.</summary>
     public bool SkipCoverageCheckOnTrivialAnswers { get; set; } = true;
+
+    /// <summary>
+    /// Filter-count threshold used by <c>IsTrivialAnswer</c> to decide whether to skip the
+    /// CoverageChecker. Previously hardcoded to 1 in the orchestrator; surfaced here so
+    /// operators can tune without recompiling. Default 1 keeps the original behavior.
+    /// </summary>
+    [Range(0, 10, ErrorMessage = "TrivialAnswerMaxFilters must be 0..10.")]
+    public int TrivialAnswerMaxFilters { get; set; } = 1;
+
+    /// <summary>
+    /// Aggregation-count threshold used by <c>IsTrivialAnswer</c>. Previously hardcoded to 1
+    /// in the orchestrator; surfaced for operator tuning. Default 1 keeps original behavior.
+    /// </summary>
+    [Range(0, 10, ErrorMessage = "TrivialAnswerMaxAggregations must be 0..10.")]
+    public int TrivialAnswerMaxAggregations { get; set; } = 1;
+
+    /// <summary>
+    /// Aggregate-function alias prefixes that <c>StripAggregatePrefix</c> recognises when
+    /// matching an aggregation alias to a Computed alias (e.g. "AvgAgeDays" → "AgeDays").
+    /// Previously a hardcoded English array in the compiler; surfaced here so multilingual
+    /// deployments can add "Total" variants in Arabic, French, etc., without recompiling.
+    /// Defaults match the prior hardcoded list: Avg / Sum / Min / Max / Total / Average.
+    /// </summary>
+    public System.Collections.Generic.List<string> AggregateAliasPrefixes { get; set; }
+        = new() { "Avg", "Sum", "Min", "Max", "Total", "Average" };
 
     /// <summary>
     /// Master switch for the compound-question decomposer. When true the orchestrator detects
@@ -513,12 +565,55 @@ public enum PlannerCapabilityTier
 {
     /// <summary>Local 7B class (qwen2.5-coder:7b). All crutch phases fire.</summary>
     Weak = 0,
-    /// <summary>Local 14B-32B class (Qwen2.5-Coder-32B, OmniSQL, DeepSeek-Coder-V2-Lite). The
-    /// language-pattern crutches stop; structural and FK-enrichment phases continue.</summary>
+    /// <summary>Local 14B-32B class (Qwen2.5-Coder-32B, OmniSQL, DeepSeek-Coder-V2-Lite) AND
+    /// fast cloud models (Gemini Flash, Claude Haiku, GPT-4o-mini). The language-pattern
+    /// crutches stop; structural and FK-enrichment phases continue.</summary>
     Medium = 1,
-    /// <summary>Frontier-class (Claude Sonnet/Opus, GPT-4o, DeepSeek-V3). Only universal
-    /// schema/safety/structural phases fire — all language-vocab crutches are skipped.</summary>
+    /// <summary>Frontier-class (Claude Sonnet/Opus, GPT-4o, Gemini Pro, DeepSeek-V3). Only
+    /// universal schema/safety/structural phases fire — all language-vocab crutches are skipped.</summary>
     Strong = 2,
+}
+
+/// <summary>
+/// Derives the planner capability tier from the active Copilot model name. This is the 2026-06-01
+/// fix for the "tier disconnected from model" bug: previously the tier came from a manual
+/// <c>Profile</c> preset in copilot-options.json, so an operator who switched the model to Gemini
+/// via the admin UI left the tier at the local-model default — and every weak-model crutch kept
+/// firing against a capable cloud model.
+///
+/// <para>Now the tier follows the model automatically (an explicit
+/// <c>CopilotPlannerCapabilityTier</c> SystemSettings row still overrides, for testing). The
+/// host overlay (<c>HostCopilotOptionsConfigurator</c>) calls this with the resolved Copilot model.</para>
+/// </summary>
+public static class PlannerTierDeriver
+{
+    public static PlannerCapabilityTier FromModel(string? model)
+    {
+        if (string.IsNullOrWhiteSpace(model)) return PlannerCapabilityTier.Weak;
+        var m = model.ToLowerInvariant();
+
+        // MEDIUM markers are checked FIRST so a "mini" / "lite" / "flash" / "haiku" variant of an
+        // otherwise-strong family is NOT mis-promoted. Two traps handled here:
+        //   • "gpt-4o-mini" must match Medium, never fall through to the "gpt-4o" Strong rule.
+        //   • "geMINI" CONTAINS the substring "mini" — so the size qualifier must be hyphen-
+        //     anchored ("-mini" / "-lite"), or every Gemini model would be mis-classed Medium.
+        if (m.Contains("-mini") || m.Contains("-lite") || m.Contains("flash") || m.Contains("haiku")
+            || m.Contains("14b") || m.Contains("32b")
+            || m.Contains("deepseek-coder"))            // v2-lite class
+            return PlannerCapabilityTier.Medium;
+
+        // STRONG markers — frontier models.
+        if (m.Contains("opus") || m.Contains("sonnet")
+            || m.Contains("gpt-4o") || m.Contains("gpt-4.1") || m.Contains("gpt-4-") || m == "gpt-4"
+            || m.Contains("deepseek-v3") || m.Contains("deepseek-r1")
+            || m.Contains("gemini-1.5-pro") || m.Contains("gemini-2.5-pro") || m.Contains("gemini-pro")
+            || m.Contains("claude-3.5") || m.Contains("claude-3.7")
+            || m.Contains("claude-4") || m.Contains("claude-opus") || m.Contains("claude-sonnet"))
+            return PlannerCapabilityTier.Strong;
+
+        // WEAK — local 7B class and anything unrecognized. Safe default: every crutch fires.
+        return PlannerCapabilityTier.Weak;
+    }
 }
 
 /// <summary>How the orchestrator reacts to a CoverageChecker-detected gap. See

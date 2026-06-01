@@ -274,6 +274,17 @@ html.investigation-page-body .sf-wrapper {
     flex-direction: column !important;
     min-height: 100vh !important;
     background: var(--bg-main) !important;
+    transition: left 0.22s ease;
+}
+
+/* Sidebar-collapsed companion: the base rule above pins `left` to the
+   expanded sidebar width via position:absolute, so the responsive margin
+   collapse from site.css (which targets margin-left) is silenced. Without
+   this rule, collapsing the sidebar to 72px would leave a ~178px dead band
+   between the icon column and the content. Same-specificity selector with
+   one extra class — wins the cascade without fighting !important. */
+html.investigation-page-body.sidebar-collapsed .sf-wrapper {
+    left: var(--sidebar-collapsed-width) !important;
 }
 
 html.investigation-page-body main[role="main"],

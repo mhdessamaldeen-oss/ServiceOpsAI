@@ -2,6 +2,7 @@ namespace SuperAdminCopilot.Pipeline.Stages;
 
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using SuperAdminCopilot.Application.Repair;
 using SuperAdminCopilot.Models;
 
 /// <summary>
@@ -30,10 +31,12 @@ public sealed record SqlIntentGuardResult(string Reason, string RetryHint);
 
 internal sealed class SqlIntentGuard : ISqlIntentGuard
 {
+    private readonly ILinguisticRegistry _registry;
     private readonly ILogger<SqlIntentGuard> _logger;
 
-    public SqlIntentGuard(ILogger<SqlIntentGuard> logger)
+    public SqlIntentGuard(ILinguisticRegistry registry, ILogger<SqlIntentGuard> logger)
     {
+        _registry = registry;
         _logger = logger;
     }
 
@@ -56,42 +59,16 @@ internal sealed class SqlIntentGuard : ISqlIntentGuard
     //         Example: "5 longest outages" → SELECT TOP (5) COUNT(*) FROM [Outages] (got 1 row,
     //         user wanted 5 rows of outage data).
     //
-    //         This rule DOES inspect the question text — small departure from the class-doc
-    //         "no question inspection" principle, but justified by the magnitude of the
-    //         silent-failure rate. Detection is by the ABSENCE of count-intent markers across
-    //         the languages the deployment supports (EN + AR + common synonyms), not by an
-    //         enumerated list of "this means count" patterns — so it generalises rather than
-    //         pattern-matches.
-    private static readonly string[] CountIntentMarkers =
-    {
-        // English — count / quantity intent
-        "how many", "count", "number of", "total", "tally", "sum of",
-        // English — single-value computed metrics (legitimately produce one row)
-        "percentage", "percent", "%", "rate", "ratio", "proportion", "share",
-        "average", "avg", "mean", "median", "max", "maximum", "min", "minimum",
-        // Arabic — count / quantity
-        "عدد", "كم", "مجموع", "إجمالي", "اجمالي",
-        // Arabic — single-value metrics
-        "نسبة", "متوسط", "معدل", "أعلى", "أدنى",
-    };
+    //         Count-intent markers are sourced from linguistic-cues.json aggregateMarkers per
+    //         locale via ILinguisticRegistry — adding a dialect is a JSON edit.
     private SqlIntentGuardResult? CheckCountShapeOnNonCountQuestion(string question, QuerySpec spec)
     {
         if (string.IsNullOrWhiteSpace(question)) return null;
-        // Only fire when the spec is a PURE count (no select cols, no group-by, all aggs are COUNT).
-        if (spec.GroupBy.Count > 0) return null;
-        if (spec.Select.Count > 0) return null;
-        if (spec.Aggregations.Count == 0) return null;
-        var allAggsAreCount = spec.Aggregations.All(a =>
-            string.Equals(a.Function, "COUNT", StringComparison.OrdinalIgnoreCase));
-        if (!allAggsAreCount) return null;
+        if (!Application.Repair.QuerySpecShapePredicates.IsPureCountShape(spec)) return null;
 
-        // If the question contains ANY count-intent marker (any language), the COUNT shape is
+        // If the question carries ANY aggregate marker (any language), the COUNT shape is
         // legitimate. Only fire when no marker is present at all.
-        var lower = question.ToLowerInvariant();
-        foreach (var marker in CountIntentMarkers)
-        {
-            if (lower.Contains(marker, StringComparison.OrdinalIgnoreCase)) return null;
-        }
+        if (_registry.LooksLikeAggregateQuery(question)) return null;
 
         _logger.LogWarning("[SqlIntentGuard] pure COUNT spec but question has no count-intent markers — likely silent shape failure. Q='{Q}'",
             question.Length > 80 ? question[..80] + "…" : question);
@@ -182,9 +159,7 @@ internal sealed class SqlIntentGuard : ISqlIntentGuard
     //         silent shadow.
     private SqlIntentGuardResult? CheckDistinctWithAggregations(QuerySpec spec)
     {
-        if (!spec.Distinct) return null;
-        var hasRealAgg = spec.Aggregations.Any(a => !string.IsNullOrEmpty(a.Function));
-        if (!hasRealAgg) return null;
+        if (!Application.Repair.QuerySpecShapePredicates.IsDistinctWithAggregations(spec)) return null;
         _logger.LogWarning("[SqlIntentGuard] distinct:true combined with aggregations");
         return new SqlIntentGuardResult(
             "Spec has distinct:true and aggregations together — DISTINCT on grouped results is degenerate.",

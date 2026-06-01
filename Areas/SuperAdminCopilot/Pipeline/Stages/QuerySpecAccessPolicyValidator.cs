@@ -150,6 +150,17 @@ internal sealed class QuerySpecAccessPolicyValidator : IQuerySpecAccessPolicyVal
         return null;
     }
 
+    /// <summary>
+    /// Public surface for the same safety check used internally by <see cref="Check"/>.
+    /// Used by <c>DropUnsafeComputedExpressionsRule</c> (SpecRepair) to PROACTIVELY scrub
+    /// LLM-emitted Computed expressions that would otherwise refuse-hard at the access-policy
+    /// gate. Returns true when the expression contains a disallowed token; null/empty is safe.
+    /// Single source of truth — keeping it here means the repair rule and the validator can
+    /// never drift on which keywords are allowed.
+    /// </summary>
+    internal static bool IsUnsafeExpression(string? expression)
+        => CheckExpressionSafety(expression, context: "expression") is not null;
+
     private static string? CheckExpressionSafety(string? expression, string context)
     {
         if (string.IsNullOrWhiteSpace(expression)) return null;

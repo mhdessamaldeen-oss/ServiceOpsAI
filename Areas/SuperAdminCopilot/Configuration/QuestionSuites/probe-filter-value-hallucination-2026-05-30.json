@@ -1,0 +1,56 @@
+{
+  "name": "Filter-value-hallucination probe (iter 3 — prompt clause)",
+  "version": "1.0",
+  "description": "Tests the new FILTER VALUES MUST BE LITERAL DATA prompt clause against the 2 baseline-190 failures where the LLM emitted descriptive strings or column references as filter values. Two control cases verify no regression on the label-fix (iter 1) and the self-join drop (iter 2).",
+  "Scenarios": [
+    {
+      "Code": "PROBE-FVH-001",
+      "Question": "SLA breaches in the last quarter by department",
+      "Shape": "DOMAIN-SLA",
+      "Difficulty": "hard",
+      "Locale": "en",
+      "ExpectedColumns": ["NameEn","Count"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Departments",
+      "Notes": "From B-DOM-012. Previously emitted '[ServiceTypes.Id...]' as a filter value → nvarchar→int conversion failed. With the prompt clause, the LLM should drop or correctly literal the filter.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-FVH-002",
+      "Question": "active customers in the West region with at least one payment",
+      "Shape": "FLT-MULTI",
+      "Difficulty": "hard",
+      "Locale": "en",
+      "ExpectedColumns": ["FullName","RegionName"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Customers",
+      "Notes": "From B-FLT-022. Previously emitted 'West Region Ids' as a filter value. With the clause, the LLM should join to Regions and filter NameEn='West' (or drop the region filter).",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-FVH-CTRL-1",
+      "Question": "top 5 customers by total bill amount",
+      "Shape": "LIM-TOP",
+      "Difficulty": "medium",
+      "Locale": "en",
+      "ExpectedColumns": ["FullName","Total"],
+      "ExpectedRowCountDirection": "many",
+      "ExpectedRowCount": 5,
+      "EntityFocus": "Customers",
+      "Notes": "Control: iter 1 label fix should still produce Customers.FullNameEn + SUM.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-FVH-CTRL-2",
+      "Question": "list every region with its parent region",
+      "Shape": "SEL",
+      "Difficulty": "hard",
+      "Locale": "en",
+      "ExpectedColumns": ["NameEn"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Regions",
+      "Notes": "Control: iter 2 should still drop the unresolved ParentRegion.NameEn and execute.",
+      "MaxLatencyMs": 180000
+    }
+  ]
+}

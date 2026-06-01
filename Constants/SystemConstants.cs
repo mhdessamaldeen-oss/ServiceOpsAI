@@ -82,6 +82,11 @@ namespace ServiceOpsAI.Constants
         public const string CopilotWorkloadModel = "AiCopilotModel";
         public const string AnalysisWorkloadModel = "AiAnalysisModel";
         public const string RagWorkloadModel = "AiRagModel";
+        /// <summary>Global default model — the companion of <see cref="AiActiveProvider"/>. Every
+        /// per-workload / per-role slot whose Model field is empty means "inherit from this".
+        /// Surfaced in the GLOBALDEFAULT card so the user can see and pick what "inherit default"
+        /// actually points to, instead of it being implicitly the provider's native default.</summary>
+        public const string DefaultWorkloadModel = "AiActiveModel";
         /// <summary>Workload model for the intent router/classifier. Runs BEFORE the Copilot SQL
         /// generator. Keeping it on the same provider+model as Copilot is the safe default; can be
         /// downgraded to a smaller faster model (e.g. <c>qwen2.5:3b</c>) once accuracy is measured.</summary>
@@ -192,6 +197,10 @@ namespace ServiceOpsAI.Constants
         public const string CopilotUseLlmExplainer = "CopilotUseLlmExplainer";
         public const string CopilotMaxLlmCallsPerQuestion = "CopilotMaxLlmCallsPerQuestion";
         public const string CopilotMaxSelfCorrectionRetries = "CopilotMaxSelfCorrectionRetries";
+        /// <summary>Optional explicit planner-capability-tier override (Weak/Medium/Strong). When
+        /// set, it wins over the tier auto-derived from the active Copilot model. Leave empty in
+        /// production so the tier follows the model; use only for testing a specific tier.</summary>
+        public const string CopilotPlannerCapabilityTier = "CopilotPlannerCapabilityTier";
         public const string CopilotLlmCallTimeoutSeconds = "CopilotLlmCallTimeoutSeconds";
         public const string CopilotMaxQuestionWallClockSeconds = "CopilotMaxQuestionWallClockSeconds";
         public const string CopilotMaxRows = "CopilotMaxRows";

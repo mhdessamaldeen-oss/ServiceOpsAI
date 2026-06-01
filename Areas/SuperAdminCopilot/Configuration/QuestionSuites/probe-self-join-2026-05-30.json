@@ -1,0 +1,68 @@
+{
+  "name": "Self-join hierarchical probe (post DropUnresolvedSelectColumnsRule)",
+  "version": "1.0",
+  "description": "5 cases targeting the SQL-error pattern from baseline 190. 3 are the self-join 'X with its parent X' shape that hit 'multi-part identifier could not be bound'. 2 are control cases (label-projection regression check + a basic SEL) to ensure the new rule doesn't drop legitimate projections.",
+  "Scenarios": [
+    {
+      "Code": "PROBE-SJ-001",
+      "Question": "list every region with its parent region",
+      "Shape": "SEL",
+      "Difficulty": "hard",
+      "Locale": "en",
+      "ExpectedColumns": ["NameEn"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Regions",
+      "Notes": "From B-SEL-009. The LLM projects 'ParentRegion.NameEn' without adding the self-join. Our rule should drop that entry; SQL becomes Regions.NameEn only (partial but correct).",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-SJ-002",
+      "Question": "regions and their parent governorate",
+      "Shape": "JOI",
+      "Difficulty": "hard",
+      "Locale": "en",
+      "ExpectedColumns": ["NameEn"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Regions",
+      "Notes": "From B-JOI-009. Same shape as 001 with different alias name (ParentGovernorate).",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-SJ-003",
+      "Question": "show all ticket categories with their parent category code",
+      "Shape": "CTE",
+      "Difficulty": "hard",
+      "Locale": "en",
+      "ExpectedColumns": ["Name"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "TicketCategories",
+      "Notes": "From B-CTE-003. The LLM used aliases 'tc' and 'tc2' which were never bound. Drop unresolved.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-SJ-CTRL-1",
+      "Question": "top 5 customers by total bill amount",
+      "Shape": "LIM-TOP",
+      "Difficulty": "medium",
+      "Locale": "en",
+      "ExpectedColumns": ["FullName","Total"],
+      "ExpectedRowCountDirection": "many",
+      "ExpectedRowCount": 5,
+      "EntityFocus": "Customers",
+      "Notes": "Control case — exercises the ProjectLabelForFkGroupByRule. Should still produce Customers.FullNameEn + SUM. Verifies new rule doesn't break the label-projection fix.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-SJ-CTRL-2",
+      "Question": "show me tickets",
+      "Shape": "SEL",
+      "Difficulty": "easy",
+      "Locale": "en",
+      "ExpectedColumns": ["TicketNumber","Title","Status","Priority","Category","CreatedAt"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Tickets",
+      "Notes": "Control — basic SEL with FK label projections. Verifies the new rule doesn't drop legitimate FK label projections that the compiler will auto-join.",
+      "MaxLatencyMs": 180000
+    }
+  ]
+}

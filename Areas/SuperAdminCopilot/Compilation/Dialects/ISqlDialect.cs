@@ -75,6 +75,15 @@ public interface ISqlDialect
     /// <summary>Current date (no time). T-SQL: <c>CAST(GETDATE() AS DATE)</c>; Postgres: <c>CURRENT_DATE</c>.</summary>
     string CurrentDateExpression { get; }
 
+    /// <summary>
+    /// Date-part keywords used INSIDE function calls like <c>DATEDIFF(day, ...)</c>. These look
+    /// like bare identifiers but must not be qualified as columns even when a table happens to
+    /// have a column of the same name. T-SQL exposes many synonyms (year/yyyy/yy, etc.); Postgres
+    /// uses a different set (year/quarter/month/day/dow/doy/…). Lives on the dialect so porting
+    /// to a new database engine doesn't require touching the compiler.
+    /// </summary>
+    System.Collections.Generic.IReadOnlySet<string> DatePartKeywords { get; }
+
     // ── Date arithmetic ────────────────────────────────────────────────────────────────────
 
     /// <summary>

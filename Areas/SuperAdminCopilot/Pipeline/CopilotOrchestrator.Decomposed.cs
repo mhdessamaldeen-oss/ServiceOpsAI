@@ -26,7 +26,7 @@ internal sealed partial class CopilotOrchestrator
                 var augmentedQuestion = i == 0
                     ? sub
                     : sub + BuildPriorStepContext(i, subQuestions, results);
-                results[i] = await RunSingleAsync(
+                results[i] = await _singleExecutor.ExecuteAsync(
                     new CopilotRequest(augmentedQuestion, request.ConversationId),
                     augmentedQuestion,
                     Stopwatch.StartNew(),
@@ -37,7 +37,7 @@ internal sealed partial class CopilotOrchestrator
         else
         {
             var tasks = subQuestions
-                .Select(sub => RunSingleAsync(
+                .Select(sub => _singleExecutor.ExecuteAsync(
                     new CopilotRequest(sub, request.ConversationId), sub, Stopwatch.StartNew(),
                     new BroadcastingStepList(_progress, TargetFor(request)), cancellationToken))
                 .ToList();
@@ -71,7 +71,7 @@ internal sealed partial class CopilotOrchestrator
             if (!string.IsNullOrEmpty(r.Error)) anyError = true;
             if (r.RowCount.HasValue) totalRows += r.RowCount.Value;
         }
-        return await PersistAsync(request, totalSw, steps,
+        return await _persister.PersistAsync(request, totalSw, steps,
             reply: reply.ToString().TrimEnd(),
             sql: sql.Length > 0 ? sql.ToString() : null,
             rowCount: totalRows,

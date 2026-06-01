@@ -1035,9 +1035,16 @@
         // loop on the Trust feature: analysts don't have to remember to click.
         _autoPromoteTrack(question);
 
-        currentThinkingStatus = '🔍 Initializing Agentic Pipeline...';
-        // Fresh live-progress timeline for the new question — old durations shouldn't leak in.
-        resetProgressLog();
+        // Only start a fresh live-progress timeline when nothing is running yet.
+        // If a question is already in flight (copilotPending), this submission is
+        // merely QUEUED — resetting the log here would erase the in-flight
+        // question's progress steps, collapsing its rich timeline down to a bare
+        // "Thinking…". processCopilotQueue() resets the log itself when it actually
+        // dequeues and begins processing this question.
+        if (!copilotPending) {
+            currentThinkingStatus = '🔍 Initializing Agentic Pipeline...';
+            resetProgressLog();
+        }
         const codeToUse = currentCaseCode;
         const sourceSuiteToUse = currentSourceSuite;
         currentCaseCode = null; // Reset for next interaction
@@ -1167,7 +1174,7 @@
         }
 
         const thinkingHtml = copilotPending ? `
-            <div class="copilot-message copilot-message-assistant animate__animated animate__fadeIn">
+            <div class="copilot-message copilot-message-assistant copilot-message-thinking animate__animated animate__fadeIn">
                 <div class="small fw-bold text-uppercase opacity-75 mb-2" style="letter-spacing: 0.12em; color: var(--text-muted); width: max-content; display: block;">AI COPILOT</div>
                 <div class="copilot-message-body" style="width: 100%;">
                     ${renderProgressTimeline()}

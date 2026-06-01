@@ -34,10 +34,8 @@
     "RetrieverTopK":      5,
     "FewShotTopK":        3,
     // Cosine penalty applied to satellite/auxiliary tables (suffix list lives in
-    // semantic-layer.json.defaults.auxiliaryTableSuffixes — Histories / Notifications /
-    // Audits / Logs / Snapshots / …). 0.05 breaks near-ties in favour of the main entity
-    // ("Outages" beats "OutageHistories" / "OutageNotifications" for "show me outages")
-    // without overriding a clear cosine win. Set to 0 to disable.
+    // semantic-layer.json.defaults.auxiliaryTableSuffixes). 0.05 breaks near-ties in favour
+    // of the main entity. Set to 0 to disable.
     "AuxiliaryTableScorePenalty": 0.05,
     "SpecPromptMaxTables":      6,        // Phase 3: was hardcoded in SpecExtractor:149
     "VqFewShotMinSimilarity":   0.65,     // Phase 3: was hardcoded in SpecExtractor:181
@@ -157,5 +155,16 @@
         "PlannerCapabilityTier":              "Weak"
       }
     }
+  },
+
+  // ── Embedding keyword boosts ──────────────────────────────────────────────────
+  // Role-specific phrases that SchemaSemanticRetriever appends to a table's embedding
+  // text so paraphrased queries route to the right table-shape. Edit to translate or
+  // tune; restart picks up changes. Defaults match the historic hardcoded values.
+  "EmbeddingKeywords": {
+    "Lookup": "lookup reference values options types",
+    "Bridge": "association relationship mapping link",
+    "Person": "users people members accounts",
+    "Fact":   ""
   }
 }

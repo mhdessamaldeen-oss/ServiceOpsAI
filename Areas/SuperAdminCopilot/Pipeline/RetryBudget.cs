@@ -12,12 +12,11 @@ using SuperAdminCopilot.Configuration;
 /// with <see cref="StageNames.RetryBudgetExhausted"/>.
 ///
 /// <para>Why this matters in production: a runaway question (planner keeps emitting bad SQL,
-/// retry loop fires, explainer fires too) can cost 5+ LLM calls and 60+ seconds. The budget
-/// is the hard backstop. Defaults:
-/// <list type="bullet">
-///   <item><see cref="CopilotOptions.MaxLlmCallsPerQuestion"/> = 3</item>
-///   <item><see cref="CopilotOptions.MaxQuestionWallClockSeconds"/> = 30</item>
-/// </list></para>
+/// retry loop fires, explainer fires too) can cost many LLM calls and minutes of wall-clock.
+/// The budget is the hard backstop. Per-question caps live on <see cref="CopilotOptions"/>
+/// (<c>MaxLlmCallsPerQuestion</c>, <c>MaxQuestionWallClockSeconds</c>, <c>MaxTokensPerQuestion</c>) —
+/// see CopilotOptions.cs for the authoritative current defaults and ranges. Inline numeric
+/// defaults are intentionally NOT documented here so they cannot drift from the options class.</para>
 ///
 /// <para>Scope: the budget is request-scoped — every <see cref="ISuperAdminCopilot.AskAsync"/>
 /// gets a fresh budget. Internally it's tracked per <see cref="CopilotRequest"/> via the

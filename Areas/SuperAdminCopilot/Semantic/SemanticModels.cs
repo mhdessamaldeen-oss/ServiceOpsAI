@@ -210,6 +210,43 @@ public sealed class EntityDefinition
     /// memory: don't refuse questions just because the entity isn't vectorized.
     /// </summary>
     public bool HasEmbeddings { get; set; }
+
+    /// <summary>
+    /// Derived-metric definitions for this entity. Each entry maps a vocabulary cue ("ticket age",
+    /// "MTTR", "revenue") to a SQL expression and aggregation function. Consumed by
+    /// <c>DerivedMetricRule</c> via <c>ISemanticView.ResolveDerivedMetric</c>. Adding a new
+    /// metric = JSON edit only.
+    /// </summary>
+    public List<DerivedMetricDefinition> DerivedMetrics { get; set; } = new();
+
+    /// <summary>
+    /// Columns whose semantics are "lifecycle status" — safe to strip when the user asks an
+    /// "all-time" question ("how many tickets ever"). Consumed by <c>UnsolicitedFilterRule</c>
+    /// via <c>ISemanticView.IsTemporalStatusColumn</c>. Empty = strip nothing on all-time.
+    /// </summary>
+    public List<string> TemporalStatusColumns { get; set; } = new();
+}
+
+/// <summary>
+/// One derived-metric declaration: a vocabulary trigger that, when present in the question,
+/// implies a specific aggregation over a SQL expression. The expression may use the
+/// <c>{unit}</c> placeholder for DATEDIFF granularity — the resolver substitutes it from
+/// <see cref="UnitCue"/> (or <see cref="DefaultUnit"/> when no unit cue fires).
+/// </summary>
+public sealed class DerivedMetricDefinition
+{
+    /// <summary>Short stable identifier for the metric (e.g. "age", "resolutionTime"). Used in the alias.</summary>
+    public string Key { get; set; } = "";
+    /// <summary>Question-text triggers (case-insensitive contains). First-match wins.</summary>
+    public List<string> Cues { get; set; } = new();
+    /// <summary>SQL expression. May contain <c>{unit}</c> for DATEDIFF granularity.</summary>
+    public string Expression { get; set; } = "";
+    /// <summary>SQL aggregate function (COUNT / SUM / AVG / MAX / MIN).</summary>
+    public string Function { get; set; } = "";
+    /// <summary>Granularity used when no unit-cue matches. Required when <see cref="Expression"/> contains <c>{unit}</c>.</summary>
+    public string? DefaultUnit { get; set; }
+    /// <summary>Map of SQL granularity (HOUR / DAY / MINUTE) to its question-text regex cues.</summary>
+    public Dictionary<string, List<string>> UnitCue { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>

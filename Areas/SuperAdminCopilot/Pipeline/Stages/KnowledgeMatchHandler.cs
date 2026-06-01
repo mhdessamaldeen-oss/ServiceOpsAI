@@ -1,8 +1,8 @@
 namespace SuperAdminCopilot.Pipeline.Stages;
 
 using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using SuperAdminCopilot.Application.Repair;
 using SuperAdminCopilot.Schema;
 using SuperAdminCopilot.Semantic;
 
@@ -29,83 +29,30 @@ internal sealed class KnowledgeMatchHandler : IKnowledgeMatchHandler
 {
     private readonly ISemanticLayer _semantic;
     private readonly IEntityCatalog _catalog;
+    private readonly ILinguisticRegistry _registry;
     private readonly ILogger<KnowledgeMatchHandler> _logger;
 
     public string Name => "KnowledgeMatch";
 
-    /// <summary>
-    /// English vocabulary patterns: "what is a/an X", "explain X", "what does X mean",
-    /// "tell me about X", "describe X". The trailing X must be 1-3 words. Deliberately excludes
-    /// patterns that start with "what is the average / total / count / number / difference
-    /// between" because those are data queries, not vocabulary questions.
-    /// </summary>
-    private static readonly Regex KnowledgePhrase = new(
-        @"^\s*(?:" +
-        @"what\s+is\s+(?:(?:a|an|the)\s+)?(?<term>[a-z][\w-]*(?:\s+[a-z][\w-]*){0,2})|" +
-        @"what\s+are\s+(?<term2>[a-z][\w-]*(?:\s+[a-z][\w-]*){0,2})|" +
-        @"explain\s+(?:the\s+)?(?<term3>[a-z][\w-]*(?:\s+[a-z][\w-]*){0,2})|" +
-        @"what\s+does\s+(?<term4>[a-z][\w-]*(?:\s+[a-z][\w-]*){0,2})\s+mean|" +
-        @"tell\s+me\s+about\s+(?:the\s+)?(?<term5>[a-z][\w-]*(?:\s+[a-z][\w-]*){0,2})|" +
-        @"describe\s+(?:the\s+)?(?<term6>[a-z][\w-]*(?:\s+[a-z][\w-]*){0,2})" +
-        @")[?.\s]*$",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    /// <summary>
-    /// Arabic vocabulary patterns: ما هو X / ما هي X / اشرح X / أخبرني عن X / وضح X / عرّف X.
-    /// X captures 1–3 tokens (Arabic word characters plus Latin letters, since users often
-    /// mix Arabic verbs with English entity names like "ما هو AspNetUsers"). The terminator
-    /// allows trailing question marks (Arabic ؟ U+061F or ASCII ?) or punctuation.
-    /// </summary>
-    private static readonly Regex KnowledgePhraseAr = new(
-        @"^\s*(?:" +
-        @"ما\s+(?:هو|هي|هما)\s+(?<term>[\p{L}_][\p{L}\p{Nd}_-]*(?:\s+[\p{L}_][\p{L}\p{Nd}_-]*){0,2})|" +
-        @"اشرح\s+(?:لي\s+)?(?<term2>[\p{L}_][\p{L}\p{Nd}_-]*(?:\s+[\p{L}_][\p{L}\p{Nd}_-]*){0,2})|" +
-        @"أخبرني\s+عن\s+(?<term3>[\p{L}_][\p{L}\p{Nd}_-]*(?:\s+[\p{L}_][\p{L}\p{Nd}_-]*){0,2})|" +
-        @"وضح\s+(?:لي\s+)?(?<term4>[\p{L}_][\p{L}\p{Nd}_-]*(?:\s+[\p{L}_][\p{L}\p{Nd}_-]*){0,2})|" +
-        @"عرّف\s+(?<term5>[\p{L}_][\p{L}\p{Nd}_-]*(?:\s+[\p{L}_][\p{L}\p{Nd}_-]*){0,2})|" +
-        @"عرف\s+(?<term6>[\p{L}_][\p{L}\p{Nd}_-]*(?:\s+[\p{L}_][\p{L}\p{Nd}_-]*){0,2})" +
-        @")[?؟.\s]*$",
-        RegexOptions.Compiled);
-
-    /// <summary>Words that — even when matching the regex above — flag the question as a real
-    /// data query rather than a knowledge question. "What is the average resolution time" should
-    /// NOT route here; "what is the count" likewise. Includes Arabic aggregate terms.</summary>
-    private static readonly Regex DataQueryClassifier = new(
-        @"\b(?:average|avg|total|count|number\s+of|sum|min|max|distinct|unique|" +
-        @"percentage|ratio|difference\s+between|how\s+many|top\s+\d+)\b" +
-        @"|(?:متوسط|إجمالي|اجمالي|مجموع|عدد|أعلى|اعلى|أدنى|ادنى|نسبة|كم\s+عدد)",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    /// <summary>Match against either the English or Arabic knowledge-phrase regex and return
-    /// the captured term, or null if neither matches.</summary>
-    private static string? ExtractKnowledgeTerm(string question)
-    {
-        var m = KnowledgePhrase.Match(question);
-        if (!m.Success) m = KnowledgePhraseAr.Match(question);
-        if (!m.Success) return null;
-        var term = (m.Groups["term"].Value
-            + m.Groups["term2"].Value
-            + m.Groups["term3"].Value
-            + m.Groups["term4"].Value
-            + m.Groups["term5"].Value
-            + m.Groups["term6"].Value).Trim();
-        return string.IsNullOrWhiteSpace(term) ? null : term;
-    }
-
-    public KnowledgeMatchHandler(ISemanticLayer semantic, IEntityCatalog catalog, ILogger<KnowledgeMatchHandler> logger)
+    public KnowledgeMatchHandler(ISemanticLayer semantic, IEntityCatalog catalog, ILinguisticRegistry registry, ILogger<KnowledgeMatchHandler> logger)
     {
         _semantic = semantic;
         _catalog = catalog;
+        _registry = registry;
         _logger = logger;
     }
 
     public KnowledgeMatchResult? TryHandle(string question)
     {
         if (string.IsNullOrWhiteSpace(question)) return null;
-        if (DataQueryClassifier.IsMatch(question)) return null;
+        // Aggregate markers ("average", "count", "متوسط", "عدد") flag this as a data query —
+        // sourced from linguistic-cues.json aggregateMarkers per locale.
+        if (_registry.LooksLikeAggregateQuery(question)) return null;
 
-        var term = ExtractKnowledgeTerm(question);
-        if (term is null) return null;
+        // Knowledge-question verbs ("what is", "explain", "ما هو", "اشرح") + 1-3 token noun —
+        // sourced from linguistic-cues.json knowledgeQuestion.verbs per locale.
+        if (!_registry.LooksLikeKnowledgeQuestion(question, out var term) || string.IsNullOrEmpty(term))
+            return null;
 
         // Try entity / metric / dimension lookups in priority order.
         var entity = _semantic.GetEntityByNameOrSynonym(term);

@@ -124,6 +124,20 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+   Meta-bar above the rail: how-to-read legend on the left, zoom controls on
+   the right. One row keeps both elements compact and out of the way of the
+   diagram itself.
+   ────────────────────────────────────────────────────────────────────────── */
+.workflow-meta-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0 0.25rem 0.45rem;
+    flex-wrap: wrap;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
    How-to-read banner — the user-visible legend pinned to the top of the
    diagram so the visual grammar (numbers, green-solid, grey-dashed) is
    always explained without making the user hunt for it.
@@ -135,7 +149,7 @@
     align-items: center;
     justify-content: center;
     padding: 0.25rem 0.65rem;
-    margin: 0 auto 0.45rem;
+    margin: 0;
     width: fit-content;
     max-width: 96%;
     background: rgba(var(--text-main-rgb), 0.025);
@@ -144,6 +158,59 @@
     font-size: 0.72rem;
     color: var(--text-muted);
     line-height: 1.2;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Zoom toolbar — three buttons (− / current% / +) that drive CSS zoom on
+   .workflow-rail. The middle "level" button doubles as the reset action.
+   Lives in the meta-bar opposite the how-to legend so it's discoverable but
+   not in the diagram's flow.
+   ────────────────────────────────────────────────────────────────────────── */
+.workflow-zoom-toolbar {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--border-color);
+    border-radius: 0.4rem;
+    background: var(--bg-card);
+    overflow: hidden;
+    line-height: 1;
+}
+.workflow-zoom-btn {
+    border: none;
+    background: transparent;
+    padding: 0.3rem 0.55rem;
+    cursor: pointer;
+    color: var(--text-main);
+    font-size: 0.78rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+.workflow-zoom-btn:hover {
+    background: rgba(var(--primary-color-rgb), 0.08);
+    color: var(--primary-color);
+}
+.workflow-zoom-btn:active {
+    background: rgba(var(--primary-color-rgb), 0.15);
+}
+.workflow-zoom-btn > i {
+    font-size: 0.85em;
+}
+.workflow-zoom-reset {
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    min-width: 3.2rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+.workflow-zoom-reset:hover {
+    color: var(--text-main);
+}
+.workflow-zoom-level {
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
 }
 .workflow-howto-item {
     display: inline-flex;
@@ -209,13 +276,23 @@
 /* ── Horizontal rail ─────────────────────────────────────────────
    Left-to-right flow: Question → guards → Router → Fork → post-rail → Answer.
    When the natural width exceeds the viewport (fork block alone is ~1000px),
-   the rail scrolls horizontally. The container is the scroll viewport. */
+   the rail scrolls horizontally. The container is the scroll viewport.
+   The expanded-route popout uses `position: fixed` (positioned via JS, see
+   the inline <script> in _InvestigationWorkflow.cshtml) precisely so it
+   escapes this clipping container vertically while horizontal scroll stays
+   intact for the Explainer / CoverageCheck nodes to the right. */
 .workflow-rail {
+    /* Left-to-right flow: Question → guards → Router → Fork → post-rail → Answer.
+       Centred so a pipeline narrower than the viewport doesn't leave dead space
+       on the left; scrolls horizontally only when it genuinely overflows. */
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
-    justify-content: flex-start;
+    /* `safe center` centres a pipeline that fits the viewport (no dead space on
+       the left) but falls back to start-alignment when it overflows, so the
+       Question node never gets clipped past the unscrollable left edge. */
+    justify-content: safe center;
     gap: 0;
     margin-bottom: 0.5rem;
     overflow-x: auto;
@@ -1360,6 +1437,101 @@
 .workflow-route.is-active .workflow-route-body {
     border-top-color: rgba(var(--success-color-rgb), 0.22);
     background: rgba(var(--success-color-rgb), 0.03);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CARD + TEXT POLISH (horizontal flow).
+   Refines the visual language without touching layout: layered card surfaces,
+   a clearer type hierarchy, a green-tinted active path, distinct endpoint
+   pills, and a smoother hover lift. Scoped under .investigation-workflow and
+   placed last so it wins ties over the base rules above.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Card surfaces — soft top-down gradient + layered shadow + crisper radius so
+   each node reads as a tactile card rather than a flat box. */
+.investigation-workflow .workflow-node,
+.investigation-workflow .workflow-router-box.workflow-step,
+.investigation-workflow .workflow-fork-step {
+    background: linear-gradient(180deg, var(--bg-card) 0%, rgba(var(--text-main-rgb), 0.022) 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 0.95rem;
+    box-shadow: 0 1px 2px rgba(var(--text-main-rgb), 0.04),
+                0 6px 16px rgba(var(--text-main-rgb), 0.035);
+}
+
+/* Hover — gentle, consistent lift across every card type. */
+.investigation-workflow .workflow-node:hover,
+.investigation-workflow .workflow-router-box.workflow-step:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 22px rgba(var(--text-main-rgb), 0.09);
+    border-color: rgba(var(--success-color-rgb), 0.45);
+}
+
+/* ── Type hierarchy ─────────────────────────────────────────────────────── */
+.investigation-workflow .workflow-node-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.11em;
+    color: var(--text-muted);
+    opacity: 0.85;
+}
+.investigation-workflow .workflow-node-detail {
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--text-main);
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+}
+.investigation-workflow .workflow-step-name {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+.investigation-workflow .workflow-step-detail {
+    font-size: 0.76rem;
+    opacity: 0.9;
+}
+.investigation-workflow .workflow-router-box .workflow-node-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.09em;
+    color: var(--success-color);
+}
+
+/* ── Active path — faint green wash + warmer border so the fired path's nodes
+   stand apart from the neutral guard/branch chrome. The connectors between
+   them are already bright green, so this completes a continuous fired ribbon. */
+.investigation-workflow .workflow-node.is-on-active-path,
+.investigation-workflow .workflow-router-box.is-on-active-path {
+    background: linear-gradient(180deg,
+        rgba(var(--success-color-rgb), 0.07) 0%,
+        rgba(var(--success-color-rgb), 0.02) 100%);
+    border-color: rgba(var(--success-color-rgb), 0.32);
+}
+
+/* ── Endpoints (Question / Answer) — distinct elevated terminator pills. */
+.investigation-workflow .workflow-node-question,
+.investigation-workflow .workflow-node-answer {
+    border-left-width: 4px;
+    box-shadow: 0 2px 12px rgba(var(--success-color-rgb), 0.14);
+}
+.investigation-workflow .workflow-node-question > i,
+.investigation-workflow .workflow-node-answer > i {
+    font-size: 1.4rem;
+}
+
+/* ── Step-number badge — a touch more presence (crisper ring + shadow). */
+.investigation-workflow .workflow-step-num {
+    box-shadow: 0 2px 6px rgba(var(--success-color-rgb), 0.42);
+    border: 1.5px solid color-mix(in srgb, var(--success-color) 70%, #fff);
+}
+
+/* ── Kind chips (LLM / tokens / cost) — softer, pill-rounded, subtle. */
+.investigation-workflow .workflow-step-chip {
+    border-radius: 999px;
+    padding: 0.12rem 0.5rem;
+}
+
+/* ── Router probe rows — slightly tighter, clearer hover affordance. */
+.investigation-workflow .workflow-router-probes .workflow-step-summary {
+    padding: 0.4rem 0.55rem;
 }
 
 /* Inactive routes — clearly subordinate to the active one but still

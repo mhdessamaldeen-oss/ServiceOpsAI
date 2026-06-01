@@ -41,6 +41,22 @@ public static class SpecConstants
         public const string NotNullAlt = "notnull";
         // Magic op: compiler expands into a cross-column OR LIKE over the entity's SearchableColumns.
         public const string TextSearch = "text_search";
+
+        /// <summary>
+        /// Canonical set of every <see cref="FilterSpec.Op"/> value the compiler accepts.
+        /// Used by <c>WarnUnknownFilterOpsRule</c> (SpecRepair) to flag typos the LLM emits
+        /// (e.g. "equ" instead of "eq") that would otherwise be silently dropped by the WHERE
+        /// builder. Comparison is case-insensitive. Keep in sync with the constants above.
+        /// </summary>
+        public static readonly System.Collections.Generic.IReadOnlySet<string> KnownOps =
+            new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+            {
+                Eq, Neq, "ne", Gt, Gte, Lt, Lte,
+                Like, NotLike,
+                In, NotIn, NotInAlt,
+                IsNull, IsNullAlt, NotNull, NotNullAlt,
+                TextSearch,
+            };
     }
 
     // ── AggregateSpec.Function ──────────────────────────────────────────

@@ -28,6 +28,17 @@ internal sealed partial class SqlCompiler : ICompiler
     // abstraction. Bound to MssqlDialect by default in DI; swapping the binding to PostgresDialect
     // is the only change required to retarget the database. See Areas/SuperAdminCopilot/Compilation/Dialects/MIGRATION.md.
     private readonly ISqlDialect _dialect;
+    // 2026-06-01 — temporal-token grammar extracted to ITemporalTokenizer so WHERE-builder
+    // and QualifyColumnsInExpression both delegate to the same single source of truth.
+    // See Compilation/ITemporalTokenizer.cs.
+    private readonly ITemporalTokenizer _temporalTokenizer;
+    // 2026-06-01 — metric/dimension expansion extracted to ISemanticExpander so the compiler
+    // doesn't own semantic-layer translation logic. See Compilation/ISemanticExpander.cs.
+    private readonly ISemanticExpander _semanticExpander;
+    // 2026-06-01 — filter-value rewriting (synonym + lookup-name + column-ref drop) extracted
+    // to IFilterValueRewriter so the WHERE-builder doesn't own value-translation logic.
+    // See Compilation/IFilterValueRewriter.cs.
+    private readonly IFilterValueRewriter _filterValueRewriter;
     // F1 — populated by BuildSelect, consumed by BuildGroupBy. Keys are the plain `[Table].[Column]`
     // form of a GROUP BY column that allows NULL; values are the matching `ISNULL(..., '(Unassigned)')`
     // expression. Both SELECT-side and GROUP BY-side must use the wrapped form for SQL Server to
@@ -46,13 +57,19 @@ internal sealed partial class SqlCompiler : ICompiler
         JoinResolver joinResolver,
         ISemanticLayer semanticLayer,
         IOptions<CopilotOptions> options,
-        ISqlDialect dialect)
+        ISqlDialect dialect,
+        ITemporalTokenizer temporalTokenizer,
+        ISemanticExpander semanticExpander,
+        IFilterValueRewriter filterValueRewriter)
     {
         _catalog = catalog;
         _joinResolver = joinResolver;
         _semanticLayer = semanticLayer;
         _options = options.Value;
         _dialect = dialect;
+        _temporalTokenizer = temporalTokenizer;
+        _semanticExpander = semanticExpander;
+        _filterValueRewriter = filterValueRewriter;
     }
 
     public CompiledSql Compile(QuerySpec spec)
@@ -91,7 +108,7 @@ internal sealed partial class SqlCompiler : ICompiler
         // Expand semantic-layer references (metric:* in aggregations, dimension:* in
         // select/groupBy/computed) into concrete columns/expressions/extra filters BEFORE we
         // walk references. This lets metric-baked filters add their tables to the join graph.
-        ExpandSemanticReferences(spec);
+        _semanticExpander.Expand(spec);
 
         // Recover from a common LLM mistake: AVG/SUM/MIN/MAX(*) is invalid T-SQL (only COUNT
         // accepts *). When the planner emits this AND there's a matching Computed expression
@@ -177,6 +194,17 @@ internal sealed partial class SqlCompiler : ICompiler
             if (!string.IsNullOrEmpty(j.Table))
                 joinKindByTable[j.Table] = (j.Kind ?? "inner").ToLowerInvariant();
 
+        // 2026-05-30 — JoinSpec.Alias support for self-joins (the iter 2 self-join hierarchical
+        // pattern that DropUnresolvedSelectColumnsRule previously dropped). When an alias is
+        // declared AND it differs from the table name, BuildFrom emits `JOIN [Table] AS [Alias]`
+        // and the ON clause's right-hand side references the alias instead of the table. Empty
+        // alias keeps the existing `AS [Table]` emission byte-identical.
+        var aliasByTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var j in spec.Joins)
+            if (!string.IsNullOrEmpty(j.Table) && !string.IsNullOrEmpty(j.Alias)
+                && !string.Equals(j.Table, j.Alias, StringComparison.OrdinalIgnoreCase))
+                aliasByTable[j.Table] = j.Alias;
+
         // B8 — auto-promote INNER → <configured projection kind> when joining for display only
         // through a nullable FK. "Tickets per assignee" silently drops unassigned tickets because
         // the default INNER JOIN filters them out. We only promote when the LLM didn't already
@@ -237,7 +265,7 @@ internal sealed partial class SqlCompiler : ICompiler
         EnsureOrderByForPagination(spec);
 
         BuildSelect(spec, sb);
-        BuildFrom(spec, joinEdges, joinKindByTable, sb);
+        BuildFrom(spec, joinEdges, joinKindByTable, aliasByTable, sb);
         BuildWhere(spec, sb, parameters, ref paramIndex, joinEdges, joinKindByTable);
         BuildGroupBy(spec, sb);
         BuildHaving(spec, sb, parameters, ref paramIndex);
@@ -404,7 +432,13 @@ internal sealed partial class SqlCompiler : ICompiler
             ApplyAutoGroupByInference(legSpec);
 
             BuildSelect(legSpec, sb);
-            BuildFrom(legSpec, joinEdges, joinKindByTable, sb);
+            // Aliases for self-joins from spec.Joins[].Alias on the leg's own spec.
+            var legAliasByTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var j in legSpec.Joins)
+                if (!string.IsNullOrEmpty(j.Table) && !string.IsNullOrEmpty(j.Alias)
+                    && !string.Equals(j.Table, j.Alias, StringComparison.OrdinalIgnoreCase))
+                    legAliasByTable[j.Table] = j.Alias;
+            BuildFrom(legSpec, joinEdges, joinKindByTable, legAliasByTable, sb);
             BuildWhere(legSpec, sb, parameters, ref paramIndex, joinEdges, joinKindByTable);
             BuildGroupBy(legSpec, sb);
             BuildHaving(legSpec, sb, parameters, ref paramIndex);
@@ -453,85 +487,8 @@ internal sealed partial class SqlCompiler : ICompiler
         return clone;
     }
 
-    /// <summary>
-    /// Resolves every "metric:&lt;name&gt;" / "dimension:&lt;name&gt;" reference in the spec into
-    /// concrete SQL fragments. Metric references in aggregations become inline expressions on
-    /// a synthesized <see cref="ComputedSpec"/>; dimension references in select/groupBy/computed
-    /// become real column refs or computed expressions.
-    /// </summary>
-    private void ExpandSemanticReferences(QuerySpec spec)
-    {
-        // 1) Aggregations: function = "metric:<name>" → expand to inline computed expression
-        //    and merge metric.Filters into spec.Filters (deduped by column+op).
-        for (int i = spec.Aggregations.Count - 1; i >= 0; i--)
-        {
-            var a = spec.Aggregations[i];
-            if (!a.Function.StartsWith("metric:", StringComparison.OrdinalIgnoreCase)) continue;
-            var metric = _semanticLayer.GetMetric(a.Function);
-            if (metric is null) { spec.Aggregations.RemoveAt(i); continue; }
-
-            var alias = string.IsNullOrWhiteSpace(a.Alias) ? metric.Name : a.Alias;
-            // C17 — when the metric's canonical name carries a unit suffix (_mb / _kb / _hours
-            // / _days / _percent / _pct), append the unit to the alias unless the alias already
-            // mentions it. Stops users seeing a bare "Total" column when the value is actually
-            // megabytes — they couldn't tell the bytes->MB conversion happened.
-            alias = AppendUnitSuffixIfMissing(alias, metric.Name);
-            spec.Computed.Add(new ComputedSpec { Alias = alias, Expression = metric.Expression });
-            spec.Aggregations.RemoveAt(i);
-
-            foreach (var mf in metric.Filters)
-            {
-                var dup = spec.Filters.Any(ef =>
-                    string.Equals(ef.Column, mf.Column, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(ef.Op, mf.Op, StringComparison.OrdinalIgnoreCase));
-                if (!dup)
-                    spec.Filters.Add(new FilterSpec { Column = mf.Column, Op = mf.Op, Value = mf.Value });
-            }
-        }
-
-        // 2) Select entries: "dimension:<name>" → either a column ref (rewrite in place) or
-        //    a computed expression (move to spec.Computed).
-        for (int i = spec.Select.Count - 1; i >= 0; i--)
-        {
-            var s = spec.Select[i];
-            if (!s.StartsWith("dimension:", StringComparison.OrdinalIgnoreCase)) continue;
-            var dim = _semanticLayer.GetDimension(s);
-            if (dim is null) { spec.Select.RemoveAt(i); continue; }
-            if (!string.IsNullOrEmpty(dim.Column)) { spec.Select[i] = dim.Column; continue; }
-            if (!string.IsNullOrEmpty(dim.Expression))
-            {
-                spec.Computed.Add(new ComputedSpec { Alias = dim.Name, Expression = dim.Expression });
-                spec.Select.RemoveAt(i);
-            }
-        }
-
-        // 3) GroupBy entries: same shape as Select.
-        for (int i = spec.GroupBy.Count - 1; i >= 0; i--)
-        {
-            var g = spec.GroupBy[i];
-            if (!g.StartsWith("dimension:", StringComparison.OrdinalIgnoreCase)) continue;
-            var dim = _semanticLayer.GetDimension(g);
-            if (dim is null) { spec.GroupBy.RemoveAt(i); continue; }
-            if (!string.IsNullOrEmpty(dim.Column)) { spec.GroupBy[i] = dim.Column; continue; }
-            // GROUP BY of a derived expression: leave the raw expression in place; BuildGroupBy
-            // calls TryFormatColumn which will fail on an expression — so emit it verbatim.
-            spec.GroupBy[i] = dim.Expression ?? "";
-        }
-
-        // 4) Computed entries: expression may itself reference a dimension token.
-        for (int i = 0; i < spec.Computed.Count; i++)
-        {
-            var c = spec.Computed[i];
-            if (!c.Expression.StartsWith("dimension:", StringComparison.OrdinalIgnoreCase)) continue;
-            var dim = _semanticLayer.GetDimension(c.Expression);
-            if (dim is null) continue;
-            spec.Computed[i] = new ComputedSpec
-            {
-                Alias = string.IsNullOrEmpty(c.Alias) ? dim.Name : c.Alias,
-                Expression = dim.Expression ?? dim.Column ?? "",
-            };
-        }
-    }
+    // ExpandSemanticReferences moved to ISemanticExpander.Expand (2026-06-01). Compiler calls
+    // _semanticExpander.Expand(spec) — see Compilation/ISemanticExpander.cs.
 
     /// <summary>
     /// Recovers from <c>AVG/SUM/MIN/MAX(*)</c> which the LLM planner emits sometimes — invalid
@@ -549,7 +506,7 @@ internal sealed partial class SqlCompiler : ICompiler
     /// <para>Conservative on no-match: leaves the bad aggregation alone so downstream stages
     /// (<see cref="BuildSelect"/> already <c>continue</c>s on unresolvable columns) drop it.</para>
     /// </summary>
-    private static void RewriteInvalidStarAggregates(QuerySpec spec)
+    private void RewriteInvalidStarAggregates(QuerySpec spec)
     {
         // Iterate by index but use a stable copy of Computed so multiple aggregates can fold
         // different Computed entries in the same pass without index drift.
@@ -650,11 +607,18 @@ internal sealed partial class SqlCompiler : ICompiler
         }
     }
 
-    /// <summary>Strip aggregate-prefix from an alias so "AvgAgeDays" matches Computed alias "AgeDays".</summary>
-    private static string StripAggregatePrefix(string s)
+    /// <summary>
+    /// Strip aggregate-prefix from an alias so "AvgAgeDays" matches Computed alias "AgeDays".
+    /// Prefix list comes from <c>CopilotOptions.AggregateAliasPrefixes</c> so multilingual
+    /// deployments can add Arabic / French variants without recompiling.
+    /// </summary>
+    private string StripAggregatePrefix(string s)
     {
-        foreach (var p in new[] { "Avg", "Sum", "Min", "Max", "Total", "Average" })
+        var prefixes = _options.AggregateAliasPrefixes;
+        if (prefixes is null || prefixes.Count == 0) return s;
+        foreach (var p in prefixes)
         {
+            if (string.IsNullOrEmpty(p)) continue;
             if (s.Length > p.Length && s.StartsWith(p, StringComparison.OrdinalIgnoreCase))
                 return s.Substring(p.Length);
         }
@@ -724,6 +688,32 @@ internal sealed partial class SqlCompiler : ICompiler
     /// have <c>CreatedAt</c> mangled into <c>[Tickets].[CreatedAt]</c> inside the literal — broken
     /// SQL. Now string literals and quoted identifiers are skipped entirely.
     /// </summary>
+    // PII denylist (#55) — defense in depth. BuildSelect already drops sensitive bare columns
+    // from spec.Select. This helper extends the same check to ANY inline expression: computed
+    // expressions, aggregation expressions, ORDER BY columns. Returns true if the expression
+    // contains a qualified reference to a sensitive column (per ISemanticLayer).
+    //
+    // Reuses QualifiedRefPattern from QuerySpecAccessPolicyValidator's regex idiom — same shape,
+    // ensuring "what counts as a qualified ref" cannot drift between the safety validator and
+    // this PII check.
+    private static readonly System.Text.RegularExpressions.Regex PiiQualifiedRefPattern =
+        new(@"(?<![\w])\[?(?<table>[A-Za-z_][A-Za-z0-9_]*)\]?\s*\.\s*\[?(?<column>[A-Za-z_][A-Za-z0-9_]*)\]?",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private bool ExpressionReferencesSensitiveColumn(string? expression)
+    {
+        if (string.IsNullOrWhiteSpace(expression)) return false;
+        foreach (System.Text.RegularExpressions.Match m in PiiQualifiedRefPattern.Matches(expression))
+        {
+            var table = m.Groups["table"].Value;
+            var column = m.Groups["column"].Value;
+            if (!string.IsNullOrEmpty(table) && !string.IsNullOrEmpty(column)
+                && _semanticLayer.IsSensitiveColumn(table, column))
+                return true;
+        }
+        return false;
+    }
+
     private string QualifyColumnsInExpression(string expression, string? rootTable = null)
     {
         if (string.IsNullOrEmpty(expression)) return expression;
@@ -791,7 +781,7 @@ internal sealed partial class SqlCompiler : ICompiler
                     }
                     // Bare bracketed identifier — could be a bare column on root. Try to upgrade.
                     if (!string.IsNullOrEmpty(rootTable)
-                        && !DatePartKeywords.Contains(innerName)
+                        && !_dialect.DatePartKeywords.Contains(innerName)
                         && _catalog.ColumnExists(rootTable, innerName))
                     {
                         sb.Append(_dialect.QuoteQualified(rootTable, innerName));
@@ -807,6 +797,45 @@ internal sealed partial class SqlCompiler : ICompiler
                 // Malformed [ with no closing ] — defensive: just emit and move on.
                 sb.Append(ch);
                 i++;
+                continue;
+            }
+
+            // ── Temporal/parameter placeholder @token ──────────────────────────────────
+            //    Examples consumed by TryExpandTemporalToken: @today, @yesterday,
+            //    @week_start, @last_week_start, @month_start, @weeks:-3, @days:7,
+            //    @yearmonth:2027:1, @q1_start. Without this branch the tokens pass through
+            //    verbatim into SELECT / CASE WHEN / aggregation expressions (the WHERE-builder
+            //    expands them correctly, but inline expressions never went through that path).
+            //    Trace 5 (2026-05-30 "Outages this week compared to last week") failed at
+            //    SQL execution because SUM(CASE WHEN ... >= @week_start ...) reached SQL Server
+            //    with the literal "@week_start" still in place — invalid syntax.
+            //
+            //    Token grammar matches the producer in TryExpandTemporalToken:
+            //      @<name>            — letters/underscores
+            //      @<name>:<int>      — colon + signed integer offset (e.g. @weeks:-3)
+            //      @<name>:<int>:<int> — used by @yearmonth:Y:M
+            //    Unknown tokens are copied verbatim — same fail-safe as the WHERE-builder.
+            if (ch == '@')
+            {
+                int start = i;
+                i++; // consume '@'
+                while (i < n && (char.IsLetterOrDigit(expression[i]) || expression[i] == '_')) i++;
+                // Optional ":<signed-int>" once or twice.
+                for (int k = 0; k < 2; k++)
+                {
+                    if (i < n && expression[i] == ':')
+                    {
+                        i++;
+                        if (i < n && (expression[i] == '-' || expression[i] == '+')) i++;
+                        while (i < n && char.IsDigit(expression[i])) i++;
+                    }
+                    else break;
+                }
+                var token = expression.Substring(start, i - start);
+                if (_temporalTokenizer.TryExpand(token, _dialect, out var sqlExpr))
+                    sb.Append(sqlExpr);
+                else
+                    sb.Append(token);    // unknown token — fail-safe, leave verbatim
                 continue;
             }
 
@@ -836,7 +865,7 @@ internal sealed partial class SqlCompiler : ICompiler
                 }
                 // Bare column on root entity?
                 if (!string.IsNullOrEmpty(rootTable)
-                    && !DatePartKeywords.Contains(word)
+                    && !_dialect.DatePartKeywords.Contains(word)
                     && _catalog.ColumnExists(rootTable, word))
                 {
                     sb.Append(_dialect.QuoteQualified(rootTable, word));
@@ -936,20 +965,9 @@ internal sealed partial class SqlCompiler : ICompiler
         return trimmed;
     }
 
-    /// <summary>
-    /// SQL Server date-part keywords used INSIDE function calls like <c>DATEDIFF(day, ...)</c>.
-    /// These look like bare identifiers but must not be qualified as columns even when a table
-    /// happens to have a column of the same name.
-    /// </summary>
-    private static readonly HashSet<string> DatePartKeywords = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "year", "yyyy", "yy", "quarter", "qq", "q",
-        "month", "mm", "m", "dayofyear", "dy", "y",
-        "day", "dd", "d", "week", "wk", "ww", "weekday", "dw",
-        "hour", "hh", "minute", "mi", "n", "second", "ss", "s",
-        "millisecond", "ms", "microsecond", "mcs", "nanosecond", "ns",
-        "tzoffset", "tz", "iso_week", "isowk", "isoww",
-    };
+    // 2026-06-01 — DatePartKeywords moved to ISqlDialect.DatePartKeywords so porting to a new
+    // SQL engine (PG, MySQL, SQLite) doesn't require touching the compiler. Callers use
+    // _dialect.DatePartKeywords.
 
     private static string? NormalizeAggFn(string fn) => fn?.ToUpperInvariant() switch
     {
@@ -1112,31 +1130,13 @@ internal sealed partial class SqlCompiler : ICompiler
         return string.IsNullOrEmpty(bare) ? table : bare;
     }
 
-    // C17 — detect unit suffix on a metric name (_mb, _kb, _hours, _days, _pct, _percent)
-    // and append it to the alias when the alias doesn't already mention the unit. Used by
-    // metric expansion so a user-supplied alias like "Total" becomes "Total (MB)" when the
-    // underlying metric is total_attachment_size_mb. Schema-driven via the metric's name
-    // convention, not a column-name match.
-    private static readonly string[] UnitSuffixes = new[] {
-        "_mb", "_kb", "_gb", "_bytes",
-        "_hours", "_minutes", "_seconds", "_days", "_weeks", "_months", "_years",
-        "_pct", "_percent", "_rate", "_ratio",
-    };
-    private static string AppendUnitSuffixIfMissing(string alias, string metricName)
-    {
-        if (string.IsNullOrEmpty(metricName) || string.IsNullOrEmpty(alias)) return alias;
-        var lowerName = metricName.ToLowerInvariant();
-        var unit = UnitSuffixes.FirstOrDefault(u => lowerName.EndsWith(u, StringComparison.Ordinal));
-        if (unit is null) return alias;
-        var unitLabel = unit.TrimStart('_').ToUpperInvariant();
-        if (alias.Contains(unitLabel, StringComparison.OrdinalIgnoreCase)) return alias;
-        return $"{alias} ({unitLabel})";
-    }
+    // UnitSuffixes + AppendUnitSuffixIfMissing moved to ISemanticExpander (2026-06-01).
 
     private void BuildFrom(
         QuerySpec spec,
         IReadOnlyList<FkEdge> joinEdges,
         IReadOnlyDictionary<string, string> joinKindByTable,
+        IReadOnlyDictionary<string, string> aliasByTable,
         StringBuilder sb)
     {
         var rootQ = _dialect.QuoteIdentifier(spec.Root);
@@ -1150,10 +1150,15 @@ internal sealed partial class SqlCompiler : ICompiler
             var kind = joinKindByTable.TryGetValue(edge.TargetTable, out var k) ? k : "inner";
             var joinKeyword = kind is SpecConst.JoinKinds.Left or SpecConst.JoinKinds.Anti ? "LEFT JOIN" : "INNER JOIN";
             var targetQ = _dialect.QuoteIdentifier(edge.TargetTable);
+            // 2026-05-30 — when an alias is declared on the JoinSpec, emit `JOIN [Table] AS
+            // [Alias]` and use the alias on the ON clause's referenced side. Default (no alias)
+            // keeps emission byte-identical to the pre-change behaviour.
+            var aliasName = aliasByTable.TryGetValue(edge.TargetTable, out var a) ? a : edge.TargetTable;
+            var aliasQ = _dialect.QuoteIdentifier(aliasName);
             sb.AppendLine();
-            sb.Append(joinKeyword).Append(' ').Append(targetQ).Append(" AS ").Append(targetQ);
+            sb.Append(joinKeyword).Append(' ').Append(targetQ).Append(" AS ").Append(aliasQ);
             sb.Append(" ON ").Append(_dialect.QuoteQualified(fk.ParentTable, fk.ParentColumn));
-            sb.Append(" = ").Append(_dialect.QuoteQualified(fk.ReferencedTable, fk.ReferencedColumn));
+            sb.Append(" = ").Append(_dialect.QuoteQualified(aliasName, fk.ReferencedColumn));
         }
         sb.AppendLine();
     }
@@ -1225,6 +1230,10 @@ internal sealed partial class SqlCompiler : ICompiler
         var items = new List<string>();
         foreach (var o in spec.OrderBy)
         {
+            // PII guard — refuse to sort by a sensitive column, even indirectly via expression.
+            // Otherwise an LLM could emit "ORDER BY Users.PasswordHash" and it would execute.
+            if (ExpressionReferencesSensitiveColumn(o.Column)) continue;
+
             string colExpr;
 
             if (aggregateOnly)

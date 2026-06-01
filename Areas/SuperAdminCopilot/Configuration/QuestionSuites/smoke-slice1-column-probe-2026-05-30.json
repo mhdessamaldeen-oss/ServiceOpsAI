@@ -1,0 +1,81 @@
+{
+  "name": "Slice 1 column-embedding probe (2026-05-30)",
+  "version": "1.0",
+  "description": "6-case stress test for the Slice 1 ColumnSemanticRetriever. Mix of (a) real previous failures from session 186 [WIN-005, WIN-003] and (b) synonym/phrasing variations not present in the existing cue lists ('income', 'aged', 'charged', 'outage length'). Each question targets the column-pick step: without column embeddings the LLM may hallucinate or guess; with Slice 1, the cosine match against the column description should anchor the LLM on the right column.",
+  "Scenarios": [
+    {
+      "Code": "SLICE1-COL-001",
+      "Question": "what was the highest income last month",
+      "Shape": "AGG-MAX",
+      "Difficulty": "medium",
+      "Category": "slice1/column-embedding/synonym",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Bills",
+      "ExpectedOperation": "MAX",
+      "ExpectedAggregations": [{ "function": "MAX", "column": "Bills.TotalAmount" }],
+      "ExpectedFilters": [
+        { "Column": "Bills.IssuedAt", "Op": "gte", "Value": "@last_month_start" },
+        { "Column": "Bills.IssuedAt", "Op": "lt",  "Value": "@month_start" }
+      ],
+      "Notes": "'income' is NOT in the existing derivedMetric cue list. Without column embeddings the LLM may pick PaidAmount or guess. With Slice 1, the cosine match against Bills.TotalAmount description should surface it.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "SLICE1-COL-002",
+      "Question": "split customers into 4 buckets by total spend",
+      "Shape": "WIN-NTILE",
+      "Difficulty": "hard",
+      "Category": "slice1/column-embedding/real-failure-186",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Customers",
+      "Notes": "From smoke 186 B-WIN-005 — failed with 'Invalid column name TotalSpend'. Column embeddings should anchor the LLM on Bills.TotalAmount (joined via CustomerId).",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "SLICE1-COL-003",
+      "Question": "what is the average aged ticket",
+      "Shape": "AGG-AVG",
+      "Difficulty": "medium",
+      "Category": "slice1/column-embedding/synonym",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Tickets",
+      "ExpectedOperation": "AVG",
+      "Notes": "'aged' is NOT a derivedMetric cue. Without column embeddings the LLM has to guess. With Slice 1, cosine should match Tickets.CreatedAt and the DerivedMetricRule downstream produces DATEDIFF.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "SLICE1-COL-004",
+      "Question": "how much was charged on electricity bills this year",
+      "Shape": "AGG-SUM",
+      "Difficulty": "medium",
+      "Category": "slice1/column-embedding/synonym",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Bills",
+      "ExpectedOperation": "SUM",
+      "Notes": "'charged' is not in the revenue cue list. Tests whether column embedding surfaces TotalAmount as the right column.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "SLICE1-COL-005",
+      "Question": "show me outage length by region for the last quarter",
+      "Shape": "AGG-AVG-GROUP",
+      "Difficulty": "medium",
+      "Category": "slice1/column-embedding/derived-metric",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedPrimaryEntity": "Outages",
+      "ExpectedOperation": "AVG",
+      "Notes": "'outage length' is a derivedMetric cue (Batch 1). Tests cue + column embedding combination.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "SLICE1-COL-006",
+      "Question": "running total of payments by month",
+      "Shape": "WIN-RUNNING-SUM",
+      "Difficulty": "hard",
+      "Category": "slice1/column-embedding/real-failure-186-window",
+      "ExpectedIntent": "DataQuery",
+      "Notes": "From smoke 186 B-WIN-003 — failed with 'validation failed'. Column embeddings cannot fix the window shape but can anchor the LLM on Bills.PaidAmount as the payments column.",
+      "MaxLatencyMs": 180000
+    }
+  ]
+}

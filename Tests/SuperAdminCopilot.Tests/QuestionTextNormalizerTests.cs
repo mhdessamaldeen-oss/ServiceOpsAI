@@ -6,24 +6,32 @@ using Xunit;
 /// <summary>
 /// Pins the surface-form-collapsing contract for QuestionTextNormalizer. Behaviour is
 /// intentionally schema-agnostic — no table or column names appear in inputs.
+///
+/// <para>2026-06-01 — the normalizer was deliberately narrowed to whitespace-only cleanup.
+/// Parenthesis / comma / separator handling moved to the LLM <c>StructuralCueParser</c>, which
+/// understands the long tail of user-chosen punctuation far better than regex surgery (see the
+/// normalizer's own summary). These tests now pin PRESERVATION of punctuation — the structural
+/// cues survive into the question text so the cue-parser can read them.</para>
 /// </summary>
 public class QuestionTextNormalizerTests
 {
     [Theory]
-    [InlineData("users(name, email)", "users name email")]
-    [InlineData("users (name, email)", "users name email")]
-    [InlineData("users( name , email )", "users name email")]
-    [InlineData("users(name,email)", "users name email")]
-    [InlineData("users(name;email;phone)", "users name email phone")]
-    public void Expands_parenthesised_column_lists(string input, string expected)
+    [InlineData("users(name, email)", "users(name, email)")]
+    [InlineData("users (name, email)", "users (name, email)")]
+    [InlineData("users( name , email )", "users( name , email )")]
+    [InlineData("users(name,email)", "users(name,email)")]
+    [InlineData("users(name;email;phone)", "users(name;email;phone)")]
+    public void Preserves_parentheses_and_separators(string input, string expected)
     {
+        // Punctuation is intentionally preserved — the StructuralCueParser (LLM) reads it.
+        // Only internal whitespace runs collapse; these inputs are already single-spaced.
         Assert.Equal(expected, QuestionTextNormalizer.Normalize(input));
     }
 
     [Theory]
     [InlineData("list of user( name ,id ,email ) with their role and ticket counts",
-                "list of user name id email with their role and ticket counts")]
-    public void Reproduces_live_failure_input(string input, string expected)
+                "list of user( name ,id ,email ) with their role and ticket counts")]
+    public void Preserves_live_column_request_input(string input, string expected)
     {
         Assert.Equal(expected, QuestionTextNormalizer.Normalize(input));
     }
@@ -31,17 +39,18 @@ public class QuestionTextNormalizerTests
     [Theory]
     [InlineData("show  me   open    tickets", "show me open tickets")]
     [InlineData("show\tme\nopen\ttickets", "show me open tickets")]
+    [InlineData("users(name, email)  and  their  role", "users(name, email) and their role")]
     public void Collapses_whitespace_runs(string input, string expected)
     {
         Assert.Equal(expected, QuestionTextNormalizer.Normalize(input));
     }
 
     [Theory]
-    [InlineData("show, , open tickets", "show open tickets")]
-    [InlineData("show,,,open tickets", "show open tickets")]
-    [InlineData("a; ; b", "a b")]
-    public void Collapses_comma_and_semicolon_runs(string input, string expected)
+    [InlineData("show, , open tickets", "show, , open tickets")]
+    [InlineData("a; ; b", "a; ; b")]
+    public void Preserves_comma_and_semicolon_punctuation(string input, string expected)
     {
+        // Commas/semicolons survive (only whitespace runs between them collapse to single spaces).
         Assert.Equal(expected, QuestionTextNormalizer.Normalize(input));
     }
 

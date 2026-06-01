@@ -38,6 +38,23 @@
         "due": "DueDate",
         "default": "CreatedAt"
       },
+      "temporalStatusColumns": ["Status"],
+      "derivedMetrics": [
+        {
+          "key": "age",
+          "cues": ["ticket age", "age of ticket", "how old", "age"],
+          "expression": "DATEDIFF(DAY, Tickets.CreatedAt, GETDATE())",
+          "function": "AVG"
+        },
+        {
+          "key": "resolutionTime",
+          "cues": ["resolution time", "time to resolve", "time to resolution", "mttr"],
+          "expression": "DATEDIFF({unit}, Tickets.CreatedAt, Tickets.ResolvedAt)",
+          "function": "AVG",
+          "defaultUnit": "DAY",
+          "unitCue": { "HOUR": ["hours?"], "DAY": ["days?"] }
+        }
+      ],
       "suggestedFollowupTemplates": [
         "Break down {entity} by status",
         "Show only open {entity}",
@@ -140,6 +157,7 @@
       "labelColumn": "FullNameEn",
       "displayColumns": ["Id", "FullNameEn", "FullNameAr", "Phone", "RegionId", "Status"],
       "dateRoles": { "signed_up": "SignupAt", "churned": "ChurnedAt", "default": "SignupAt" },
+      "temporalStatusColumns": ["Status"],
       "description": "External customer (utility subscriber) — distinct from ApplicationUser (internal staff). FullNameEn and FullNameAr are the bilingual name. NationalId is a fake 11-digit identifier. Customers consume services (Electricity, Internet, Water, Gas) which produce Bills, and may file Tickets. Status is the canonical lifecycle filter (values: 'Active', 'Suspended', 'Churned'). ChurnedAt timestamp is set ONLY when Status='Churned' — to find churned customers use Status='Churned' NOT ChurnedAt=value. Likewise filter 'no email' with Email IS NULL, not Email=value. RegionId points at the customer's district (Region.RegionType = District); join Region → ParentRegion to get the governorate."
     },
     {
@@ -152,6 +170,21 @@
       "labelColumn": "BillNumber",
       "displayColumns": ["Id", "BillNumber", "CustomerId", "ServiceTypeId", "PeriodStart", "TotalAmount", "Status"],
       "dateRoles": { "issued": "IssuedAt", "due": "DueDate", "paid": "PaidAt", "period": "PeriodStart", "default": "PeriodStart" },
+      "temporalStatusColumns": ["Status"],
+      "derivedMetrics": [
+        {
+          "key": "revenue",
+          "cues": ["revenue", "sales", "total billed", "billed amount", "amount billed", "billing total"],
+          "expression": "Bills.TotalAmount",
+          "function": "SUM"
+        },
+        {
+          "key": "consumption",
+          "cues": ["consumption", "usage", "kwh", "kilowatt hours", "cubic meters", "m3"],
+          "expression": "Bills.UsageQuantity",
+          "function": "SUM"
+        }
+      ],
       "description": "Utility bill -- single polymorphic table covering all four ServiceType values (Electricity, Internet, Water, Gas). All monetary fields in Syrian Pounds (SYP). Status is the canonical payment filter (values: 'Issued' current, 'Paid', 'Overdue' past-due, 'Disputed', 'Cancelled'). PaidAt is just a completion timestamp set when Status='Paid' — to find paid bills use Status='Paid' NOT PaidAt=value. Linked to Customer (CustomerId) and the Department that issued it (DepartmentId). UsageQuantity + UsageUnit describe consumption in kWh/GB/m³/cylinders depending on ServiceType."
     },
     {
@@ -224,6 +257,16 @@
       "labelColumn": "TitleEn",
       "displayColumns": ["Id", "OutageNumber", "RegionId", "ServiceTypeId", "StartedAt", "EndedAt", "Severity", "AffectedCustomerCount"],
       "dateRoles": {"started": "StartedAt", "ended": "EndedAt", "default": "StartedAt"},
+      "derivedMetrics": [
+        {
+          "key": "duration",
+          "cues": ["outage duration", "duration of outage", "outage length", "hours down", "duration", "mttr"],
+          "expression": "DATEDIFF({unit}, Outages.StartedAt, Outages.EndedAt)",
+          "function": "AVG",
+          "defaultUnit": "HOUR",
+          "unitCue": { "MINUTE": ["minutes?"], "HOUR": ["hours?"], "DAY": ["days?"] }
+        }
+      ],
       "description": "Explicit service outage events (electricity blackouts, internet fiber cuts, water pipe bursts, etc.). Tickets can attribute to a specific OutageId. Use Severity (Minor/Moderate/Major/Critical), Cause (FiberCut/PipeBurst/Equipment/Weather/...), and DATEDIFF(hour, StartedAt, EndedAt) for MTTR analysis. Group by RegionId/ServiceTypeId for hot-spot analysis."
     },
     {
@@ -234,6 +277,14 @@
       "labelColumn": "MeterNumber",
       "displayColumns": ["Id", "CustomerId", "ServiceTypeId", "ReadingDate", "Value", "Consumption", "ReaderType"],
       "dateRoles": {"read": "ReadingDate", "default": "ReadingDate"},
+      "derivedMetrics": [
+        {
+          "key": "consumption",
+          "cues": ["consumption", "usage", "kwh", "kilowatt hours", "cubic meters", "m3"],
+          "expression": "MeterReadings.Consumption",
+          "function": "SUM"
+        }
+      ],
       "description": "Periodic consumption readings per (Customer, ServiceType). Value is cumulative; Consumption is the computed delta from the previous reading. ReaderType: Actual (physical/smart-meter), Estimated (computed), Customer (self-reported), Audit (verification). Use for anomaly detection ('customers whose consumption spiked 3x') and to validate Bills against actual usage."
     },
     {

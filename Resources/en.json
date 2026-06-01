@@ -925,5 +925,13 @@
   "ColorWarning": "Warning",
   "ColorDanger": "Danger",
   "ColorInfo": "Info",
-  "ShadowColorLabel": "Shadow Color (rgba or #hex)"
+  "ShadowColorLabel": "Shadow Color (rgba or #hex)",
+  "AIWorkloadOrchestration": "AI Workload Orchestration",
+  "RouteCognitiveTasks": "Route cognitive tasks to specialized models",
+  "FallbackEngineDesc": "Default engine and model. Every other slot that says \"inherit default\" uses this pair.",
+  "AnalysisDesc": "Engine and model for ticket classification and insights.",
+  "RAGDesc": "Engine and model for knowledge-base retrieval and generation.",
+  "InheritDefault": "Inherit default",
+  "SaveChanges": "Save changes",
+  "ProviderDefaultModel": "(provider default)"
 }

@@ -42,7 +42,18 @@ public interface ICoverageChecker
 /// <summary>Coverage failure description. <see cref="Missing"/> is the human-readable list
 /// of aspects the answer fails to address. <see cref="Prompt"/> / <see cref="RawLlmOutput"/>
 /// are kept for trace observability.</summary>
-public sealed record CoverageGap(string Missing, string? Prompt, string? RawLlmOutput);
+public sealed record CoverageGap(string Missing, string? Prompt, string? RawLlmOutput)
+{
+    /// <summary>
+    /// True when this is NOT a real coverage gap the judge identified, but a VERIFICATION FAILURE —
+    /// the checker could not run (per-call timeout re-thrown as <see cref="System.TimeoutException"/>,
+    /// rate-limit, provider/token-budget error) while the request was still alive. The pipeline still
+    /// escalates to the escape valve as a recovery attempt, but the trace and the user-facing message
+    /// say "could not be verified" rather than "missing X" — so an unchecked answer is never presented
+    /// as confirmed-complete. (2026-06-02 — fixes the silent unverified→COMPLETE bug.)
+    /// </summary>
+    public bool IsDegraded { get; init; }
+}
 
 internal sealed class CoverageChecker : ICoverageChecker
 {
@@ -105,10 +116,40 @@ internal sealed class CoverageChecker : ICoverageChecker
             using var hint = LlmCallStageHint.Use("CoverageCheck");
             raw = (await _llm.GenerateTextAsync(systemPrompt, userPrompt, cancellationToken) ?? "").Trim();
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Genuine caller / wall-clock cancellation (the REQUEST token itself is cancelled) —
+            // the whole request is being torn down. Honor it: rethrow so the request aborts cleanly.
+            //
+            // INTENTIONAL ASYMMETRY vs. the degraded path below: a verifier *timeout* or transient
+            // failure (request still alive) returns a degraded gap and ESCALATES to the escape valve
+            // to recover the answer; a genuine *cancellation* deliberately does NOT escalate. Firing
+            // the escape valve here would be pointless — its LLM call takes this same cancelled token,
+            // so LlmDirectSqlEmitter.EmitAsync would immediately fail and decline — and semantically
+            // wrong (a cancelled request must stop doing work, not start a new LLM call). Rethrowing
+            // also avoids the original bug: blessing an unverified answer as COMPLETE.
+            throw;
+        }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "[CoverageChecker] LLM call failed; treating as COMPLETE (graceful).");
-            return null;
+            // The verifier itself FAILED while the request is still alive — a per-call timeout
+            // (re-thrown as TimeoutException by HostAiProviderLlmClient), rate-limit, provider
+            // error, or token-budget exhaustion. The old code returned null here, which the
+            // orchestrator reads as COMPLETE — silently shipping an UNVERIFIED answer as if it had
+            // been checked (the 158s rate-limit incident). Instead, surface a DEGRADED gap so the
+            // pipeline escalates to the escape valve and, if that declines, flags the answer as
+            // unverified rather than complete.
+            //
+            // Note: PARSE/format errors never reach this catch — the try wraps only the LLM call;
+            // malformed output is handled by the permissive parser below, which keeps its COMPLETE
+            // bias (don't degrade a good answer over a judge that replied in an odd shape).
+            _logger.LogWarning(ex,
+                "[CoverageChecker] Verifier call failed ({Type}); returning DEGRADED (unverified) so the " +
+                "pipeline escalates instead of silently passing the answer as COMPLETE.", ex.GetType().Name);
+            return new CoverageGap(
+                "the completeness check could not run (the verifier timed out or was unavailable), " +
+                "so this answer has not been verified",
+                userPrompt, RawLlmOutput: null) { IsDegraded = true };
         }
 
         // Parse the strict-shape output. Anything that doesn't start with MISSING: is treated

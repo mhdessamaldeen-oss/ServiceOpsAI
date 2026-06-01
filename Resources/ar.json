@@ -932,5 +932,13 @@
   "ColorWarning": "تحذير",
   "ColorDanger": "خطر",
   "ColorInfo": "معلومة",
-  "ShadowColorLabel": "لون الظل (rgba أو ‎#hex)"
+  "ShadowColorLabel": "لون الظل (rgba أو ‎#hex)",
+  "AIWorkloadOrchestration": "تنسيق أعباء عمل الذكاء الاصطناعي",
+  "RouteCognitiveTasks": "توجيه المهام المعرفية إلى نماذج متخصصة",
+  "FallbackEngineDesc": "المحرّك والنموذج الافتراضيّان. كل خانة أخرى تختار \"الافتراضي\" ستستخدم هذه التهيئة.",
+  "AnalysisDesc": "المحرّك والنموذج لتصنيف التذاكر والرؤى.",
+  "RAGDesc": "المحرّك والنموذج لاسترجاع قاعدة المعرفة وتوليد الإجابات.",
+  "InheritDefault": "استخدام الافتراضي",
+  "SaveChanges": "حفظ التغييرات",
+  "ProviderDefaultModel": "(الافتراضي للمحرّك)"
 }

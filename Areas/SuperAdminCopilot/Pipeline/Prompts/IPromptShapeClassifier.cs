@@ -8,10 +8,10 @@ namespace SuperAdminCopilot.Pipeline.Prompts;
 /// pulls few-shots from (Phase 7b/7c), so a COUNT question doesn't get TOPN examples in
 /// its prompt — smaller prompts, sharper signal, better local-model performance.</para>
 ///
-/// <para>This is intentionally separate from the existing
-/// <c>IQuestionShapeClassifier</c> (which is a binary <i>Simple vs ComplexAnalytics</i>
-/// router for the LlmDirectSqlEmitter escape valve). Different concern, different
-/// taxonomy.</para>
+/// <para>This is an 8-shape taxonomy for PROMPT example-bank selection. It is unrelated to
+/// escape-valve routing — that decision is made post-hoc by the coverage-gap → escape-valve
+/// retry (see <c>CopilotOptions.EnableCoverageEscapeRetry</c>), which replaced the old
+/// phrase-matching binary router on 2026-06-01.</para>
 /// </summary>
 public interface IPromptShapeClassifier
 {

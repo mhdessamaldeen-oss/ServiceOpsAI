@@ -131,8 +131,8 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
         return sb.ToString();
     }
 
-    /// <summary>Fine-grained shape detection for prompt-example selection. Mirrors the keyword
-    /// vocabulary in <c>CopilotTextCatalog.QuestionShapeComplexHints</c>.</summary>
+    /// <summary>Fine-grained shape detection for prompt-example selection — picks which raw-SQL
+    /// worked-example to show the LLM for this question's analytical shape.</summary>
     private enum AdvancedShape { None, WindowRank, WindowRunning, WindowLag, Recursive, SelfJoin, Exists, Union, HavingMultiAgg }
 
     private static AdvancedShape DetectAdvancedShape(string question)

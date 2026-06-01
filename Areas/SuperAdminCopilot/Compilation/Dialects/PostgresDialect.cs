@@ -50,6 +50,17 @@ public sealed class PostgresDialect : ISqlDialect
     public string NowExpression => "NOW()";
     public string CurrentDateExpression => "CURRENT_DATE";
 
+    // PostgreSQL date-part keywords accepted by EXTRACT() / DATE_TRUNC() / INTERVAL.
+    // Avoid mis-quoting these as column references inside date function calls.
+    private static readonly System.Collections.Generic.HashSet<string> PgDateParts = new(System.StringComparer.OrdinalIgnoreCase)
+    {
+        "century", "decade", "year", "quarter", "month", "week",
+        "day", "doy", "dow", "isodow", "isoyear",
+        "hour", "minute", "second", "millisecond", "microsecond",
+        "epoch", "timezone", "timezone_hour", "timezone_minute",
+    };
+    public System.Collections.Generic.IReadOnlySet<string> DatePartKeywords => PgDateParts;
+
     // ── Date arithmetic ───────────────────────────────────────────────────────
     public string DateAdd(string unit, int offset, string baseExpr)
     {

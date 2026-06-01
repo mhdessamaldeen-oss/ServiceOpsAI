@@ -1055,25 +1055,28 @@
         }
 
         // Cascade contract:
-        // 1. User changes the provider dropdown — we DO NOT save. We just repopulate
-        //    the model dropdown from that provider's allowed-models list and prompt
-        //    the user to make a selection. Provider alone is not enough to commit.
-        // 2. User picks a model (or "(provider default)") — that's the explicit
-        //    confirmation that submits the form.
-        // The only exception is GLOBALDEFAULT, which has no model dropdown — there
-        // we save on provider change because there's no follow-up step.
+        // 1. User changes the provider dropdown — we DO NOT save. We repopulate the
+        //    model dropdown from that provider's allowed-models list and mark the
+        //    form as dirty so the Save button stands out.
+        // 2. User picks a model (or "(provider default)") — we also DO NOT save;
+        //    the change just adds to the pending batch.
+        // 3. User clicks the Save button at the bottom of the form — one POST commits
+        //    every change made across all 10 slots (3 workloads + 7 pipeline stages)
+        //    in one round-trip. This is what makes "flip 8 dropdowns then save once"
+        //    work, instead of the old one-save-and-reload per change.
+        function markWorkloadRoutingDirty() {
+            const indicator = document.getElementById('workloadRoutingDirty');
+            if (indicator) indicator.classList.remove('d-none');
+            const btn = document.getElementById('workloadRoutingSaveBtn');
+            if (btn) btn.classList.add('btn-warning');
+        }
+
         function onWorkloadProviderChange(providerSelect) {
+            markWorkloadRoutingDirty();
             const modelSelectId = providerSelect.dataset.modelSelectId;
-            if (!modelSelectId) {
-                // GLOBALDEFAULT: no cascade, save now.
-                document.getElementById('workloadRoutingForm').submit();
-                return;
-            }
+            if (!modelSelectId) return;
             const modelSelect = document.getElementById(modelSelectId);
-            if (!modelSelect) {
-                document.getElementById('workloadRoutingForm').submit();
-                return;
-            }
+            if (!modelSelect) return;
             // Switching providers invalidates the prior model — drop the sticky value.
             modelSelect.dataset.currentValue = '';
             populateWorkloadModelSelect(modelSelect);
@@ -1090,11 +1093,10 @@
         }
 
         function onWorkloadModelChange(modelSelect) {
-            // The user explicitly picked a model (or "(provider default)") — this
-            // is the commit point of the cascade. Submit so the server saves both
-            // provider AND model atomically. The page reload clears the pending
-            // visual state automatically.
-            document.getElementById('workloadRoutingForm').submit();
+            // No auto-submit any more — just mark dirty and clear the pending hint
+            // on the slot so the visual state matches "user made a choice; click Save".
+            markWorkloadRoutingDirty();
+            clearCascadePending(modelSelect);
         }
 
         function refreshAllWorkloadModelSelects() {

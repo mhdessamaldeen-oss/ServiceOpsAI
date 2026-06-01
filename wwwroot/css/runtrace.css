@@ -401,6 +401,27 @@
     border-radius: 0.4rem;
 }
 
+/* ── Input vs. output accent ─────────────────────────────────────────────────
+   Same colour language as the LLM-call Prompt/Response rails: BLUE = what went
+   IN (the prompt, for an LLM step), GREEN = what came OUT (the model's reply).
+   Applied to the structured-payload sections so steps that log Input/Output
+   (e.g. Decomposer) read the same as steps that log a Prompt/Response card. */
+.runtrace-section-input {
+    border-left: 3px solid rgba(56, 139, 253, 0.55);
+    padding-left: 0.6rem;
+    margin-left: 0.1rem;
+}
+.runtrace-section-input > .runtrace-section-label,
+.runtrace-section-input > .runtrace-section-label > i { color: #2f81f7; }
+
+.runtrace-section-output {
+    border-left: 3px solid rgba(16, 185, 129, 0.55);
+    padding-left: 0.6rem;
+    margin-left: 0.1rem;
+}
+.runtrace-section-output > .runtrace-section-label,
+.runtrace-section-output > .runtrace-section-label > i { color: #0e9f6e; }
+
 .runtrace-llm-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -569,4 +590,301 @@
     gap: 0.4rem;
     font-size: 0.78rem;
     color: var(--text-muted);
+}
+
+/* ── Syntax-highlighted code blobs (SQL the compiler emitted, JSON the
+   spec-extractor returned, the prompt/response we exchanged with the LLM).
+   These carry a `language-*` class so Prism colors the tokens. Prism's
+   `tomorrow` theme is light-on-dark, so the block itself MUST be dark for the
+   tokens to read — that also visually separates "this is code/script" from the
+   prose descriptions around it. The two-class selector (.runtrace-blob-pre
+   .runtrace-code) outranks the plain .runtrace-blob-pre background above. */
+.runtrace-blob-pre.runtrace-code,
+pre.runtrace-code {
+    background: #1e1e2e;
+    border: 1px solid rgba(168, 85, 247, 0.22);
+    color: #e4e4ef;
+    text-shadow: none;
+    /* Re-assert spacing — Prism's `pre[class*="language-"]` theme rule outranks the
+       base .runtrace-blob-pre padding, so we restate it on the two-class selector. */
+    padding: 0.7rem 0.85rem;
+    margin: 0;
+    border-radius: 0.5rem;
+}
+.runtrace-blob-pre.runtrace-code code,
+pre.runtrace-code code {
+    background: transparent;
+    color: inherit;
+    text-shadow: none;
+    font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+    font-size: inherit;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* A small uppercase language tag floated over the top-right of a code blob. */
+.runtrace-blob { /* already position:relative above — anchor the tag */ }
+.runtrace-code-lang {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.45rem;
+    z-index: 2;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #c9b8ff;
+    background: rgba(168, 85, 247, 0.18);
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    border-radius: 0.3rem;
+    padding: 0.05rem 0.4rem;
+    pointer-events: none;
+}
+
+/* ── "Where & when" / run-metadata fact grid — compact key/value cards.
+   Reuses the .runtrace-k / .runtrace-v typography from the LLM grid. */
+.runtrace-facts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.4rem;
+}
+.runtrace-facts-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(var(--text-main-rgb), 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 0.4rem;
+}
+
+/* ── Run metadata panel (top of the Run trace, above the timeline) ─────── */
+.runtrace-meta-panel {
+    margin-bottom: 1.1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.85rem;
+    background: rgba(var(--primary-color-rgb), 0.03);
+    overflow: hidden;
+}
+.runtrace-meta-panel > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1rem;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text-main);
+}
+.runtrace-meta-panel > summary::-webkit-details-marker { display: none; }
+.runtrace-meta-panel > summary > .bi-info-square { color: var(--primary-color); }
+.runtrace-meta-chevron {
+    margin-left: auto;
+    transition: transform 0.15s ease;
+    color: var(--text-muted);
+}
+.runtrace-meta-panel[open] .runtrace-meta-chevron { transform: rotate(180deg); }
+.runtrace-meta-body {
+    padding: 0 1rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* ── Copy button on the Generated SQL header ───────────────────────────── */
+.runtrace-copy-btn {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--primary-color);
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.runtrace-copy-btn:hover { background: rgba(var(--primary-color-rgb), 0.1); }
+.runtrace-copy-btn.copied {
+    color: var(--success-color, #22c55e);
+    border-color: rgba(34, 197, 94, 0.4);
+}
+/* Let the SQL section label host a right-aligned copy button. */
+.runtrace-section-label { position: relative; }
+
+/* ── Per-call LLM cards (model/tokens/cost/retry + prompt & response) ─────
+   Previously unstyled — rendered as bare stacked blocks. Now a bordered card
+   per call with a purple LLM accent so multiple calls (e.g. SpecExtractor +
+   its retry) read as distinct units. */
+.runtrace-llm-call {
+    border: 1px solid rgba(168, 85, 247, 0.2);
+    background: rgba(168, 85, 247, 0.04);
+    border-radius: 0.55rem;
+    padding: 0.6rem 0.75rem;
+    margin-top: 0.5rem;
+}
+.runtrace-llm-call:first-of-type { margin-top: 0; }
+.runtrace-llm-call.failed {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.05);
+}
+.runtrace-llm-call-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+.runtrace-llm-stage {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    margin-right: auto;
+}
+.runtrace-llm-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.4rem;
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--danger-color, #ef4444);
+    font-size: 0.8rem;
+}
+.runtrace-llm-detail {
+    margin-top: 0.5rem;
+}
+.runtrace-llm-detail > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.4rem;
+    background: rgba(var(--text-main-rgb), 0.04);
+}
+.runtrace-llm-detail > summary::-webkit-details-marker { display: none; }
+.runtrace-llm-detail > summary:hover { color: var(--text-main); }
+.runtrace-llm-detail[open] > summary { color: var(--text-main); margin-bottom: 0.4rem; }
+.runtrace-llm-detail > summary > i { color: var(--primary-color); }
+.runtrace-llm-detail .runtrace-blob-pre { margin-top: 0; }
+
+/* ── Prompt vs. response colour-coding ──────────────────────────────────────
+   Make the two halves of every LLM call unmistakable at a glance: a BLUE left
+   rail marks what was SENT to the model (the prompt), a GREEN rail marks the
+   REAL reply it returned. The rail + tint stay visible whether the block is
+   collapsed or open, so you can tell prompt from response without reading. */
+.runtrace-llm-detail-prompt {
+    border-left: 3px solid rgba(56, 139, 253, 0.6);
+    border-radius: 0.4rem;
+    padding-left: 0.5rem;
+    background: rgba(56, 139, 253, 0.05);
+}
+.runtrace-llm-detail-prompt > summary { background: rgba(56, 139, 253, 0.10); }
+.runtrace-llm-detail-prompt > summary > i,
+.runtrace-llm-detail-prompt > summary { color: #2f81f7; }
+
+.runtrace-llm-detail-response {
+    border-left: 3px solid rgba(16, 185, 129, 0.6);
+    border-radius: 0.4rem;
+    padding-left: 0.5rem;
+    background: rgba(16, 185, 129, 0.06);
+}
+.runtrace-llm-detail-response > summary { background: rgba(16, 185, 129, 0.10); }
+.runtrace-llm-detail-response > summary > i,
+.runtrace-llm-detail-response > summary { color: #0e9f6e; }
+
+/* The "— sent to model" / "— real reply from model" qualifier after the label:
+   lighter weight + muted so the PROMPT / RESPONSE word stays the headline. */
+.runtrace-io-note {
+    font-weight: 400;
+    font-size: 0.72rem;
+    opacity: 0.8;
+}
+
+/* ── Auto-fix phase diagnostics list ─────────────────────────────────────── */
+.runtrace-phase-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.runtrace-phase-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    font-size: 0.82rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.4rem;
+    background: rgba(var(--text-main-rgb), 0.03);
+    border-left: 3px solid #22c55e;
+}
+.runtrace-phase-row.warn { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.06); }
+.runtrace-phase-row strong { color: var(--text-main); font-weight: 600; }
+.runtrace-phase-detail { color: var(--text-muted); }
+
+/* ── Routing decisions (winner + scored alternatives) ────────────────────── */
+.runtrace-decision {
+    border: 1px solid var(--border-color);
+    border-radius: 0.55rem;
+    padding: 0.6rem 0.75rem;
+    margin-top: 0.5rem;
+    background: rgba(var(--text-main-rgb), 0.02);
+}
+.runtrace-decision:first-of-type { margin-top: 0; }
+.runtrace-decision-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+.runtrace-decision-winner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+}
+.runtrace-decision-winner strong { color: var(--text-main); }
+.runtrace-decision-reason {
+    margin-top: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+.runtrace-decision-alts {
+    margin: 0.45rem 0 0;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.runtrace-decision-alts li { display: flex; align-items: center; gap: 0.35rem; }
+
+/* ── Nested sub-step body — the recursive _InvestigationStepMeta render lives
+   here. A left rail + tighter section spacing signal "this metadata belongs to
+   the sub-step above", and the rail deepens the further you recurse. */
+.runtrace-substep-body {
+    margin-top: 0.5rem;
+    padding-left: 0.65rem;
+    border-left: 2px solid rgba(168, 85, 247, 0.25);
+}
+.runtrace-substep-body .runtrace-section { margin-top: 0.6rem; }
+.runtrace-substep-body .runtrace-section:first-child { margin-top: 0; }
+.runtrace-substep-body .runtrace-section-label { font-size: 0.65rem; }
+/* Don't let deeply-nested LLM/fact grids blow out — they read fine smaller. */
+.runtrace-substep-body .runtrace-facts-grid,
+.runtrace-substep-body .runtrace-llm-grid {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 }

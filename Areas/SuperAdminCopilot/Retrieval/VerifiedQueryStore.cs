@@ -223,7 +223,7 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
             foreach (var (vq, vec) in vectors)
             {
                 if (vec.Length != queryVec.Length) continue;
-                var score = Cosine(queryVec, vec);
+                var score = VectorMath.Cosine(queryVec, vec);
                 var threshold = (float)(vq.MinSimilarity ?? _options.Value.VerifiedQueryMinSimilarity);
                 if (score < threshold) continue;
                 // Shape-intent check: skip cache entries that would clearly return the wrong shape.
@@ -241,6 +241,12 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
                 }
                 if (best is null || score > best.Similarity) best = new VerifiedMatch(vq, score);
             }
+            // Hit-rate telemetry — tagged [copilot.rag_lookup] so log aggregation answers
+            // "what % of questions get a verified-query hit?" without instrumentation code.
+            // Operators decide whether the store is earning its maintenance cost.
+            _logger.LogInformation("[copilot.rag_lookup] source=verified outcome={Outcome} score={Score:F2}",
+                best is null ? "miss" : "hit",
+                best?.Similarity ?? 0f);
             return best;
         }
         catch (Exception ex)
@@ -322,7 +328,7 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
             foreach (var (_, vec) in vectors)
             {
                 if (vec.Length != queryVec.Length) continue;
-                var score = Cosine(queryVec, vec);
+                var score = VectorMath.Cosine(queryVec, vec);
                 if (score > best) best = score;
             }
             return best;
@@ -351,7 +357,7 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
             foreach (var (vq, vec) in vectors)
             {
                 if (vec.Length != queryVec.Length) continue;
-                var score = Cosine(queryVec, vec);
+                var score = VectorMath.Cosine(queryVec, vec);
                 if (score < minSimilarity) continue;
                 if (!bestById.TryGetValue(vq.Id, out var existing) || score > existing.Similarity)
                     bestById[vq.Id] = new VerifiedMatch(vq, score);
@@ -406,12 +412,4 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
         finally { _primingLock.Release(); }
     }
 
-    private static float Cosine(float[] a, float[] b)
-    {
-        if (a.Length != b.Length || a.Length == 0) return 0f;
-        float dot = 0, na = 0, nb = 0;
-        for (int i = 0; i < a.Length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
-        if (na == 0 || nb == 0) return 0f;
-        return (float)(dot / (Math.Sqrt(na) * Math.Sqrt(nb)));
-    }
 }

@@ -496,6 +496,17 @@ html.sidebar-collapsed .copilot-shell {
     animation: none;
 }
 
+/* In-progress "thinking" card. It carries only the compact live-progress
+   timeline (a spinner + a few step rows), so the 720px min-width that keeps
+   real answers from collapsing to a chip instead leaves it looking like a
+   half-empty box — content top-left, dead space filling the rest. Let this
+   card hug its content so it reads as an intentional status pill, then it is
+   swapped out for the full-width answer bubble once the response arrives. */
+.copilot-message-thinking {
+    min-width: 0;
+    width: fit-content;
+}
+
 @keyframes message-in {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -2285,7 +2296,6 @@ tfoot.copilot-summary-row td {
     transition: height 0.1s ease;
 }
 
-.copilot-v2 .bg-soft-primary,
 .copilot-shell .bg-soft-primary {
     background-color: rgba(var(--primary-color-rgb), 0.08) !important;
 }

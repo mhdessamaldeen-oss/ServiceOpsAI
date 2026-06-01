@@ -42,6 +42,7 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
     private readonly ITextEmbedder _embedder;
     private readonly IMemoryCache _cache;
     private readonly Microsoft.Extensions.Options.IOptionsMonitor<Configuration.CopilotOptions> _options;
+    private readonly Microsoft.Extensions.Options.IOptionsMonitor<Configuration.EmbeddingKeywordsOptions> _keywordOptions;
     private readonly Semantic.ISemanticLayer _semanticLayer;
     private readonly ILogger<SchemaSemanticRetriever> _logger;
     private readonly SemaphoreSlim _primingLock = new(1, 1);
@@ -51,12 +52,14 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
         ITextEmbedder embedder,
         IMemoryCache cache,
         Microsoft.Extensions.Options.IOptionsMonitor<Configuration.CopilotOptions> options,
+        Microsoft.Extensions.Options.IOptionsMonitor<Configuration.EmbeddingKeywordsOptions> keywordOptions,
         Semantic.ISemanticLayer semanticLayer,
         ILogger<SchemaSemanticRetriever> logger)
     {
         _knowledge = knowledge;
         _embedder = embedder;
         _options = options;
+        _keywordOptions = keywordOptions;
         _cache = cache;
         _semanticLayer = semanticLayer;
         _logger = logger;
@@ -111,7 +114,7 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
             foreach (var (table, vec) in tableVecs)
             {
                 if (vec.Length != queryVec.Length) continue;
-                var rawScore = Cosine(queryVec, vec);
+                var rawScore = VectorMath.Cosine(queryVec, vec);
                 if (IsAuxiliaryTable(table.Name, auxSuffixes))
                 {
                     rawScore -= auxPenalty;
@@ -152,7 +155,7 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
             var result = new List<(InferredTable, float[])>(visibleTables.Count);
             foreach (var table in visibleTables)
             {
-                var text = BuildEmbeddingText(table);
+                var text = BuildEmbeddingText(table, _keywordOptions.CurrentValue);
                 var vec = await _embedder.EmbedAsync(text, cancellationToken);
                 if (vec.Length > 0) result.Add((table, vec));
             }
@@ -183,7 +186,10 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
     //
     // The schema hash is in the cache key, so changes to this function require regeneration
     // to take effect (delete the file via UI + regenerate).
-    private static string BuildEmbeddingText(InferredTable t)
+    // Role-keyword boosts now come from Configuration/copilot-options.json → EmbeddingKeywords;
+    // see Configuration/EmbeddingKeywordsOptions.cs. Operators can tune or translate these
+    // without recompiling.
+    private static string BuildEmbeddingText(InferredTable t, Configuration.EmbeddingKeywordsOptions kw)
     {
         var parts = new List<string>();
         // Table name: 3x repetition — equal weight across all role types.
@@ -194,25 +200,25 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
 
         if (t.Flags.IsLookup)
         {
-            parts.Add("lookup reference values options types");
+            if (!string.IsNullOrEmpty(kw.Lookup)) parts.Add(kw.Lookup);
             if (!string.IsNullOrEmpty(t.Roles.LabelColumn)) parts.Add(t.Roles.LabelColumn);
         }
         else if (t.Flags.IsBridge)
         {
-            parts.Add("association relationship mapping link");
+            if (!string.IsNullOrEmpty(kw.Bridge)) parts.Add(kw.Bridge);
             var endpoints = t.ForeignKeysOut.Select(fk => fk.Table).Distinct(StringComparer.OrdinalIgnoreCase);
             parts.AddRange(endpoints);
         }
         else if (t.Flags.IsPerson)
         {
-            parts.Add("users people members accounts");
+            if (!string.IsNullOrEmpty(kw.Person)) parts.Add(kw.Person);
             if (!string.IsNullOrEmpty(t.Roles.LabelColumn)) parts.Add(t.Roles.LabelColumn);
         }
         else
         {
-            // Fact / domain tables — label + a few content columns, no marker phrase.
-            // Removing the prior "records entries items rows" boost eliminates the bias
-            // that let any fact table outrank lookups/persons on short generic queries.
+            // Fact / domain tables — label + a few content columns. Default kw.Fact is empty
+            // (historic behavior: no boost), but operators can opt in via JSON if they want.
+            if (!string.IsNullOrEmpty(kw.Fact)) parts.Add(kw.Fact);
             if (!string.IsNullOrEmpty(t.Roles.LabelColumn)) parts.Add(t.Roles.LabelColumn);
             var content = t.Columns
                 .Where(c => c.Role is null or "label" or "natural_key")
@@ -228,17 +234,4 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
         return string.Join(' ', parts);
     }
 
-    private static float Cosine(float[] a, float[] b)
-    {
-        if (a.Length != b.Length || a.Length == 0) return 0f;
-        float dot = 0, na = 0, nb = 0;
-        for (int i = 0; i < a.Length; i++)
-        {
-            dot += a[i] * b[i];
-            na += a[i] * a[i];
-            nb += b[i] * b[i];
-        }
-        if (na == 0 || nb == 0) return 0f;
-        return (float)(dot / (Math.Sqrt(na) * Math.Sqrt(nb)));
-    }
 }

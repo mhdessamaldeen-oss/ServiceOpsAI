@@ -134,7 +134,12 @@ public static class StageNames
         "writeintentguard"       => "GUARD",   // deterministic preflight against write attempts
         "outofscopeguard"        => "GUARD",   // positive scope-confidence gate (B1 — 2026-05-19); refuses when VQ-cosine + schema-linker both below floors
         "coveragecheck"          => "FMT",     // post-Explainer verification — sits in formatter tier
-        "llmdirectsqlemitter"    => "PLAN",    // escape valve — raw T-SQL emitter, sits in planner tier
+        // Escape valve maps to EXEC (not PLAN) so its winning SQL renders alongside the
+        // form-filling Executor — when it supersedes the form-filling result (coverage-gap
+        // retry), the user sees BOTH executions in one place, with this one flagged FINAL.
+        // Previously mapped to PLAN, which buried the answer's SQL up in the planner group
+        // while the superseded form-filling SQL showed prominently under EXEC. (2026-06-01)
+        "llmdirectsqlemitter"    => "EXEC",
         _ => null,   // unknown stage — caller falls through to legacy substring matchers
         };
     }

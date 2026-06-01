@@ -45,6 +45,20 @@ public sealed class MssqlDialect : ISqlDialect
     public string NowExpression => "GETDATE()";
     public string CurrentDateExpression => "CAST(GETDATE() AS DATE)";
 
+    // T-SQL date-part keywords (and their many shortform synonyms). Used by the compiler's
+    // expression-qualifier to avoid mis-quoting "year" / "quarter" / etc. inside DATEDIFF /
+    // DATEADD / DATEPART when a table happens to have a column of the same name.
+    private static readonly System.Collections.Generic.HashSet<string> MssqlDateParts = new(System.StringComparer.OrdinalIgnoreCase)
+    {
+        "year", "yyyy", "yy", "quarter", "qq", "q",
+        "month", "mm", "m", "dayofyear", "dy", "y",
+        "day", "dd", "d", "week", "wk", "ww", "weekday", "dw",
+        "hour", "hh", "minute", "mi", "n", "second", "ss", "s",
+        "millisecond", "ms", "microsecond", "mcs", "nanosecond", "ns",
+        "tzoffset", "tz", "iso_week", "isowk", "isoww",
+    };
+    public System.Collections.Generic.IReadOnlySet<string> DatePartKeywords => MssqlDateParts;
+
     // ── Date arithmetic ───────────────────────────────────────────────────────
     public string DateAdd(string unit, int offset, string baseExpr) =>
         $"DATEADD({Normalize(unit)}, {offset.ToString(CultureInfo.InvariantCulture)}, {baseExpr})";

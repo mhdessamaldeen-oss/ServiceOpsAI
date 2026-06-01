@@ -1,0 +1,68 @@
+{
+  "name": "Numeric-aggregation-on-non-numeric probe (iter 4)",
+  "version": "1.0",
+  "description": "Tests NumericAggregationOnNonNumericRule (rewrites AVG/SUM on nvarchar columns to COUNT(*)). 1 target case + 3 cumulative controls (iter 1, iter 2, iter 3).",
+  "Scenarios": [
+    {
+      "Code": "PROBE-NAGG-001",
+      "Question": "regions where outages exceed the regional average",
+      "Shape": "SUB-CORR",
+      "Difficulty": "hard",
+      "Locale": "en",
+      "ExpectedColumns": ["NameEn","Count"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Regions",
+      "Notes": "From B-SUB-009. Previously: AVG(Outages.OutageNumber) → 'nvarchar invalid for avg'. With the new rule, that AVG should be rewritten to COUNT(*).",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-NAGG-CTRL-1",
+      "Question": "top 5 customers by total bill amount",
+      "Shape": "LIM-TOP",
+      "Difficulty": "medium",
+      "Locale": "en",
+      "ExpectedColumns": ["FullName","Total"],
+      "ExpectedRowCountDirection": "many",
+      "ExpectedRowCount": 5,
+      "EntityFocus": "Customers",
+      "Notes": "Control iter 1 — SUM(Bills.TotalAmount) is numeric, must NOT be rewritten to COUNT.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-NAGG-CTRL-2",
+      "Question": "list every region with its parent region",
+      "Shape": "SEL",
+      "Difficulty": "hard",
+      "Locale": "en",
+      "ExpectedColumns": ["NameEn"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Regions",
+      "Notes": "Control iter 2 — unresolved ParentRegion.NameEn still gets dropped.",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-NAGG-CTRL-3",
+      "Question": "active customers in the West region with at least one payment",
+      "Shape": "FLT-MULTI",
+      "Difficulty": "hard",
+      "Locale": "en",
+      "ExpectedColumns": ["FullName"],
+      "ExpectedRowCountDirection": "many",
+      "EntityFocus": "Customers",
+      "Notes": "Control iter 3 — filter-value-hallucination clause still active (no descriptive strings as values).",
+      "MaxLatencyMs": 180000
+    },
+    {
+      "Code": "PROBE-NAGG-CTRL-4",
+      "Question": "average bill amount",
+      "Shape": "AGG-AVG",
+      "Difficulty": "easy",
+      "Locale": "en",
+      "ExpectedColumns": ["Average"],
+      "ExpectedRowCountDirection": "single",
+      "EntityFocus": "Bills",
+      "Notes": "Control basic AVG — Bills.TotalAmount IS numeric, must NOT be rewritten. Verifies rule is selective.",
+      "MaxLatencyMs": 180000
+    }
+  ]
+}

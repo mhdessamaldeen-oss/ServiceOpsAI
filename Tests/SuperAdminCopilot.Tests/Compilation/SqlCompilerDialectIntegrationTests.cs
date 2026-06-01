@@ -60,7 +60,10 @@ public sealed class SqlCompilerDialectIntegrationTests
         var options = Options.Create(new CopilotOptions { MaxRows = 1000 });
         var joinResolver = new JoinResolver(catalogMock.Object);
 
-        return new SqlCompiler(catalogMock.Object, joinResolver, semanticMock.Object, options, dialect);
+        return new SqlCompiler(catalogMock.Object, joinResolver, semanticMock.Object, options, dialect,
+            new TemporalTokenizer(),
+            new SemanticExpander(semanticMock.Object),
+            new FilterValueRewriter(catalogMock.Object, semanticMock.Object));
     }
 
     /// <summary>The proof: same spec → two SQLs, dialect-specific tokens in each.</summary>

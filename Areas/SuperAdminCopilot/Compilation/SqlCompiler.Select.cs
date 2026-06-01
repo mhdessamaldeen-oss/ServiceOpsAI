@@ -106,6 +106,15 @@ internal sealed partial class SqlCompiler
             // Reject AVG/SUM/MIN/MAX(*) — invalid T-SQL. Folded into expr: form by RewriteInvalidStarAggregates when possible.
             if (a.Column == SpecConst.Aggregates.Star && fn != SpecConst.Aggregates.Count) continue;
 
+            // PII guard — bare-column form. The expression-form check below covers inline cases.
+            if (!string.IsNullOrEmpty(a.Column) && a.Column != "*")
+            {
+                var (aggTable, aggBare) = SplitQualified(a.Column);
+                if (!string.IsNullOrEmpty(aggTable) && !string.IsNullOrEmpty(aggBare)
+                    && _semanticLayer.IsSensitiveColumn(aggTable, aggBare))
+                    continue;
+            }
+
             string colExpr;
             if (a.Column == "*")
             {
@@ -115,6 +124,7 @@ internal sealed partial class SqlCompiler
             {
                 // Per-row expression folded by RewriteInvalidStarAggregates; render inline with qualification.
                 var raw = a.Column.Substring("expr:".Length);
+                if (ExpressionReferencesSensitiveColumn(raw)) continue;
                 colExpr = QualifyColumnsInExpression(StripTrailingAlias(raw), spec.Root);
             }
             else if (LooksLikeColumnExpression(a.Column))
@@ -123,6 +133,7 @@ internal sealed partial class SqlCompiler
                 // directly into the aggregation's column slot. Without this branch the column
                 // fails TryFormatColumn and the aggregation is silently dropped — the wrong-
                 // answer class the user explicitly called out.
+                if (ExpressionReferencesSensitiveColumn(a.Column)) continue;
                 colExpr = QualifyColumnsInExpression(StripTrailingAlias(a.Column), spec.Root);
             }
             else if (!TryFormatColumn(a.Column, out var f)) continue;
@@ -138,6 +149,9 @@ internal sealed partial class SqlCompiler
         foreach (var comp in spec.Computed)
         {
             if (string.IsNullOrWhiteSpace(comp.Expression)) continue;
+            // PII guard — refuse to project a computed expression that touches a sensitive column,
+            // even indirectly. Symmetric with the bare-column denylist in BuildSelect.
+            if (ExpressionReferencesSensitiveColumn(comp.Expression)) continue;
             // Strip trailing " AS xxx" — we always append our own "AS [<alias>]" below; double-AS is a syntax error.
             var rawExpr = StripTrailingAlias(comp.Expression);
             var expr = QualifyColumnsInExpression(rawExpr, spec.Root);

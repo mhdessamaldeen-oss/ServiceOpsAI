@@ -78,6 +78,19 @@ public sealed class CompiledLocaleCues
     /// Phases iterate this list and use the captured value as the search term.
     /// </summary>
     public IReadOnlyList<Regex> TextSearchTriggers { get; init; } = System.Array.Empty<Regex>();
+
+    /// <summary>
+    /// Compiled "knowledge question" regex with a single named capture group <c>term</c>.
+    /// Null when this locale declares no knowledge-question verbs. Used by KnowledgeMatchHandler
+    /// via ILinguisticRegistry.LooksLikeKnowledgeQuestion.
+    /// </summary>
+    public Regex? KnowledgeQuestionRegex { get; init; }
+
+    /// <summary>
+    /// Compiled aggregate-marker alternation. Null when no markers declared.
+    /// Used by KnowledgeMatchHandler (refuse knowledge routing) and SqlIntentGuard (confirm SQL intent).
+    /// </summary>
+    public Regex? AggregateMarkerRegex { get; init; }
 }
 
 /// <summary>One compiled temporal cue. Identical shape to the JSON entry but with <see cref="Pattern"/> precompiled.</summary>

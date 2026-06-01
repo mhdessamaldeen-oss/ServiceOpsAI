@@ -41,7 +41,11 @@
                         // Cross-cutting workload defaults — apply to features OUTSIDE the
                         // SuperAdminCopilot pipeline (legacy analysis, embeddings). The 7
                         // copilot pipeline stages live in their own section below.
-                        (Name: "GLOBALDEFAULT", Key: "activeProvider",   Val: (string)activeProvider.ToString(),     Desc: "FallbackEngineDesc", ModelKey: (string?)null,         ModelVal: (string?)null),
+                        // GLOBALDEFAULT now exposes a model dropdown too — every other slot
+                        // whose model is empty resolves to this pair, so making it visible
+                        // is what lets the user actually answer "what does 'inherit default'
+                        // resolve to?" instead of guessing the provider's native default.
+                        (Name: "GLOBALDEFAULT", Key: "activeProvider",   Val: (string)activeProvider.ToString(),     Desc: "FallbackEngineDesc", ModelKey: (string?)"defaultModel", ModelVal: (string?)ViewBag.DbDefaultModel),
                         (Name: "ANALYSIS",      Key: "analysisProvider", Val: (string)ViewBag.DbAnalysisProvider,    Desc: "AnalysisDesc",       ModelKey: "analysisModel",   ModelVal: (string?)ViewBag.DbAnalysisModel),
                         (Name: "KNOWLEDGERAG",  Key: "ragProvider",      Val: (string)ViewBag.DbRagProvider,         Desc: "RAGDesc",            ModelKey: "ragModel",        ModelVal: (string?)ViewBag.DbRagModel)
                     }) {
@@ -70,9 +74,9 @@
                                             class="form-select form-select-sm border border-light shadow-none workload-model-select"
                                             data-current-value="@(slot.ModelVal ?? "")"
                                             data-provider-select-id="@providerSelectId"
-                                            title="Pick a model from the provider's curated 'Allowed Models' list. Empty = use the provider's default model. The form saves when you pick here — switching provider alone does not save."
+                                            title="Pick a model from the provider's curated 'Allowed Models' list. Empty = use the provider's default model. Changes are batched — click Save at the bottom to commit."
                                             onchange="onWorkloadModelChange(this)">
-                                        <option value="">(provider default)</option>
+                                        <option value="">@Loc.Get("ProviderDefaultModel")</option>
                                         @if (!string.IsNullOrEmpty(slot.ModelVal)) {
                                             <option value="@slot.ModelVal" selected="selected">@slot.ModelVal</option>
                                         }
@@ -141,9 +145,9 @@
                                             class="form-select form-select-sm border border-light shadow-none workload-model-select"
                                             data-current-value="@(roleSlot.ModelVal ?? "")"
                                             data-provider-select-id="@roleProviderSelectId"
-                                            title="Pick a model from the provider's curated 'Allowed Models' list. Empty = use the provider's default."
+                                            title="Pick a model from the provider's curated 'Allowed Models' list. Empty = use the provider's default. Changes are batched — click Save at the bottom to commit."
                                             onchange="onWorkloadModelChange(this)">
-                                        <option value="">(provider default)</option>
+                                        <option value="">@Loc.Get("ProviderDefaultModel")</option>
                                         @if (!string.IsNullOrEmpty(roleSlot.ModelVal)) {
                                             <option value="@roleSlot.ModelVal" selected="selected">@roleSlot.ModelVal</option>
                                         }
@@ -153,6 +157,19 @@
                             </div>
                         }
                     </div>
+                </div>
+
+                @* ── Single Save button. Picks up every provider + model change made
+                     in the workloads block AND the pipeline-stages block above so the
+                     user can flip 8 dropdowns and commit them in one round-trip
+                     instead of one save-and-reload per change. *@
+                <div class="mt-3 pt-3 border-top d-flex justify-content-end align-items-center gap-2">
+                    <span id="workloadRoutingDirty" class="text-warning small d-none">
+                        <i class="bi bi-exclamation-circle me-1"></i>You have unsaved changes
+                    </span>
+                    <button type="submit" id="workloadRoutingSaveBtn" class="btn btn-primary shadow-sm rounded-pill px-4">
+                        <i class="bi bi-check-lg me-1"></i>@Loc.Get("SaveChanges")
+                    </button>
                 </div>
             </form>
         </div>
