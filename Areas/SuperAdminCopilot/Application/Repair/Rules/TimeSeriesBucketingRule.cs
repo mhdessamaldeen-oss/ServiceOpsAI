@@ -1,6 +1,7 @@
 namespace SuperAdminCopilot.Application.Repair.Rules;
 
 using System.Collections.Generic;
+using SuperAdminCopilot.Compilation.Dialects;
 using SuperAdminCopilot.Domain;
 using SuperAdminCopilot.Models;
 
@@ -15,6 +16,12 @@ public sealed class TimeSeriesBucketingRule : IRepairRule
     public RepairFaultKind FaultClass => RepairFaultKind.TimeSeriesBucketing;
     public PlannerTier MaxTier => PlannerTier.Medium;
     public IReadOnlyList<RepairFaultKind> Requires { get; } = new[] { RepairFaultKind.MissingRoot };
+
+    private readonly ISqlDialect _dialect;
+
+    /// <summary>Dialect is injected so bucket expressions are emitted for the configured engine
+    /// (<c>CopilotOptions.Database</c>) instead of hardcoded T-SQL.</summary>
+    public TimeSeriesBucketingRule(ISqlDialect dialect) => _dialect = dialect;
 
     public Result<Diagnosis, Fault> Detect(QuerySpec spec, RepairContext ctx)
     {
@@ -46,16 +53,10 @@ public sealed class TimeSeriesBucketingRule : IRepairRule
         if (diagnosis.Payload is not (string root, string dateCol, string bucket)) return spec;
         var qualified = root + "." + dateCol;
 
-        // Bucket expression as SQL emitted to GROUP BY + SELECT. Aliases the result column.
-        var (bucketExpr, alias) = bucket switch
-        {
-            "day"     => ($"CAST({qualified} AS DATE)",                                                    "Day"),
-            "week"    => ($"DATEADD(WEEK, DATEDIFF(WEEK, 0, {qualified}), 0)",                             "WeekStart"),
-            "month"   => ($"DATEFROMPARTS(YEAR({qualified}), MONTH({qualified}), 1)",                      "MonthStart"),
-            "quarter" => ($"DATEADD(QUARTER, DATEDIFF(QUARTER, 0, {qualified}), 0)",                       "QuarterStart"),
-            "year"    => ($"DATEFROMPARTS(YEAR({qualified}), 1, 1)",                                       "YearStart"),
-            _         => ($"DATEFROMPARTS(YEAR({qualified}), MONTH({qualified}), 1)",                      "Period"),
-        };
+        // Bucket expression emitted via the dialect so non-SqlServer engines get valid SQL. On SQL
+        // Server this reproduces the prior T-SQL (day/month/year byte-identical; week/quarter differ
+        // only in keyword case, which T-SQL ignores).
+        var (bucketExpr, alias) = BucketExpression(_dialect, qualified, bucket);
 
         spec.Computed.Add(new ComputedSpec { Alias = alias, Expression = bucketExpr });
         spec.Select.Add(alias);
@@ -68,4 +69,17 @@ public sealed class TimeSeriesBucketingRule : IRepairRule
 
         return spec;
     }
+
+    /// <summary>Builds the (expression, alias) for a time bucket via the dialect. Pure + unit-testable.
+    /// SQL Server output is byte-identical to the pre-2026-06-02 hardcoded T-SQL for day/month/year;
+    /// week/quarter use the dialect's DateTrunc (same result, lowercase unit keyword).</summary>
+    internal static (string Expression, string Alias) BucketExpression(ISqlDialect d, string qualified, string bucket) => bucket switch
+    {
+        "day"     => (d.CastAsDate(qualified), "Day"),
+        "week"    => (d.DateTrunc("week", qualified), "WeekStart"),
+        "month"   => (d.DateFromParts(d.DatePart("year", qualified), d.DatePart("month", qualified), "1"), "MonthStart"),
+        "quarter" => (d.DateTrunc("quarter", qualified), "QuarterStart"),
+        "year"    => (d.DateFromParts(d.DatePart("year", qualified), "1", "1"), "YearStart"),
+        _         => (d.DateFromParts(d.DatePart("year", qualified), d.DatePart("month", qualified), "1"), "Period"),
+    };
 }

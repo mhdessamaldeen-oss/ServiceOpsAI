@@ -493,13 +493,22 @@ internal sealed class SemanticLayer : ISemanticLayer
         };
     }
 
-    private static bool IsTextType(string sqlType)
+    // Cross-engine text-type recognition (SQL Server + PostgreSQL + MySQL + SQLite) so searchable-
+    // column detection works on ANY target database, not just T-SQL. SQL Server's own type names
+    // (nvarchar/varchar/nchar/char/text/ntext) still match exactly — behavior is unchanged there;
+    // the extra names only add coverage on other engines (no SQL Server type name collides with them).
+    // internal for the cross-engine unit test.
+    internal static bool IsTextType(string sqlType)
     {
         if (string.IsNullOrEmpty(sqlType)) return false;
         var t = sqlType.ToLowerInvariant();
         return t.StartsWith("nvarchar") || t.StartsWith("varchar")
             || t.StartsWith("nchar") || t.StartsWith("char")
-            || t.StartsWith("text") || t.StartsWith("ntext");
+            || t.StartsWith("text") || t.StartsWith("ntext")
+            || t.StartsWith("character")      // PostgreSQL: "character varying", "character"
+            || t.StartsWith("citext")         // PostgreSQL case-insensitive text
+            || t.StartsWith("clob")           // SQLite / Oracle
+            || t.StartsWith("longtext") || t.StartsWith("mediumtext") || t.StartsWith("tinytext"); // MySQL
     }
 
     // Names (substring, case-insensitive) that signal a column holds user-facing prose worth

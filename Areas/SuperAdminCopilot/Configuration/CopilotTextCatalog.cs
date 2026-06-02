@@ -120,8 +120,60 @@ public sealed class CopilotTextCatalog
         "- DISTINCT TRIGGERS: \"distinct\", \"unique\", \"different\" applied to a projection (\"distinct categories\", \"unique customer names\") → emit distinct:true, NO aggregations, NO groupBy. Use this when the user wants the deduplicated VALUES themselves, not a count of them.\n" +
         "- PAGINATION TRIGGERS: \"page N of size P\", \"page N\", \"rows X to Y\", \"skip N\", \"next/previous N after first M\" → emit BOTH limit (page size) AND offset (rows to skip). Page N at size P means offset=(N-1)*P. Always include an orderBy so paging is stable. Plain \"top N\" / \"first N\" / \"last N\" (no \"page\", no \"skip\") is limit:N with offset omitted — TOP not OFFSET.";
 
-    /// <summary>Canonical worked examples shown to the planner LLM. Hot-reloadable via copilot-text.json.</summary>
-    public string SpecExtractorWorkedExamples { get; set; } =
+    /// <summary>Canonical worked examples shown to the planner LLM (the few-shot block). Hot-reloadable via
+    /// copilot-text.json. The SHIPPED default (<see cref="SchemaAgnosticWorkedExamplesDefault"/>) is
+    /// schema-agnostic — placeholder entity/column names only — so a fresh deployment never inherits another
+    /// schema's vocabulary. A concrete deployment supplies real examples via copilot-text.json
+    /// (<c>SuperAdminCopilot:Text:SpecExtractorWorkedExamples</c>).</summary>
+    public string SpecExtractorWorkedExamples { get; set; } = SchemaAgnosticWorkedExamplesDefault;
+
+    /// <summary>Schema-agnostic shipped default for <see cref="SpecExtractorWorkedExamples"/>: placeholder
+    /// names only (&lt;RootEntity&gt;, &lt;Lookup&gt;.&lt;Label&gt;, &lt;RootEntity&gt;.&lt;DateColumn&gt;, …),
+    /// safe for ANY database. A deployment overrides it with concrete examples via copilot-text.json; this is
+    /// the zero-config fallback so an unconfigured new DB still gets shape guidance with no leaked vocabulary.</summary>
+    internal const string SchemaAgnosticWorkedExamplesDefault =
+        "Worked examples — mimic the SHAPE, not the names. PLACEHOLDERS: <RootEntity> = the table the question is about; <RelatedEntity> = a table reached by a foreign key; <Lookup> = a lookup/reference table; <Label> = a human-readable name column; <DateColumn> = a timestamp column; <Metric> = a numeric column; <FkColumn> = a foreign-key column. Emit YOUR schema's REAL names, never these placeholders.\n\n" +
+        "Q: \"how many <RootEntity>\"   <-- pure COUNT — empty select, aggregations only\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"how many <RootEntity> with status <value>\"   <-- COUNT + lookup filter. Keep select EMPTY even when filtering.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[{\"column\":\"<Lookup>.<Label>\",\"op\":\"eq\",\"value\":\"<value>\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"<RootEntity> count by <Lookup>\"   <-- COUNT + GROUP BY a lookup label. select holds the group label; one count row per group.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<Lookup>.<Label>\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[],\"groupBy\":[\"<Lookup>.<Label>\"],\"orderBy\":[{\"column\":\"Count\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"top 10 <RootEntity>\"   <-- LIST of rows, newest first — limit only, no aggregation\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<RootEntity>.<Label>\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"<RootEntity>.<DateColumn>\",\"direction\":\"desc\"}],\"limit\":10,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"top 5 <RootEntity> by <Metric>\"   <-- TOP-N BY METRIC: list rows, ORDER BY metric DESC, LIMIT. NEVER emit SUM/MAX — the user wants a LIST of rows.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<RootEntity>.<Label>\",\"<RootEntity>.<Metric>\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"<RootEntity>.<Metric>\",\"direction\":\"desc\"}],\"limit\":5,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"<RootEntity> with their <RelatedEntity> name\"   <-- NAVIGATION: project root label + joined entity label. Don't ask to clarify — they want both.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<RootEntity>.<Label>\",\"<RelatedEntity>.<Label>\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"<RootEntity> for <RelatedEntity> named <value>\"   <-- FK→NAME REDIRECT: join the related table, filter its LABEL with LIKE %value%. NEVER put a name into the FK id column.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<RootEntity>.<Label>\",\"<RelatedEntity>.<Label>\"],\"aggregations\":[],\"filters\":[{\"column\":\"<RelatedEntity>.<Label>\",\"op\":\"like\",\"value\":\"%<value>%\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"<RelatedEntity>\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"<RelatedEntity> with more than 5 <RootEntity>\"   <-- HAVING ON THE OUTER ENTITY: root=<RelatedEntity>, COUNT the related <RootEntity>, HAVING > 5. Result = list of <RelatedEntity>, not <RootEntity>.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RelatedEntity>\",\"select\":[\"<RelatedEntity>.<Label>\"],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"<RootEntity>.Id\",\"alias\":\"ItemCount\"}],\"filters\":[],\"groupBy\":[\"<RelatedEntity>.<Label>\"],\"having\":[{\"function\":\"COUNT\",\"column\":\"<RootEntity>.Id\",\"op\":\"gt\",\"value\":5}],\"orderBy\":[{\"column\":\"ItemCount\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"how many <RelatedEntity> have <RootEntity>\"   <-- COUNT DISTINCT OUTER ENTITY via inner join: root=<RelatedEntity>, COUNT(DISTINCT <RelatedEntity>.Id), INNER JOIN <RootEntity>. One number.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RelatedEntity>\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"<RelatedEntity>.Id\",\"alias\":\"Count\",\"distinct\":true}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"<RootEntity>\",\"kind\":\"inner\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"<RootEntity> with no <RelatedEntity>\"   <-- ANTI-JOIN on the outer entity\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<RootEntity>.<Label>\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[{\"table\":\"<RelatedEntity>\",\"kind\":\"anti\"}],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"distinct <Lookup> that have <RootEntity>\"   <-- DISTINCT VALUES — distinct:true, no aggregations\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<Lookup>.<Label>\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"<Lookup>.<Label>\",\"direction\":\"asc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"distinct\":true,\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"page 3 of <RootEntity>, 20 per page\"   <-- PAGINATION: limit=pageSize, offset=(page-1)*pageSize, always an orderBy so pages are stable.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<RootEntity>.<Label>\"],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[{\"column\":\"<RootEntity>.<DateColumn>\",\"direction\":\"desc\"}],\"limit\":20,\"offset\":40,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"<RootEntity> created in April 2026\"   <-- SPECIFIC MONTH — ISO date-range filter (gte first day, lt first day of next month). Dates are literal, not schema-specific.\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<RootEntity>.<Label>\"],\"aggregations\":[],\"filters\":[{\"column\":\"<RootEntity>.<DateColumn>\",\"op\":\"gte\",\"value\":\"2026-04-01\"},{\"column\":\"<RootEntity>.<DateColumn>\",\"op\":\"lt\",\"value\":\"2026-05-01\"}],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"compare <RootEntity> this month vs last month\"   <-- PERIOD COMPARISON via conditional aggregation (≥2 SUM(CASE …) entries)\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[],\"aggregations\":[{\"function\":\"SUM\",\"column\":\"CASE WHEN <RootEntity>.<DateColumn> >= DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END\",\"alias\":\"ThisMonth\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN <RootEntity>.<DateColumn> >= DATEFROMPARTS(YEAR(DATEADD(month,-1,GETDATE())),MONTH(DATEADD(month,-1,GETDATE())),1) AND <RootEntity>.<DateColumn> < DATEFROMPARTS(YEAR(GETDATE()),MONTH(GETDATE()),1) THEN 1 ELSE 0 END\",\"alias\":\"LastMonth\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"what percentage of <RootEntity> are <value>\"   <-- RATIO via SUM(CASE)/COUNT(*)\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Total\"},{\"function\":\"SUM\",\"column\":\"CASE WHEN <Lookup>.<Label> = '<value>' THEN 1 ELSE 0 END\",\"alias\":\"Matching\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[{\"alias\":\"Percent\",\"expression\":\"100.0 * SUM(CASE WHEN <Lookup>.<Label> = '<value>' THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0)\"}],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"average <Metric> per <Lookup>\"   <-- AVG GROUPED BY LOOKUP\n" +
+        "→ {\"intent\":\"data_query\",\"root\":\"<RootEntity>\",\"select\":[\"<Lookup>.<Label>\"],\"aggregations\":[{\"function\":\"AVG\",\"column\":\"<RootEntity>.<Metric>\",\"alias\":\"AvgMetric\"}],\"filters\":[],\"groupBy\":[\"<Lookup>.<Label>\"],\"orderBy\":[{\"column\":\"AvgMetric\",\"direction\":\"desc\"}],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +
+        "Q: \"top <RootEntity>\"   <-- AMBIGUOUS: top by what? Ask before guessing.\n" +
+        "→ {\"intent\":\"clarification\",\"root\":\"<RootEntity>\",\"select\":[],\"aggregations\":[],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"Top <RootEntity> by what — newest, a numeric metric, or a status?\"}";
+
+    /// <summary>Regression anchor: the exact worked-examples block that shipped as the in-code default through
+    /// the 94.3% baseline (a concrete schema). NOT used as a prompt — the live default is now
+    /// <see cref="SchemaAgnosticWorkedExamplesDefault"/>; this constant exists only so the
+    /// <c>ShippedConfig_ReproducesWorkedExamples</c> test can prove copilot-text.json carries it byte-for-byte.
+    /// May be relocated to a test fixture later to keep all domain text out of the binary.</summary>
+    internal const string ShippedWorkedExamplesReference =
         "Worked examples (mimic the SHAPE; column names will differ for your schema):\n\n" +
         "Q: \"how many tickets\"   <-- pure COUNT — empty select, aggregations only\n" +
         "→ {\"intent\":\"data_query\",\"root\":\"Tickets\",\"select\":[],\"aggregations\":[{\"function\":\"COUNT\",\"column\":\"*\",\"alias\":\"Count\"}],\"filters\":[],\"groupBy\":[],\"orderBy\":[],\"limit\":null,\"joins\":[],\"computed\":[],\"clarificationQuestion\":\"\"}\n\n" +

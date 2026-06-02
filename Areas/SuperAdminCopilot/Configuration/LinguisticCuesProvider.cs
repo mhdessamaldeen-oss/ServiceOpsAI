@@ -92,6 +92,7 @@ internal sealed class LinguisticCuesProvider : ILinguisticCuesProvider
                 StatusValues   = (IReadOnlyList<StatusValueCue>)(raw.StatusValues ?? new List<StatusValueCue>()),
                 AntiJoin       = (IReadOnlyList<string>)(raw.AntiJoin ?? new List<string>()),
                 OrderingIntent = (IReadOnlyList<string>)(raw.OrderingIntent ?? new List<string>()),
+                DateColumnTokens = (IReadOnlyList<string>)(raw.DateColumnTokens ?? new List<string>()),
                 CompareMarkersRegex = CompileAlternation(raw.CompareMarkers, wholeWord: true),
                 TextSearchTriggers  = CompileRegexList(raw.TextSearchTriggers),
                 KnowledgeQuestionRegex = CompileKnowledgeQuestionRegex(raw.KnowledgeQuestion?.Verbs),

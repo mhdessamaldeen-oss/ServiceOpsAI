@@ -82,7 +82,7 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
             foreach (var (entity, vec) in entityVecs)
             {
                 if (vec.Length != queryVec.Length) continue;
-                var score = Cosine(queryVec, vec);
+                var score = SuperAdminCopilot.Retrieval.VectorMath.Cosine(queryVec, vec);
                 if (score > bestScore)
                 {
                     best = entity;
@@ -163,16 +163,4 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
         return string.Join(" — ", parts);
     }
 
-    private static float Cosine(float[] a, float[] b)
-    {
-        float dot = 0, magA = 0, magB = 0;
-        for (int i = 0; i < a.Length; i++)
-        {
-            dot += a[i] * b[i];
-            magA += a[i] * a[i];
-            magB += b[i] * b[i];
-        }
-        if (magA == 0 || magB == 0) return 0;
-        return (float)(dot / (Math.Sqrt(magA) * Math.Sqrt(magB)));
-    }
 }

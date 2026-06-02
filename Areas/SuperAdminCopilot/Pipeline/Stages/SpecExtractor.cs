@@ -581,8 +581,15 @@ internal sealed class SpecExtractor : ISpecExtractor
         sb.AppendLine(_textCatalog.CurrentValue.SpecExtractorReminders);
         // Iteration-loop extra guidance — populated from copilot-text.json so prompt tweaks
         // during the quality loop don't need a code change or restart. Empty by default.
+        // Tier-gated (config-driven via CopilotOptions.SpecExtractorExtraGuidanceMinTier, default Medium):
+        // skipped for Weak planners. Reuses the startup-resolved, model-derived
+        // CopilotOptions.PlannerCapabilityTier (no duplicate model-to-tier logic). Empty text is a no-op
+        // regardless of tier; an unknown model resolves to Weak and is skipped (fail-open conservative).
         var extra = _textCatalog.CurrentValue.SpecExtractorExtraGuidance;
-        if (!string.IsNullOrWhiteSpace(extra))
+        if (!string.IsNullOrWhiteSpace(extra)
+            && SpecExtractorPromptGates.ShouldIncludeExtraGuidance(
+                   _options.Value.PlannerCapabilityTier,
+                   _options.Value.SpecExtractorExtraGuidanceMinTier))
         {
             sb.AppendLine(extra);
         }

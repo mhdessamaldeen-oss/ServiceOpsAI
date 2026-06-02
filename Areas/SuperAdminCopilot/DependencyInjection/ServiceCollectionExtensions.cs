@@ -61,12 +61,14 @@ public static class ServiceCollectionExtensions
         // in Configuration/LinguisticCues.cs.
         services.AddSingleton<ILinguisticCuesProvider, LinguisticCuesProvider>();
 
-        // SQL-dialect abstraction. Compiler talks to ISqlDialect instead of hardcoding T-SQL.
-        // Default binding = MssqlDialect (current production target). Swap to PostgresDialect
-        // (or any future implementation) by changing this single line — no compiler rewrite.
-        // The dialect is unit-tested exhaustively in SqlDialectTests; each new dialect MUST
-        // pass every assertion there before being eligible for production use.
-        services.AddSingleton<Compilation.Dialects.ISqlDialect, Compilation.Dialects.MssqlDialect>();
+        // SQL-dialect selection is CONFIG-DRIVEN via CopilotOptions.Database (default SqlServer →
+        // MssqlDialect, the current production target — unchanged). Database=Postgres binds the
+        // unit-tested PostgresDialect so the compiler emits PostgreSQL. The engine-selection keystone:
+        // no recompile to switch dialect. (End-to-end against a live non-SqlServer engine ALSO needs
+        // the Stage-2 plumbing: an IDbConnection connection factory + per-dialect introspector + validator.)
+        services.AddSingleton<Compilation.Dialects.ISqlDialect>(sp =>
+            Compilation.Dialects.SqlDialectFactory.Create(
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Configuration.CopilotOptions>>().Value.Database));
         // Temporal-token grammar collaborator (2026-06-01 de-couple). Both the compiler's
         // WHERE-builder and QualifyColumnsInExpression delegate here so the grammar lives in
         // one place — and externalisation to JSON can happen without touching the compiler.
@@ -80,10 +82,11 @@ public static class ServiceCollectionExtensions
         // logic so the WHERE-builder stays focused on operator emission. Keeps future filter
         // features (currency-symbol stripping, regex normalisation, etc.) out of WHERE.
         services.AddSingleton<Compilation.IFilterValueRewriter, Compilation.FilterValueRewriter>();
-        // D.3 — externalized text catalog. Reload-on-change is enabled by the host's default
-        // appsettings.json registration; admins inject IOptionsMonitor<CopilotTextCatalog> and
-        // read .CurrentValue on each access. A standalone copilot-text.json is shipped as a
-        // reference template (documented in Configuration/copilot-text.json).
+        // D.3 — externalized text catalog. The per-deployment override file
+        // Configuration/copilot-text.json is registered as a hot-reloading AddJsonFile source in
+        // Program.cs (SuperAdminCopilot:Text section); consumers inject
+        // IOptionsMonitor<CopilotTextCatalog> and read .CurrentValue on each access, so edits to that
+        // file (refusal text, planner prompts, worked examples) land without a restart or recompile.
         services.Configure<Configuration.CopilotTextCatalog>(
             configuration.GetSection(Configuration.CopilotTextCatalog.SectionName));
         // Write-intent and FK-role rules — both hot-reloaded from their own JSON files,
@@ -251,6 +254,10 @@ public static class ServiceCollectionExtensions
         // Escape valve — when form-filling QuerySpec can't express the shape (window funcs,
         // recursive CTEs, complex analytics), ask the LLM to write raw T-SQL. Output still
         // passes the SqlAstValidator + ReadOnlyExecutor read-only guard. Last-resort fallback.
+        // Advanced-shape knowledge for the escape valve (gold-SQL examples + keyword grammar),
+        // externalized to Configuration/shape-examples.json + advanced-shape-keywords.json so a new
+        // DB/schema is targeted by editing config, not C#. Absent files → byte-identical in-code fallback.
+        services.AddSingleton<IAdvancedShapeCatalog, AdvancedShapeCatalog>();
         services.AddSingleton<Pipeline.Stages.ILlmDirectSqlEmitter, Pipeline.Stages.LlmDirectSqlEmitter>();
         // 2026-06-01 — REMOVED the phrase-matching IQuestionShapeClassifier. Its brittle
         // English keyword routing was replaced by the coverage-gap → escape-valve retry in

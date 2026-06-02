@@ -47,6 +47,7 @@ internal sealed class SingleQuestionExecutor : ISingleQuestionExecutor
     private readonly Stages.IChartTypeSuggester _chartSuggester;
     private readonly Stages.ICoverageChecker _coverageChecker;
     private readonly Stages.ILlmDirectSqlEmitter _directSqlEmitter;
+    private readonly Prompts.IPromptShapeClassifier _shapeClassifier;
     private readonly IPipelineStepProgressSink _progress;
     private readonly IOptions<CopilotOptions> _options;
     private readonly IOptionsMonitor<CopilotTextCatalog> _textCatalog;
@@ -70,6 +71,7 @@ internal sealed class SingleQuestionExecutor : ISingleQuestionExecutor
         Stages.IChartTypeSuggester chartSuggester,
         Stages.ICoverageChecker coverageChecker,
         Stages.ILlmDirectSqlEmitter directSqlEmitter,
+        Prompts.IPromptShapeClassifier shapeClassifier,
         IPipelineStepProgressSink progress,
         IOptions<CopilotOptions> options,
         IOptionsMonitor<CopilotTextCatalog> textCatalog,
@@ -92,6 +94,7 @@ internal sealed class SingleQuestionExecutor : ISingleQuestionExecutor
         _chartSuggester = chartSuggester;
         _coverageChecker = coverageChecker;
         _directSqlEmitter = directSqlEmitter;
+        _shapeClassifier = shapeClassifier;
         _progress = progress;
         _options = options;
         _textCatalog = textCatalog;
@@ -360,8 +363,15 @@ internal sealed class SingleQuestionExecutor : ISingleQuestionExecutor
 
         var retryFired = steps.Any(s => string.Equals(s.Stage, StageNames.StepSpecRefine, StringComparison.OrdinalIgnoreCase));
 
+        // Skip the coverage check ONLY when the produced spec is trivial AND the QUESTION itself is a
+        // genuinely simple COUNT ("how many X"). The spec-shape test alone was unsafe: when a weak
+        // model COLLAPSES a complex question into a trivially-shaped wrong SQL (e.g. "top 5 customers
+        // by total" → SELECT TOP 5 SUM(...), no GROUP BY), the spec looks trivial and coverage was
+        // skipped exactly when it was needed most. Gating on the config-driven 8-shape classifier
+        // (TOPN/AGGREGATE/COMPARE/JOIN/etc. never skip) closes that hole. (2026-06-02, issue #1)
         var skipCoverage = _options.Value.SkipCoverageCheckOnTrivialAnswers
             && !retryFired
+            && _shapeClassifier.Classify(question) == Prompts.PromptShape.COUNT
             && SingleQuestionHelpers.IsTrivialAnswer(spec, _options.Value.TrivialAnswerMaxFilters, _options.Value.TrivialAnswerMaxAggregations);
         CoverageGap? coverageGap = null;
         long coverageElapsedMs = 0;

@@ -31,17 +31,23 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
     private readonly ILlmClient _llm;
     private readonly ISchemaKnowledge _knowledge;
     private readonly IOptionsMonitor<CopilotTextCatalog> _textCatalog;
+    private readonly IAdvancedShapeCatalog _shapeCatalog;
     private readonly ILogger<LlmDirectSqlEmitter> _logger;
+    private readonly Compilation.Dialects.ISqlDialect _dialect;
 
     public LlmDirectSqlEmitter(
         IRoleBoundLlmClientFactory llmFactory,
         ISchemaKnowledge knowledge,
         IOptionsMonitor<CopilotTextCatalog> textCatalog,
+        IAdvancedShapeCatalog shapeCatalog,
+        Compilation.Dialects.ISqlDialect dialect,
         ILogger<LlmDirectSqlEmitter> logger)
     {
         _llm = llmFactory.For(AiRole.QuerySpecComposer);
         _knowledge = knowledge;
         _textCatalog = textCatalog;
+        _shapeCatalog = shapeCatalog;
+        _dialect = dialect;
         _logger = logger;
     }
 
@@ -63,7 +69,7 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
         if (tables.Count == 0)
             return new DirectSqlResult(null, "candidate tables not found in schema knowledge", null, null);
 
-        var prompt = BuildPrompt(question, tables);
+        var prompt = await BuildPromptAsync(question, tables, cancellationToken);
         string raw;
         try
         {
@@ -82,7 +88,7 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
             return new DirectSqlResult(null, "no SQL extracted from LLM output", prompt, raw);
 
         // Rewrite non-T-SQL idioms (LIMIT, backticks, NOW, ILIKE, ||) before validation.
-        sql = TsqlDialectNormalizer.Normalize(sql);
+        sql = _dialect.NormalizeRawSql(sql);
 
         return new DirectSqlResult(sql, null, prompt, raw);
     }
@@ -93,17 +99,17 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
     // EXISTS / UNION / HAVING-multi) — without an example to imitate, a 7B local model
     // generates simpler shapes that compile but don't answer the question. Per DIN-SQL §3.2
     // (shape-classified few-shot) and CHESS §4 (worked-example prompting).
-    private static string BuildPrompt(string question, IReadOnlyList<InferredTable> tables)
+    private async Task<string> BuildPromptAsync(string question, IReadOnlyList<InferredTable> tables, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
         sb.Append("Question: \"").Append(question).AppendLine("\"");
         sb.AppendLine();
 
-        // Shape-detected gold examples. Detection is the same keyword logic as the upstream
-        // QuestionShapeClassifier — we re-detect here so the prompt knows WHICH shape it's
-        // emitting and can use a tailored template. Generic case: no examples appended (the
-        // tables + system-prompt instructions are enough for ordinary analytics).
-        var advancedShape = DetectAdvancedShape(question);
+        // Shape-detected gold examples. Detection is keyword-first then embedding-similarity
+        // (multilingual / paraphrase-robust) so the prompt knows WHICH shape it's emitting and can
+        // use a tailored template. Generic case: no examples appended (the tables + system-prompt
+        // instructions are enough for ordinary analytics).
+        var advancedShape = await DetectAdvancedShapeAsync(question, cancellationToken);
         if (advancedShape != AdvancedShape.None)
         {
             sb.AppendLine("Worked example for this shape (USE THE SAME PATTERN — substitute YOUR tables/columns):");
@@ -135,7 +141,23 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
     /// worked-example to show the LLM for this question's analytical shape.</summary>
     private enum AdvancedShape { None, WindowRank, WindowRunning, WindowLag, Recursive, SelfJoin, Exists, Union, HavingMultiAgg }
 
-    private static AdvancedShape DetectAdvancedShape(string question)
+    // Config-first: when advanced-shape-keywords.json is present it drives detection (so a new
+    // domain retranslates the keyword grammar without recompiling), keyword-first then EMBEDDING
+    // similarity for paraphrases / languages without keywords. Absent → byte-identical in-code
+    // English keyword fallback below.
+    private async Task<AdvancedShape> DetectAdvancedShapeAsync(string question, CancellationToken cancellationToken)
+    {
+        if (_shapeCatalog.KeywordsFilePresent)
+        {
+            var key = await _shapeCatalog.DetectShapeKeyAsync(question, cancellationToken);
+            return key is not null && Enum.TryParse<AdvancedShape>(key, ignoreCase: false, out var shape)
+                ? shape
+                : AdvancedShape.None;
+        }
+        return DetectAdvancedShapeFallback(question);
+    }
+
+    private static AdvancedShape DetectAdvancedShapeFallback(string question)
     {
         var q = question.ToLowerInvariant();
         // Order matters — most-specific patterns first.
@@ -176,7 +198,16 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
     /// schema (Tickets/Bills/Outages/Customers/Regions) — same domain the model is asked about.
     /// Examples follow Spider/BIRD gold-SQL conventions: explicit joins, qualified columns,
     /// idiomatic T-SQL (no LIMIT, GETDATE() / DATEADD, OFFSET-FETCH or TOP).</summary>
-    private static string GetShapeExample(AdvancedShape shape) => shape switch
+    // Config-first: when shape-examples.json is present it supplies the worked example (so a new
+    // schema swaps the SQL without recompiling). Absent → byte-identical in-code fallback below.
+    private string GetShapeExample(AdvancedShape shape)
+    {
+        if (shape == AdvancedShape.None) return "";
+        if (_shapeCatalog.ExamplesFilePresent) return _shapeCatalog.ExampleFor(shape.ToString());
+        return GetShapeExampleFallback(shape);
+    }
+
+    private static string GetShapeExampleFallback(AdvancedShape shape) => shape switch
     {
         AdvancedShape.WindowRank => """
 SELECT

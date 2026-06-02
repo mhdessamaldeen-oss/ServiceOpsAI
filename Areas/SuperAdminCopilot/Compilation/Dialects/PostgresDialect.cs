@@ -119,6 +119,11 @@ public sealed class PostgresDialect : ISqlDialect
     public string LikeOperator => "LIKE";
     public string NotLikeOperator => "NOT LIKE";
 
+    // ── Raw-SQL normalization (escape valve) ───────────────────────────────────
+    // No-op: when Postgres IS the target, the LLM's Postgres/ANSI idioms (NOW(), CURRENT_DATE,
+    // LIMIT, ILIKE, ||) are already correct — rewriting them to T-SQL would corrupt valid SQL.
+    public string NormalizeRawSql(string sql) => sql;
+
     private static string Normalize(string unit) => unit?.Trim().ToLowerInvariant() switch
     {
         "s" or "sec" or "second" or "seconds"   => "second",

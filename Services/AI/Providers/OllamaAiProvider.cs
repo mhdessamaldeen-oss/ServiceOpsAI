@@ -160,6 +160,11 @@ namespace ServiceOpsAI.Services.AI.Providers
                         new { role = "user", content = safePrompt }
                     },
                     ["stream"] = false,
+                    // keep_alive is a TOP-LEVEL Ollama parameter, NOT an option. -1 pins the model in VRAM so
+                    // back-to-back planner calls and the assessment loop don't pay a model reload each turn.
+                    // (Previously nested under `options`, where Ollama silently ignores it and falls back to
+                    // the 5-minute default — the model was evicted between slow calls, causing reload churn.)
+                    ["keep_alive"] = -1,
                     ["options"] = new
                     {
                         temperature = GetTemperature(),
@@ -167,8 +172,7 @@ namespace ServiceOpsAI.Services.AI.Providers
                         // Cap response length explicitly. Ollama defaults to 128 which truncates JSON outputs mid-field; configurable via OllamaProviderOptions.MaxOutputTokens (default 2048).
                         num_predict = _configOptions.MaxOutputTokens,
                         seed = 42,
-                        top_p = 1.0,
-                        keep_alive = -1
+                        top_p = 1.0
                     }
                 };
                 if (expectJson)
@@ -250,7 +254,9 @@ namespace ServiceOpsAI.Services.AI.Providers
                 var fullUrl = baseUrl.TrimEnd('/') + "/api/embeddings";
                 using var callCts = new System.Threading.CancellationTokenSource(GetHttpClientTimeout());
 
-                var requestBody = new { model = model, prompt = text };
+                // keep_alive = -1 pins the embedding model in VRAM alongside the chat model so an assessment
+                // run doesn't thrash between bge-m3 and the generator (each eviction costs a full reload).
+                var requestBody = new { model = model, prompt = text, keep_alive = -1 };
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 

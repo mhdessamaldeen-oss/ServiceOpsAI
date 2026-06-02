@@ -31,6 +31,8 @@
         { "pattern": "\\blast\\s+year\\b",    "start": "@last_year_start",   "end": "@year_start",    "label": "Last year" }
       ],
 
+      "dateColumnTokens": [ "date", "createdat", "updatedat", "month", "year", "week" ],
+
       "absence": [
         "without", "missing", "lacks", "lacking",
         "has no", "have no", "do not have", "don't have",
@@ -245,6 +247,8 @@
         { "pattern": "الربع\\s*الثالث", "start": "@q3_start", "end": "@q3_end", "label": "الربع الثالث" },
         { "pattern": "الربع\\s*الرابع", "start": "@q4_start", "end": "@q4_end", "label": "الربع الرابع" }
       ],
+
+      "dateColumnTokens": [ "تاريخ", "شهر", "سنة", "أسبوع", "يوم" ],
 
       "absence": [ "بدون", "ما عنده", "بلا", "من غير" ],
 

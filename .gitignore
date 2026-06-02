@@ -97,3 +97,14 @@ appsettings.*.Local.json
 secrets.json
 *.pfx
 *.snk
+
+# Internal dev working-docs / reports (kept on disk, not published). Untracked 2026-06-02
+# during GitHub-readiness prep; these are session notes, not part of the product.
+ACTION_PLAN.md
+HANDOFF.md
+BASELINE_REPORT_*.md
+COPILOT_CAPABILITIES.md
+QUALITY_REPORT_*.md
+FINE_TUNING_REQUIREMENTS.md
+supportflow_ops.md
+*tmp_counts.sql

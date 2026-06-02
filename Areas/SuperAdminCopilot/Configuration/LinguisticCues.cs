@@ -134,6 +134,13 @@ public sealed class LocaleCues
     /// ILinguisticRegistry.LooksLikeAggregateQuery.
     /// </summary>
     public List<string> AggregateMarkers { get; set; } = new();
+
+    /// <summary>
+    /// Date-column NAME tokens (case-insensitive substring match against a GROUP BY column
+    /// identifier) used by ChartTypeSuggester to pick a time-series (line) chart. Advisory UI hint
+    /// only — never affects SQL or answers. e.g. "date", "createdat", "month", "year".
+    /// </summary>
+    public List<string> DateColumnTokens { get; set; } = new();
 }
 
 public sealed class KnowledgeQuestionCues

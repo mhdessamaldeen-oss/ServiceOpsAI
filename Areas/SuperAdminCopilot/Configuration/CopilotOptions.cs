@@ -83,6 +83,37 @@ public sealed class CopilotOptions
     [Required]
     public string FewShotExamplesPath { get; set; } = "Areas/SuperAdminCopilot/Configuration/few-shot-examples.json";
 
+    /// <summary>Path to the per-shape gold-SQL worked examples the raw-SQL escape valve shows the model.
+    /// Absent → byte-identical in-code fallback. Replace this file (not code) to target a new schema.</summary>
+    public string ShapeExamplesPath { get; set; } = "Areas/SuperAdminCopilot/Configuration/shape-examples.json";
+
+    /// <summary>Path to the keyword grammar that routes a question to an advanced SQL shape (escape valve).
+    /// Absent → byte-identical in-code fallback. Domain nouns (SelfJoin/Union) are retranslated here per domain.</summary>
+    public string AdvancedShapeKeywordsPath { get; set; } = "Areas/SuperAdminCopilot/Configuration/advanced-shape-keywords.json";
+
+    /// <summary>Path to the multi-turn refinement cues (leading connectors / anaphora / phrases per
+    /// locale + the short-follow-up word threshold). Absent → byte-identical in-code English fallback.
+    /// Edit this file (not code) to tune refinement detection or add a language.</summary>
+    public string RefinementCuesPath { get; set; } = "Areas/SuperAdminCopilot/Configuration/refinement-cues.json";
+
+    /// <summary>Path to the conversational short-circuit detection patterns (greeting / capabilities /
+    /// thanks / farewell regexes, per locale). Absent → byte-identical in-code English fallback. Reply TEXT
+    /// is separate (copilot-text.json). Edit this file (not code) to tune detection or add a language.</summary>
+    public string ConversationalCuesPath { get; set; } = "Areas/SuperAdminCopilot/Configuration/conversational-cues.json";
+
+    /// <summary>Path to the compound/sequential question DECOMPOSITION cues (split + no-decompose-guard
+    /// regexes, per locale). Absent → byte-identical in-code English fallback. Edit this file (not code) to
+    /// tune how compound questions are split or add a language.</summary>
+    public string DecompositionCuesPath { get; set; } = "Areas/SuperAdminCopilot/Configuration/decomposition-cues.json";
+
+    /// <summary>Minimum cosine similarity for the EMBEDDING fallback in advanced-shape detection:
+    /// when no keyword matches (a paraphrase, or a language with no keywords yet), the catalog embeds
+    /// the question and the per-shape keyword signatures and picks the best shape whose similarity
+    /// EXCEEDS this threshold. This is what makes shape detection multilingual/paraphrase-robust
+    /// instead of English-keyword-only. Set ≤ 0 to disable the embedding fallback (keyword-only).
+    /// Default 0.5 (bge-m3 cross-lingual: related ≈ 0.5–0.75, unrelated ≈ 0.2–0.4).</summary>
+    public float AdvancedShapeEmbeddingThreshold { get; set; } = 0.5f;
+
     /// <summary>
     /// Path to the auto-generated schema-knowledge file (Layer 2 inference: soft-delete columns,
     /// label columns, PII flags, bridge/lookup/person table classification, date roles). Generated
@@ -510,6 +541,18 @@ public sealed class CopilotOptions
     public PlannerCapabilityTier PlannerCapabilityTier { get; set; } = PlannerCapabilityTier.Weak;
 
     /// <summary>
+    /// Minimum planner tier at which the copilot-text.json <see cref="CopilotTextCatalog.SpecExtractorExtraGuidance"/>
+    /// (the iteration-loop extra-guidance rules) is injected into the SpecExtractor prompt. When the active
+    /// <see cref="PlannerCapabilityTier"/> is below this threshold, the block is omitted. Default <c>Medium</c>:
+    /// inject for Medium/Strong, skip for Weak. Ordinal comparison: Weak(0) &lt; Medium(1) &lt; Strong(2).
+    /// <para><see cref="PlannerCapabilityTier"/> is the MODEL-derived tier (<see cref="PlannerTierDeriver.FromModel"/>),
+    /// resolved once at startup by the host overlay and authoritative over the <see cref="Profile"/> preset, so this
+    /// gate follows the active model rather than the profile literal. Restart-to-apply.</para>
+    /// Operator-tunable via copilot-options.json (<c>"Weak"</c> | <c>"Medium"</c> | <c>"Strong"</c>, bound by name).
+    /// </summary>
+    public PlannerCapabilityTier SpecExtractorExtraGuidanceMinTier { get; set; } = PlannerCapabilityTier.Medium;
+
+    /// <summary>
     /// Maximum characters of each LLM prompt + response captured into the trace's
     /// <c>LlmCalls[]</c> entries so the investigation page can render "what did we send /
     /// what came back" without per-call log lookups. Truncated beyond this cap; full lengths
@@ -547,6 +590,25 @@ public sealed class CopilotOptions
     /// gate consider lower-ranked matches when deciding whether a question is in-scope.</summary>
     [Range(1, 20, ErrorMessage = "ScopeGateRetrieverTopK must be 1..20.")]
     public int ScopeGateRetrieverTopK { get; set; } = 1;
+
+    /// <summary>
+    /// Target SQL engine / dialect for the COMPILER. <c>SqlServer</c> (default) emits T-SQL via
+    /// MssqlDialect — the current production target, unchanged. <c>Postgres</c> emits PostgreSQL via
+    /// the unit-tested PostgresDialect. The engine-selection KEYSTONE: makes the dialect a config
+    /// choice instead of a hardcoded DI line. Bound by name (case-insensitive) from copilot-options.json.
+    /// <para>NOTE: this selects the dialect the COMPILER emits. Running end-to-end against a live
+    /// non-SqlServer engine ALSO needs the Stage-2 plumbing (an IDbConnection-returning connection
+    /// factory + per-dialect schema introspector + validator). Until that lands, keep this at
+    /// <c>SqlServer</c> for execution; Postgres selection is for compiler / unit verification.</para>
+    /// </summary>
+    public DatabaseEngine Database { get; set; } = DatabaseEngine.SqlServer;
+}
+
+/// <summary>Target SQL engine for the copilot's compiler dialect. See <see cref="CopilotOptions.Database"/>.</summary>
+public enum DatabaseEngine
+{
+    SqlServer = 0,
+    Postgres = 1,
 }
 
 public enum TableExposureMode

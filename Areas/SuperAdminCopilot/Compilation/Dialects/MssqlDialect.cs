@@ -112,6 +112,12 @@ public sealed class MssqlDialect : ISqlDialect
     public string LikeOperator => "LIKE";
     public string NotLikeOperator => "NOT LIKE";
 
+    // ── Raw-SQL normalization (escape valve) ───────────────────────────────────
+    // Rewrites Postgres/MySQL idioms a local LLM may emit into T-SQL. Implemented in the shared
+    // TsqlDialectNormalizer helper; routed through the dialect so engine-specific behavior lives here.
+    public string NormalizeRawSql(string sql) =>
+        SuperAdminCopilot.Pipeline.Stages.TsqlDialectNormalizer.Normalize(sql);
+
     /// <summary>Map common unit aliases to the canonical T-SQL token. Defensive: rejects bogus units.</summary>
     private static string Normalize(string unit) => unit?.Trim().ToLowerInvariant() switch
     {

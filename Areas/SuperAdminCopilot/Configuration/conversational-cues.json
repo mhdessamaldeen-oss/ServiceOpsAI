@@ -1,0 +1,17 @@
+{
+  "_comment": "Conversational short-circuit DETECTION patterns (greeting / capabilities / thanks / farewell). Externalized 2026-06-02 from ConversationalHandler.cs so the matchers are tunable + multilingual without recompiling. Per-locale: each kind is a list of case-insensitive, anchored (^...$) regex strings; all locales' lists are merged. The 'en' set is byte-identical to the in-code fallback, so English behavior is unchanged until an operator edits this file. Reply TEXT lives separately in copilot-text.json (CopilotTextCatalog.Conversational*). Behavior contract: file ABSENT -> in-code English fallback; PRESENT -> this drives detection. The <=80-char guard stays in code. Order is fixed in code: capabilities, then greeting, then thanks, then farewell.",
+  "locales": {
+    "en": {
+      "capabilities": [ "^\\s*(?:what\\s+can\\s+(?:you|i)\\s+(?:do|ask)|how\\s+(?:do\\s+)?(?:you|this)\\s+work|what\\s+(?:are\\s+)?(?:your|the)\\s+(?:capabilities|features)|what\\s+(?:do|can)\\s+you\\s+(?:know|support|handle)|show\\s+me\\s+(?:what\\s+you\\s+can\\s+do|examples?|some\\s+examples?|sample(?:\\s+questions?)?)|give\\s+me\\s+(?:some\\s+)?examples?|^help(?:\\s+me(?:\\s+please)?)?\\s*$|who\\s+are\\s+you|introduce\\s+yourself|tell\\s+me\\s+about\\s+(?:yourself|this\\s+(?:bot|copilot|tool|app)))[!?.\\s]*$" ],
+      "greeting": [ "^\\s*(?:hi|hello|hey(?:\\s+there)?|hiya|howdy|greetings|good\\s+(?:morning|afternoon|evening|day))\\s*[!.?]*\\s*$" ],
+      "thanks": [ "^\\s*(?:thanks(?:\\s+a\\s+lot|\\s+so\\s+much)?|thank\\s+you|thx|ty|appreciate(?:\\s+it|d)?|cheers|nice(?:\\s+job)?|cool|awesome|perfect|great)\\s*[!.]*\\s*$" ],
+      "farewell": [ "^\\s*(?:bye(?:\\s+now)?|goodbye|good\\s*bye|see\\s+you(?:\\s+(?:later|soon|around))?|see\\s+ya|later|cya|farewell|take\\s+care|catch\\s+you\\s+later|talk\\s+to\\s+you\\s+later|ttyl)\\s*[!.]*\\s*$" ]
+    },
+    "ar": {
+      "capabilities": [ "^\\s*(?:ماذا\\s+(?:يمكنك|تستطيع|بإمكانك)|ما\\s+(?:هي\\s+)?(?:قدراتك|إمكانياتك|ميزاتك)|كيف\\s+تعمل|من\\s+أنت|عرّف\\s+بنفسك|ساعدني|مساعدة|أعطني\\s+أمثلة|اعطني\\s+امثلة)[!؟.\\s]*$" ],
+      "greeting": [ "^\\s*(?:مرحبا|مرحبًا|اهلا|أهلا|أهلًا|السلام\\s+عليكم|صباح\\s+الخير|مساء\\s+الخير|هاي)\\s*[!.؟]*\\s*$" ],
+      "thanks": [ "^\\s*(?:شكرا|شكرًا|شكرا\\s+(?:جزيلا|لك)|متشكر|ممتاز|رائع|جميل|أحسنت)\\s*[!.]*\\s*$" ],
+      "farewell": [ "^\\s*(?:مع\\s+السلامة|وداعا|وداعًا|إلى\\s+اللقاء|الى\\s+اللقاء|باي|أراك\\s+لاحقا)\\s*[!.]*\\s*$" ]
+    }
+  }
+}

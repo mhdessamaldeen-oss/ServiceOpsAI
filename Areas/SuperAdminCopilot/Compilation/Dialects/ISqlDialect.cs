@@ -133,4 +133,14 @@ public interface ISqlDialect
 
     /// <summary>NOT LIKE pattern operator.</summary>
     string NotLikeOperator { get; }
+
+    // ── Raw-SQL normalization (escape-valve path) ──────────────────────────────────────────
+
+    /// <summary>
+    /// Normalize raw LLM-emitted SQL to this dialect's idioms (escape-valve path). The T-SQL dialect
+    /// rewrites Postgres/MySQL idioms (<c>NOW()</c>→<c>GETDATE()</c>, <c>`x`</c>→<c>[x]</c>, <c>||</c>→<c>+</c>,
+    /// <c>LIMIT</c>→<c>TOP</c>/OFFSET-FETCH, <c>ILIKE</c>→<c>LIKE</c>). A dialect whose native idioms the LLM
+    /// already emits returns the SQL UNCHANGED — rewriting valid Postgres to T-SQL would corrupt it.
+    /// </summary>
+    string NormalizeRawSql(string sql);
 }

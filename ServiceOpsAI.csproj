@@ -89,6 +89,11 @@
     <Content Update="Areas\SuperAdminCopilot\Configuration\QuestionSuites\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Areas\SuperAdminCopilot\Configuration\semantic-layer.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Areas\SuperAdminCopilot\Configuration\few-shot-examples.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\SuperAdminCopilot\Configuration\shape-examples.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\SuperAdminCopilot\Configuration\advanced-shape-keywords.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\SuperAdminCopilot\Configuration\refinement-cues.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\SuperAdminCopilot\Configuration\conversational-cues.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\SuperAdminCopilot\Configuration\decomposition-cues.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Areas\SuperAdminCopilot\Configuration\copilot-text.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Areas\SuperAdminCopilot\Configuration\write-intent-verbs.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Areas\SuperAdminCopilot\Configuration\fk-role-patterns.json" CopyToOutputDirectory="PreserveNewest" />

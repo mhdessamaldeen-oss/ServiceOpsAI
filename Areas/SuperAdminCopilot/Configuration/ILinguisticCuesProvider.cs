@@ -70,6 +70,9 @@ public sealed class CompiledLocaleCues
     /// <summary>Ordering-intent markers — space-padded substring tokens.</summary>
     public IReadOnlyList<string> OrderingIntent { get; init; } = System.Array.Empty<string>();
 
+    /// <summary>Date-column NAME tokens (substring match on a GROUP BY column id) — ChartTypeSuggester time-axis hint.</summary>
+    public IReadOnlyList<string> DateColumnTokens { get; init; } = System.Array.Empty<string>();
+
     /// <summary>Compiled compare-shape vocabulary (single alternation regex). Null when no entries.</summary>
     public Regex? CompareMarkersRegex { get; init; }
 

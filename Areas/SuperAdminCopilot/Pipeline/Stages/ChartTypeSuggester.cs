@@ -1,5 +1,6 @@
 namespace SuperAdminCopilot.Pipeline.Stages;
 
+using SuperAdminCopilot.Configuration;
 using SuperAdminCopilot.Models;
 
 /// <summary>
@@ -15,6 +16,24 @@ public interface IChartTypeSuggester
 
 internal sealed class ChartTypeSuggester : IChartTypeSuggester
 {
+    // Byte-identical fallback to the pre-2026-06-02 hardcoded date-column tokens — used when
+    // linguistic-cues.json is absent or declares no dateColumnTokens for any locale.
+    private static readonly string[] FallbackDateTokens =
+        { "date", "createdat", "updatedat", "month", "year", "week" };
+
+    private readonly IReadOnlyList<string> _dateTokens;
+
+    public ChartTypeSuggester(ILinguisticCuesProvider cues)
+    {
+        var fromConfig = cues.Compiled.Locales.Values
+            .SelectMany(l => l.DateColumnTokens)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t.ToLowerInvariant())
+            .Distinct()
+            .ToArray();
+        _dateTokens = fromConfig.Length > 0 ? fromConfig : FallbackDateTokens;
+    }
+
     public string Suggest(QuerySpec spec, ExecutionResult result)
     {
         if (result.Rows is null || result.RowCount == 0) return "table";
@@ -55,10 +74,13 @@ internal sealed class ChartTypeSuggester : IChartTypeSuggester
     private static bool IsNumeric(object? v) =>
         v is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
 
-    private static bool IsDateLike(string column)
+    // Internal for the golden config-vs-fallback test. Instance because the token set is resolved
+    // from linguistic-cues.json at construction (byte-identical to the old 6 tokens when absent).
+    internal bool IsDateLike(string column)
     {
         var lower = column.ToLowerInvariant();
-        return lower.Contains("date") || lower.Contains("createdat") || lower.Contains("updatedat")
-            || lower.Contains("month") || lower.Contains("year") || lower.Contains("week");
+        foreach (var token in _dateTokens)
+            if (lower.Contains(token)) return true;
+        return false;
     }
 }

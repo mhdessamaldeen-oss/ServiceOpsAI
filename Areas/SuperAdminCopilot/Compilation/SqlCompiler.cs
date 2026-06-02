@@ -1157,8 +1157,16 @@ internal sealed partial class SqlCompiler : ICompiler
             var aliasQ = _dialect.QuoteIdentifier(aliasName);
             sb.AppendLine();
             sb.Append(joinKeyword).Append(' ').Append(targetQ).Append(" AS ").Append(aliasQ);
-            sb.Append(" ON ").Append(_dialect.QuoteQualified(fk.ParentTable, fk.ParentColumn));
-            sb.Append(" = ").Append(_dialect.QuoteQualified(aliasName, fk.ReferencedColumn));
+            // The joined (aliased) table can be EITHER side of the FK: a child→parent lookup
+            // (root=Tickets joins referenced Regions) OR a parent→child fan-out (root=Customers
+            // joins referencing Bills, FK Bills.CustomerId → Customers.Id). Qualify EACH side by
+            // its own table's alias so the latter renders `Bills.CustomerId = Customers.Id`, not
+            // the self-referential `Bills.CustomerId = Bills.Id` (2026-06-02 fix). Byte-identical
+            // for the child→parent direction, where ReferencedTable == TargetTable == aliasName.
+            var parentSide = aliasByTable.TryGetValue(fk.ParentTable, out var pAlias) ? pAlias : fk.ParentTable;
+            var referencedSide = aliasByTable.TryGetValue(fk.ReferencedTable, out var rAlias) ? rAlias : fk.ReferencedTable;
+            sb.Append(" ON ").Append(_dialect.QuoteQualified(parentSide, fk.ParentColumn));
+            sb.Append(" = ").Append(_dialect.QuoteQualified(referencedSide, fk.ReferencedColumn));
         }
         sb.AppendLine();
     }

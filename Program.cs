@@ -78,6 +78,11 @@ builder.Configuration.AddJsonFile("copilot-text.json", optional: true, reloadOnC
 builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/write-intent-verbs.json", optional: true, reloadOnChange: true);
 builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/fk-role-patterns.json", optional: true, reloadOnChange: true);
 builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/spec-repair-rules.json", optional: true, reloadOnChange: true);
+// SuperAdminCopilot text catalog (refusal text, planner prompts, worked examples) bound to the
+// SuperAdminCopilot:Text section via IOptionsMonitor<CopilotTextCatalog>. This is the per-deployment
+// override file: edit it to retarget the copilot for a new schema without recompiling. Distinct top-level
+// key from the legacy root copilot-text.json above, so the two don't collide.
+builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/copilot-text.json", optional: true, reloadOnChange: true);
 builder.Services.Configure<CopilotTextSettings>(builder.Configuration);
 builder.Services.Configure<CopilotTracePersistenceOptions>(builder.Configuration.GetSection(CopilotTracePersistenceOptions.SectionName));
 
