@@ -22,6 +22,19 @@ public interface ILlmDirectSqlEmitter
         string question,
         IReadOnlyList<string> candidateTableNames,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Grounded overload: <paramref name="groundingHints"/> are deterministic, schema-resolved
+    /// facts (e.g. "'Malki' is a Region -> JOIN Regions ON Tickets.RegionId = Regions.Id; filter
+    /// Regions.NameEn") injected verbatim so the model uses the RIGHT join column and value instead
+    /// of guessing. Validated live (2026-06-02): grounding turned a silently-wrong join into a
+    /// correct one across 12/12 shapes on qwen2.5-coder:7b. Empty hints == the bare overload above.
+    /// </summary>
+    Task<DirectSqlResult> EmitAsync(
+        string question,
+        IReadOnlyList<string> candidateTableNames,
+        IReadOnlyList<string> groundingHints,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record DirectSqlResult(string? Sql, string? Error, string? Prompt, string? RawLlmOutput);
@@ -51,9 +64,16 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
         _logger = logger;
     }
 
+    public Task<DirectSqlResult> EmitAsync(
+        string question,
+        IReadOnlyList<string> candidateTableNames,
+        CancellationToken cancellationToken = default)
+        => EmitAsync(question, candidateTableNames, System.Array.Empty<string>(), cancellationToken);
+
     public async Task<DirectSqlResult> EmitAsync(
         string question,
         IReadOnlyList<string> candidateTableNames,
+        IReadOnlyList<string> groundingHints,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(question))
@@ -69,7 +89,7 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
         if (tables.Count == 0)
             return new DirectSqlResult(null, "candidate tables not found in schema knowledge", null, null);
 
-        var prompt = await BuildPromptAsync(question, tables, cancellationToken);
+        var prompt = await BuildPromptAsync(question, tables, groundingHints ?? System.Array.Empty<string>(), cancellationToken);
         string raw;
         try
         {
@@ -82,6 +102,12 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
             _logger.LogWarning(ex, "[LlmDirectSqlEmitter] LLM call failed");
             return new DirectSqlResult(null, ex.Message, prompt, null);
         }
+
+        // Out-of-scope backstop. The system prompt tells the model to emit the sentinel NO_DATA when
+        // the question can't be answered from the provided tables (general knowledge, geography,
+        // opinions). Treat that as an honest abstain rather than fabricating SELECT 'Paris'.
+        if (LooksLikeNoData(raw))
+            return new DirectSqlResult(null, "out-of-scope: model emitted NO_DATA sentinel", prompt, raw);
 
         var sql = ExtractSql(raw);
         if (string.IsNullOrWhiteSpace(sql))
@@ -99,7 +125,7 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
     // EXISTS / UNION / HAVING-multi) — without an example to imitate, a 7B local model
     // generates simpler shapes that compile but don't answer the question. Per DIN-SQL §3.2
     // (shape-classified few-shot) and CHESS §4 (worked-example prompting).
-    private async Task<string> BuildPromptAsync(string question, IReadOnlyList<InferredTable> tables, CancellationToken cancellationToken)
+    private async Task<string> BuildPromptAsync(string question, IReadOnlyList<InferredTable> tables, IReadOnlyList<string> groundingHints, CancellationToken cancellationToken)
     {
         var sb = new StringBuilder();
         sb.Append("Question: \"").Append(question).AppendLine("\"");
@@ -116,6 +142,11 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
             sb.AppendLine(GetShapeExample(advancedShape));
             sb.AppendLine();
         }
+
+        // Deterministic grounding — the single most important block. These are schema-resolved
+        // facts (right join column, real value, bilingual NameEn/NameAr) so the model stops guessing.
+        // Proven live: without this the model joined Tickets.DepartmentId instead of RegionId.
+        AppendGroundingBlock(sb, groundingHints);
 
         sb.AppendLine("Available tables:");
         foreach (var t in tables)
@@ -135,6 +166,24 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
         sb.AppendLine();
         sb.AppendLine("Output ONLY the SELECT statement (or a WITH ... AS (...) SELECT statement for CTEs). No commentary, no markdown fence.");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Renders the deterministic grounding block (resolved tables/columns/values) the model must use
+    /// verbatim. No-op when there are no hints, so the bare path is byte-identical to before.
+    /// Extracted as <c>internal static</c> so the exact wording is unit-testable without mocking the
+    /// LLM/schema/dialect stack.
+    /// </summary>
+    internal static void AppendGroundingBlock(StringBuilder sb, IReadOnlyList<string>? groundingHints)
+    {
+        if (groundingHints is null || groundingHints.Count == 0) return;
+        sb.AppendLine("Resolved context (use these EXACT tables/columns/values; do NOT invent names):");
+        foreach (var h in groundingHints)
+        {
+            if (string.IsNullOrWhiteSpace(h)) continue;
+            sb.Append("  - ").AppendLine(h.Trim());
+        }
+        sb.AppendLine();
     }
 
     /// <summary>Fine-grained shape detection for prompt-example selection — picks which raw-SQL
@@ -296,6 +345,19 @@ HAVING COUNT(DISTINCT Tickets.Id) > 5 AND COUNT(DISTINCT Outages.Id) > 3;
     };
 
     // Strip code fences and explanation. Accept the first SELECT statement we can find.
+    // The out-of-scope sentinel. True when the model emitted NO_DATA as its answer (possibly fenced or
+    // with a trailing note) and did NOT also produce a real query. A genuine query never contains the
+    // token, so this can't suppress a valid SELECT.
+    private static bool LooksLikeNoData(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+        var t = raw.Replace("`", "").Trim();
+        if (t.StartsWith("NO_DATA", StringComparison.OrdinalIgnoreCase)) return true;
+        return t.IndexOf("NO_DATA", StringComparison.OrdinalIgnoreCase) >= 0
+            && t.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase) < 0
+            && t.IndexOf("WITH", StringComparison.OrdinalIgnoreCase) < 0;
+    }
+
     private static string? ExtractSql(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;

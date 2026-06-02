@@ -16,7 +16,6 @@ using SuperAdminCopilot.HostBridge;
 using SuperAdminCopilot.Pipeline;
 using SuperAdminCopilot.Pipeline.EntityResolution;
 using SuperAdminCopilot.Pipeline.Stages;
-using SuperAdminCopilot.Pipeline.Stages.Decomposed;
 using SuperAdminCopilot.Retrieval;
 using SuperAdminCopilot.Schema;
 using SuperAdminCopilot.Semantic;
@@ -69,19 +68,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Compilation.Dialects.ISqlDialect>(sp =>
             Compilation.Dialects.SqlDialectFactory.Create(
                 sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Configuration.CopilotOptions>>().Value.Database));
-        // Temporal-token grammar collaborator (2026-06-01 de-couple). Both the compiler's
-        // WHERE-builder and QualifyColumnsInExpression delegate here so the grammar lives in
-        // one place — and externalisation to JSON can happen without touching the compiler.
-        services.AddSingleton<Compilation.ITemporalTokenizer, Compilation.TemporalTokenizer>();
-        // Semantic expansion collaborator — turns metric:<name> / dimension:<name> spec tokens
-        // into concrete SQL fragments via ISemanticLayer. Lives in its own collaborator so the
-        // compiler reads as "expand semantic refs → enrich → emit SQL" instead of weaving the
-        // translation through filter / group-by code.
-        services.AddSingleton<Compilation.ISemanticExpander, Compilation.SemanticExpander>();
-        // Filter-value rewriting collaborator — owns synonym + lookup-name + column-ref drop
-        // logic so the WHERE-builder stays focused on operator emission. Keeps future filter
-        // features (currency-symbol stripping, regex normalisation, etc.) out of WHERE.
-        services.AddSingleton<Compilation.IFilterValueRewriter, Compilation.FilterValueRewriter>();
+        // [DELETED] The QuerySpec→SQL compiler and its collaborators (temporal tokenizer, semantic
+        // expander, filter-value rewriter, sensitive-column policy, type coercer, filter-clause
+        // emitter, expression qualifier, alias policy, label resolver). The lean path lets the model
+        // emit SQL directly — no IR, no hand-built engine. ISqlDialect (registered above) stays:
+        // LlmDirectSqlEmitter uses it to normalise raw model SQL.
         // D.3 — externalized text catalog. The per-deployment override file
         // Configuration/copilot-text.json is registered as a hot-reloading AddJsonFile source in
         // Program.cs (SuperAdminCopilot:Text section); consumers inject
@@ -157,7 +148,6 @@ public static class ServiceCollectionExtensions
         // Replaces the heavy LlmPlanner prompt with a tight, locally-runnable one.
         // Scoped because it consumes IPastQuestionStore (Scoped, DbContext-backed) for the
         // persistent-learning few-shot retrieval. Per-request allocation cost is microseconds.
-        services.AddScoped<Pipeline.Stages.ISpecExtractor, Pipeline.Stages.SpecExtractor>();
         // ── SpecRepair: consolidated LLM-output mutation pipeline ──────────────────────
         // SpecRepair — 12 typed rules behind a single coordinator. Replaces the prior 50-phase
         // pipeline. See docs/architecture/v3/ for the design.
@@ -167,24 +157,11 @@ public static class ServiceCollectionExtensions
                               Infrastructure.Schema.SchemaView>();
         services.AddSingleton<Application.Repair.Semantic.ISemanticView,
                               Infrastructure.Schema.SemanticView>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.MissingRootRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.DanglingColumnReferenceRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.WrongAggregationShapeRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.MissingTemporalScopeRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.MissingLookupFilterRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.MissingTextSearchRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.MissingAntiJoinRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.UnsolicitedFilterRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.AmbiguousLimitRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.OverJoinRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.InvalidSelectGroupByRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.DisplayColumnsMissingRule>();
         // 2026-05-30 data-driven addition. The deep-dive analyzer flagged 93/294 baseline
         // failures (31.6%) where the LLM emitted `SELECT FK_id, SUM(...) GROUP BY FK_id`
         // instead of `SELECT target.Label, SUM(...) GROUP BY target.Label`. This rule rewrites
         // that pattern. DisplayColumnsMissingRule (above) handles the LIST shape; this one
         // handles the AGGREGATE-WITH-GROUPBY shape.
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.ProjectLabelForFkGroupByRule>();
         // 2026-05-30 — Iteration 2 fix for the self-join hierarchical pattern. When the LLM
         // projects ParentRegion.NameEn or similar without a matching join, this rule drops the
         // unresolved entry from SELECT so the SQL executes (partial answer) instead of throwing
@@ -193,54 +170,34 @@ public static class ServiceCollectionExtensions
         // so a self-join intent (ParentRegion.NameEn → JOIN Regions AS ParentRegion) becomes a
         // real join instead of getting dropped. If this rule doesn't fire, the drop rule still
         // cleans up genuinely unresolved references.
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.InferSelfJoinFromUnresolvedAliasRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.DropUnresolvedSelectColumnsRule>();
         // 2026-05-30 evening — DropUnsafeComputedExpressionsRule. When the LLM emits a raw
         // SELECT/FROM inside Computed.Expression (SUB-shape failure pattern from trace ID 3),
         // the access-policy gate would otherwise refuse-hard and crash the whole pipeline.
         // This rule drops the offending Computed + scrubs SELECT/GROUP BY/HAVING references to
         // the dropped alias, so the validator passes and the user gets a partial answer.
         // Single-source-of-truth: shares the unsafe-keyword check with QuerySpecAccessPolicyValidator.
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.DropUnsafeComputedExpressionsRule>();
         // 2026-05-30 evening — SwapPureCountForListWhenQuestionIsListShapeRule. Pre-empts the
         // SqlIntentGuard's CheckCountShapeOnNonCountQuestion refusal for the "complaints in
         // Damascus this month" pattern: LLM emits pure-COUNT spec for a list question, gate
         // would refuse-hard after retries fail. Mirrors the gate's exact predicate (same source
         // of truth via ctx.Linguistics.LooksLikeAggregateQuery), drops the COUNT, projects the
         // root's display columns + FK labels. User gets the list they asked for.
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.SwapPureCountForListWhenQuestionIsListShapeRule>();
         // 2026-05-30 evening — DropDistinctWhenAggregatedRule. Pre-empts SqlIntentGuard
         // CheckDistinctWithAggregations refusal: when LLM sets BOTH distinct=true and emits
         // aggregations, clear distinct (groupBy already produces one row per group). Trivial
         // single-flag flip — aggregations win.
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.DropDistinctWhenAggregatedRule>();
         // 2026-06-01 — WarnUnknownFilterOpsRule. Rewrites typo'd FilterSpec.Op values
         // (e.g. "equ" instead of "eq") to "eq" so the filter isn't silently dropped by the
         // WHERE-builder. Surfaces the typo in the rule_fired log line so operators can spot
         // which ops the LLM hallucinates most often.
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.WarnUnknownFilterOpsRule>();
         // 2026-05-30 Iter 4 — AVG/SUM on nvarchar columns throws "Operand data type nvarchar is
         // invalid for avg operator". Rule rewrites those to COUNT(*) using the new
         // ISchemaView.IsNumericColumn type-aware surface (column metadata source).
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.NumericAggregationOnNonNumericRule>();
         // Phase B.5 — 10 rules covering the 21 v2 phases that had no replacement in the
         // original 12-rule mapping (everyday phrasings: synonyms, NK tokens, lifecycle verbs,
         // negation, ranges, top-N order, FK eq → join, time-series buckets, cross-entity counts,
         // concept patterns, dedupe). DerivedMetricRule is wired but no-ops until the
         // semantic-layer.json derivedMetrics block is added in a follow-up.
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.ValueSynonymRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.NaturalKeyTokenRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.LifecycleVerbDateRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.NegationFilterRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.NumericRangeRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.MissingOrderByForLimitRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.FkNameToJoinRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.TimeSeriesBucketingRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.OuterEntityCountRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.DerivedMetricRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.ConceptPatternRule>();
-        services.AddSingleton<Application.Repair.IRepairRule, Application.Repair.Rules.FilterDedupeRule>();
-        services.AddSingleton<Application.Repair.RepairBus>();
 
         // Stage-1 grounding (DIN-SQL / CHESS / ValueNet style). Pre-resolves schema-linked
         // values, temporal slots, natural keys, intent shape, and lifecycle verb date-role
@@ -250,7 +207,6 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<Eval.ExpectationVerifier.IExpectationVerifier, Eval.ExpectationVerifier.ExpectationVerifier>();
 
-        services.AddSingleton<Pipeline.SpecRepair.ISpecRepair, Pipeline.SpecRepair.SpecRepair>();
         // Escape valve — when form-filling QuerySpec can't express the shape (window funcs,
         // recursive CTEs, complex analytics), ask the LLM to write raw T-SQL. Output still
         // passes the SqlAstValidator + ReadOnlyExecutor read-only guard. Last-resort fallback.
@@ -277,11 +233,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Pipeline.Stages.IRefinementDetector, Pipeline.Stages.RefinementDetector>();
         // Chart-type suggester — heuristic, no LLM. Picks "kpi" / "bar" / "line" / "pie" / "table"
         // based on result-set shape. Host UI may use it to render a default view.
-        services.AddSingleton<Pipeline.Stages.IChartTypeSuggester, Pipeline.Stages.ChartTypeSuggester>();
         // Deterministic spec enrichment — fills the LLM's gaps with schema-aware rules
         // (smart projection, FK label resolution, group-by-in-select). The "do hard-code
         // what's universal, use AI for intent" architectural fix.
-        services.AddSingleton<Pipeline.Stages.ISpecEnricher, Pipeline.Stages.SpecEnricher>();
         // Verified queries — Snowflake-style hand-curated (question, SQL) catalog. When a new
         // question's embedding cosine-matches a verified entry above the configured threshold,
         // the orchestrator uses the SQL directly and skips the LLM. Empty file = inactive.
@@ -351,15 +305,12 @@ public static class ServiceCollectionExtensions
                 ? sp.GetRequiredService<VectorRetriever>()
                 : sp.GetRequiredService<KeywordRetriever>();
         });
-        services.AddSingleton<JoinResolver>();
-        services.AddSingleton<ICompiler, SqlCompiler>();
+        // [DELETED] JoinResolver + JoinPlanner + ICompiler/SqlCompiler — the model writes joins itself.
         services.AddSingleton<IValidator, SqlAstValidator>();
         services.AddScoped<ICopilotConfigurationValidator, CopilotConfigurationValidator>();
         // SQL Intent Guard — post-compile intent-vs-SQL check. Rejects shapes the syntactic
         // validator can't catch: COUNT for a list question, AVG missing on average questions,
         // GROUP BY root.Id (degenerate template), exact-date question missing the literal date.
-        services.AddSingleton<Pipeline.Stages.ISqlIntentGuard, Pipeline.Stages.SqlIntentGuard>();
-        services.AddSingleton<Pipeline.Stages.IQuerySpecAccessPolicyValidator, Pipeline.Stages.QuerySpecAccessPolicyValidator>();
 
         // Executor pipeline: Pii → CostGate → Cache → ReadOnly. Each wrapper short-circuits when
         // its CopilotOptions switch is off, so the configured chain is always all four layers
@@ -398,7 +349,6 @@ public static class ServiceCollectionExtensions
 
         // Coverage Check — post-Explainer LLM verification that the reply fully addresses
         // the question. Scoped because it consumes IRetryBudget (per-request).
-        services.AddScoped<Pipeline.Stages.ICoverageChecker, Pipeline.Stages.CoverageChecker>();
 
         // Explainer: LlmExplainer is the primary IExplainer; TemplatedExplainer is registered
         // as a concrete type so LlmExplainer can fall back to it on LLM failure or trivial
@@ -450,6 +400,9 @@ public static class ServiceCollectionExtensions
         // compile/validate/execute loop → explain → coverage-check path. The orchestrator
         // is now a thin dispatcher (~160 LOC) that routes preflight/fast-paths/decomposer and
         // delegates single questions here.
+        // Minimal direct-analyst front-path (flag-gated via CopilotOptions.EnableDirectSqlPath).
+        // Scoped — it consumes Scoped collaborators (IExplainer, IResponsePersister).
+        services.AddScoped<Pipeline.IDirectAnalystPath, Pipeline.DirectAnalystPath>();
         services.AddScoped<Pipeline.ISingleQuestionExecutor, Pipeline.SingleQuestionExecutor>();
         // Orchestrator: thin dispatcher — preflight, fast-paths, decomposer, then delegates
         // to ISingleQuestionExecutor or RunDecomposedAsync.
@@ -483,13 +436,6 @@ public static class ServiceCollectionExtensions
         // Paraphrase-robustness eval runner — used by ParaphraseEvalController.
         services.AddScoped<IParaphraseRobustnessRunner, ParaphraseRobustnessRunner>();
         services.AddScoped<IOfflineParaphraseGenerator, OfflineParaphraseGenerator>();
-
-        // LLM-driven structural-cue parser — extracts column requests and grouping hints
-        // from any bracket / dash / comma / SQL-style notation in the question text. Consumed
-        // by the orchestrator's RunSingle path before SpecExtractor sees the question.
-        services.AddSingleton<IDecomposedPromptProvider>(sp => new DecomposedPromptProvider(
-            sp.GetRequiredService<ILogger<DecomposedPromptProvider>>()));
-        services.AddScoped<IStructuralCueParser, StructuralCueParser>();
 
         // Fuzzy entity resolution — surfaces in the question (e.g. "Damascus") get resolved
         // to canonical DB values via trigram match against a sample-value index. Hosted service

@@ -35,7 +35,6 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
     private readonly Stages.IToolHandler _toolHandler;
     private readonly Stages.IDecomposer _regexDecomposer;
     private readonly Stages.ILlmDecomposer _llmDecomposer;
-    private readonly Retrieval.IVerifiedQueryMatcher _verifiedQueryMatcher;
     private readonly IValidator _validator;
     private readonly IExecutor _executor;
     private readonly IExplainer _explainer;
@@ -61,7 +60,6 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
         Stages.IToolHandler toolHandler,
         Stages.IDecomposer regexDecomposer,
         Stages.ILlmDecomposer llmDecomposer,
-        Retrieval.IVerifiedQueryMatcher verifiedQueryMatcher,
         IValidator validator,
         IExecutor executor,
         IExplainer explainer,
@@ -84,7 +82,6 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
         _toolHandler = toolHandler;
         _regexDecomposer = regexDecomposer;
         _llmDecomposer = llmDecomposer;
-        _verifiedQueryMatcher = verifiedQueryMatcher;
         _validator = validator;
         _executor = executor;
         _explainer = explainer;
@@ -203,46 +200,6 @@ internal sealed partial class CopilotOrchestrator : ISuperAdminCopilot
                 rows: toolResult.Result.Rows,
                 error: toolResult.Result.Error,
                 cancellationToken: cancellationToken);
-        }
-
-        // ── Verified-query fast-path ─────────────────────────────────────────
-        if (_verifiedQueryMatcher.IsAvailable)
-        {
-            var (vqMatch, vqElapsed) = await TimedAsync(request, StageNames.StepVerifiedQuery,
-                ct => _verifiedQueryMatcher.MatchAsync(question, ct), cancellationToken);
-            if (vqMatch is not null)
-            {
-                steps.RecordVerifiedQuery(question, vqMatch, vqElapsed);
-                var compiled = new CompiledSql(vqMatch.Query.Sql, new Dictionary<string, object?>());
-                var v = _validator.Validate(compiled);
-                if (v.IsValid)
-                {
-                    steps.RecordValidatorOk(compiled, attempt: 0);
-                    _progress.NotifyStepStarting(TargetFor(request), StageNames.StepExecutor);
-                    var execSw = Stopwatch.StartNew();
-                    var er = await _executor.ExecuteAsync(compiled, cancellationToken);
-                    execSw.Stop();
-                    steps.RecordExecutor(compiled, er, execSw.ElapsedMilliseconds, attempt: 0);
-                    if (er.Error is null)
-                    {
-                        var expSw = Stopwatch.StartNew();
-                        var exp = await _explainer.ExplainAsync(question, er, compiled, cancellationToken);
-                        expSw.Stop();
-                        steps.RecordExplainer(question, compiled, er, exp, expSw.ElapsedMilliseconds);
-                        return (await _persister.PersistAsync(request, totalSw, steps,
-                            reply: exp.Reply, sql: compiled.Sql, rowCount: er.RowCount, rows: er.Rows,
-                            cancellationToken: cancellationToken))
-                            with { Provenance = "verified", Confidence = (double)vqMatch.Similarity };
-                    }
-                    _logger.LogWarning("[VerifiedQuery] match {Id} executed with error '{Err}' — falling through.",
-                        vqMatch.Query.Id, er.Error);
-                }
-                else
-                {
-                    _logger.LogWarning("[VerifiedQuery] match {Id} failed validation: {Errs} — falling through.",
-                        vqMatch.Query.Id, string.Join(";", v.Errors));
-                }
-            }
         }
 
         // ── Intent classifier ────────────────────────────────────────────────

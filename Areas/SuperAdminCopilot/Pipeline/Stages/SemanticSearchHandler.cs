@@ -44,7 +44,6 @@ internal sealed class SemanticSearchHandler : ISemanticSearchHandler
 {
     private readonly ISemanticSearch _search;
     private readonly ISemanticLayer _semanticLayer;
-    private readonly Abstractions.ICompiler _compiler;
     private readonly Abstractions.IExecutor _executor;
     private readonly ILogger<SemanticSearchHandler> _logger;
 
@@ -114,13 +113,11 @@ internal sealed class SemanticSearchHandler : ISemanticSearchHandler
     public SemanticSearchHandler(
         ISemanticSearch search,
         ISemanticLayer semanticLayer,
-        Abstractions.ICompiler compiler,
         Abstractions.IExecutor executor,
         ILogger<SemanticSearchHandler> logger)
     {
         _search = search;
         _semanticLayer = semanticLayer;
-        _compiler = compiler;
         _executor = executor;
         _logger = logger;
     }
@@ -219,50 +216,12 @@ internal sealed class SemanticSearchHandler : ISemanticSearchHandler
         return null;
     }
 
-    /// <summary>
-    /// SQL fallback for "X about Y" / "X matching Y" / "X regarding Y" questions when the
-    /// entity has no semantic embeddings. Builds a <see cref="QuerySpec"/> with a
-    /// <c>text_search</c> filter, which the compiler expands to <c>(Col1 LIKE @p OR Col2 LIKE @p …)</c>
-    /// over the entity's <see cref="EntityDefinition.SearchableColumns"/>. Returns a
-    /// <see cref="SemanticSearchHandlerResult"/> so the orchestrator's persistence + explain
-    /// path is reused unchanged.
-    /// </summary>
-    private async Task<SemanticSearchHandlerResult?> ExecuteSqlTextSearchAsync(
+    // [lean] The compiler-based text-search SQL fallback (for entities without embeddings) was
+    // removed with the QuerySpec compiler. Those questions now fall through to the main grounded
+    // direct-SQL path, which searches free-text columns itself.
+    private static Task<SemanticSearchHandlerResult?> ExecuteSqlTextSearchAsync(
         EntityDefinition entity, string queryText, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrEmpty(entity.Table)) return null;
-
-        var spec = new Models.QuerySpec
-        {
-            Root = entity.Table,
-            Filters = new List<Models.FilterSpec>
-            {
-                new() { Column = "*", Op = Models.SpecConstants.FilterOps.TextSearch, Value = queryText },
-            },
-            Limit = 20,
-        };
-
-        Models.CompiledSql compiled;
-        try { compiled = _compiler.Compile(spec); }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[SemanticSearchHandler] SQL fallback: compile failed for entity={Entity}", entity.Name);
-            return null;
-        }
-
-        if (string.IsNullOrWhiteSpace(compiled.Sql))
-        {
-            _logger.LogDebug("[SemanticSearchHandler] SQL fallback: empty compile output for entity={Entity}", entity.Name);
-            return null;
-        }
-
-        var execResult = await _executor.ExecuteAsync(compiled, cancellationToken);
-        return new SemanticSearchHandlerResult(
-            Sql: compiled.Sql,
-            Result: execResult,
-            Mode: "text-search-sql",
-            Hits: Array.Empty<SemanticSearchHit>());
-    }
+        => Task.FromResult<SemanticSearchHandlerResult?>(null);
 
     /// <summary>
     /// Build a similarity regex for the entity: "<verb> [entity-synonym] [to|of|for] [#]<code>".

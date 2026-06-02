@@ -48,6 +48,17 @@ public sealed class CopilotOptions
     [Range(0, 5, ErrorMessage = "MaxSelfCorrectionRetries must be 0..5.")]
     public int MaxSelfCorrectionRetries { get; set; } = 1;
 
+    /// <summary>
+    /// Minimal "direct analyst" path: route → ground → generate-SQL-directly (with grounding
+    /// injected) → validate → execute → explain, running BEFORE the heavy form-filling QuerySpec
+    /// pipeline. On any miss/failure it falls through to the existing pipeline unchanged, so this
+    /// flag can never regress today's behavior. OFF by default; flip to A/B the thin path.
+    /// The grounded prompt this path uses was validated live against qwen2.5-coder:7b (2026-06-02):
+    /// 12/12 shapes — incl. above-average subqueries, window functions, multi-join, Arabic — produced
+    /// schema-correct T-SQL, where the same model without grounding silently joined the wrong column.
+    /// </summary>
+    public bool EnableDirectSqlPath { get; set; } = false;
+
 
     /// <summary>Phase 6 schema-drift safety. When true, the SchemaDriftLinter throws at
     /// startup if it finds JSON-config table/column references that no longer exist in the

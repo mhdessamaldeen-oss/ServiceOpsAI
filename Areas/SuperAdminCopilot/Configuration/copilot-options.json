@@ -66,8 +66,16 @@
     "MaxSelfCorrectionRetries":    1,
 
     // ── Feature toggles ──────────────────────────────────────────────────────────
+    // Minimal "direct analyst" front-path: ground → generate SQL → validate → execute, in ~2 LLM
+    // calls, BEFORE the heavy form-filling pipeline. Falls through to it on any miss, so it can
+    // never regress. Proven live 2026-06-02 (12/12 shapes grounded-correct on qwen2.5-coder:7b).
+    "EnableDirectSqlPath": true,
     "EnableScopeConfidenceGate": true,
     "EnableDecomposer":          true,
+    // Regex/cue splitter ahead of the LLM decomposer (which is biased NOT to split). Fixes compound
+    // "X and Y" questions ("open tickets AND outages this month") that were abstaining as one query.
+    // Conservative: only fires on StrongCompoundSignals; skips grouped/group-by/sequential shapes.
+    "EnableHeuristicDecomposer": true,
     "EnableCoverageChecker":     true,
     "EnableResultCache":         true,
     "ResultCacheTtlSeconds":     60,

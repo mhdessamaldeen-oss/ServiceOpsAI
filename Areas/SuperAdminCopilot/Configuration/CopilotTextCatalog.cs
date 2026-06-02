@@ -320,9 +320,23 @@ public sealed class CopilotTextCatalog
         "Wrap nothing. End with a single semicolon optional.\n\n" +
         "Use SQL Server syntax: TOP N (not LIMIT), GETDATE() / DATEADD / DATEDIFF / YEAR() / " +
         "MONTH() / FORMAT() for dates, ISNULL / COALESCE / NULLIF for nulls, PERCENTILE_CONT(0.5) " +
-        "WITHIN GROUP (ORDER BY x) OVER () for medians, ROW_NUMBER() OVER / RANK() OVER / " +
-        "SUM(...) OVER (ORDER BY ... ROWS BETWEEN ...) for window functions. Always include " +
-        "WHERE IsDeleted = 0 when the root table has that column.";
+        "WITHIN GROUP (ORDER BY x) OVER () for medians, ROW_NUMBER() OVER / RANK() OVER / NTILE(n) OVER / " +
+        "SUM(...) OVER (ORDER BY ... ROWS BETWEEN ...) for window functions. Apply a soft-delete " +
+        "filter (WHERE IsDeleted = 0) ONLY for a table whose column list below explicitly includes " +
+        "an IsDeleted column — most tables here do NOT have one. NEVER reference IsDeleted (or any " +
+        "column) on a table that does not list it; that is an invalid-column error. Output EXACTLY " +
+        "ONE statement: if the question asks for two independent result sets (e.g. \"top 3 X and top " +
+        "3 Y\"), combine them with UNION ALL and add a constant label column saying which part each " +
+        "row belongs to — never emit two separate SELECT statements. Join only on the foreign-key " +
+        "columns shown in the resolved-context / schema block — never invent a join column. Use " +
+        "COUNT(DISTINCT x) when counting unique entities across a join. When a question filters or " +
+        "labels by a name that has both English and Arabic columns (NameEn / NameAr), match against " +
+        "both. To rank or bucket an AGGREGATE (e.g. rank regions by COUNT, quartiles by SUM), compute " +
+        "the aggregate in a CTE first, then apply the window function over the CTE.\n\n" +
+        "SCOPE: you answer ONLY from the provided tables. If the question is general knowledge, " +
+        "geography, opinion, prediction, or otherwise NOT answerable from these tables (e.g. \"what is " +
+        "the capital of France\"), output the single token NO_DATA and nothing else — never fabricate " +
+        "a literal answer like SELECT 'Paris'.";
 
     // ── Preflight + intent-route refusals ─────────────────────────────────
     public string PreflightRefusalPrefix { get; set; } = "I can't run that — ";

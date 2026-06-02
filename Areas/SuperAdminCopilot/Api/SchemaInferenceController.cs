@@ -1,7 +1,6 @@
 namespace SuperAdminCopilot.Api;
 
 using Microsoft.AspNetCore.Mvc;
-using SuperAdminCopilot.Pipeline.Stages;
 using SuperAdminCopilot.Retrieval;
 using SuperAdminCopilot.Schema;
 
@@ -71,29 +70,6 @@ public sealed class SchemaInferenceController : ControllerBase
             available = retriever.IsAvailable,
             question = q,
             matches = result.Tables.Select(m => new { table = m.Table.Name, score = m.Score }),
-        });
-    }
-
-    /// <summary>
-    /// Debug helper: invokes the SpecExtractor on a question and returns the LLM-emitted spec
-    /// without running it through the compiler / executor. Use to diagnose "did the LLM
-    /// understand?" before debugging downstream SQL issues.
-    /// </summary>
-    [HttpGet("extract-spec")]
-    public async Task<ActionResult> ExtractSpec(
-        [FromQuery] string q,
-        [FromServices] ISpecExtractor extractor,
-        CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(q)) return BadRequest(new { error = "query 'q' is required" });
-        var result = await extractor.ExtractAsync(q, ct);
-        return Ok(new
-        {
-            question = q,
-            candidateTables = result.CandidateTables,
-            spec = result.Spec,
-            error = result.Error,
-            rawLlmOutput = result.RawLlmOutput,
         });
     }
 }
