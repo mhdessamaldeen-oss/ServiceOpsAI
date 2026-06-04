@@ -172,9 +172,14 @@
 
 .runtrace-kind-badge i { font-size: 0.8em; }
 
-.runtrace-row-kind-llm  .runtrace-row-head { border-left: 3px solid rgba(168, 85, 247, 0.6); }
-.runtrace-row-kind-sql  .runtrace-row-head { border-left: 3px solid rgba(91, 141, 239, 0.6); }
-.runtrace-row-kind-gate .runtrace-row-head { border-left: 3px solid rgba(34, 197, 94, 0.4); }
+/* Status accent — the at-a-glance pass/fail cue on every row (kind is shown by the badge above).
+   The row container emits runtrace-status-{ok,warn,error,skip} (see _InvestigationRunTraceRow.cshtml).
+   Previously this left-border keyed off a runtrace-row-kind-* selector the markup never emits, so no
+   row accent showed at all; status is the more useful signal, so it owns the accent now. */
+.runtrace-status-ok    .runtrace-row-head { border-left: 4px solid rgba(34, 197, 94, 0.6); }
+.runtrace-status-warn  .runtrace-row-head { border-left: 4px solid rgba(245, 158, 11, 0.7);  background: rgba(245, 158, 11, 0.05); }
+.runtrace-status-error .runtrace-row-head { border-left: 4px solid rgba(239, 68, 68, 0.75); background: rgba(239, 68, 68, 0.06); }
+.runtrace-status-skip  .runtrace-row-head { border-left: 4px solid rgba(148, 163, 184, 0.4); }
 
 /* ── Meta chips (tokens / cost / time / model) ──────────────────── */
 .runtrace-meta-chip {
@@ -495,11 +500,23 @@
     letter-spacing: 0.06em;
     color: var(--primary-color);
     font-weight: 700;
-    margin-bottom: 0.65rem;
+    margin-bottom: 0.35rem;
     display: flex;
     align-items: center;
     gap: 0.35rem;
 }
+
+/* Plain-language note answering "is this one trace or many?" for decomposed questions. */
+.runtrace-swimlane-note {
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+    margin-bottom: 0.85rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+}
+.runtrace-swimlane-note i { color: var(--primary-color); }
 
 .runtrace-swimlanes {
     display: grid;

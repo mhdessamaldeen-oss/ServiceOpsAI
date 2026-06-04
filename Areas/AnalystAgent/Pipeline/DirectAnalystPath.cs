@@ -164,6 +164,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             for (int attempt = 0; attempt < maxAttempts; attempt++)
             {
                 lossyRepairFired = false;   // per-attempt: the shipping attempt's provenance must be its own
+                var repairsApplied = new List<(string Name, string Before, string After)>();  // for the trace
                 var attemptHints = hints;
                 if (lastError is not null)
                     attemptHints = hints.Append($"Your previous T-SQL failed with this SQL Server error — FIX it and re-output valid T-SQL (use a WITH CTE if a derived-table alias was referenced out of scope): {lastError}").ToList();
@@ -188,12 +189,14 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                 if (TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped))
                 {
                     _logger.LogInformation("[DirectAnalystPath] stripped unrequested status filter for q='{Q}': {Before} => {After}", question, sqlToUse, deScoped);
+                    repairsApplied.Add(("unrequested-status-strip", sqlToUse, deScoped));
                     sqlToUse = deScoped;
                 }
                 // Same model prior, boolean flavour: an invented IsPlanned=0 / IsActive=1 the question never named.
                 if (TryStripUnrequestedFlagFilter(sqlToUse, question, out var deFlagged))
                 {
                     _logger.LogInformation("[DirectAnalystPath] stripped unrequested boolean-flag filter for q='{Q}': {Before} => {After}", question, sqlToUse, deFlagged);
+                    repairsApplied.Add(("unrequested-flag-strip", sqlToUse, deFlagged));
                     sqlToUse = deFlagged;
                 }
                 // A grounded enum value ("overdue"->Bills.Status) means an invented relative-date predicate
@@ -202,18 +205,21 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                 if (TryStripUngroundedDatePredicate(sqlToUse, grounding.LinkedValues.Count > 0, grounding.LinkedTemporal.Count > 0, out var deDated))
                 {
                     _logger.LogInformation("[DirectAnalystPath] stripped ungrounded relative-date predicate for q='{Q}': {Before} => {After}", question, sqlToUse, deDated);
+                    repairsApplied.Add(("ungrounded-date-strip", sqlToUse, deDated));
                     sqlToUse = deDated;
                 }
                 // Symmetric to the strip: ENFORCE a filter the question named but the 7B dropped (flaky under-filter).
                 if (TryInjectGroundedValueFilters(sqlToUse, grounding.LinkedValues.Select(v => (v.Table, v.Column, v.Value)), out var injected))
                 {
                     _logger.LogInformation("[DirectAnalystPath] injected grounded value filter for q='{Q}': {Before} => {After}", question, sqlToUse, injected);
+                    repairsApplied.Add(("grounded-value-injection", sqlToUse, injected));
                     sqlToUse = injected;
                 }
                 // GRAIN: a label-only GROUP BY merges distinct entities sharing a name — add the entity key.
                 if (TryFixGroupByGrain(sqlToUse, _knowledge.GetTable, out var regrained))
                 {
                     _logger.LogInformation("[DirectAnalystPath] fixed GROUP BY grain (added entity key) for q='{Q}': {Before} => {After}", question, sqlToUse, regrained);
+                    repairsApplied.Add(("group-by-grain-fix", sqlToUse, regrained));
                     sqlToUse = regrained;
                 }
                 // CONTRADICTION: same column = two different literals (the bilingual "Name='مفتوحة' AND Name='Open'"
@@ -222,6 +228,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                 if (TryResolveContradictoryEqualityLiterals(sqlToUse, grounding.LinkedValues.Select(v => v.Value), out var deConflicted))
                 {
                     _logger.LogInformation("[DirectAnalystPath] resolved contradictory equality literals for q='{Q}': {Before} => {After}", question, sqlToUse, deConflicted);
+                    repairsApplied.Add(("contradiction-resolution", sqlToUse, deConflicted));
                     sqlToUse = deConflicted;
                 }
 
@@ -267,6 +274,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                         if (reexecCol.Error is null)
                         {
                             _logger.LogInformation("[DirectAnalystPath] deterministic bilingual-column repair succeeded for q='{Q}'", question);
+                            repairsApplied.Add(("bilingual-column-fix", compiled.Sql, colRepaired));
                             compiled = recompiledCol;
                             exec = reexecCol;
                         }
@@ -286,6 +294,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                         if (reexec.Error is null)
                         {
                             _logger.LogInformation("[DirectAnalystPath] deterministic invalid-column repair succeeded for q='{Q}'", question);
+                            repairsApplied.Add(("lossy-invalid-column-strip", compiled.Sql, repaired));
                             compiled = recompiled;
                             exec = reexec;
                             lossyRepairFired = true;   // KEYSTONE: this strip drops a predicate → floor confidence
@@ -294,6 +303,10 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                 }
                 execSw.Stop();
                 steps.RecordExecutor(compiled, exec, execSw.ElapsedMilliseconds, attempt);
+                // Surface the deterministic repairs in the trace (richer investigation detail) — one step per
+                // attempt listing every no-LLM repair that fired, with before→after, so the UI shows WHY the
+                // final SQL differs from the model's first emit.
+                steps.RecordRepairsApplied(repairsApplied, attempt);
 
                 if (exec.Error is not null)
                 {

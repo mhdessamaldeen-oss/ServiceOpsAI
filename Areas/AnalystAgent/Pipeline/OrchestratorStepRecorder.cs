@@ -214,6 +214,24 @@ internal static class OrchestratorStepRecorder
                 details: new { valueCount = g.LinkedValues.Count, naturalKeyCount = g.LinkedNaturalKeys.Count, temporalCount = g.LinkedTemporal.Count, facts = facts.ToArray() })));
     }
 
+    /// <summary>Records the DETERMINISTIC repairs that fired on the emitted SQL this attempt (over-filter
+    /// strip, grounded-value injection, bilingual-column fix, contradiction resolution, grain fix, lossy
+    /// invalid-column strip). Surfaces the pipeline's no-LLM self-correction in the trace — each repair with
+    /// its before→after — so the investigation UI shows WHY the final SQL differs from the model's first emit.</summary>
+    public static void RecordRepairsApplied(this BroadcastingStepList steps,
+        IReadOnlyList<(string Name, string Before, string After)> repairs, int attempt)
+    {
+        if (repairs.Count == 0) return;
+        var names = string.Join(", ", repairs.Select(r => r.Name));
+        steps.Add(Step($"Deterministic repairs{AttemptLabel(attempt)}", StageNames.StatusOk, 0,
+            $"{repairs.Count} repair(s): {names}",
+            technical: StepPayload.Of(StepPayloadKinds.Branch,
+                input: repairs[0].Before,
+                output: repairs[^1].After,
+                reason: "Deterministic post-emit AST/regex repairs that corrected the model's SQL with NO LLM call. Each preserves the question's intent; a lossy invalid-column strip additionally floors the answer confidence.",
+                details: new { count = repairs.Count, repairs = repairs.Select(r => new { r.Name, r.Before, r.After }).ToArray() })));
+    }
+
     public static void RecordSqlEmit(this BroadcastingStepList steps, string question,
         DirectSqlResult emit, int attempt, long elapsedMs) =>
         steps.Add(Step($"{StageNames.StepLlmDirectSql}{AttemptLabel(attempt)}",
