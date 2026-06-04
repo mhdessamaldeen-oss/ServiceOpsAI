@@ -1,0 +1,60 @@
+{
+  "name": "Gold MINI smoke (6, experiment)",
+  "version": "mini",
+  "description": "Focused: FK->label experiment (wrong-name, mis-link) + over-fetch/over-filter verify. No CSAT (stalled).",
+  "Scenarios": [
+    {
+      "Code": "G-CNT-Open",
+      "Category": "COUNT",
+      "Difficulty": "Easy",
+      "Question": "how many open tickets are there",
+      "ExpectedScalar": 35,
+      "GoldVerified": true
+    },
+    {
+      "Code": "G-CNT-CriticalOutages",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many critical outages have we had",
+      "ExpectedScalar": 7,
+      "GoldVerified": true
+    },
+    {
+      "Code": "G-FALSEOOS-Tariffs",
+      "Category": "FALSE-OOS",
+      "Difficulty": "Medium",
+      "Question": "show me the tariffs",
+      "ExpectedMinRows": 1,
+      "ExpectedInvalid": false,
+      "GoldVerified": true
+    },
+    {
+      "Code": "G-AGG-TotalBilled",
+      "Category": "AGGREGATE",
+      "Difficulty": "Medium",
+      "Question": "what is the total amount of all bills",
+      "ExpectedScalar": 440169300,
+      "GoldVerified": true
+    },
+    {
+      "Code": "G-GRP-BillsByService",
+      "Category": "GROUPBY",
+      "Difficulty": "Medium",
+      "Question": "total billed amount by service type",
+      "ExpectedSqlContains": [
+        "GROUP BY",
+        "SUM"
+      ],
+      "ExpectedMinRows": 2,
+      "GoldVerified": true
+    },
+    {
+      "Code": "G-LIST-Statuses",
+      "Category": "FILTER",
+      "Difficulty": "Easy",
+      "Question": "list all ticket statuses",
+      "ExpectedRowCount": 7,
+      "GoldVerified": true
+    }
+  ]
+}

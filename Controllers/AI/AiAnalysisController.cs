@@ -1138,6 +1138,55 @@ namespace ServiceOpsAI.Controllers.AI
             return View(model);
         }
 
+        /// <summary>Download every LLM (and embedding) call of a trace as JSON — stage, model, tokens,
+        /// and the FULL prompt + response (full text present on eval/assessment runs; preview otherwise).
+        /// Lets an engineer diff prompts before/after a change without scraping the UI.</summary>
+        [HttpGet("{id}")]
+        public async Task<IActionResult> ExportTraceLlmCalls(int id)
+        {
+            var trace = await _context.CopilotTraceHistories.FindAsync(id);
+            if (trace == null) return NotFound();
+            var details = DeserialiseExecutionPlan(id, trace.ExecutionPlan);
+
+            var calls = new List<object>();
+            void Walk(IEnumerable<CopilotExecutionStep>? steps)
+            {
+                if (steps == null) return;
+                foreach (var s in steps)
+                {
+                    if (s.LlmCalls != null)
+                        foreach (var c in s.LlmCalls)
+                            calls.Add(new
+                            {
+                                step = s.Action,
+                                c.Stage, c.Kind, c.Provider, c.Model,
+                                c.PromptTokens, c.CompletionTokens, c.ElapsedMs,
+                                c.Success, c.Error, c.RetryAttempt,
+                                c.PromptFullLength, c.ResponseFullLength,
+                                prompt = c.PromptFull ?? c.PromptPreview,
+                                response = c.ResponseFull ?? c.ResponsePreview,
+                            });
+                    Walk(s.SubSteps);
+                }
+            }
+            Walk(details.Steps);
+            if (details.SubExecutions != null)
+                foreach (var ex in details.SubExecutions)
+                    Walk(ex.ExecutionSteps);
+
+            var payload = new
+            {
+                traceId = id,
+                question = trace.Question,
+                createdAt = trace.CreatedAt,
+                model = trace.ModelName,
+                llmCallCount = calls.Count,
+                calls
+            };
+            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+            return File(System.Text.Encoding.UTF8.GetBytes(json), "application/json", $"trace-{id}-llmcalls.json");
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> TracingDetails(int id, string? view = null)
         {

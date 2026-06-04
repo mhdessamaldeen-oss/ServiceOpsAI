@@ -31,6 +31,16 @@ public interface IEntityCatalog
     /// ("Damascus", "Water", "Critical") to the WHERE-clause filter on the lookup's label column.
     /// </summary>
     IReadOnlyList<(string LabelColumn, string Value)> GetAllLookupValues(string tableName, int maxRows = 500);
+
+    /// <summary>
+    /// Distinct values of the LOW-CARDINALITY string columns ON the given table itself — the inline
+    /// enums (Bills.Status, Outages.Severity, …) that <see cref="GetAllLookupValues"/> never sees because
+    /// it bails on tables over <c>maxRows</c>. Gated on COLUMN cardinality (≤ <paramref name="maxDistinct"/>
+    /// distinct), not table size, so a fact-table status enum is found while a wide free-text column
+    /// (Title/Description/Notes) is skipped. Lets the value linker bind a question token ("overdue") to a
+    /// fact-table enum value ("Overdue") so the existing grounded-hint + injector enforce the right filter.
+    /// </summary>
+    IReadOnlyList<(string Column, string Value)> GetInlineEnumValues(string tableName, int maxDistinct = 12);
 }
 
 internal sealed class EntityCatalog : IEntityCatalog
@@ -41,6 +51,7 @@ internal sealed class EntityCatalog : IEntityCatalog
     private readonly ILogger<EntityCatalog> _logger;
     private readonly ConcurrentDictionary<string, IReadOnlyList<string>> _sampleValueCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<(string, string)>> _allValuesCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, IReadOnlyList<(string, string)>> _inlineEnumCache = new(StringComparer.OrdinalIgnoreCase);
 
     // Extended priority: Name first (English/canonical label), then bilingual NameEn / NameAr,
     // then Title / Code / Label. Matches the LookupValueInjection use case where Regions has
@@ -167,5 +178,73 @@ internal sealed class EntityCatalog : IEntityCatalog
             _logger.LogDebug(ex, "[AnalystAgent] All-values fetch failed for {Table}.", tableName);
             return Array.Empty<(string, string)>();
         }
+    }
+
+    // Column-name fragments that mark a string column as FREE TEXT or an identifier — never an enum
+    // worth value-binding (so we don't probe / bind on Title, Description, a BillNumber, an Email, …).
+    private static readonly string[] InlineEnumSkipHints =
+        { "Name", "Title", "Description", "Notes", "Summary", "Comment", "Address", "Reason",
+          "Specification", "Json", "Content", "Message", "Email", "Phone", "Number", "Code",
+          "Reference", "Url", "Path", "Hash", "Stamp", "Token", "Key", "Id" };
+
+    public IReadOnlyList<(string Column, string Value)> GetInlineEnumValues(string tableName, int maxDistinct = 12)
+    {
+        if (string.IsNullOrEmpty(tableName)) return Array.Empty<(string, string)>();
+        var key = "enum::" + tableName + "::" + maxDistinct;
+        return _inlineEnumCache.GetOrAdd(key, _ => FetchInlineEnumValues(tableName, maxDistinct));
+    }
+
+    private IReadOnlyList<(string, string)> FetchInlineEnumValues(string tableName, int maxDistinct)
+    {
+        // Candidate columns: SHORT string types (<=50 len; not nvarchar(max)) whose name isn't free-text/id.
+        var cols = Snapshot.ColumnsOf(tableName)
+            .Where(c => IsBindableStringColumn(c.DataType, c.MaxLength))
+            .Where(c => !InlineEnumSkipHints.Any(h => c.ColumnName.Contains(h, StringComparison.OrdinalIgnoreCase)))
+            .Select(c => c.ColumnName)
+            .ToList();
+        if (cols.Count == 0) return Array.Empty<(string, string)>();
+
+        var results = new List<(string, string)>();
+        try
+        {
+            using var conn = _connectionFactory.Open();
+            foreach (var col in cols)
+            {
+                long distinct;
+                using (var cnt = conn.CreateCommand())
+                {
+                    cnt.CommandText = $"SELECT COUNT(DISTINCT [{col}]) FROM [{tableName}];";
+                    cnt.CommandTimeout = 5;
+                    distinct = Convert.ToInt64(cnt.ExecuteScalar());
+                }
+                if (distinct < 1 || distinct > maxDistinct) continue;   // not a low-cardinality enum → skip
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"SELECT DISTINCT [{col}] FROM [{tableName}] WHERE [{col}] IS NOT NULL;";
+                cmd.CommandTimeout = 5;
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    var v = reader.IsDBNull(0) ? null : reader.GetValue(0)?.ToString();
+                    if (!string.IsNullOrWhiteSpace(v) && v!.Length >= 3) results.Add((col, v));
+                }
+            }
+            return results;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "[AnalystAgent] inline-enum fetch failed for {Table}.", tableName);
+            return Array.Empty<(string, string)>();
+        }
+    }
+
+    private static bool IsBindableStringColumn(string dataType, int? maxLength)
+    {
+        var dt = (dataType ?? string.Empty).ToLowerInvariant();
+        if (!dt.Contains("char")) return false;           // varchar/nvarchar/char/nchar only (not text/MAX-like)
+        // Exclude nvarchar(MAX) (-1) and unknown (null) — free text, expensive to probe. A BOUNDED string
+        // column with few distinct values is an enum; the cardinality gate confirms it. NB: this DB's
+        // status/severity columns are nvarchar(450) or MAX (EF default, no explicit length), so a small
+        // length cap can't be used to identify enums — only "bounded vs MAX" + name-exclusion + cardinality.
+        return maxLength is > 0;
     }
 }

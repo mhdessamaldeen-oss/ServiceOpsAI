@@ -142,6 +142,14 @@ namespace ServiceOpsAI.Models.AI
         public int? PromptFullLength { get; set; }
         public int? ResponseFullLength { get; set; }
         public int RetryAttempt { get; set; }
+        /// <summary>"llm" = a generation call; "embedding" = a bge-m3 vector call. Lets the UI/export
+        /// tell apart readable prompt/response calls from vector calls. Defaults to "llm".</summary>
+        public string Kind { get; set; } = "llm";
+        /// <summary>FULL (untruncated, bounded) prompt — populated only on eval/assessment runs
+        /// (LlmTraceCaptureScope.Full). Null otherwise; the grid uses <see cref="PromptPreview"/>.</summary>
+        public string? PromptFull { get; set; }
+        /// <summary>FULL (untruncated, bounded) response — populated only on eval/assessment runs.</summary>
+        public string? ResponseFull { get; set; }
     }
 
     /// <summary>

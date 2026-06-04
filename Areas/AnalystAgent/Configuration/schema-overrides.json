@@ -48,6 +48,7 @@
       "Name": "Bills",
       "Synonyms": ["فاتورة", "فواتير", "الفاتورة", "الفواتير"],
       "Description": "Utility bill. TotalAmount is the billed amount (SYP). Status is a lifecycle state column with values Issued, Paid, Overdue, Disputed, Cancelled. Apply a Status filter ONLY when the question names a payment state — a total / sum / count / average of bills with no stated state spans ALL statuses. When you do filter payment state, use Status (e.g. Status='Paid'), never the PaidAt timestamp.",
+      "GrainNote": "TotalAmount is the billed amount (SYP). The payment lifecycle is the Status column — use Status (not the PaidAt timestamp) for payment state.",
       "Columns": [
         { "Name": "PaidAt", "Role": "date", "DateRole": "completed" },
         { "Name": "IssuedAt", "Role": "date", "DateRole": "created" },
@@ -59,6 +60,7 @@
       "Name": "Customers",
       "Synonyms": ["مشترك", "مشتركين", "المشترك", "المشتركين", "زبون", "زبائن", "الزبون", "الزبائن", "عميل", "عملاء", "العميل", "العملاء"],
       "Description": "External utility subscriber. Status is a lifecycle state column with values Active, Suspended, Churned. Apply a Status filter ONLY when the question names a lifecycle state — a count / list of customers with no stated state spans ALL statuses. When you do filter lifecycle state, use Status (e.g. Status='Churned'), never the ChurnedAt timestamp. Soft-deleted customers have IsDeleted=1.",
+      "GrainNote": "The customer lifecycle is the Status column — use Status (not the ChurnedAt timestamp) for lifecycle state.",
       "Columns": [
         { "Name": "ChurnedAt", "Role": "date", "DateRole": "completed" },
         { "Name": "SignupAt", "Role": "date", "DateRole": "created" },
@@ -69,6 +71,7 @@
       "_note": "Tariffs — EffectiveTo NULL means active (no end date).",
       "Name": "Tariffs",
       "Description": "Historical pricing per (ServiceType, Region). EffectiveTo IS NULL means the tariff is currently active. To find 'active tariffs' use 'EffectiveTo IS NULL'. To find 'tariffs that changed in 2025' use 'EffectiveFrom BETWEEN ...'.",
+      "GrainNote": "One row per (ServiceType, Region) pricing period; EffectiveFrom and EffectiveTo bound the period.",
       "Columns": [
         { "Name": "EffectiveFrom", "Role": "date", "DateRole": "started" },
         { "Name": "EffectiveTo", "Role": "date", "DateRole": "completed" }
@@ -78,6 +81,7 @@
       "_note": "TicketCategories — hierarchical. ParentCategoryId NULL means Primary, NOT NULL means Secondary.",
       "Name": "TicketCategories",
       "Description": "Hierarchical taxonomy of complaint types. ParentCategoryId IS NULL means the row is a Primary (top-level) category; ParentCategoryId IS NOT NULL means it is a Secondary (child of a Primary). Tier column also encodes this enum-wise. To list 'primary categories' use ParentCategoryId IS NULL. To count 'secondary categories' use ParentCategoryId IS NOT NULL.",
+      "GrainNote": "ParentCategoryId IS NULL marks a Primary (top-level) category; ParentCategoryId IS NOT NULL marks a Secondary (child) category. The Tier column encodes the same level.",
       "Columns": [
         { "Name": "ParentCategoryId", "Role": "foreign_key", "References": "TicketCategories.Id" }
       ]
@@ -87,6 +91,7 @@
       "Name": "Outages",
       "Synonyms": ["انقطاع", "انقطاعات", "الانقطاع", "الانقطاعات", "انقطاع الخدمة", "انقطاع التيار", "أعطال", "الأعطال"],
       "Description": "Service outage events. EndedAt IS NULL means the outage is ongoing (still active). Use DATEDIFF(hour, StartedAt, EndedAt) for duration (only for resolved outages). Cause is an enum: Equipment, Weather, PipeBurst, FiberCut, etc. Severity: Minor, Moderate, Major, Critical.",
+      "GrainNote": "Each row is one outage event; for an ended outage the duration is DATEDIFF(hour, StartedAt, EndedAt).",
       "Columns": [
         { "Name": "StartedAt", "Role": "date", "DateRole": "started" },
         { "Name": "EndedAt", "Role": "date", "DateRole": "completed" }
@@ -97,6 +102,7 @@
       "Name": "Regions",
       "Synonyms": ["محافظة", "محافظات", "المحافظة", "المحافظات", "منطقة", "مناطق", "المنطقة", "المناطق", "أحياء", "الحي", "الأحياء"],
       "Description": "Hierarchical geography via ParentRegionId: a row with ParentRegionId IS NULL is a Governorate (14); a row with ParentRegionId IS NOT NULL is a District. GRAIN: Tickets and Customers reference a District (RegionId points at a leaf district); to roll a Ticket/Customer up to its governorate, join Regions to its parent on ParentRegionId. Departments reference a Governorate directly. Do NOT add a ParentRegionId or RegionType filter unless the question explicitly asks for governorates or districts; plain 'regions' means all rows.",
+      "GrainNote": "ParentRegionId IS NULL marks a Governorate (14 total); ParentRegionId IS NOT NULL marks a District. Tickets.RegionId and Customers.RegionId point at a leaf District; joining Regions to its parent on ParentRegionId rolls a Ticket or Customer up to its Governorate. Departments reference a Governorate directly.",
       "Columns": [
         { "Name": "ParentRegionId", "Role": "foreign_key", "References": "Regions.Id" }
       ]

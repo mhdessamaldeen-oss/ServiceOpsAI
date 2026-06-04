@@ -1,0 +1,143 @@
+{
+  "name": "Temporal / analytical suite (relative windows, comparisons, time-series, 2026-06-04)",
+  "version": "2026-06-04.temporal",
+  "description": "THE analyst questions: relative date windows (last 30/7/90 days), calendar periods (Mar/May/Q1 2026), period-over-period COMPARISONS, and monthly time-series. Relative cases graded by live EX (gold + copilot both relative to now); calendar/series cases by scalar/rowcount.",
+  "Scenarios": [
+    {
+      "Code": "T-Tickets30d",
+      "Category": "TIMESERIES",
+      "Difficulty": "Hard",
+      "Question": "how many tickets were created in the last 30 days",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets WHERE IsDeleted=0 AND CreatedAt >= DATEADD(day,-30,GETDATE())",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)"
+    },
+    {
+      "Code": "T-Bills30d",
+      "Category": "TIMESERIES",
+      "Difficulty": "Hard",
+      "Question": "how many bills were issued in the last 30 days",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills WHERE IssuedAt >= DATEADD(day,-30,GETDATE())",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)"
+    },
+    {
+      "Code": "T-Outages90d",
+      "Category": "TIMESERIES",
+      "Difficulty": "Hard",
+      "Question": "how many outages started in the last 90 days",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Outages WHERE StartedAt >= DATEADD(day,-90,GETDATE())",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)"
+    },
+    {
+      "Code": "T-Tickets7d",
+      "Category": "TIMESERIES",
+      "Difficulty": "Hard",
+      "Question": "how many tickets were created in the last 7 days",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets WHERE IsDeleted=0 AND CreatedAt >= DATEADD(day,-7,GETDATE())",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)"
+    },
+    {
+      "Code": "T-RevenueThisYear",
+      "Category": "AGGREGATE",
+      "Difficulty": "Hard",
+      "Question": "total revenue from paid bills this year",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT SUM(TotalAmount) FROM Bills WHERE Status='Paid' AND YEAR(IssuedAt)=YEAR(GETDATE())",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)"
+    },
+    {
+      "Code": "T-TicketsMar2026",
+      "Category": "TIMESERIES",
+      "Difficulty": "Hard",
+      "Question": "how many tickets were created in march 2026",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets WHERE IsDeleted=0 AND YEAR(CreatedAt)=2026 AND MONTH(CreatedAt)=3",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)",
+      "ExpectedScalar": 20.0
+    },
+    {
+      "Code": "T-TicketsMay2026",
+      "Category": "TIMESERIES",
+      "Difficulty": "Hard",
+      "Question": "how many tickets were created in may 2026",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets WHERE IsDeleted=0 AND YEAR(CreatedAt)=2026 AND MONTH(CreatedAt)=5",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)",
+      "ExpectedScalar": 17.0
+    },
+    {
+      "Code": "T-TicketsQ1",
+      "Category": "TIMESERIES",
+      "Difficulty": "Hard",
+      "Question": "how many tickets were created in the first quarter of 2026",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets WHERE IsDeleted=0 AND YEAR(CreatedAt)=2026 AND MONTH(CreatedAt) BETWEEN 1 AND 3",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)",
+      "ExpectedScalar": 30.0
+    },
+    {
+      "Code": "T-Compare30v30",
+      "Category": "COMPARE",
+      "Difficulty": "Hard",
+      "Question": "compare the number of tickets created in the last 30 days versus the previous 30 days",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT 'last_30' AS Period, COUNT(*) AS Cnt FROM Tickets WHERE IsDeleted=0 AND CreatedAt>=DATEADD(day,-30,GETDATE()) UNION ALL SELECT 'previous_30', COUNT(*) FROM Tickets WHERE IsDeleted=0 AND CreatedAt>=DATEADD(day,-60,GETDATE()) AND CreatedAt<DATEADD(day,-30,GETDATE())",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)"
+    },
+    {
+      "Code": "T-CompareMarApr",
+      "Category": "COMPARE",
+      "Difficulty": "Hard",
+      "Question": "how many more tickets were created in march 2026 than in april 2026",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT (SELECT COUNT(*) FROM Tickets WHERE IsDeleted=0 AND YEAR(CreatedAt)=2026 AND MONTH(CreatedAt)=3) - (SELECT COUNT(*) FROM Tickets WHERE IsDeleted=0 AND YEAR(CreatedAt)=2026 AND MONTH(CreatedAt)=4)",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)",
+      "ExpectedScalar": 15.0
+    },
+    {
+      "Code": "T-TicketsPerMonth2026",
+      "Category": "TIMESERIES",
+      "Difficulty": "Hard",
+      "Question": "how many tickets were created each month in 2026",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) c FROM Tickets WHERE IsDeleted=0 AND YEAR(CreatedAt)=2026 GROUP BY MONTH(CreatedAt)",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)",
+      "ExpectedRowCount": 5
+    },
+    {
+      "Code": "T-BillsPerMonth2026",
+      "Category": "TIMESERIES",
+      "Difficulty": "Hard",
+      "Question": "monthly count of bills issued in 2026",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) c FROM Bills WHERE YEAR(IssuedAt)=2026 GROUP BY MONTH(IssuedAt)",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)",
+      "ExpectedRowCount": 5
+    },
+    {
+      "Code": "T-BillSum30d",
+      "Category": "AGGREGATE",
+      "Difficulty": "Hard",
+      "Question": "total amount of bills issued in the last 30 days",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT SUM(TotalAmount) FROM Bills WHERE IssuedAt >= DATEADD(day,-30,GETDATE())",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (temporal/analytical suite)"
+    }
+  ]
+}

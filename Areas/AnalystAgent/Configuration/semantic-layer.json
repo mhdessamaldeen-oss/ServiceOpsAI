@@ -296,6 +296,14 @@
       "labelColumn": "CommentEn",
       "displayColumns": ["Id", "TicketId", "Score", "Sentiment", "RespondedAt", "ResponseChannel"],
       "dateRoles": {"responded": "RespondedAt", "default": "RespondedAt"},
+      "derivedMetrics": [
+        {
+          "key": "csatScore",
+          "cues": ["average csat", "csat score", "average satisfaction", "satisfaction score", "average rating", "average score", "mean csat"],
+          "expression": "CsatResponses.Score",
+          "function": "AVG"
+        }
+      ],
       "description": "Customer satisfaction survey response attached to a resolved Ticket. Score 1-5 (1=very dissatisfied, 5=very satisfied). Sentiment: Negative/Neutral/Positive. One CSAT per Ticket maximum. Used to measure Copilot answer quality and ticket-resolution effectiveness. Average Score by Department, by ComplaintType, by Region for breakdown analysis."
     },
     {
@@ -795,7 +803,8 @@
     }
   ],
 
-  "conceptPatterns": [
+  "_comment_conceptPatterns": "QUARANTINED 2026-06-04 — DEAD CONFIG. No code reads ConceptPatterns (grep-confirmed); these 15 patterns encode IMPERATIVE filter injection (the prose-as-instruction the channel-split fix eliminates). The key is renamed so the loader ignores it (ConceptPatterns deserializes to empty). Do NOT re-wire as-is: convert any kept fact to a declarative GrainNote first.",
+  "_conceptPatterns_quarantined_do_not_reactivate": [
     {
       "triggers": ["unattended", "unassigned", "no assignee", "nobody assigned", "not assigned", "without assignee"],
       "meaning": "tickets with no assigned user (AssignedToUserId IS NULL)",

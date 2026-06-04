@@ -438,7 +438,14 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                     // ── AnalystAgent v2 cutover (2026-05-09) ─────────────────────────
                     // Route assessment scenarios through the active in-host AnalystAgent pipeline.
                     // var response = await _copilotService.AskAsync(request);                  // pre-2026 dead path
-                    var response = await _analystAgentChatBridge.AskAsync(request, ct);
+                    // Open a FULL trace-capture scope: assessment cases record the COMPLETE per-call prompt
+                    // + response (normal chat keeps the 4000-char preview) so a case's trace is inspectable
+                    // end-to-end and prompts can be diffed before/after a change.
+                    CopilotChatResponse response;
+                    using (AnalystAgent.Abstractions.LlmTraceCaptureScope.Full())
+                    {
+                        response = await _analystAgentChatBridge.AskAsync(request, ct);
+                    }
                     var endTime = DateTime.UtcNow;
 
                     var assistantMsg = new CopilotChatMessageEntity

@@ -194,33 +194,53 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
             return false;
         }
 
+        // Is THIS table named in the question or surfaced by a grounded value/hint? (the IsFocal name-match
+        // WITHOUT the tiny-table shortcut). Gates the FK->label emission: surface a neighbor's label only
+        // when the question actually references that neighbor — otherwise "show me the tariffs" sees
+        // (label: ServiceTypes.NameEn) and projects it (the over-fetch regression). Deterministic.
+        bool IsNameReferenced(string name)
+        {
+            var n = name.ToLowerInvariant();
+            if (ql.Contains(n) || hintBlob.Contains(n)) return true;
+            if (n.Length > 3 && n.EndsWith("s") && (ql.Contains(n[..^1]) || hintBlob.Contains(n[..^1]))) return true;
+            return false;
+        }
+
+        // FK->label resolution map: for each in-slice table, its DISPLAY/filter column (Roles.LabelColumn,
+        // which LabelPriority already resolves to the REAL column — plain "Name" over "NameEn"). Emitted on
+        // each FK line so the model filters/joins by the human value using the correct column name instead
+        // of guessing one (the "TicketStatuses.NameEn" wrong-name failure). Deterministic — no LLM.
+        var fkTargetLabels = tables
+            .Where(x => !string.IsNullOrWhiteSpace(x.Roles.LabelColumn))
+            .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Roles.LabelColumn!, StringComparer.OrdinalIgnoreCase);
+
         sb.AppendLine("Schema (use ONLY these tables and columns; JOIN on the foreign keys shown — never invent a join column):");
         foreach (var t in tables)
         {
             var focal = IsFocal(t);
             sb.Append("- ").Append(t.Name);
-            if (!string.IsNullOrEmpty(t.Description)) sb.Append(" — ").Append(t.Description);
+            // GENERATION CHANNEL: emit the declarative GrainNote ONLY — never the Description. Description
+            // is retrieval-only and may carry imperative prose ("Apply a Status filter ONLY when…") that a
+            // 7B obeys literally and turns into unrequested WHERE conditions. GrainNote states facts only.
+            if (!string.IsNullOrEmpty(t.GrainNote)) sb.Append(" — ").Append(t.GrainNote);
             if (!focal) sb.Append("  [join/lookup table — key columns only]");
             sb.AppendLine();
             if (t.PrimaryKey.Count > 0)
                 sb.Append("    PK: ").AppendLine(string.Join(", ", t.PrimaryKey));
             foreach (var fk in t.ForeignKeysOut)
-                sb.Append("    FK: ").Append(t.Name).Append('.').Append(fk.Column)
-                  .Append(" -> ").Append(fk.Table).Append('.').AppendLine(fk.ReferencedColumn);
-            var sd = t.Roles.SoftDeleteColumn;
-            if (!string.IsNullOrWhiteSpace(sd))
             {
-                // POLARITY MATTERS. A delete-flag (IsDeleted) excludes rows with `= 0`. An active/enabled
-                // flag is the OPPOSITE: `= 1` is the live row, and `= 0` means INACTIVE — blindly adding
-                // `IsActive = 0` returns ZERO rows (this exact bug killed group-by/join/window-rank). So
-                // only the delete-flag gets the "= 0" exclude rule; an active-flag is described, not forced.
-                if (sd.IndexOf("delete", StringComparison.OrdinalIgnoreCase) >= 0)
-                    sb.Append("    soft-delete: add WHERE ").Append(t.Name).Append('.').Append(sd)
-                      .AppendLine(" = 0 to exclude deleted rows (this table only)");
-                else
-                    sb.Append("    flag: ").Append(t.Name).Append('.').Append(sd)
-                      .AppendLine(" — 1 = active/enabled; do NOT filter it unless the question explicitly asks for active or inactive rows");
+                sb.Append("    FK: ").Append(t.Name).Append('.').Append(fk.Column)
+                  .Append(" -> ").Append(fk.Table).Append('.').Append(fk.ReferencedColumn);
+                if (fkTargetLabels.TryGetValue(fk.Table, out var lbl) && IsNameReferenced(fk.Table))
+                    sb.Append("  (label column: ").Append(fk.Table).Append('.').Append(lbl).Append(')');
+                sb.AppendLine();
             }
+            // Soft-delete / active-flag rules are NOT emitted per-table here anymore. Per-table imperatives
+            // ("add WHERE IsDeleted = 0", "do NOT filter it unless…") are exactly the prose-as-instruction
+            // that made the 7B bolt unrequested conditions onto every query. The ONE declarative rule in
+            // DirectSqlSystemPrompt ("add IsDeleted=0 only for a table that has it; never filter a status /
+            // lifecycle / lookup column unless the question names a value") now owns this globally.
 
             var cols = focal ? t.Columns : SelectKeyColumns(t);
             // Bilingual bases on THIS table (a base with ≥2 locale-suffixed variants, e.g. NameEn+NameAr).
@@ -270,19 +290,18 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
             counts.Where(kv => kv.Value >= 2).Select(kv => kv.Key), StringComparer.OrdinalIgnoreCase);
     }
 
-    // For a non-focal join/lookup table: keep ONLY the columns that matter for joining, labelling, or
-    // filtering — PK, FKs, soft-delete, label, natural key, and any small-cardinality lookup column
-    // (one that carries sample values). Drops the wide free-text / detail columns that bloat the prompt
-    // without helping the model answer a question that isn't ABOUT this table.
+    // For a non-focal join/lookup table: expose ONLY the JOIN KEYS (PK, FKs, soft-delete). The label and
+    // natural-key are DISPLAY columns — surfacing them on a neighbor table the question never named makes
+    // the 7B project them ("show me the tariffs" -> ServiceTypes.NameEn, Regions.NameEn, the over-fetch).
+    // When the question DOES name the table it becomes focal (IsFocal) and its full columns — including the
+    // label — are shown by the focal path, so "tickets by region" still gets the region name.
     private static List<InferredColumn> SelectKeyColumns(InferredTable t)
     {
         var keep = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var pk in t.PrimaryKey) keep.Add(pk);
         foreach (var fk in t.ForeignKeysOut) keep.Add(fk.Column);
         if (!string.IsNullOrWhiteSpace(t.Roles.SoftDeleteColumn)) keep.Add(t.Roles.SoftDeleteColumn!);
-        if (!string.IsNullOrWhiteSpace(t.Roles.LabelColumn)) keep.Add(t.Roles.LabelColumn!);
-        if (!string.IsNullOrWhiteSpace(t.Roles.NaturalKey)) keep.Add(t.Roles.NaturalKey!);
-        return t.Columns.Where(c => keep.Contains(c.Name) || c.SampleValues is { Count: > 0 }).ToList();
+        return t.Columns.Where(c => keep.Contains(c.Name)).ToList();
     }
 
     /// <summary>

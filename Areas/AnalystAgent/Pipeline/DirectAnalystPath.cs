@@ -168,7 +168,44 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                     break;
                 }
 
-                var compiled = new CompiledSql(emit.Sql!, new Dictionary<string, object?>());
+                // OVER-FILTER GUARD: the 7B invents an unrequested status/lifecycle filter (WHERE Status='Paid'
+                // on "total of all bills") regardless of the system-prompt rule. Deterministically strip a
+                // status-column equality whose literal is neither in the question nor a grounded value — it was
+                // made up. No prompt, no LLM; the one fix for the model prior that prose can't reach.
+                var sqlToUse = emit.Sql!;
+                if (TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped))
+                {
+                    _logger.LogInformation("[DirectAnalystPath] stripped unrequested status filter for q='{Q}': {Before} => {After}", question, sqlToUse, deScoped);
+                    sqlToUse = deScoped;
+                }
+                // Same model prior, boolean flavour: an invented IsPlanned=0 / IsActive=1 the question never named.
+                if (TryStripUnrequestedFlagFilter(sqlToUse, question, out var deFlagged))
+                {
+                    _logger.LogInformation("[DirectAnalystPath] stripped unrequested boolean-flag filter for q='{Q}': {Before} => {After}", question, sqlToUse, deFlagged);
+                    sqlToUse = deFlagged;
+                }
+                // A grounded enum value ("overdue"->Bills.Status) means an invented relative-date predicate
+                // (WHERE DueDate<GETDATE()) is the model APPROXIMATING that concept — strip it so the injector's
+                // grounded Status filter stands alone (else they AND to an empty intersection). No temporal cue → safe.
+                if (TryStripUngroundedDatePredicate(sqlToUse, grounding.LinkedValues.Count > 0, grounding.LinkedTemporal.Count > 0, out var deDated))
+                {
+                    _logger.LogInformation("[DirectAnalystPath] stripped ungrounded relative-date predicate for q='{Q}': {Before} => {After}", question, sqlToUse, deDated);
+                    sqlToUse = deDated;
+                }
+                // Symmetric to the strip: ENFORCE a filter the question named but the 7B dropped (flaky under-filter).
+                if (TryInjectGroundedValueFilters(sqlToUse, grounding.LinkedValues.Select(v => (v.Table, v.Column, v.Value)), out var injected))
+                {
+                    _logger.LogInformation("[DirectAnalystPath] injected grounded value filter for q='{Q}': {Before} => {After}", question, sqlToUse, injected);
+                    sqlToUse = injected;
+                }
+                // GRAIN: a label-only GROUP BY merges distinct entities sharing a name — add the entity key.
+                if (TryFixGroupByGrain(sqlToUse, _knowledge.GetTable, out var regrained))
+                {
+                    _logger.LogInformation("[DirectAnalystPath] fixed GROUP BY grain (added entity key) for q='{Q}': {Before} => {After}", question, sqlToUse, regrained);
+                    sqlToUse = regrained;
+                }
+
+                var compiled = new CompiledSql(sqlToUse, new Dictionary<string, object?>());
                 var validation = _validator.Validate(compiled);
                 if (!validation.IsValid)
                 {
@@ -182,30 +219,15 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                 var execSw = Stopwatch.StartNew();
                 var exec = await _executor.ExecuteAsync(compiled, cancellationToken);
 
-                // Deterministic repair for the dominant 7B failure: it bolts `IsDeleted = 0` (or another
-                // non-existent column) onto a table that lacks it, and re-emits the SAME filter when the
-                // error is fed back. So when SQL Server reports an invalid column, strip that predicate
-                // and re-run ONCE here — no LLM call, no wasted retry.
-                if (exec.Error is not null && TryStripInvalidColumnPredicate(emit.Sql!, exec.Error, out var repaired))
-                {
-                    var recompiled = new CompiledSql(repaired, new Dictionary<string, object?>());
-                    if (_validator.Validate(recompiled).IsValid)
-                    {
-                        var reexec = await _executor.ExecuteAsync(recompiled, cancellationToken);
-                        if (reexec.Error is null)
-                        {
-                            _logger.LogInformation("[DirectAnalystPath] deterministic invalid-column repair succeeded for q='{Q}'", question);
-                            compiled = recompiled;
-                            exec = reexec;
-                        }
-                    }
-                }
-
-                // Second deterministic repair: the model projected a column the table lacks (its strong
-                // `Name` prior over the real bilingual NameEn/NameAr). Resolve it from the schema — no
-                // LLM call — then re-validate + re-execute ONCE. The strip-predicate above repairs WHERE;
-                // this repairs the SELECT/ORDER-BY/GROUP-BY projection it cannot touch. Operates on
-                // compiled.Sql so it chains on any prior strip.
+                // Deterministic invalid-column repairs, PRECISE before LOSSY (order is load-bearing):
+                //
+                // (1) Bilingual-column repair FIRST. The 7B uses the wrong locale form of a label column
+                //     in EITHER direction — wrote `Name` where the real column is `NameEn`, OR wrote
+                //     `TicketStatuses.NameEn` where the real column is a plain `Name`. Resolving it from
+                //     the schema PRESERVES the predicate/projection (intent was right, only the column
+                //     name was wrong). This MUST precede the strip below: stripping a real
+                //     `TicketStatuses.NameEn = 'Open'` predicate counted ALL tickets, not the open ones.
+                //     Operates on compiled.Sql (chains on any earlier status-strip/inject). No LLM call.
                 if (exec.Error is not null &&
                     TryResolveInvalidProjectionColumn(
                         compiled.Sql, exec.Error, tableNames, _knowledge.GetTable,
@@ -221,6 +243,25 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                             _logger.LogInformation("[DirectAnalystPath] deterministic bilingual-column repair succeeded for q='{Q}'", question);
                             compiled = recompiledCol;
                             exec = reexecCol;
+                        }
+                    }
+                }
+
+                // (2) Strip-predicate FALLBACK — only when the column genuinely has no real sibling (the
+                //     dominant case: the 7B bolts `IsDeleted = 0` onto a table that lacks it, and re-emits
+                //     it when the error is fed back). LOSSY (drops the predicate), so it runs only after
+                //     the precise bilingual repair above had its chance. No LLM call, no wasted retry.
+                if (exec.Error is not null && TryStripInvalidColumnPredicate(compiled.Sql, exec.Error, out var repaired))
+                {
+                    var recompiled = new CompiledSql(repaired, new Dictionary<string, object?>());
+                    if (_validator.Validate(recompiled).IsValid)
+                    {
+                        var reexec = await _executor.ExecuteAsync(recompiled, cancellationToken);
+                        if (reexec.Error is null)
+                        {
+                            _logger.LogInformation("[DirectAnalystPath] deterministic invalid-column repair succeeded for q='{Q}'", question);
+                            compiled = recompiled;
+                            exec = reexec;
                         }
                     }
                 }
@@ -326,6 +367,186 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         return !string.Equals(repaired, before, StringComparison.Ordinal);
     }
 
+    /// <summary>Deterministically strip an UNREQUESTED status/lifecycle equality filter — the 7B's habit of
+    /// inventing <c>WHERE Status='Paid'</c> on "total of all bills" even when the prompt forbids it (a model
+    /// prior prose can't reach). A status predicate is unrequested when its literal appears NEITHER in the
+    /// question NOR among the grounded values (so the model made it up). Schema-agnostic: keys off the column
+    /// NAME shape (contains "Status"), not a hardcoded value list. Quoted-literal required, so an int FK like
+    /// <c>StatusId = 5</c> is never matched. Returns false (no change) when nothing was stripped, so a
+    /// legitimately-named status filter ("paid bills" / a synonym-grounded value) is never touched.</summary>
+    internal static bool TryStripUnrequestedStatusFilter(
+        string sql, string? question, IEnumerable<string>? groundedValues, out string repaired)
+    {
+        repaired = sql;
+        if (string.IsNullOrWhiteSpace(sql)) return false;
+        var qLower = (question ?? string.Empty).ToLowerInvariant();
+        var grounded = new HashSet<string>(groundedValues ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
+        var rx = new Regex(@"(?:\[?\w+\]?\.)?\[?\w*Status\w*\]?\s*=\s*N?'([^']+)'", O);
+        var s = sql;
+        foreach (Match m in rx.Matches(sql))
+        {
+            var literal = m.Groups[1].Value;
+            if (qLower.Contains(literal.ToLowerInvariant()) || grounded.Contains(literal)) continue; // requested → keep
+            var pred = Regex.Escape(m.Value);
+            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s+AND\b", "WHERE", O);                                 // WHERE <bad> AND ... -> WHERE ...
+            s = Regex.Replace(s, $@"\s+AND\s+{pred}", " ", O);                                              // ... AND <bad> ... -> ...
+            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);  // WHERE <bad> (only pred) -> drop WHERE
+        }
+        repaired = s.Trim();
+        return !string.Equals(repaired, sql.Trim(), StringComparison.Ordinal);
+    }
+
+    /// <summary>Deterministically strip an UNREQUESTED boolean-flag filter — the 7B's habit of bolting an
+    /// invented <c>IsPlanned = 0</c> / <c>IsActive = 1</c> onto a query whose question names no such concept
+    /// (e.g. "critical outages" came back filtered to UNPLANNED ones, 6 vs 7). The symmetric partner of
+    /// <see cref="TryStripUnrequestedStatusFilter"/> for boolean flags. A flag predicate <c>Is&lt;Concept&gt; = 0|1</c>
+    /// is unrequested when &lt;Concept&gt; (or its stem) appears nowhere in the question. EXCLUDES the soft-delete
+    /// invariant (any <c>Is*Delete*</c> flag is structural and always kept, so a Tickets <c>IsDeleted = 0</c> is
+    /// never stripped). Schema-agnostic (keys off the <c>Is&lt;word&gt;</c> shape + integer literal, so a quoted
+    /// status value or an int FK is never matched) and portable. Returns false when nothing was stripped.</summary>
+    internal static bool TryStripUnrequestedFlagFilter(string sql, string? question, out string repaired)
+    {
+        repaired = sql;
+        if (string.IsNullOrWhiteSpace(sql)) return false;
+        var qLower = (question ?? string.Empty).ToLowerInvariant();
+        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
+        // [qual.]Is<Concept> = 0|1 — a boolean flag set to an INTEGER literal (no quotes).
+        var rx = new Regex(@"(?:\[?\w+\]?\.)?\[?Is(?<c>[A-Za-z]+)\]?\s*=\s*[01]\b", O);
+        var s = sql;
+        foreach (Match m in rx.Matches(sql))
+        {
+            var concept = m.Groups["c"].Value;                                          // "Planned","Active","Deleted"
+            if (concept.IndexOf("Delete", StringComparison.OrdinalIgnoreCase) >= 0) continue;  // soft-delete invariant → keep
+            var c = concept.ToLowerInvariant();
+            if (qLower.Contains(c)) continue;                                           // requested ("active tariffs") → keep
+            // also keep when a 4+ char stem is present (planned/unplanned/planning share "plan")
+            var stem = c.Length > 5 ? c.Substring(0, c.Length - 2) : c;
+            if (stem.Length >= 4 && qLower.Contains(stem)) continue;
+            var pred = Regex.Escape(m.Value);
+            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s+AND\b", "WHERE", O);
+            s = Regex.Replace(s, $@"\s+AND\s+{pred}", " ", O);
+            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);
+        }
+        repaired = s.Trim();
+        return !string.Equals(repaired, sql.Trim(), StringComparison.Ordinal);
+    }
+
+    /// <summary>Strip an UNGROUNDED relative-date predicate the 7B invents to approximate a status concept —
+    /// e.g. "overdue bills" came back as <c>WHERE DueDate &lt; GETDATE()</c> instead of the <c>Status='Overdue'</c>
+    /// that the inline-enum value-link grounded. Fires ONLY when (a) a value was grounded (so the real filter is
+    /// enforced separately by the injector) AND (b) the question carries NO temporal cue — so a genuine "bills due
+    /// before March" (which grounds a temporal range) is never touched. Conservative: removes only a single
+    /// comparison of a column against the SERVER CLOCK (GETDATE/SYSDATETIME/…/DATEADD), never a literal-date
+    /// filter. Returns false when nothing matched.</summary>
+    internal static bool TryStripUngroundedDatePredicate(string sql, bool hasGroundedValue, bool hasTemporalCue, out string repaired)
+    {
+        repaired = sql;
+        if (string.IsNullOrWhiteSpace(sql) || !hasGroundedValue || hasTemporalCue) return false;
+        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
+        // [qual.]Col <op> <server-clock expr> — a "relative now" comparison (the invented kind).
+        var rx = new Regex(
+            @"(?:\[?\w+\]?\.)?\[?\w+\]?\s*(?:<=|>=|<>|<|>|=)\s*(?:GETDATE\(\)|SYSDATETIME\(\)|SYSUTCDATETIME\(\)|GETUTCDATE\(\)|CURRENT_TIMESTAMP|DATEADD\s*\([^)]*\))",
+            O);
+        var s = sql;
+        foreach (Match m in rx.Matches(sql))
+        {
+            var pred = Regex.Escape(m.Value);
+            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s+AND\b", "WHERE", O);
+            s = Regex.Replace(s, $@"\s+AND\s+{pred}", " ", O);
+            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);
+        }
+        repaired = s.Trim();
+        return !string.Equals(repaired, sql.Trim(), StringComparison.Ordinal);
+    }
+
+    /// <summary>Fix a GROUP-BY GRAIN bug: the 7B groups an aggregate by a LABEL column (GROUP BY
+    /// Customers.FullNameEn) instead of the entity KEY, silently MERGING distinct entities that share a
+    /// label (two different customers named alike) — "top 5 customers by total billed" returned the wrong 5.
+    /// Adds the table's single-column primary key to the GROUP BY (<c>GROUP BY Id, FullNameEn</c>), restoring
+    /// per-entity grain. SAFE by construction: adding the PK only changes the result when the label actually
+    /// has duplicates (the bug case); for a unique label, GROUP BY Id,Label ≡ GROUP BY Label. Conservative:
+    /// only a SINGLE label-shaped GROUP-BY column, an aggregate present, a single-column PK that isn't already
+    /// grouped. Returns false otherwise.</summary>
+    internal static bool TryFixGroupByGrain(string sql, Func<string, Schema.InferredTable?> getTable, out string repaired)
+    {
+        repaired = sql;
+        if (string.IsNullOrWhiteSpace(sql)) return false;
+        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
+        if (!Regex.IsMatch(sql, @"\b(?:SUM|COUNT|AVG|MIN|MAX)\s*\(", O)) return false;      // real aggregate only
+        // a SINGLE GROUP BY column immediately followed by ORDER BY / HAVING / end (multi-column GROUP BY won't match)
+        var m = Regex.Match(sql,
+            @"\bGROUP\s+BY\s+(?<full>(?<qual>\[?\w+\]?\.)?\[?(?<col>\w+)\]?)\s*(?=(ORDER\s+BY|HAVING|;|\)|$))", O);
+        if (!m.Success) return false;
+        var col = m.Groups["col"].Value;
+        if (!Regex.IsMatch(col, "(Name|Title|Label)", RegexOptions.IgnoreCase)) return false;  // label-shaped only
+        var qual = m.Groups["qual"].Value.TrimEnd('.').Trim('[', ']');
+        var aliasMap = BuildAliasToTableMap(sql);
+        string? table = null;
+        if (!string.IsNullOrEmpty(qual) && aliasMap.TryGetValue(qual, out var tq)) table = tq;
+        else
+        {
+            var owners = aliasMap.Values.Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(tn => { var ti = getTable(tn); return ti is not null && HasColumn(ti, col); }).ToList();
+            if (owners.Count == 1) table = owners[0];
+        }
+        if (table is null) return false;
+        var t = getTable(table);
+        if (t?.PrimaryKey is not { Count: 1 } pk) return false;                              // single-column PK only
+        var pkCol = pk[0];
+        if (string.Equals(pkCol, col, StringComparison.OrdinalIgnoreCase)) return false;     // already grouping by the key
+        if (Regex.IsMatch(m.Groups["full"].Value, $@"\b{Regex.Escape(pkCol)}\b", O)) return false;
+        var qualifier = string.IsNullOrEmpty(qual) ? table : qual;
+        var newGroupBy = $"GROUP BY {qualifier}.{pkCol}, {m.Groups["full"].Value}";
+        repaired = sql.Substring(0, m.Index) + newGroupBy + sql.Substring(m.Index + m.Length);
+        return !string.Equals(repaired, sql, StringComparison.Ordinal);
+    }
+
+    // Words that can follow a table name in FROM/JOIN but are NOT an alias (so the injector doesn't
+    // mistake "JOIN TicketStatuses ON ..." for an alias named "ON").
+    private static readonly HashSet<string> SqlAliasStopWords = new(StringComparer.OrdinalIgnoreCase)
+    { "ON", "WHERE", "INNER", "LEFT", "RIGHT", "FULL", "CROSS", "JOIN", "GROUP", "ORDER", "HAVING", "UNION", "AS" };
+
+    /// <summary>Deterministically INJECT a filter for a value the question NAMED (a value-link) but the model
+    /// DROPPED — the symmetric partner of <see cref="TryStripUnrequestedStatusFilter"/>. The 7B is flaky about
+    /// applying a requested filter ("open tickets" came back as all 83 one run, 35 the next), so the
+    /// prescriptive hint alone isn't reliable; this enforces it. CONSERVATIVE: only a single simple statement
+    /// (one WHERE, no GROUP BY — insertion point unambiguous), only when the value's table is already in the
+    /// FROM/JOIN, and only when that literal isn't already present (no double-filter). Returns false (no change)
+    /// otherwise, so a query that already filters correctly — or is too complex to touch — is left alone.</summary>
+    internal static bool TryInjectGroundedValueFilters(
+        string sql, IEnumerable<(string Table, string Column, string Value)>? linked, out string repaired)
+    {
+        repaired = sql;
+        if (string.IsNullOrWhiteSpace(sql) || linked is null) return false;
+        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
+        if (Regex.Matches(sql, @"\bWHERE\b", O).Count > 1) return false;   // subquery → ambiguous, skip
+        if (Regex.IsMatch(sql, @"\bGROUP\s+BY\b", O)) return false;        // aggregation → skip (lower value, riskier)
+        var s = sql;
+        var changed = false;
+        foreach (var (table, col, val) in linked)
+        {
+            if (string.IsNullOrWhiteSpace(table) || string.IsNullOrWhiteSpace(col) || string.IsNullOrWhiteSpace(val)) continue;
+            var escVal = val.Replace("'", "''");
+            if (s.IndexOf("'" + escVal + "'", StringComparison.OrdinalIgnoreCase) >= 0) continue;       // already filtered
+            // Find the table in FROM/JOIN and capture its alias if any. When a table is aliased
+            // (JOIN TicketStatuses s) SQL Server REQUIRES the alias, so qualify the predicate with it.
+            var mt = Regex.Match(s, $@"\b(?:FROM|JOIN)\s+\[?{Regex.Escape(table)}\]?(?:\s+(?:AS\s+)?(?<a>\w+))?", O);
+            if (!mt.Success) continue;                                                                  // table not in query
+            var qualifier = table;
+            if (mt.Groups["a"].Success && !SqlAliasStopWords.Contains(mt.Groups["a"].Value))
+                qualifier = mt.Groups["a"].Value;
+            var pred = $"{qualifier}.{col} = '{escVal}'";
+            var m = Regex.Match(s, @"\b(ORDER\s+BY|HAVING)\b", O);
+            var at = m.Success ? m.Index : (s.LastIndexOf(';') >= 0 ? s.LastIndexOf(';') : s.TrimEnd().Length);
+            var keyword = Regex.IsMatch(s.Substring(0, at), @"\bWHERE\b", O) ? " AND " : " WHERE ";
+            s = s.Insert(at, keyword + pred + " ");
+            changed = true;
+        }
+        repaired = changed ? s.Trim() : sql;
+        return changed;
+    }
+
     /// <summary>Deterministically rewrite a PROJECTED column SQL Server reported as non-existent
     /// ("Invalid column name 'X'") to the owning table's real bilingual column. Schema-driven — no
     /// hardcoded table/column names: the target is the single column named X+&lt;localeSuffix&gt; on the
@@ -416,8 +637,12 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         return map;
     }
 
+    // The alias group has a negative lookahead so it never swallows a following clause keyword AS the
+    // alias: for an UNaliased table immediately followed by a join (`FROM Tickets JOIN TicketStatuses s`),
+    // a naive `(\w+)?` ate the `JOIN`, consuming it so the SECOND table+alias were never matched and its
+    // qualifier (`s` / `TicketStatuses`) went unmapped — silently defeating any qualified-column repair.
     private static readonly Regex FromJoinAlias = new(
-        @"\b(?:FROM|JOIN)\s+(?:\[?\w+\]?\.)?\[?(\w+)\]?(?:\s+(?:AS\s+)?(\w+))?",
+        @"\b(?:FROM|JOIN)\s+(?:\[?\w+\]?\.)?\[?(\w+)\]?(?:\s+(?:AS\s+)?(?!(?:INNER|LEFT|RIGHT|FULL|OUTER|CROSS|JOIN|ON|WHERE|GROUP|ORDER|HAVING|UNION|EXCEPT|INTERSECT|PIVOT|UNPIVOT)\b)(\w+))?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly System.Collections.Generic.HashSet<string> SqlClauseKeywords =
@@ -460,6 +685,21 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                     return label;
             }
         }
+        // 3) REVERSE twin: the model SUFFIXED a column that exists only as the BASE on this table —
+        //    it wrote TicketStatuses.NameEn (its "every label is bilingual" prior) but the real
+        //    column is a plain Name. Strip the locale suffix and use the base if it exists. The mirror
+        //    of (1); without it the lossy strip-predicate fallback drops the whole filter and the
+        //    answer goes over-broad (open tickets → ALL tickets). Only fires when <bad> itself does
+        //    not exist on the table (guaranteed: the caller checked HasColumn) and the base does.
+        foreach (var suf in orderedSuffixes)
+        {
+            if (!bad.EndsWith(suf, StringComparison.OrdinalIgnoreCase)) continue;
+            var baseName = bad[..^suf.Length];                          // "NameEn" → "Name"
+            if (baseName.Length == 0) continue;
+            var baseCol = t.Columns.FirstOrDefault(c =>
+                string.Equals(c.Name, baseName, StringComparison.OrdinalIgnoreCase));
+            if (baseCol is not null) return baseCol.Name;               // real plain column
+        }
         return null;
     }
 
@@ -477,7 +717,11 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             // SQL-escape the literal the model is told to copy: double the single-quote so a value like
             // O'Brien yields valid T-SQL ('O''Brien'), not a syntax error.
             var v = lv.Value.Replace("'", "''");
-            hints.Add($"'{v}' is the value {lv.Table}.{lv.Column} — filter {lv.Table}.{lv.Column} = '{v}' (join {lv.Table} to the fact table on the matching foreign-key column if needed).");
+            // PRESCRIPTIVE: a value LINK means the question literally contains this value, so filtering IS
+            // requested — force it (the declarative version made the 7B drop the filter, e.g. "open tickets"
+            // returned all 83). The complementary over-filter GUARD strips status filters the model invents
+            // WITHOUT a grounded value, so this can be a MUST without re-introducing spurious filters.
+            hints.Add($"the question names '{v}' — you MUST add WHERE {lv.Table}.{lv.Column} = '{v}' (join {lv.Table} on its matching foreign key) to answer correctly.");
         }
         foreach (var nk in g.LinkedNaturalKeys)
         {

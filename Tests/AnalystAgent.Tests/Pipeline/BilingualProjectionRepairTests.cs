@@ -154,6 +154,36 @@ public class BilingualProjectionRepairTests
     }
 
     [Fact]
+    public void ReverseTwin_NameEnRewritesToPlainName_inWhereClause()
+    {
+        // The open-tickets bug (live, session 2259): the 7B's "every label is bilingual" prior made it
+        // write `TicketStatuses.NameEn = 'Open'`, but TicketStatuses has a PLAIN Name. Repair strips the
+        // spurious locale suffix to the real base column — PRESERVING the WHERE filter — so the lossy
+        // strip-predicate fallback never drops it (which counted ALL tickets, not just the open ones).
+        var sql = "SELECT COUNT(*) FROM Tickets JOIN TicketStatuses s ON Tickets.StatusId = s.Id WHERE s.NameEn = 'Open'";
+        var ok = DirectAnalystPath.TryResolveInvalidProjectionColumn(
+            sql, "Invalid column name 'NameEn'", new[] { "Tickets", "TicketStatuses" },
+            Lookup(Table("Tickets", null, "Id", "StatusId"), Table("TicketStatuses", "Name", "Id", "Name")),
+            Suffixes, En, out var r);
+        Assert.True(ok);
+        Assert.Contains("s.[Name] = 'Open'", r);
+        Assert.DoesNotContain("NameEn", r);
+    }
+
+    [Fact]
+    public void ReverseTwin_doesNotFire_whenBaseAbsent()
+    {
+        // `IsDeletedEn` has no plain `IsDeleted` base on this table → no rewrite (falls through to the
+        // separate strip-predicate fallback). Guards the reverse rule from inventing a base column.
+        var sql = "SELECT * FROM Outages o WHERE o.IsDeletedEn = 0";
+        var ok = DirectAnalystPath.TryResolveInvalidProjectionColumn(
+            sql, "Invalid column name 'IsDeletedEn'", new[] { "Outages" },
+            Lookup(Table("Outages", null, "Id", "StartedAt")), Suffixes, En, out var r);
+        Assert.False(ok);
+        Assert.Equal(sql, r);
+    }
+
+    [Fact]
     public void QualifiedAndBracketed_rewritesPreservingQualifier_andNotInsideNameEn()
     {
         // dbo.Regions.[Name] → dbo.Regions.[NameEn]; the existing NameEn in a sibling column must not be touched.
@@ -162,5 +192,41 @@ public class BilingualProjectionRepairTests
             Lookup(Table("Regions", "NameEn", "Id", "NameEn")), Suffixes, En, out var r);
         Assert.True(ok);
         Assert.Contains("dbo.Regions.[NameEn]", r);
+    }
+
+    // ── GROUP-BY grain fix: add the entity key to a label-only grouping (generality across tables) ──
+    private static InferredTable TableWithPk(string name, string label, string pk, params string[] cols)
+    {
+        var t = new InferredTable { Name = name, Schema = "dbo" };
+        t.Roles.LabelColumn = label;
+        foreach (var c in cols) t.Columns.Add(new InferredColumn { Name = c, Type = "nvarchar" });
+        t.PrimaryKey.Add(pk);
+        return t;
+    }
+
+    [Fact]
+    public void FixGroupByGrain_AddsEntityKey_GeneralAcrossTables()
+    {
+        // Customers grouped by NAME (qualified by table name) → add Customers.Id so distinct same-named customers don't merge
+        Assert.True(DirectAnalystPath.TryFixGroupByGrain(
+            "SELECT TOP 5 Customers.FullNameEn, SUM(b.TotalAmount) FROM Bills b JOIN Customers ON b.CustomerId=Customers.Id GROUP BY Customers.FullNameEn ORDER BY SUM(b.TotalAmount) DESC",
+            Lookup(TableWithPk("Customers", "FullNameEn", "Id", "Id", "FullNameEn")), out var r1));
+        Assert.Contains("GROUP BY Customers.Id, Customers.FullNameEn", r1);
+
+        // DIFFERENT table, ALIASED (Departments d) → same fix, proving it's not Customers-specific
+        Assert.True(DirectAnalystPath.TryFixGroupByGrain(
+            "SELECT d.NameEn, COUNT(*) FROM Tickets t JOIN Departments d ON t.DepartmentId=d.Id GROUP BY d.NameEn ORDER BY COUNT(*) DESC",
+            Lookup(TableWithPk("Departments", "NameEn", "Id", "Id", "NameEn")), out var r2));
+        Assert.Contains("GROUP BY d.Id, d.NameEn", r2);
+
+        // a function/date GROUP BY is never touched (not a label column)
+        Assert.False(DirectAnalystPath.TryFixGroupByGrain(
+            "SELECT YEAR(CreatedAt), COUNT(*) FROM Tickets GROUP BY YEAR(CreatedAt)",
+            Lookup(TableWithPk("Tickets", "Title", "Id", "Id", "Title")), out _));
+
+        // already grouping by the key → no-op
+        Assert.False(DirectAnalystPath.TryFixGroupByGrain(
+            "SELECT Customers.Id, SUM(x) FROM Bills b JOIN Customers ON 1=1 GROUP BY Customers.Id",
+            Lookup(TableWithPk("Customers", "FullNameEn", "Id", "Id", "FullNameEn")), out _));
     }
 }

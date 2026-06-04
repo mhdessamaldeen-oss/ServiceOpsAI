@@ -178,6 +178,9 @@ internal sealed class HostTraceSink : ITraceSink
                         PromptFullLength = r.PromptFullLength,
                         ResponseFullLength = r.ResponseFullLength,
                         RetryAttempt = r.RetryAttempt,
+                        Kind = r.Kind,
+                        PromptFull = r.PromptFull,
+                        ResponseFull = r.ResponseFull,
                     });
                 }
             }
@@ -186,6 +189,41 @@ internal sealed class HostTraceSink : ITraceSink
             {
                 foreach (var s in steps)
                     executionDetails.Steps.Add(MapStep(s, stepMetrics, stepCalls));
+            }
+
+            // COVERAGE GUARANTEE: any recorded call whose stage didn't match a named pipeline step
+            // (e.g. IntentClassifier when there is no IntentClassifier step, or bge-m3 embedding calls
+            // that fire inside SchemaLink/ScopeGate) would otherwise be ORPHANED by TryMatchCalls and
+            // dropped from the trace. Collect every call-group not attached above into a synthetic step
+            // so the persisted trace covers ALL model calls — the whole point of this capture.
+            if (stepCalls.Count > 0)
+            {
+                var attached = new HashSet<List<TracedLlmCallRow>>(System.Collections.Generic.ReferenceEqualityComparer.Instance);
+                void CollectAttached(CopilotExecutionStep st)
+                {
+                    if (st.LlmCalls is { } lc) attached.Add(lc);
+                    foreach (var ss in st.SubSteps) CollectAttached(ss);
+                }
+                foreach (var st in executionDetails.Steps) CollectAttached(st);
+
+                var orphans = stepCalls
+                    .Where(kv => kv.Value.Count > 0 && !attached.Contains(kv.Value))
+                    .SelectMany(kv => kv.Value)
+                    .ToList();
+                if (orphans.Count > 0)
+                {
+                    executionDetails.Steps.Add(new CopilotExecutionStep
+                    {
+                        Layer = CopilotExecutionLayer.Context,
+                        Action = "Model calls (unattached)",
+                        Detail = $"{orphans.Count} model call(s) not tied to a named step (classifier / embeddings).",
+                        Status = CopilotStepStatus.Ok,
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow,
+                        Location = "AnalystAgent",
+                        LlmCalls = orphans,
+                    });
+                }
             }
 
             var response = new CopilotChatResponse

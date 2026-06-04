@@ -46,6 +46,12 @@
                 CssClass = "btn-action-soft btn-action-sm"
             },
             new() {
+                Text = "Export LLM calls",
+                Href = Url.Action("ExportTraceLlmCalls", "AiAnalysis", new { id = Model.Trace.Id }) ?? "#",
+                IconClass = "bi bi-download",
+                CssClass = "btn-action-soft btn-action-sm"
+            },
+            new() {
                 Text = Loc.Get("Hub"),
                 Href = Url.Action("Hub", "AiAnalysis") ?? "#",
                 IconClass = "bi bi-grid",

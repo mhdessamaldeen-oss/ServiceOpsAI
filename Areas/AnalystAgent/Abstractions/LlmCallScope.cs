@@ -79,7 +79,68 @@ public sealed record LlmCallRecord(
     string? ResponsePreview = null,
     int? PromptFullLength = null,
     int? ResponseFullLength = null,
-    int RetryAttempt = 0);
+    int RetryAttempt = 0,
+    // "llm" = a generation call (chat/SQL/explainer); "embedding" = a bge-m3 vector call (no Response,
+    // PromptPreview carries the embedded text). Lets the trace UI + export distinguish the two.
+    string Kind = "llm",
+    // FULL (untruncated, bounded by LlmTraceFullMaxChars) prompt + response. Populated only when the
+    // active LlmTraceCaptureScope is Full (eval/assessment runs); null in Preview mode (normal chat),
+    // where only the 4000-char PromptPreview/ResponsePreview are kept to bound DB growth.
+    string? PromptFull = null,
+    string? ResponseFull = null);
+
+/// <summary>How much per-call text the bridge captures. <see cref="Preview"/> (default) keeps only the
+/// ~4000-char preview; <see cref="Full"/> additionally stores the untruncated prompt + response (bounded
+/// by <c>AnalystOptions.LlmTraceFullMaxChars</c>). Assessment/eval runs open a Full scope so a trace can
+/// be inspected end-to-end; normal chat stays in Preview to keep the trace table lean.</summary>
+public enum LlmTraceCaptureMode { Preview = 0, Full = 1 }
+
+/// <summary>AsyncLocal capture-mode flag, mirroring <see cref="LlmCallStageHint"/>. Set by the assessment
+/// handler around each case (<c>using var _ = LlmTraceCaptureScope.Full();</c>); the bridge reads
+/// <see cref="Current"/> when it records a call. Defaults to Preview when no scope is active.</summary>
+public sealed class LlmTraceCaptureScope : IDisposable
+{
+    private static readonly AsyncLocal<LlmTraceCaptureMode> _mode = new();
+    private readonly LlmTraceCaptureMode _previous;
+    public static LlmTraceCaptureMode Current => _mode.Value;          // enum default 0 == Preview
+    public static LlmTraceCaptureScope Full() => new(LlmTraceCaptureMode.Full);
+    private LlmTraceCaptureScope(LlmTraceCaptureMode mode) { _previous = _mode.Value; _mode.Value = mode; }
+    public void Dispose() { _mode.Value = _previous; }
+}
+
+/// <summary>Builds an <see cref="LlmCallRecord"/> applying the standard PREVIEW truncation (always) and
+/// FULL-text capture (only when the active <see cref="LlmTraceCaptureScope"/> is Full). Shared by the
+/// <c>ILlmClient</c> bridge and by call sites that invoke a provider directly (IntentClassifier, the
+/// embedder) so every recorded call truncates identically — one place owns the policy.</summary>
+public static class LlmTraceCapture
+{
+    public static LlmCallRecord BuildRecord(
+        string stage, string provider, string? model, TokenUsage? usage,
+        long elapsedMs, bool success, string? error,
+        string? prompt, string? response, int previewCap, int fullCap,
+        int retryAttempt = 0, string kind = "llm")
+    {
+        static string? Cut(string? s, int cap) =>
+            string.IsNullOrEmpty(s) ? null : (s!.Length > cap ? s.Substring(0, cap) : s);
+        previewCap = System.Math.Max(0, previewCap);
+        var promptPreview = previewCap > 0 ? Cut(prompt, previewCap) : null;
+        var respPreview = previewCap > 0 ? Cut(response, previewCap) : null;
+        string? promptFull = null, respFull = null;
+        if (LlmTraceCaptureScope.Current == LlmTraceCaptureMode.Full)
+        {
+            var fc = System.Math.Max(0, fullCap);
+            promptFull = fc > 0 ? Cut(prompt, fc) : null;
+            respFull = fc > 0 ? Cut(response, fc) : null;
+        }
+        return new LlmCallRecord(
+            Stage: stage, Provider: provider, Model: model, Usage: usage,
+            ElapsedMs: elapsedMs, Success: success, Error: error,
+            PromptPreview: promptPreview, ResponsePreview: respPreview,
+            PromptFullLength: string.IsNullOrEmpty(prompt) ? null : prompt!.Length,
+            ResponseFullLength: string.IsNullOrEmpty(response) ? null : response!.Length,
+            RetryAttempt: retryAttempt, Kind: kind, PromptFull: promptFull, ResponseFull: respFull);
+    }
+}
 
 /// <summary>
 /// Stage hint propagated via <c>AsyncLocal</c> so callers can label LLM calls without

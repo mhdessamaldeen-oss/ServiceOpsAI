@@ -1,0 +1,249 @@
+{
+  "name": "Fresh generality suite (22 diverse cases, 2026-06-04)",
+  "version": "2026-06-04.fresh",
+  "description": "FRESH questions covering DIFFERENT tables/columns than the tuned 30 — proves the fixes generalize (inline-enum across Bills.Status/PaymentMethod/Assets.AssetType/ServiceAccounts/WorkOrders/Maintenance, flag-strip keep+strip, grain non-regression). Authored SQL executed live = gold.",
+  "Scenarios": [
+    {
+      "Code": "F-PaidBills",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many paid bills are there",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills WHERE Status='Paid'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 10739.0
+    },
+    {
+      "Code": "F-IssuedBills",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many issued bills do we have",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills WHERE Status='Issued'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 1306.0
+    },
+    {
+      "Code": "F-CashBills",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "how many bills were paid by cash",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills WHERE PaymentMethod='Cash'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 2688.0
+    },
+    {
+      "Code": "F-Transformers",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many transformers do we have",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Assets WHERE AssetType='Transformer'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 9.0
+    },
+    {
+      "Code": "F-Generators",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many generators are there",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Assets WHERE AssetType='Generator'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 3.0
+    },
+    {
+      "Code": "F-ActiveAccounts",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "how many active service accounts are there",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM ServiceAccounts WHERE Status='Active'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 254.0
+    },
+    {
+      "Code": "F-SuspendedAccounts",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "how many suspended service accounts",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM ServiceAccounts WHERE Status='Suspended'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 28.0
+    },
+    {
+      "Code": "F-CompletedWO",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "how many completed work orders",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM WorkOrders WHERE Status='Completed'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 78.0
+    },
+    {
+      "Code": "F-CancelledWO",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "how many cancelled work orders are there",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM WorkOrders WHERE Status='Cancelled'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 3.0
+    },
+    {
+      "Code": "F-CompletedMaint",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "how many completed maintenance schedules",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM MaintenanceSchedules WHERE Status='Completed'",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 17.0
+    },
+    {
+      "Code": "F-PlannedOutages",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "how many planned outages have we had",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Outages WHERE IsPlanned=1",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 5.0
+    },
+    {
+      "Code": "F-UnplannedOutages",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "how many unplanned outages",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Outages WHERE IsPlanned=0",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 27.0
+    },
+    {
+      "Code": "F-TopDepts",
+      "Category": "TOPN",
+      "Difficulty": "Medium",
+      "Question": "top 5 departments by number of tickets",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT TOP 5 d.NameEn FROM Tickets t JOIN Departments d ON t.DepartmentId=d.Id WHERE t.IsDeleted=0 GROUP BY d.Id, d.NameEn ORDER BY COUNT(*) DESC",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedRowCount": 5
+    },
+    {
+      "Code": "F-Payments",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many payments have been made",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Payments",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 14519.0
+    },
+    {
+      "Code": "F-PaymentSum",
+      "Category": "AGGREGATE",
+      "Difficulty": "Medium",
+      "Question": "what is the total amount of all payments",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT SUM(Amount) FROM Payments",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 339214935.52
+    },
+    {
+      "Code": "F-Assets",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many assets do we have",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Assets",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 54.0
+    },
+    {
+      "Code": "F-WorkOrders",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many work orders are there",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM WorkOrders",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 93.0
+    },
+    {
+      "Code": "F-ServiceAccounts",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many service accounts do we have",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM ServiceAccounts",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 297.0
+    },
+    {
+      "Code": "F-Subsidies",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many subsidies are there",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Subsidies",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 40.0
+    },
+    {
+      "Code": "F-CallLogs",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "how many call logs do we have",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM CallLogs",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedScalar": 1212.0
+    },
+    {
+      "Code": "F-AssetTypes",
+      "Category": "DISTINCT",
+      "Difficulty": "Medium",
+      "Question": "list the distinct asset types",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT DISTINCT AssetType FROM Assets",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedRowCount": 9
+    },
+    {
+      "Code": "F-PaymentMethods",
+      "Category": "METADATA",
+      "Difficulty": "Medium",
+      "Question": "how many payment methods are there",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM PaymentMethods",
+      "GoldVerified": true,
+      "GoldSource": "authored+executed live 2026-06-04 (fresh generality suite)",
+      "ExpectedRowCount": 1
+    }
+  ]
+}

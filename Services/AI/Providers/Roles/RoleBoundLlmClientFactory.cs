@@ -8,6 +8,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
     using ServiceOpsAI.Data;
     using ServiceOpsAI.Enums;
     using AnalystAgent.Abstractions;
+    using AnalystAgent.Configuration;
 
     /// <summary>
     /// Real implementation of <see cref="IRoleBoundLlmClientFactory"/>. For each role, returns
@@ -47,6 +48,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
         private readonly IServiceProvider _serviceProvider;
         private readonly AiRoleBindings _bindings;
         private readonly AiProviderSettings _providerSettings;
+        private readonly IOptionsMonitor<AnalystOptions> _analystOptions;
         private readonly ILogger<RoleBoundLlmClientFactory> _logger;
         private readonly Dictionary<AiRole, ILlmClient> _perRoleClients = new();
         private readonly object _gate = new();
@@ -57,6 +59,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
             IServiceProvider serviceProvider,
             IOptions<AiRoleBindings> bindings,
             IOptions<AiProviderSettings> providerSettings,
+            IOptionsMonitor<AnalystOptions> analystOptions,
             ILogger<RoleBoundLlmClientFactory> logger)
         {
             _defaultClient = defaultClient;
@@ -64,6 +67,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
             _serviceProvider = serviceProvider;
             _bindings = bindings.Value;
             _providerSettings = providerSettings.Value;
+            _analystOptions = analystOptions;
             _logger = logger;
         }
 
@@ -76,7 +80,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
                 if (_perRoleClients.TryGetValue(role, out var existing)) return existing;
                 ILlmClient client = RoleSettingsKeys.TryGetValue(role, out var keys)
                     ? new RoleBoundLlmClient(role, keys.Provider, keys.Model, _defaultClient,
-                        _providerFactory, _serviceProvider, _logger)
+                        _providerFactory, _serviceProvider, _analystOptions, _logger)
                     : _defaultClient;
                 _perRoleClients[role] = client;
                 return client;
@@ -142,6 +146,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
         private readonly ILlmClient _fallback;
         private readonly IAiProviderFactory _providerFactory;
         private readonly IServiceProvider _serviceProvider;
+        private readonly IOptionsMonitor<AnalystOptions> _analystOptions;
         private readonly ILogger _logger;
         private bool _loggedNonOllamaWarning;
 
@@ -152,6 +157,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
             ILlmClient fallback,
             IAiProviderFactory providerFactory,
             IServiceProvider serviceProvider,
+            IOptionsMonitor<AnalystOptions> analystOptions,
             ILogger logger)
         {
             _role = role;
@@ -160,6 +166,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
             _fallback = fallback;
             _providerFactory = providerFactory;
             _serviceProvider = serviceProvider;
+            _analystOptions = analystOptions;
             _logger = logger;
         }
 
@@ -206,33 +213,71 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
                 ? userPrompt
                 : systemPrompt + "\n\n" + userPrompt;
 
-            if (innerProvider is OllamaAiProvider ollama)
+            // TRACE COVERAGE: the role-override branch calls the provider DIRECTLY (it does NOT go
+            // through HostAiProviderLlmClient), so without this the emitter / decomposer / explainer
+            // calls show as calls=0 in the trace — we'd be tuning a prompt we cannot read. Record the
+            // call into the per-question scope via the shared helper. Best-effort in finally; a trace
+            // failure must never break SQL generation. The _fallback branch above already records.
+            var stage = LlmCallStageHint.Current ?? _role.ToString();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            AiProviderResult? result = null;
+            string? error = null;
+            try
             {
-                var modelToUse = string.IsNullOrWhiteSpace(roleModel) ? null : roleModel;
-                var result = await ollama.GenerateAsync(combinedPrompt, modelOverride: modelToUse, expectJson: jsonMode);
+                if (innerProvider is OllamaAiProvider ollama)
+                {
+                    var modelToUse = string.IsNullOrWhiteSpace(roleModel) ? null : roleModel;
+                    result = await ollama.GenerateAsync(combinedPrompt, modelOverride: modelToUse, expectJson: jsonMode);
+                    if (!result.Success)
+                        throw new InvalidOperationException(
+                            $"LLM call failed for role {_role} on model '{modelToUse ?? "(provider default)"}': {result.Error}");
+                    return result.ResponseText ?? string.Empty;
+                }
+
+                // Non-Ollama provider — uses its own configured model. If the admin set a role-
+                // specific model, log once that it's not applied here (matches WorkloadAwareProvider's
+                // compromise). The role-specific PROVIDER selection still applies.
+                if (!string.IsNullOrWhiteSpace(roleModel) && !_loggedNonOllamaWarning)
+                {
+                    _logger.LogWarning(
+                        "[RoleBoundLlm] role={Role} has model '{Model}' set but provider {Provider} does not support per-call model override; using the provider's own configured model.",
+                        _role, roleModel, innerProvider?.GetType().Name ?? "null");
+                    _loggedNonOllamaWarning = true;
+                }
+                result = jsonMode && provider is WorkloadAwareProvider w
+                    ? await w.GenerateJsonAsync(combinedPrompt)
+                    : await provider.GenerateAsync(combinedPrompt);
                 if (!result.Success)
                     throw new InvalidOperationException(
-                        $"LLM call failed for role {_role} on model '{modelToUse ?? "(provider default)"}': {result.Error}");
+                        $"LLM call failed for role {_role}: {result.Error}");
                 return result.ResponseText ?? string.Empty;
             }
-
-            // Non-Ollama provider — uses its own configured model. If the admin set a role-
-            // specific model, log once that it's not applied here (matches WorkloadAwareProvider's
-            // compromise). The role-specific PROVIDER selection still applies.
-            if (!string.IsNullOrWhiteSpace(roleModel) && !_loggedNonOllamaWarning)
+            catch (Exception ex)
             {
-                _logger.LogWarning(
-                    "[RoleBoundLlm] role={Role} has model '{Model}' set but provider {Provider} does not support per-call model override; using the provider's own configured model.",
-                    _role, roleModel, innerProvider?.GetType().Name ?? "null");
-                _loggedNonOllamaWarning = true;
+                error ??= ex.Message;
+                throw;
             }
-            var nonOllamaResult = jsonMode && provider is WorkloadAwareProvider w
-                ? await w.GenerateJsonAsync(combinedPrompt)
-                : await provider.GenerateAsync(combinedPrompt);
-            if (!nonOllamaResult.Success)
-                throw new InvalidOperationException(
-                    $"LLM call failed for role {_role}: {nonOllamaResult.Error}");
-            return nonOllamaResult.ResponseText ?? string.Empty;
+            finally
+            {
+                sw.Stop();
+                try
+                {
+                    var opts = _analystOptions.CurrentValue;
+                    LlmCallScope.Current?.Record(LlmTraceCapture.BuildRecord(
+                        stage: stage,
+                        provider: result?.ProviderType.ToString() ?? "unknown",
+                        model: result?.ModelUsed,
+                        usage: result?.Usage,
+                        elapsedMs: sw.ElapsedMilliseconds,
+                        success: result?.Success ?? false,
+                        error: error,
+                        prompt: combinedPrompt,
+                        response: result?.ResponseText,
+                        previewCap: opts.LlmTracePreviewMaxChars,
+                        fullCap: opts.LlmTraceFullMaxChars));
+                }
+                catch { /* tracing must never break generation */ }
+            }
         }
 
         // WorkloadAwareProvider stores _inner privately. Reflection is the cleanest workaround

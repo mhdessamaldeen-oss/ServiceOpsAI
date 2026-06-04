@@ -208,7 +208,45 @@ namespace ServiceOpsAI.Services.AI.Copilot.Trace
                 CompletedAt = source.CompletedAt,
                 Location = source.Location,
                 Current = source.Current,
-                SubSteps = source.SubSteps.Select(step => CloneStep(step, options)).ToList()
+                SubSteps = source.SubSteps.Select(step => CloneStep(step, options)).ToList(),
+                // Carry the per-step LLM telemetry through the audit-safe clone. These were previously
+                // DROPPED here, which silently lost every per-call prompt/response (and decisions /
+                // phase diagnostics) from the persisted ExecutionPlan — so a historical trace could not
+                // show "what did we send / what came back". Restored so the trace covers all LLM calls.
+                PromptTokens = source.PromptTokens,
+                CompletionTokens = source.CompletionTokens,
+                EstimatedCostUsd = source.EstimatedCostUsd,
+                LlmModelUsed = source.LlmModelUsed,
+                LlmCalls = source.LlmCalls?.Select(c => CloneLlmCall(c, options)).ToList(),
+                Decisions = source.Decisions,
+                PhaseDiagnostics = source.PhaseDiagnostics,
+            };
+        }
+
+        /// <summary>Clone a per-call row for persistence. The PREVIEW fields obey the audit text limit;
+        /// the FULL prompt/response (eval-run artifact, already bounded at capture by LlmTraceFullMaxChars)
+        /// are EXEMPT so the end-to-end inspection text isn't re-clipped.</summary>
+        private static TracedLlmCallRow CloneLlmCall(TracedLlmCallRow c, CopilotTracePersistenceOptions options)
+        {
+            return new TracedLlmCallRow
+            {
+                Stage = c.Stage,
+                Provider = c.Provider,
+                Model = c.Model,
+                PromptTokens = c.PromptTokens,
+                CompletionTokens = c.CompletionTokens,
+                ElapsedMs = c.ElapsedMs,
+                EstimatedCostUsd = c.EstimatedCostUsd,
+                Success = c.Success,
+                Error = c.Error,
+                PromptPreview = c.PromptPreview is null ? null : Truncate(c.PromptPreview, options),
+                ResponsePreview = c.ResponsePreview is null ? null : Truncate(c.ResponsePreview, options),
+                PromptFullLength = c.PromptFullLength,
+                ResponseFullLength = c.ResponseFullLength,
+                RetryAttempt = c.RetryAttempt,
+                Kind = c.Kind,
+                PromptFull = c.PromptFull,
+                ResponseFull = c.ResponseFull,
             };
         }
 

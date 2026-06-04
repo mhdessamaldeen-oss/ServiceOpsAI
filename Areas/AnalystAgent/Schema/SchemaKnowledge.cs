@@ -205,6 +205,7 @@ internal sealed class SchemaKnowledge : ISchemaKnowledge
             Name = t.Name,
             Schema = t.Schema,
             Description = ov.Description ?? t.Description,
+            GrainNote = ov.GrainNote ?? t.GrainNote,
             PrimaryKey = t.PrimaryKey,
             Flags = flags,
             Roles = roles,

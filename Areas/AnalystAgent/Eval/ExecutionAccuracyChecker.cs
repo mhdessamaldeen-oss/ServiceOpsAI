@@ -138,6 +138,13 @@ internal sealed class ExecutionAccuracyChecker : IExecutionAccuracyChecker
         var copilotBag = BuildCanonicalBag(copilot);
         if (BagsEqual(expectedBag, copilotBag)) return true;
 
+        // NOTE (2026-06-04): an earlier "single-row → require exact" guard was tried here to stop a
+        // scalar {35} subset-matching {35,'Open'}. The first honest baseline DISPROVED it: it caused a
+        // false-negative on a legitimate single-row LOOKUP (copilot returns the right row with extra
+        // columns), and the scalar false-positive it targeted is already independently caught by
+        // PassedScalar (first/any-cell value match). Reverted — the subset paths below correctly model
+        // projection asymmetry for single- AND multi-row results.
+
         // Subset paths: handle projection asymmetry. The user's question might be served by
         // gold SQL with more columns than copilot emits (gold projects Id+CreatedAt+Title+Number,
         // copilot projects CreatedAt+Title+Number — semantically the same answer), or vice

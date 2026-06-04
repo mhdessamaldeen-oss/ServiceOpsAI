@@ -5,6 +5,7 @@ using ServiceOpsAI.Enums;
 using ServiceOpsAI.Services.AI.Providers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using AnalystAgent.Abstractions;
 using AnalystAgent.Configuration;
 using AnalystAgent.Internal;
 
@@ -74,15 +75,18 @@ internal sealed class IntentClassifier : IIntentClassifier
 {
     private readonly IAiProviderFactory _providerFactory;
     private readonly IOptionsMonitor<CopilotTextCatalog> _textCatalog;
+    private readonly IOptionsMonitor<AnalystOptions> _options;
     private readonly ILogger<IntentClassifier> _logger;
 
     public IntentClassifier(
         IAiProviderFactory providerFactory,
         IOptionsMonitor<CopilotTextCatalog> textCatalog,
+        IOptionsMonitor<AnalystOptions> options,
         ILogger<IntentClassifier> logger)
     {
         _providerFactory = providerFactory;
         _textCatalog = textCatalog;
+        _options = options;
         _logger = logger;
     }
 
@@ -97,12 +101,14 @@ internal sealed class IntentClassifier : IIntentClassifier
             return new IntentClassificationResult(ClassifierIntent.Unknown, 0.0, string.Empty, sw.ElapsedMilliseconds);
         }
 
+        IAiProvider? provider = null;
+        string? prompt = null;
         try
         {
             // Use the Classifier workload. Falls back to Copilot's model when unset —
             // wired in OllamaAiProvider.GetModelNameForWorkload + AiProviderFactory.
-            var provider = _providerFactory.GetProviderForWorkload(AiWorkloadType.Classifier);
-            var prompt = BuildPrompt(question, _textCatalog.CurrentValue);
+            provider = _providerFactory.GetProviderForWorkload(AiWorkloadType.Classifier);
+            prompt = BuildPrompt(question, _textCatalog.CurrentValue);
 
             // Plain GenerateAsync — the prompt itself instructs the model to emit a JSON
             // object. The parser tolerates code fences and leading prose. (GenerateJsonAsync
@@ -112,21 +118,51 @@ internal sealed class IntentClassifier : IIntentClassifier
             sw.Stop();
 
             var raw = result?.ResponseText ?? string.Empty;
+            // Record into the per-question trace scope. IntentClassifier calls the provider DIRECTLY
+            // (Classifier workload, not via ILlmClient), so without this its prompt + output would be the
+            // ONE LLM call missing from the trace. Shared helper → preview always, full text under eval.
+            RecordTrace(prompt, raw, result, provider?.ModelName, sw.ElapsedMilliseconds, result?.Success ?? true, null);
+
             var parsed = Parse(raw);
             _logger.LogInformation(
                 "[IntentClassifier] '{Q}' → {Intent} (conf={Conf:F2}) in {Ms}ms (model={Model})",
-                Truncate(question, 80), parsed.Intent, parsed.Confidence, sw.ElapsedMilliseconds, provider.ModelName);
+                Truncate(question, 80), parsed.Intent, parsed.Confidence, sw.ElapsedMilliseconds, provider?.ModelName);
 
             return parsed with { ElapsedMs = sw.ElapsedMilliseconds, RawResponse = raw };
         }
         catch (Exception ex)
         {
             sw.Stop();
+            RecordTrace(prompt, null, null, provider?.ModelName, sw.ElapsedMilliseconds, false, ex.Message);
             _logger.LogWarning(ex,
                 "[IntentClassifier] classification failed in {Ms}ms — falling through to deterministic routers",
                 sw.ElapsedMilliseconds);
             return new IntentClassificationResult(ClassifierIntent.Unknown, 0.0, ex.Message, sw.ElapsedMilliseconds);
         }
+    }
+
+    /// <summary>Append this classifier call to the per-question <see cref="LlmCallScope"/> so the
+    /// investigation trace + export include it. Best-effort: tracing must never break classification.</summary>
+    private void RecordTrace(string? prompt, string? response, AiProviderResult? result, string? fallbackModel,
+        long elapsedMs, bool success, string? error)
+    {
+        try
+        {
+            var opts = _options.CurrentValue;
+            LlmCallScope.Current?.Record(LlmTraceCapture.BuildRecord(
+                stage: "IntentClassifier",
+                provider: result?.ProviderType.ToString() ?? "Classifier",
+                model: result?.ModelUsed ?? fallbackModel,
+                usage: result?.Usage,
+                elapsedMs: elapsedMs,
+                success: success,
+                error: error,
+                prompt: prompt,
+                response: response,
+                previewCap: opts.LlmTracePreviewMaxChars,
+                fullCap: opts.LlmTraceFullMaxChars));
+        }
+        catch { /* tracing must never break classification */ }
     }
 
     private static string BuildPrompt(string question, CopilotTextCatalog text)

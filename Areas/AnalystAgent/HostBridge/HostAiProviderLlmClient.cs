@@ -103,34 +103,20 @@ internal sealed class HostAiProviderLlmClient : ILlmClient
                 // can answer "what did we send" and "what came back" without grepping logs.
                 // The full text is truncated to a per-field cap from AnalystOptions; full
                 // lengths are recorded so the UI shows "shown 4000 of 12345 chars".
-                var cap = System.Math.Max(0, opts.LlmTracePreviewMaxChars);
-                string? promptPreview = null; int? promptLen = null;
-                if (cap > 0 && !string.IsNullOrEmpty(combinedPrompt))
-                {
-                    promptLen = combinedPrompt.Length;
-                    promptPreview = combinedPrompt.Length > cap ? combinedPrompt.Substring(0, cap) : combinedPrompt;
-                }
-                var responseText = result?.ResponseText;
-                string? respPreview = null; int? respLen = null;
-                if (cap > 0 && !string.IsNullOrEmpty(responseText))
-                {
-                    respLen = responseText.Length;
-                    respPreview = responseText.Length > cap ? responseText.Substring(0, cap) : responseText;
-                }
-
-                LlmCallScope.Current?.Record(new LlmCallRecord(
-                    Stage: stage,
-                    Provider: result?.ProviderType.ToString() ?? "unknown",
-                    Model: result?.ModelUsed,
-                    Usage: result?.Usage,
-                    ElapsedMs: sw.ElapsedMilliseconds,
-                    Success: result?.Success ?? false,
-                    Error: error,
-                    PromptPreview: promptPreview,
-                    ResponsePreview: respPreview,
-                    PromptFullLength: promptLen,
-                    ResponseFullLength: respLen,
-                    RetryAttempt: 0));
+                // Preview always; FULL prompt+response only under an LlmTraceCaptureScope.Full (eval runs).
+                // The shared helper owns the truncation policy so every call site records identically.
+                LlmCallScope.Current?.Record(LlmTraceCapture.BuildRecord(
+                    stage: stage,
+                    provider: result?.ProviderType.ToString() ?? "unknown",
+                    model: result?.ModelUsed,
+                    usage: result?.Usage,
+                    elapsedMs: sw.ElapsedMilliseconds,
+                    success: result?.Success ?? false,
+                    error: error,
+                    prompt: combinedPrompt,
+                    response: result?.ResponseText,
+                    previewCap: opts.LlmTracePreviewMaxChars,
+                    fullCap: opts.LlmTraceFullMaxChars));
             }
             catch { /* swallow */ }
         }

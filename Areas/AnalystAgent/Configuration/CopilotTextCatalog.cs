@@ -328,6 +328,13 @@ public sealed class CopilotTextCatalog
         "the question explicitly names a value for it. A 'total', 'sum', 'count', 'average', 'running " +
         "total' or 'top N by <metric>' with no stated state includes ALL rows — an invented status " +
         "filter understates the answer.\n" +
+        "- SELECT only the columns of the table(s) the question is about. Resolve a foreign-key id to a " +
+        "neighbor table's label column ONLY when the question asks for that related entity's name; " +
+        "otherwise return the asked-for table's own columns and do NOT join in or project a neighbor " +
+        "table's columns. (Asking for a table means you want that table's rows, not its neighbors'.)\n" +
+        "- To LIST or COUNT the distinct values of a lookup / reference entity itself ('list all ticket " +
+        "statuses', 'what priorities exist', 'show the categories'), SELECT from THAT lookup table " +
+        "directly (its own rows) — do NOT join a fact table, which repeats a row per fact.\n" +
         "- For a question written in Arabic, prefer the Arabic label column when a table has both " +
         "(NameAr over NameEn, FullNameAr over FullNameEn, TitleAr over TitleEn).\n\n" +
         "SQL Server idioms: TOP n (not LIMIT); COUNT(DISTINCT x) when counting unique entities across a " +

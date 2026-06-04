@@ -1,0 +1,139 @@
+{
+  "name": "Arabic comprehension suite (12 cases, 2026-06-04)",
+  "version": "2026-06-04.arabic",
+  "description": "Bilingual coverage (was 0%): Arabic-language questions over core shapes (count/filter/aggregate/list) + value filters. Same executable gold as English (answers are language-independent) — tests whether the copilot understands Arabic input.",
+  "Scenarios": [
+    {
+      "Code": "A-Tickets",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "كم عدد التذاكر لدينا؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets WHERE IsDeleted=0",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 83.0
+    },
+    {
+      "Code": "A-OpenTickets",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "كم عدد التذاكر المفتوحة؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name='Open' AND t.IsDeleted=0",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 35.0
+    },
+    {
+      "Code": "A-OverdueBills",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "كم عدد الفواتير المتأخرة؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills WHERE Status='Overdue'",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 330.0
+    },
+    {
+      "Code": "A-ActiveCustomers",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "كم عدد العملاء النشطين؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Customers WHERE Status='Active'",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 181.0
+    },
+    {
+      "Code": "A-Regions",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "كم عدد المناطق الإجمالي؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Regions",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 76.0
+    },
+    {
+      "Code": "A-Departments",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "كم عدد الأقسام؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Departments",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 228.0
+    },
+    {
+      "Code": "A-TotalBilled",
+      "Category": "AGGREGATE",
+      "Difficulty": "Medium",
+      "Question": "ما هو إجمالي مبلغ جميع الفواتير؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT SUM(TotalAmount) FROM Bills",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 440169300.00
+    },
+    {
+      "Code": "A-CriticalOutages",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "كم عدد الانقطاعات الحرجة؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Outages WHERE Severity='Critical'",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 7.0
+    },
+    {
+      "Code": "A-ServiceTypes",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "كم عدد أنواع الخدمات؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM ServiceTypes",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 5.0
+    },
+    {
+      "Code": "A-CompletedWO",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "كم عدد أوامر العمل المكتملة؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM WorkOrders WHERE Status='Completed'",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 78.0
+    },
+    {
+      "Code": "A-Governorates",
+      "Category": "FILTER",
+      "Difficulty": "Medium",
+      "Question": "اعرض أسماء جميع المحافظات",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT NameAr FROM Regions WHERE ParentRegionId IS NULL",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedRowCount": 14
+    },
+    {
+      "Code": "A-PaidBills",
+      "Category": "COUNT",
+      "Difficulty": "Medium",
+      "Question": "كم عدد الفواتير المدفوعة؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills WHERE Status='Paid'",
+      "GoldVerified": true,
+      "GoldSource": "Arabic question, executable gold (language-independent answer) 2026-06-04",
+      "ExpectedScalar": 10739.0
+    }
+  ]
+}

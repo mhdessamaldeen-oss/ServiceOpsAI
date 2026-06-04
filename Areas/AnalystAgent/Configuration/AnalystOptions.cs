@@ -516,6 +516,16 @@ public sealed class AnalystOptions
     [Range(0, 64_000, ErrorMessage = "LlmTracePreviewMaxChars must be 0..64000.")]
     public int LlmTracePreviewMaxChars { get; set; } = 4000;
 
+    /// <summary>
+    /// Maximum characters of the FULL per-call prompt + response captured when an
+    /// <c>LlmTraceCaptureScope.Full</c> is active (eval/assessment runs). This is the untruncated
+    /// text used to inspect a trace end-to-end and diff prompts before/after a change; the
+    /// ~24K-char schema prompt fits within the default. Preview mode (normal chat) ignores this and
+    /// keeps only <see cref="LlmTracePreviewMaxChars"/>. Set to 0 to disable full capture even in eval.
+    /// </summary>
+    [Range(0, 200_000, ErrorMessage = "LlmTraceFullMaxChars must be 0..200000.")]
+    public int LlmTraceFullMaxChars { get; set; } = 32000;
+
     // ── Magic-number replacements promoted to options (Phase 3) ─────────────────────────────
     // Previously hardcoded in pipeline code. Defaults match the prior literal values so the
     // behaviour change is purely "tuneable from one place" — no functional drift.

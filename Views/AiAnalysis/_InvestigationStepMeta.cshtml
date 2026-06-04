@@ -191,6 +191,12 @@ else if (!string.IsNullOrWhiteSpace(Model.TechnicalData))
         {
             var callOk = call.Success;
             var callTokens = (call.PromptTokens ?? 0) + (call.CompletionTokens ?? 0);
+            // Prefer the FULL text (eval/assessment runs) and fall back to the preview (normal chat).
+            var promptText = string.IsNullOrEmpty(call.PromptFull) ? call.PromptPreview : call.PromptFull;
+            var responseText = string.IsNullOrEmpty(call.ResponseFull) ? call.ResponsePreview : call.ResponseFull;
+            var promptIsFull = !string.IsNullOrEmpty(call.PromptFull);
+            var responseIsFull = !string.IsNullOrEmpty(call.ResponseFull);
+            var isEmbedding = string.Equals(call.Kind, "embedding", StringComparison.OrdinalIgnoreCase);
             <div class="runtrace-llm-call @(callOk ? "" : "failed")">
                 <div class="runtrace-llm-call-head">
                     <span class="runtrace-llm-stage">
@@ -201,6 +207,10 @@ else if (!string.IsNullOrWhiteSpace(Model.TechnicalData))
                             <span class="runtrace-meta-chip small warn">retry @call.RetryAttempt</span>
                         }
                     </span>
+                    @if (isEmbedding)
+                    {
+                        <span class="runtrace-meta-chip small muted" title="vector embedding call (bge-m3) — no readable output"><i class="bi bi-vector-pen"></i> embedding</span>
+                    }
                     @if (!string.IsNullOrEmpty(call.Provider))
                     {
                         <span class="runtrace-meta-chip small muted" title="provider">@call.Provider</span>
@@ -228,45 +238,55 @@ else if (!string.IsNullOrWhiteSpace(Model.TechnicalData))
                         @call.Error
                     </div>
                 }
-                @if (!string.IsNullOrEmpty(call.PromptPreview))
+                @if (!string.IsNullOrEmpty(promptText))
                 {
-                    var promptLang = GuessCodeLang(call.PromptPreview);
+                    var promptLang = GuessCodeLang(promptText);
+                    var shownLen = promptText!.Length;
                     <details class="runtrace-llm-detail runtrace-llm-detail-prompt">
                         <summary>
-                            <i class="bi bi-box-arrow-in-right"></i> Prompt <span class="runtrace-io-note">— sent to model</span>
-                            @if (call.PromptFullLength is { } pl && pl > (call.PromptPreview?.Length ?? 0))
+                            <i class="bi bi-box-arrow-in-right"></i> @(isEmbedding ? "Text embedded" : "Prompt") <span class="runtrace-io-note">— @(isEmbedding ? "input to the embedder" : "sent to model")</span>
+                            @if (promptIsFull)
                             {
-                                <span class="runtrace-meta-chip small muted">truncated @($"{(call.PromptPreview?.Length ?? 0):N0}/{pl:N0}")</span>
+                                <span class="runtrace-meta-chip small free">full · @($"{shownLen:N0}") chars</span>
+                            }
+                            else if (call.PromptFullLength is { } pl && pl > shownLen)
+                            {
+                                <span class="runtrace-meta-chip small muted">preview @($"{shownLen:N0}/{pl:N0}")</span>
                             }
                         </summary>
                         @if (promptLang is not null)
                         {
-                            <pre class="runtrace-blob-pre runtrace-code language-@promptLang"><code class="language-@promptLang">@call.PromptPreview</code></pre>
+                            <pre class="runtrace-blob-pre runtrace-code language-@promptLang"><code class="language-@promptLang">@promptText</code></pre>
                         }
                         else
                         {
-                            <pre class="runtrace-blob-pre">@call.PromptPreview</pre>
+                            <pre class="runtrace-blob-pre">@promptText</pre>
                         }
                     </details>
                 }
-                @if (!string.IsNullOrEmpty(call.ResponsePreview))
+                @if (!string.IsNullOrEmpty(responseText))
                 {
-                    var respLang = GuessCodeLang(call.ResponsePreview);
+                    var respLang = GuessCodeLang(responseText);
+                    var shownRLen = responseText!.Length;
                     <details class="runtrace-llm-detail runtrace-llm-detail-response">
                         <summary>
-                            <i class="bi bi-box-arrow-right"></i> Response <span class="runtrace-io-note">— real reply from model</span>
-                            @if (call.ResponseFullLength is { } rl && rl > (call.ResponsePreview?.Length ?? 0))
+                            <i class="bi bi-box-arrow-right"></i> @(isEmbedding ? "Vector" : "Response") <span class="runtrace-io-note">— @(isEmbedding ? "embedding result" : "real reply from model")</span>
+                            @if (responseIsFull)
                             {
-                                <span class="runtrace-meta-chip small muted">truncated @($"{(call.ResponsePreview?.Length ?? 0):N0}/{rl:N0}")</span>
+                                <span class="runtrace-meta-chip small free">full · @($"{shownRLen:N0}") chars</span>
+                            }
+                            else if (call.ResponseFullLength is { } rl && rl > shownRLen)
+                            {
+                                <span class="runtrace-meta-chip small muted">preview @($"{shownRLen:N0}/{rl:N0}")</span>
                             }
                         </summary>
                         @if (respLang is not null)
                         {
-                            <pre class="runtrace-blob-pre runtrace-code language-@respLang"><code class="language-@respLang">@call.ResponsePreview</code></pre>
+                            <pre class="runtrace-blob-pre runtrace-code language-@respLang"><code class="language-@respLang">@responseText</code></pre>
                         }
                         else
                         {
-                            <pre class="runtrace-blob-pre">@call.ResponsePreview</pre>
+                            <pre class="runtrace-blob-pre">@responseText</pre>
                         }
                     </details>
                 }

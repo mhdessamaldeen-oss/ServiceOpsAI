@@ -23,7 +23,16 @@ public sealed class InferredTable
 {
     public required string Name { get; init; }
     public required string Schema { get; init; }
+    /// <summary>RETRIEVAL-ONLY free text (embedder + semantic retriever). NEVER sent to the SQL
+    /// generator — see <see cref="GrainNote"/>. Channel split: schema English is retrieval DATA,
+    /// not generation INSTRUCTION.</summary>
     public string? Description { get; set; }
+    /// <summary>Declarative, imperative-free grain FACT emitted into the generation prompt (e.g.
+    /// "ParentRegionId IS NULL marks a Governorate; otherwise a District"). Unlike <see cref="Description"/>
+    /// it must contain no commands ("Apply…", "Add…", "Do NOT…", "ONLY when…") — a 7B obeys imperative
+    /// prose literally and bolts on filters the user never asked for. State what values MEAN; let the
+    /// system-prompt's one global rule decide whether to filter.</summary>
+    public string? GrainNote { get; set; }
     public List<string> PrimaryKey { get; set; } = new();
     public InferredFlags Flags { get; set; } = new();
     public InferredRoles Roles { get; set; } = new();
@@ -106,6 +115,8 @@ public sealed class TableOverride
 {
     public required string Name { get; init; }
     public string? Description { get; set; }
+    /// <summary>Declarative grain fact for the generation prompt (imperative-free). See <see cref="InferredTable.GrainNote"/>.</summary>
+    public string? GrainNote { get; set; }
     public InferredFlagsOverride? Flags { get; set; }
     public InferredRolesOverride? Roles { get; set; }
     public List<ColumnOverride>? Columns { get; set; }
@@ -116,7 +127,7 @@ public sealed class TableOverride
     public List<string>? Synonyms { get; set; }
 
     public bool HasAnyValue() =>
-        Description is not null || Flags is not null || Roles is not null
+        Description is not null || GrainNote is not null || Flags is not null || Roles is not null
         || (Columns?.Count > 0) || (Synonyms?.Count > 0);
 }
 
