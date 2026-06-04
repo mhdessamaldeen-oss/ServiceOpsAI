@@ -1,0 +1,415 @@
+namespace AnalystAgent.Retrieval;
+
+using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using AnalystAgent.Abstractions;
+using AnalystAgent.Configuration;
+
+/// <summary>
+/// Hand-curated (question, SQL) catalog. When an incoming question's embedding cosine-matches
+/// a stored verified question above the configured threshold, the orchestrator uses the
+/// verified SQL directly and skips the LLM altogether. This is the Snowflake "Verified
+/// Queries" pattern — the escape hatch for questions you absolutely care about getting right
+/// every time, regardless of model size or local-LLM jitter.
+///
+/// <para>The file is JSON, domain-agnostic, and 100% editable by admins without code changes.
+/// Empty list = feature inactive (matcher returns no hits, pipeline falls through normally).</para>
+/// </summary>
+public interface IVerifiedQueryStore
+{
+    bool IsAvailable { get; }
+    int Count { get; }
+    IReadOnlyList<VerifiedQuery> All { get; }
+    /// <summary>Force re-read from disk (admin UI calls after edit).</summary>
+    void Reload();
+}
+
+public sealed class VerifiedQuery
+{
+    public required string Id { get; init; }
+    public required string Question { get; init; }
+    public required string Sql { get; init; }
+
+    // Paraphrases of <see cref="Question"/>. Each variant is embedded separately and
+    // matched independently — letting one entry cover many natural-language phrasings of
+    // the same intent without authoring a duplicate SQL block. Empty/null = canonical only.
+    public List<string>? QuestionVariants { get; init; }
+
+    // Canonical shape code (SEL / FLT / CNT / AGG / GRP / TOP / JOI / ANT / PER / MAX / MIN
+    // / DIS / REF / TRD / PCT / COH / ANM / FUN / CUM). Drives per-shape coverage reports.
+    public string? Shape { get; init; }
+
+    // Provenance — answers "who blessed this SQL and when?" so a stale entry can be audited.
+    public string? VerifiedAt { get; init; }
+    public string? VerifiedBy { get; init; }
+
+    // When true, this entry is eligible for the "example questions" menu the UI can show
+    // first-time users. Curated examples should be representative, not exhaustive.
+    public bool? UseAsOnboarding { get; init; }
+
+    // Per-entry override of the default similarity threshold (admin can require a closer
+    // match for specific entries, or loosen for fuzzy ones).
+    public double? MinSimilarity { get; init; }
+    public List<string>? Tags { get; init; }
+    public string? Description { get; init; }
+}
+
+internal sealed class VerifiedQueryStore : IVerifiedQueryStore
+{
+    private readonly IOptions<AnalystOptions> _options;
+    private readonly ILogger<VerifiedQueryStore> _logger;
+    private readonly object _gate = new();
+    private List<VerifiedQuery> _items = new();
+    private bool _available;
+
+    public VerifiedQueryStore(IOptions<AnalystOptions> options, ILogger<VerifiedQueryStore> logger)
+    {
+        _options = options;
+        _logger = logger;
+        TryLoad();
+    }
+
+    public bool IsAvailable => _available;
+    public int Count => _items.Count;
+    public IReadOnlyList<VerifiedQuery> All => _items;
+
+    public void Reload() { lock (_gate) TryLoad(); }
+
+    private void TryLoad()
+    {
+        var path = ResolvePath(_options.Value.VerifiedQueriesPath);
+        if (!File.Exists(path))
+        {
+            _logger.LogInformation("[AnalystAgent] Verified-queries file missing at {Path} — feature inactive.", path);
+            _items = new();
+            _available = false;
+            return;
+        }
+        try
+        {
+            var json = File.ReadAllText(path);
+            var doc = JsonSerializer.Deserialize<VerifiedQueriesFile>(json, DeserializerOptions);
+            _items = doc?.Queries?.Where(IsValid).ToList() ?? new();
+            _available = _items.Count > 0;
+            _logger.LogInformation("[AnalystAgent] Verified-queries loaded: {Count} entries.", _items.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[AnalystAgent] Verified-queries: load failed at {Path}", path);
+            _items = new();
+            _available = false;
+        }
+    }
+
+    private static bool IsValid(VerifiedQuery q) =>
+        !string.IsNullOrWhiteSpace(q.Id)
+        && !string.IsNullOrWhiteSpace(q.Question)
+        && !string.IsNullOrWhiteSpace(q.Sql);
+
+    private static string ResolvePath(string path) =>
+        Path.IsPathRooted(path) ? path : Path.Combine(Directory.GetCurrentDirectory(), path);
+
+    private static readonly JsonSerializerOptions DeserializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+    };
+
+    private sealed class VerifiedQueriesFile
+    {
+        public string? Version { get; set; }
+        public List<VerifiedQuery>? Queries { get; set; }
+    }
+}
+
+// ── Matcher ────────────────────────────────────────────────────────────────────────
+
+public sealed record VerifiedMatch(VerifiedQuery Query, float Similarity);
+
+public interface IVerifiedQueryMatcher
+{
+    bool IsAvailable { get; }
+    /// <summary>Returns the highest-similarity verified query above the threshold, or null
+    /// when no match qualifies.</summary>
+    Task<VerifiedMatch?> MatchAsync(string question, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the highest cosine similarity to any catalog entry, REGARDLESS of threshold.
+    /// Used by the ScopeConfidenceGate to decide whether a question is even remotely close to
+    /// something we've seen before — separate from the strict ≥ 0.90 catalog-trust threshold
+    /// MatchAsync applies. Returns 0 when the matcher is unavailable or the catalog is empty.
+    /// </summary>
+    Task<float> MaxSimilarityAsync(string question, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns up to <paramref name="topK"/> closest verified-query matches whose cosine
+    /// similarity meets <paramref name="minSimilarity"/>. Used by SpecExtractor as few-shot
+    /// fuel — when no past-question RAG match exists, the curated VQ catalog acts as a
+    /// safety net of high-quality (question, SQL) examples to anchor the planner.
+    ///
+    /// <para>Distinct from <see cref="MatchAsync"/>: MatchAsync uses the strict per-entry
+    /// trust threshold (typically ≥ 0.90) to decide whether the catalog can short-circuit
+    /// the LLM. FindTopAsync uses a softer floor (typically 0.65-0.75) — the matches won't
+    /// run AS the answer, they'll be shown to the LLM as worked examples of similar shapes.
+    /// Entries are deduplicated by their canonical question so the same entry doesn't appear
+    /// twice when both its canonical and a variant score highly.</para>
+    /// </summary>
+    Task<IReadOnlyList<VerifiedMatch>> FindTopAsync(string question, int topK, float minSimilarity, CancellationToken cancellationToken = default);
+}
+
+internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
+{
+    private const string CachePrefix = "analyst-agent::verified-vectors::";
+    // Bumped to v2 when QuestionVariants[] was introduced — invalidates pre-variant caches
+    // so existing deployments re-embed including the new paraphrases.
+    private const string EmbeddingTextVersion = "v2";
+
+    private readonly IVerifiedQueryStore _store;
+    private readonly ITextEmbedder _embedder;
+    private readonly IMemoryCache _cache;
+    private readonly IOptions<AnalystOptions> _options;
+    private readonly ILinguisticCuesProvider _cues;
+    private readonly ILogger<VerifiedQueryMatcher> _logger;
+    private readonly SemaphoreSlim _primingLock = new(1, 1);
+
+    public VerifiedQueryMatcher(
+        IVerifiedQueryStore store,
+        ITextEmbedder embedder,
+        IMemoryCache cache,
+        IOptions<AnalystOptions> options,
+        ILinguisticCuesProvider cues,
+        ILogger<VerifiedQueryMatcher> logger)
+    {
+        _store = store;
+        _embedder = embedder;
+        _cache = cache;
+        _options = options;
+        _cues = cues;
+        _logger = logger;
+    }
+
+    public bool IsAvailable => _store.IsAvailable && !string.IsNullOrEmpty(_embedder.ModelName);
+
+    public async Task<VerifiedMatch?> MatchAsync(string question, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(question) || !IsAvailable) return null;
+        try
+        {
+            var vectors = await GetVerifiedVectorsAsync(cancellationToken);
+            if (vectors.Count == 0) return null;
+            var queryVec = await _embedder.EmbedAsync(question, cancellationToken);
+            if (queryVec.Length == 0) return null;
+
+            // Intent-shape gate: when the user's question signals an aggregation
+            // ("how many ...", "count of ...", "total ...", "average ...", etc.), reject
+            // cached queries that have no aggregation in their SELECT. The cosine-similarity
+            // gate alone treats "how many ticket categories" as similar enough to
+            // "show me tickets" and returns a list-query SQL when the user wanted a count.
+            // Same guard rejects the inverse (cached aggregation when user wants a list).
+            var questionWantsAggregation = QuestionImpliesAggregation(question);
+
+            // Shape-shape gate: a verified-query tagged with shape="COMPARE" produces
+            // period-comparison SQL (SUM CASE WHEN this_month UNION SUM CASE WHEN last_month).
+            // Cosine similarity treats "tickets this month" as close to "compare tickets this
+            // month vs last month" — and the user gets a comparison row instead of a list.
+            // Universal: when the cached entry's shape is COMPARE, the question must contain
+            // a compare-marker ("vs", "versus", "compared to", "against", "or", "diff").
+            var questionHasCompareMarker = QuestionHasCompareMarker(question);
+
+            VerifiedMatch? best = null;
+            foreach (var (vq, vec) in vectors)
+            {
+                if (vec.Length != queryVec.Length) continue;
+                var score = VectorMath.Cosine(queryVec, vec);
+                var threshold = (float)(vq.MinSimilarity ?? _options.Value.VerifiedQueryMinSimilarity);
+                if (score < threshold) continue;
+                // Shape-intent check: skip cache entries that would clearly return the wrong shape.
+                if (questionWantsAggregation && !SqlHasAggregation(vq.Sql))
+                {
+                    _logger.LogDebug("[VerifiedQueryMatcher] rejecting match — question implies aggregation but cached SQL has none. Q='{Q}' cached='{C}'", question, vq.Question);
+                    continue;
+                }
+                // Compare-shape guard — reject if the cached entry is a period comparison but
+                // the user's question doesn't signal comparison intent.
+                if (IsCompareShape(vq) && !questionHasCompareMarker)
+                {
+                    _logger.LogDebug("[VerifiedQueryMatcher] rejecting compare-shape match — question has no compare marker. Q='{Q}' cached='{C}' shape='{S}'", question, vq.Question, vq.Shape);
+                    continue;
+                }
+                if (best is null || score > best.Similarity) best = new VerifiedMatch(vq, score);
+            }
+            // Hit-rate telemetry — tagged [copilot.rag_lookup] so log aggregation answers
+            // "what % of questions get a verified-query hit?" without instrumentation code.
+            // Operators decide whether the store is earning its maintenance cost.
+            _logger.LogInformation("[copilot.rag_lookup] source=verified outcome={Outcome} score={Score:F2}",
+                best is null ? "miss" : "hit",
+                best?.Similarity ?? 0f);
+            return best;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[VerifiedQueryMatcher] match failed for '{Q}'", question);
+            return null;
+        }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex AggregationQuestionRegex =
+        new(@"^\s*(how\s+many|count\s+of|number\s+of|total\s+|sum\s+of|sum\s+|average\s+|avg\s+|mean\s+|highest\s+|lowest\s+|maximum\s+|minimum\s+|max\s+|min\s+)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static readonly System.Text.RegularExpressions.Regex AggregationSqlRegex =
+        new(@"\b(COUNT|SUM|AVG|MIN|MAX|COUNT_BIG)\s*\(",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static bool QuestionImpliesAggregation(string question)
+        => !string.IsNullOrWhiteSpace(question) && AggregationQuestionRegex.IsMatch(question);
+
+    private static bool SqlHasAggregation(string? sql)
+        => !string.IsNullOrWhiteSpace(sql) && AggregationSqlRegex.IsMatch(sql);
+
+    /// <summary>
+    /// Compare-shape markers come from <c>linguistic-cues.json</c>'s <c>compareMarkers</c>
+    /// section per locale (en/ar/…). Each locale's entries are compiled by
+    /// <see cref="LinguisticCuesProvider"/> into <see cref="CompiledLocaleCues.CompareMarkersRegex"/>.
+    /// We test the question against every locale's regex — first hit wins. Universal: new
+    /// dialect / synonym = JSON edit, no recompile.
+    /// </summary>
+    private bool QuestionHasCompareMarker(string question)
+    {
+        if (string.IsNullOrWhiteSpace(question)) return false;
+        if (_cues?.Compiled?.Locales is null) return false;
+        foreach (var (_, locale) in _cues.Compiled.Locales)
+        {
+            if (locale?.CompareMarkersRegex is null) continue;
+            if (locale.CompareMarkersRegex.IsMatch(question)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>True when the verified-query entry is a period/category comparison shape.
+    /// Detected via the entry's Shape tag (case-insensitive contains "compare", "vs",
+    /// "comparison") OR via the SQL itself containing UNION ALL of CASE-WHEN aggregates — the
+    /// canonical comparison emission shape. Universal: works for any future compare entry
+    /// without naming it.</summary>
+    private static bool IsCompareShape(VerifiedQuery vq)
+    {
+        if (vq is null) return false;
+        var shape = (vq.Shape ?? "").ToLowerInvariant();
+        if (shape.Contains("compare") || shape.Contains("comparison") || shape == "vs" || shape == "cmp") return true;
+        // SQL-shape fallback: the canonical "compare X vs Y" emission uses SUM(CASE WHEN ...)
+        // for each period. Match conservatively to avoid false positives.
+        var sql = vq.Sql ?? "";
+        if (sql.Length == 0) return false;
+        bool hasUnionAll = sql.IndexOf("UNION ALL", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        bool hasCaseWhen = sql.IndexOf("CASE WHEN", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        // Multiple SUM(CASE WHEN ...) AS X is the strongest signal — at least two such legs.
+        int sumCaseHits = System.Text.RegularExpressions.Regex.Matches(sql, @"SUM\s*\(\s*CASE\s+WHEN",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Count;
+        return (hasUnionAll && hasCaseWhen) || sumCaseHits >= 2;
+    }
+
+    public async Task<float> MaxSimilarityAsync(string question, CancellationToken cancellationToken = default)
+    {
+        // Returns the raw best cosine similarity across the catalog with NO threshold filter.
+        // The ScopeConfidenceGate uses this to decide whether a question is even loosely close
+        // to anything we've curated — a much lower bar than MatchAsync's strict trust threshold.
+        if (string.IsNullOrWhiteSpace(question) || !IsAvailable) return 0f;
+        try
+        {
+            var vectors = await GetVerifiedVectorsAsync(cancellationToken);
+            if (vectors.Count == 0) return 0f;
+            var queryVec = await _embedder.EmbedAsync(question, cancellationToken);
+            if (queryVec.Length == 0) return 0f;
+
+            float best = 0f;
+            foreach (var (_, vec) in vectors)
+            {
+                if (vec.Length != queryVec.Length) continue;
+                var score = VectorMath.Cosine(queryVec, vec);
+                if (score > best) best = score;
+            }
+            return best;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[VerifiedQueryMatcher] MaxSimilarity failed for '{Q}'", question);
+            return 0f;
+        }
+    }
+
+    public async Task<IReadOnlyList<VerifiedMatch>> FindTopAsync(string question, int topK, float minSimilarity, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(question) || !IsAvailable || topK <= 0) return Array.Empty<VerifiedMatch>();
+        try
+        {
+            var vectors = await GetVerifiedVectorsAsync(cancellationToken);
+            if (vectors.Count == 0) return Array.Empty<VerifiedMatch>();
+            var queryVec = await _embedder.EmbedAsync(question, cancellationToken);
+            if (queryVec.Length == 0) return Array.Empty<VerifiedMatch>();
+
+            // Score every vector once, but dedupe by VerifiedQuery.Id afterwards — each
+            // entry contributes its canonical + each questionVariant, so the same entry
+            // can appear multiple times in the vector list. Keep only the best score per id.
+            var bestById = new Dictionary<string, VerifiedMatch>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (vq, vec) in vectors)
+            {
+                if (vec.Length != queryVec.Length) continue;
+                var score = VectorMath.Cosine(queryVec, vec);
+                if (score < minSimilarity) continue;
+                if (!bestById.TryGetValue(vq.Id, out var existing) || score > existing.Similarity)
+                    bestById[vq.Id] = new VerifiedMatch(vq, score);
+            }
+            return bestById.Values
+                .OrderByDescending(m => m.Similarity)
+                .Take(topK)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[VerifiedQueryMatcher] FindTop failed for '{Q}'", question);
+            return Array.Empty<VerifiedMatch>();
+        }
+    }
+
+    private async Task<IReadOnlyList<(VerifiedQuery, float[])>> GetVerifiedVectorsAsync(CancellationToken cancellationToken)
+    {
+        // Cache key must change when an entry's variant list changes (otherwise an admin
+        // could add a paraphrase, hit Reload, and we'd serve the stale embedding set).
+        var variantTotal = _store.All.Sum(v => v.QuestionVariants?.Count ?? 0);
+        var key = $"{CachePrefix}{EmbeddingTextVersion}::{_embedder.ModelName ?? "default"}::{_store.Count}::{variantTotal}";
+        if (_cache.TryGetValue<IReadOnlyList<(VerifiedQuery, float[])>>(key, out var cached) && cached is not null)
+            return cached;
+        await _primingLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (_cache.TryGetValue(key, out cached) && cached is not null) return cached;
+            // Each entry contributes one vector for its canonical Question plus one vector
+            // per QuestionVariants[] paraphrase. The matcher returns the best score among
+            // them, so a single entry can cover several natural phrasings without a separate
+            // SQL block per variant.
+            var result = new List<(VerifiedQuery, float[])>(_store.Count);
+            foreach (var vq in _store.All)
+            {
+                var canonical = await _embedder.EmbedAsync(vq.Question, cancellationToken);
+                if (canonical.Length > 0) result.Add((vq, canonical));
+                if (vq.QuestionVariants is { Count: > 0 })
+                {
+                    foreach (var variant in vq.QuestionVariants)
+                    {
+                        if (string.IsNullOrWhiteSpace(variant)) continue;
+                        var vec = await _embedder.EmbedAsync(variant, cancellationToken);
+                        if (vec.Length > 0) result.Add((vq, vec));
+                    }
+                }
+            }
+            _cache.Set(key, (IReadOnlyList<(VerifiedQuery, float[])>)result);
+            _logger.LogInformation("[VerifiedQueryMatcher] primed {N} verified-query vectors.", result.Count);
+            return result;
+        }
+        finally { _primingLock.Release(); }
+    }
+
+}

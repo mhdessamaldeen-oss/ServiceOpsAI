@@ -40,7 +40,7 @@
 
         // Delegate to the canonical mapper in Stages.cs (single source of truth — the
         // DI startup assert there fails fast if any Step* constant lacks a node mapping).
-        var mapped = SuperAdminCopilot.Pipeline.StageNames.StageToGraphNode(action);
+        var mapped = AnalystAgent.Pipeline.StageNames.StageToGraphNode(action);
         if (mapped is not null) return mapped;
         // Some stage names are deliberately mapped to null (informational markers like Tier).
         // Distinguish that from an unrecognised stage by checking whether the mapper recognised
@@ -489,12 +489,12 @@
         }
     }
 
-    // Build the Mermaid definition. Extended for the new SuperAdminCopilot:
+    // Build the Mermaid definition. Extended for the new AnalystAgent:
     //   - GUARD = operational kill-switch / rate-limit (runs FIRST, before INTAKE)
     //   - SHAPE = Tier-2 deterministic shape engine (between CLASS and PLAN; sub-second SQL)
     //   - DECOMPOSE = compound/sequential question splitter (sits before CLASS, only lights up
     //     for multi-part questions)
-    // Faithful workflow graph for the new SuperAdminCopilot — no "Classifier" diamond fiction.
+    // Faithful workflow graph for the new AnalystAgent — no "Classifier" diamond fiction.
     // The orchestrator is a CASCADE of Tier-1 try-match-or-fall-through handlers, then the Tier-2
     // ShapeEngine, then the Tier-3 LLM Planner with retry-back arrows from Validator and
     // Executor. Real edges, real outcomes — designed for debugging.

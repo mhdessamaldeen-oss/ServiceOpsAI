@@ -218,7 +218,7 @@ namespace ServiceOpsAI.Models.AI
     /// Full decomposition result for a user prompt.
     /// Planning consumes this instead of guessing whether a request is "mixed" from one enum value.
     /// </summary>
-    public class CopilotRequestDecomposition
+    public class AnalystRequestDecomposition
     {
         public List<CopilotSubRequest> SubRequests { get; set; } = new();
     }

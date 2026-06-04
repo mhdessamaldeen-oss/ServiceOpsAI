@@ -6,7 +6,7 @@ namespace ServiceOpsAI.Data.Seed;
 /// <summary>
 /// Seeds the utility-domain data (Departments, Customers, Bills, Tickets) with Syrian-flavored
 /// names, geography, and 24 months of bill history. Layered with scripted story patterns so the
-/// SuperAdminCopilot has discoverable patterns to reason over (outage clusters, bill anomalies,
+/// AnalystAgent has discoverable patterns to reason over (outage clusters, bill anomalies,
 /// churn signals, VIP customers, an underperforming department).
 ///
 /// Idempotent: detects existing Customers and no-ops. Deterministic: fixed Random seed.

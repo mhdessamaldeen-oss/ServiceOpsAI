@@ -1,0 +1,24 @@
+{
+  "_comment": "Compound/sequential question DECOMPOSITION cues. Externalized 2026-06-02 from Decomposer.cs (HeuristicDecomposer) so the split/guard patterns are tunable + multilingual without recompiling. Per-locale, each kind is ONE regex string; across locales the per-kind bodies are OR-joined (each wrapped in (?:...)) into a single compiled regex. The 'en' set is byte-identical to the in-code fallback, so English behavior is unchanged until an operator edits this file. Behavior contract: file ABSENT -> in-code English fallback; PRESENT -> this drives detection (a kind left empty in ALL locales falls back to that kind's in-code regex). The 4-step/3-step caps + NormalizeAsQuestion stay in code. Stage is conservative by design: a missed split just routes to the single-spec planner.",
+  "locales": {
+    "en": {
+      "strongCompoundSignals": "\\b(?:vs\\.?|versus|compared\\s+to|as\\s+well\\s+as|and\\s+also|;\\s*also)\\b|(?:\\?\\s*and\\s+)|(?:\\.\\s*also[, ])|(?:\\bcompare\\s+\\b)|(?:\\band\\s+how\\s+(?:many|much|long|often)\\b)|(?:\\band\\s+what\\s+(?:is|are|was|were)\\b)|(?:\\band\\s+which\\s+\\w+\\b)",
+      "splitDelimiter": "(?:\\?\\s*and\\s+)|(?:\\.\\s*also[, ])|(?:;\\s*(?:and\\s+)?(?:also[, ])?)|(?:\\bversus\\b)|(?:\\bvs\\.?\\s+)|(?:\\bcompared\\s+to\\b)|(?:\\bas\\s+well\\s+as\\b)|(?:\\band\\s+also\\b)|(?=\\band\\s+how\\s+(?:many|much|long|often)\\b)|(?=\\band\\s+what\\s+(?:is|are|was|were)\\b)|(?=\\band\\s+which\\s+\\w+\\b)",
+      "sequentialChain": "(?:,\\s*then\\s+(?:show|list|find|give|return|count|display|tell))|(?:\\bthen\\s+show\\s+(?:me\\s+)?their\\b)|(?:\\bthen\\s+list\\s+(?:their|those)\\b)|(?:\\bfor\\s+(?:those|these|that)\\s+\\w+)|(?:\\band\\s+then\\s+(?:show|list|find|count|display)\\b)|(?:\\bbased\\s+on\\s+(?:those|that|these)\\b)",
+      "sequentialSplit": "(?:,\\s*then\\s+)|(?:\\.\\s*then\\s+)|(?=\\bthen\\s+show\\s+(?:me\\s+)?their\\b)|(?=\\bthen\\s+list\\s+(?:their|those)\\b)|(?=\\band\\s+then\\s+(?:show|list|find|count|display)\\b)|(?=\\bbased\\s+on\\s+(?:those|that|these)\\b)",
+      "groupedComparisonShape": "\\b(?:how\\s+many|count\\s+of|number\\s+of)\\s+\\w+(?:\\s+are)?\\s+\\w+\\s+(?:versus|vs\\.?)\\s+\\w+\\s*\\??\\s*\\.?$|^[\\s\\w,]+(?:\\s+per\\s+\\w+|\\s+by\\s+\\w+|\\s+grouped\\s+by\\s+\\w+)(?:\\s+and\\s+(?:per\\s+|by\\s+)?\\w+)?\\s*\\??\\s*\\.?$|\\b(?:compare|comparison\\s+of)\\b.+\\b(?:vs\\.?|versus|compared\\s+to|to)\\b.+\\b(?:today|yesterday|this\\s+(?:week|month|quarter|year)|last\\s+(?:week|month|quarter|year)|previous\\s+(?:week|month|quarter|year)|prior\\s+(?:week|month|quarter|year)|year\\s+over\\s+year|month\\s+over\\s+month|week\\s+over\\s+week)\\b",
+      "multiClauseCompound": "(?:\\btop\\s+\\d+\\b.*\\band\\b.*\\btop\\s+\\d+\\b)|(?:\\bby\\s+\\w+\\b.*\\band\\b.*\\bby\\s+\\w+\\b)|(?:\\bper\\s+\\w+\\b.*\\band\\b.*\\bper\\s+\\w+\\b)",
+      "combineGuard": "\\bin\\s+(?:one|a\\s+single)\\s+(?:list|table|result|query|output)\\b|\\bcombined\\b|\\btogether\\b|\\bas\\s+(?:one|a\\s+single)\\b|\\bside\\s+by\\s+side\\b|\\bin\\s+the\\s+same\\s+(?:list|table|result)\\b",
+      "leadingConjunction": "^\\s*(?:and|also|or|then)\\s+"
+    },
+    "ar": {
+      "strongCompoundSignals": "مقابل|مقارنة\\s+بـ|بالإضافة\\s+إلى",
+      "splitDelimiter": "مقابل|مقارنة\\s+بـ|بالإضافة\\s+إلى",
+      "sequentialChain": "،\\s*ثم\\s+(?:اعرض|أظهر|اعطني|أعطني|اذكر|جد)|ثم\\s+(?:اعرض|أظهر)",
+      "sequentialSplit": "،\\s*ثم\\s+|(?=ثم\\s+(?:اعرض|أظهر))",
+      "groupedComparisonShape": "",
+      "combineGuard": "في\\s+قائمة\\s+واحدة|في\\s+جدول\\s+واحد|في\\s+نفس\\s+القائمة|معًا|معا\\b",
+      "leadingConjunction": "^\\s*(?:ثم|أو|أيضا|أيضًا)\\s+"
+    }
+  }
+}

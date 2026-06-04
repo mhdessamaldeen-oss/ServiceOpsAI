@@ -45,7 +45,7 @@ Design principles that make it robust and portable:
 - **Configuration-driven, not hardcoded.** The schema is learned by **live introspection**
   (`INFORMATION_SCHEMA`/`sys.*`), and domain knowledge (entities, synonyms, metrics, natural-key
   formats, sensitive columns, few-shot/worked SQL examples, shape keywords) lives in JSON under
-  `Areas/SuperAdminCopilot/Configuration/`. Targeting a different database is largely a config
+  `Areas/AnalystAgent/Configuration/`. Targeting a different database is largely a config
   exercise, not a recompile.
 - **Model-agnostic with capability tiers.** A `PlannerTier` (Weak / Medium / Strong) is
   **auto-derived from the active model**; weak-model "crutch" repair rules switch off automatically
@@ -64,7 +64,7 @@ Design principles that make it robust and portable:
 - **Entity Framework Core** over **SQL Server**
 - **AI providers:** [Ollama](https://ollama.com) (local, e.g. `qwen2.5-coder:7b`) and Google
   **Gemini** (`gemini-2.5-flash-lite`); embeddings via local `bge-m3`
-- **xUnit** test suite (`Tests/SuperAdminCopilot.Tests`)
+- **xUnit** test suite (`Tests/AnalystAgent.Tests`)
 
 ---
 
@@ -106,7 +106,7 @@ Gemini) and, for Gemini, add one or more API keys to the key pool.
 ### Test
 
 ```bash
-dotnet test Tests/SuperAdminCopilot.Tests/SuperAdminCopilot.Tests.csproj
+dotnet test Tests/AnalystAgent.Tests/AnalystAgent.Tests.csproj
 ```
 
 ---
@@ -114,7 +114,7 @@ dotnet test Tests/SuperAdminCopilot.Tests/SuperAdminCopilot.Tests.csproj
 ## Project layout
 
 ```
-Areas/SuperAdminCopilot/        the NL→SQL copilot
+Areas/AnalystAgent/        the NL→SQL copilot
   Pipeline/                     orchestration, stages, single-question executor, escape valve
   Application/Repair/           typed SpecRepair rules + the repair bus
   Compilation/                  QuerySpec → SQL compiler (+ dialect abstraction)
@@ -124,7 +124,7 @@ Areas/SuperAdminCopilot/        the NL→SQL copilot
   Configuration/                ALL the JSON knobs (semantic-layer, shape-examples,
                                 advanced-shape-keywords, few-shot, linguistic-cues, question suites…)
 Services/ Controllers/ Views/   the surrounding utility-ops web application
-Tests/SuperAdminCopilot.Tests/  xUnit tests (unit + architecture guards)
+Tests/AnalystAgent.Tests/  xUnit tests (unit + architecture guards)
 docs/architecture/              ADRs and design notes
 ```
 
@@ -135,7 +135,7 @@ docs/architecture/              ADRs and design notes
 - **Pick the model:** Settings → AI engines (Ollama or Gemini). The capability tier auto-derives
   from the model name.
 - **Retarget a new database:** point the connection string at it, then edit the JSON under
-  `Areas/SuperAdminCopilot/Configuration/` — chiefly `semantic-layer.json` (entities, synonyms,
+  `Areas/AnalystAgent/Configuration/` — chiefly `semantic-layer.json` (entities, synonyms,
   display/sensitive columns), and the worked-SQL example banks (`shape-examples.json`,
   `advanced-shape-keywords.json`). The engine introspects tables/columns automatically.
 - **Tune linguistics:** `linguistic-cues.json`, `shape-classifier.json` (per-locale, no recompile).

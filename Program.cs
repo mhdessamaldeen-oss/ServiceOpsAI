@@ -20,7 +20,7 @@ using ServiceOpsAI.Services.AI.Copilot.Suggestions;
 using ServiceOpsAI.Services.AI.Copilot.Tools;
 using ServiceOpsAI.Services.AI.Copilot.Trace;
 using ServiceOpsAI.Hubs;
-using SuperAdminCopilot.DependencyInjection;
+using AnalystAgent.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,16 +73,15 @@ builder.Services.Configure<AiProviderSettings>(builder.Configuration.GetSection(
 
 // Register Copilot Text Configuration
 builder.Configuration.AddJsonFile("copilot-text.json", optional: true, reloadOnChange: true);
-// SuperAdminCopilot — configurable rule files. Hot-reloaded, so operators can add a verb /
+// AnalystAgent — configurable rule files. Hot-reloaded, so operators can add a verb /
 // pattern / role mapping by editing the JSON without restarting the host.
-builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/write-intent-verbs.json", optional: true, reloadOnChange: true);
-builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/fk-role-patterns.json", optional: true, reloadOnChange: true);
-builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/spec-repair-rules.json", optional: true, reloadOnChange: true);
-// SuperAdminCopilot text catalog (refusal text, planner prompts, worked examples) bound to the
-// SuperAdminCopilot:Text section via IOptionsMonitor<CopilotTextCatalog>. This is the per-deployment
+builder.Configuration.AddJsonFile("Areas/AnalystAgent/Configuration/write-intent-verbs.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddJsonFile("Areas/AnalystAgent/Configuration/fk-role-patterns.json", optional: true, reloadOnChange: true);
+// AnalystAgent text catalog (refusal text, planner prompts, worked examples) bound to the
+// AnalystAgent:Text section via IOptionsMonitor<CopilotTextCatalog>. This is the per-deployment
 // override file: edit it to retarget the copilot for a new schema without recompiling. Distinct top-level
 // key from the legacy root copilot-text.json above, so the two don't collide.
-builder.Configuration.AddJsonFile("Areas/SuperAdminCopilot/Configuration/copilot-text.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddJsonFile("Areas/AnalystAgent/Configuration/copilot-text.json", optional: true, reloadOnChange: true);
 builder.Services.Configure<CopilotTextSettings>(builder.Configuration);
 builder.Services.Configure<CopilotTracePersistenceOptions>(builder.Configuration.GetSection(CopilotTracePersistenceOptions.SectionName));
 
@@ -125,7 +124,7 @@ builder.Services.AddScoped<ServiceOpsAI.Services.AI.Retrieval.IRecommendationGro
 // Survives the legacy purge as an "orphan island" along with CopilotTextCatalog + CopilotTextTemplate.
 builder.Services.AddScoped<CopilotRecommendationAnalyzer>();
 
-// Shared Copilot host services retained after the SuperAdminCopilot cutover.
+// Shared Copilot host services retained after the AnalystAgent cutover.
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<CopilotAssessmentHandler>();
 builder.Services.AddScoped<CopilotToolRegistry>();
@@ -153,8 +152,8 @@ builder.Services.AddSingleton<AiAnalysisQueueService>();
 builder.Services.AddSingleton<EmbeddingQueueService>();
 
 // ── Super Admin Copilot ─────────────────────────────────────────────────────
-// Active in-host copilot endpoint: POST /api/super-admin-copilot/ask
-builder.Services.AddSuperAdminCopilot(builder.Configuration);
+// Active in-host copilot endpoint: POST /api/analyst-agent/ask
+builder.Services.AddAnalystAgent(builder.Configuration);
 
 var app = builder.Build();
 

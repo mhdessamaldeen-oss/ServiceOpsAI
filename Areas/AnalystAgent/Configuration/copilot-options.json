@@ -1,0 +1,193 @@
+{
+  // AnalystAgent — single-source runtime settings.
+  //
+  // This file is the ONLY place runtime knobs live. Edit a value, restart the host,
+  // see the effect. Properties NOT listed here fall back to the C# defaults defined in
+  // Areas/AnalystAgent/Configuration/CopilotOptions.cs (full schema there).
+  //
+  // Operator quick-toggle path: the SystemSettings DB table is overlaid AFTER this file
+  // via HostCopilotOptionsConfigurator. Use SystemSettings for admin-UI changes;
+  // use this file for engineering-owned baselines.
+  //
+  // Profile (Phase 4): selects a preset overlay applied to threshold properties.
+  // See "Profiles" block at the bottom. Profile values shadow the explicit values above.
+
+  "AnalystAgent": {
+
+    // ── Profile selector ─────────────────────────────────────────────────────────
+    // One of: "Cloud" | "LocalMedium" | "LocalSmall". Each preset overlays the
+    // threshold properties below. Set to null/empty to use the explicit values as-is.
+    "Profile": "LocalMedium",
+
+    // ── Database engine (compiler dialect selection) ─────────────────────────────
+    // Target SQL engine the COMPILER emits. One of: "SqlServer" | "Postgres" (bound by name).
+    // Default "SqlServer" => T-SQL (current production target, unchanged). "Postgres" emits
+    // PostgreSQL via the tested PostgresDialect. NOTE: end-to-end execution against a live
+    // non-SqlServer engine also needs the connection/introspection/validation plumbing (Stage 2);
+    // until then keep this "SqlServer" for execution. This knob makes the dialect a config choice.
+    "Database": "SqlServer",
+
+    // ── Thresholds (overlaid by Profile) ─────────────────────────────────────────
+    // Defaults are tuned for cloud models; lower for local models that can't hit 0.90.
+    "IntentClassifierDecisiveConfidence": 0.78,
+    "VerifiedQueryMinSimilarity":         0.80,
+    "PastQuestionRagMinSimilarity":       0.72,
+    "OutOfScopeSchemaFloor":              0.20,
+    "OutOfScopeVerifiedQueryFloor":       0.55,
+    "ResolverMinConfidence":              0.60,
+
+    // ── Retrieval / RAG ──────────────────────────────────────────────────────────
+    "UseVectorRetriever": true,
+    "UsePastQuestionRag": false,
+    "RetrieverTopK":      5,
+    "FewShotTopK":        3,
+    // Cosine penalty applied to satellite/auxiliary tables (suffix list lives in
+    // semantic-layer.json.defaults.auxiliaryTableSuffixes). 0.05 breaks near-ties in favour
+    // of the main entity. Set to 0 to disable.
+    "AuxiliaryTableScorePenalty": 0.05,
+    "SpecPromptMaxTables":      6,        // Phase 3: was hardcoded in SpecExtractor:149
+    "VqFewShotMinSimilarity":   0.65,     // Phase 3: was hardcoded in SpecExtractor:181
+    "VqFewShotTopK":            3,        // Phase 3: was hardcoded in SpecExtractor:181
+    "ScopeGateRetrieverTopK":   1,        // Phase 3: was hardcoded in ScopeConfidenceGate:74
+
+    // ── SpecExtractor prompt gating ──────────────────────────────────────────────
+    // Minimum planner tier to inject the copilot-text.json iteration-loop extra guidance
+    // into the planner prompt. One of: "Weak" | "Medium" | "Strong" (bound by name).
+    // Default "Medium" => skip for the weak local 7B (model-derived tier = Weak), inject for
+    // 32B+/cloud. Set "Weak" to always inject. The active tier follows the MODEL, not the Profile.
+    "SpecExtractorExtraGuidanceMinTier": "Medium",
+
+    // ── Limits ───────────────────────────────────────────────────────────────────
+    "MaxRows":                     1000,
+    "CommandTimeoutSeconds":       120,
+    "MaxLlmCallsPerQuestion":      7,
+    "MaxQuestionWallClockSeconds": 1800,
+    "LlmCallTimeoutSeconds":       900,
+    "MaxSelfCorrectionRetries":    1,
+
+    // ── Feature toggles ──────────────────────────────────────────────────────────
+    // Minimal "direct analyst" front-path: ground → generate SQL → validate → execute, in ~2 LLM
+    // calls, BEFORE the heavy form-filling pipeline. Falls through to it on any miss, so it can
+    // never regress. Proven live 2026-06-02 (12/12 shapes grounded-correct on qwen2.5-coder:7b).
+    "EnableDirectSqlPath": true,
+    "EnableScopeConfidenceGate": true,
+    "EnableDecomposer":          true,
+    // Regex/cue splitter ahead of the LLM decomposer (which is biased NOT to split). Fixes compound
+    // "X and Y" questions ("open tickets AND outages this month") that were abstaining as one query.
+    // Conservative: only fires on StrongCompoundSignals; skips grouped/group-by/sequential shapes.
+    "EnableHeuristicDecomposer": true,
+    "EnableCoverageChecker":     true,
+    "EnableResultCache":         true,
+    "ResultCacheTtlSeconds":     60,
+    "EnableCostGate":            false,
+
+    // ── Safety ───────────────────────────────────────────────────────────────────
+    "KillSwitch":                           false,
+    "RateLimitMaxRequestsPerWindow":        30,
+    "RateLimitWindowSeconds":               60,
+    "EnableSchemaIntrospection":            true,
+    "RestrictMetadataToConfiguredEntities": false,
+    "FailFastOnSchemaDrift":                false,
+
+    // ── Schema visibility (what tables the Copilot can see) ──────────────────────
+    // C# defaults are EMPTY by convention — this file is the single source. To port to
+    // a new app, edit ONLY these lists. Wildcard syntax: "*" matches any sequence.
+    "RetrieverHiddenTables": [
+      "CopilotAssessmentRunSummaries",
+      "CopilotTraceHistories",
+      "CopilotChatMessages",
+      "CopilotChatSessions",
+      "CopilotToolDefinitions",
+      "SystemSettings",
+      "GeminiApiKeys",
+      "GroqApiKeys",
+      "ExternalApiSettings",
+      "CustomThemes",
+      "RetrievalBenchmarkRuns",
+      "TicketAiAnalyses",
+      "TicketAiAnalysisLogs",
+      "TicketSemanticEmbeddings"
+    ],
+    "RetrieverHiddenTablePatterns": [
+      "__*",        // EF Core migration tables
+      "AspNet*",    // ASP.NET Identity tables (override per host if needed)
+      "*ApiKey*",   // API-key stores (Groq, Gemini, future providers) — never user-queryable
+      "*Benchmark*" // model-eval / retrieval-benchmark tables — not domain data
+    ],
+
+    // ── Access denylist (hard blocks, applied to every Copilot layer) ────────────
+    "BlockedTables": [
+      "__EFMigrationsHistory"
+    ],
+    "BlockedTablePatterns": [
+      "Audit*",
+      "*Secret*",
+      "*Token*"
+    ],
+
+    // ── Sensitive column denylist (SECURITY-CRITICAL) ────────────────────────────
+    // C# defaults are EMPTY. If you remove an entry here, sensitive columns CAN leak.
+    // The patterns below cover ASP.NET Identity + common secret-bearing column names —
+    // a new host should retain them and ADD any host-specific secret columns.
+    "BlockedColumns": [
+      "*.PasswordHash",
+      "*.SecurityStamp",
+      "*.ConcurrencyStamp",
+      "*.AuthenticatorKey",
+      "*.RecoveryCode",
+      "*.ApiKey",
+      "*.Secret",
+      "*.Token",
+      "*.Password"
+    ],
+
+    // ── Profile presets (Phase 4 — applied by CopilotOptionsLoader) ──────────────
+    // When "Profile" above matches one of these keys, the inner properties OVERLAY
+    // the explicit values above. Leaves anything not listed alone. Add new profiles
+    // (e.g., "LocalTiny") by adding new keys to this block — no code change.
+    "Profiles": {
+      // Cloud frontier models (Claude Sonnet/Opus, GPT-4o, DeepSeek-V3) — strong NLU,
+      // language-vocab crutches auto-skip via PlannerCapabilityTier=Strong.
+      "Cloud": {
+        "IntentClassifierDecisiveConfidence": 0.90,
+        "VerifiedQueryMinSimilarity":         0.90,
+        "PastQuestionRagMinSimilarity":       0.82,
+        "PlannerCapabilityTier":              "Strong"
+      },
+      // Mid-tier local (current qwen2.5-coder:7b). Crutches still fire — this 7B needs them.
+      // To migrate to a 32B-class model, switch the active Profile to "LocalMedium32B" below.
+      "LocalMedium": {
+        "IntentClassifierDecisiveConfidence": 0.78,
+        "VerifiedQueryMinSimilarity":         0.97,
+        "PastQuestionRagMinSimilarity":       0.72,
+        "PlannerCapabilityTier":              "Weak"
+      },
+      // 14-32B-class local (Qwen2.5-Coder-32B, OmniSQL-14B, DeepSeek-Coder-V2-Lite).
+      // Language-vocab crutches stop firing; structural + FK-enrichment phases still run.
+      "LocalMedium32B": {
+        "IntentClassifierDecisiveConfidence": 0.82,
+        "VerifiedQueryMinSimilarity":         0.92,
+        "PastQuestionRagMinSimilarity":       0.75,
+        "PlannerCapabilityTier":              "Medium"
+      },
+      // Small local (smaller-than-7B sweep). All crutches fire.
+      "LocalSmall": {
+        "IntentClassifierDecisiveConfidence": 0.65,
+        "VerifiedQueryMinSimilarity":         0.70,
+        "PastQuestionRagMinSimilarity":       0.65,
+        "PlannerCapabilityTier":              "Weak"
+      }
+    }
+  },
+
+  // ── Embedding keyword boosts ──────────────────────────────────────────────────
+  // Role-specific phrases that SchemaSemanticRetriever appends to a table's embedding
+  // text so paraphrased queries route to the right table-shape. Edit to translate or
+  // tune; restart picks up changes. Defaults match the historic hardcoded values.
+  "EmbeddingKeywords": {
+    "Lookup": "lookup reference values options types",
+    "Bridge": "association relationship mapping link",
+    "Person": "users people members accounts",
+    "Fact":   ""
+  }
+}

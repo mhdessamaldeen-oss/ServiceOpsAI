@@ -23,12 +23,6 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
 
         public AiRoleBinding Classifier { get; set; } = new();
         public AiRoleBinding QuerySpecComposer { get; set; } = new();
-        public AiRoleBinding SchemaLinker { get; set; } = new();
-        public AiRoleBinding StructuralCueParser { get; set; } = new();
-        public AiRoleBinding SelfCorrector { get; set; } = new();
-        public AiRoleBinding Paraphraser { get; set; } = new();
-        public AiRoleBinding Frontier { get; set; } = new();
-        public AiRoleBinding SyntheticGenerator { get; set; } = new();
         public AiRoleBinding Decomposer { get; set; } = new();
         public AiRoleBinding Explainer { get; set; } = new();
 
@@ -39,12 +33,6 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
         {
             AiRole.Classifier => Classifier,
             AiRole.QuerySpecComposer => QuerySpecComposer,
-            AiRole.SchemaLinker => SchemaLinker,
-            AiRole.StructuralCueParser => StructuralCueParser,
-            AiRole.SelfCorrector => SelfCorrector,
-            AiRole.Paraphraser => Paraphraser,
-            AiRole.Frontier => Frontier,
-            AiRole.SyntheticGenerator => SyntheticGenerator,
             AiRole.Decomposer => Decomposer,
             AiRole.Explainer => Explainer,
             _ => new AiRoleBinding(),

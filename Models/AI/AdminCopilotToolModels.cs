@@ -48,7 +48,7 @@ namespace ServiceOpsAI.Models.AI
                 CompletedAt = DateTime.UtcNow,
                 TechnicalData = technicalData,
                 Current = current,
-                Location = location ?? "SuperAdminCopilot"
+                Location = location ?? "AnalystAgent"
             });
         }
     }
@@ -114,7 +114,7 @@ namespace ServiceOpsAI.Models.AI
                 CompletedAt = DateTime.UtcNow,
                 TechnicalData = technicalData,
                 Current = current,
-                Location = location ?? "SuperAdminCopilot"
+                Location = location ?? "AnalystAgent"
             });
         }
     }

@@ -108,3 +108,6 @@ QUALITY_REPORT_*.md
 FINE_TUNING_REQUIREMENTS.md
 supportflow_ops.md
 *tmp_counts.sql
+
+# Generated copilot schema-embedding vectors (model+schema-hash specific, regenerable)
+Areas/SuperAdminCopilot/Configuration/embeddings/

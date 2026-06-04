@@ -1,0 +1,172 @@
+{
+  "_comment": "Schema overrides — human corrections layered ON TOP of auto-generated schema-inferred.json. Anything not listed here uses the inferred value. Tables / columns are matched case-insensitively by Name.",
+  "_format": {
+    "Tables": [
+      {
+        "Name": "<TableName>",
+        "Description": "<override the AI-generated description>",
+        "Flags": { "IsBridge": null, "IsLookup": null, "IsPerson": null },
+        "Roles": {
+          "LabelColumn": "<override>",
+          "SoftDeleteColumn": "<override>",
+          "NaturalKey": "<override>"
+        },
+        "Columns": [
+          {
+            "Name": "<ColumnName>",
+            "Role": "primary_key | foreign_key | natural_key | label | soft_delete | date | audit",
+            "DateRole": "created | modified | resolved | completed | due | started",
+            "References": "<Table.Column>",
+            "IsPii": true
+          }
+        ]
+      }
+    ]
+  },
+  "Tables": [
+    {
+      "_note": "Example 1 — TicketNumber has no DB-level UNIQUE constraint, so the heuristic misses it. Mark it as natural key here so 'find ticket TKT-2026-00123' resolves. Synonyms: Arabic forms so SchemaLinker.IsAnchor can lexically anchor an Arabic question on Tickets (the central entity) without depending on the bge-m3 embedding fallback. Merged additively with the auto-generated English synonyms.",
+      "Name": "Tickets",
+      "Synonyms": ["تذكرة", "تذاكر", "التذاكر", "التذكرة", "شكوى", "شكاوى", "الشكوى", "الشكاوى", "بلاغ", "بلاغات", "البلاغ", "البلاغات", "مشكلة", "مشاكل", "المشكلة", "المشاكل"],
+      "Roles": {
+        "NaturalKey": "TicketNumber"
+      },
+      "Columns": [
+        {
+          "Name": "TicketNumber",
+          "Role": "natural_key"
+        }
+      ]
+    },
+    {
+      "_note": "Example 3 — give the LLM a richer description so retrieval / spec extraction picks the right table.",
+      "Name": "CopilotTraceHistories",
+      "Description": "Per-question trace records — one row per copilot answer with question, SQL, rows, timing, errors. Useful for debugging or analytics on copilot usage."
+    },
+    {
+      "_note": "Bills — Status is DESCRIPTIVE here, not a default filter. A neutral value enumeration avoids the 7B bolting Status='Issued' onto totals it was never asked to filter.",
+      "Name": "Bills",
+      "Synonyms": ["فاتورة", "فواتير", "الفاتورة", "الفواتير"],
+      "Description": "Utility bill. TotalAmount is the billed amount (SYP). Status is a lifecycle state column with values Issued, Paid, Overdue, Disputed, Cancelled. Apply a Status filter ONLY when the question names a payment state — a total / sum / count / average of bills with no stated state spans ALL statuses. When you do filter payment state, use Status (e.g. Status='Paid'), never the PaidAt timestamp.",
+      "Columns": [
+        { "Name": "PaidAt", "Role": "date", "DateRole": "completed" },
+        { "Name": "IssuedAt", "Role": "date", "DateRole": "created" },
+        { "Name": "DueDate", "Role": "date", "DateRole": "due" }
+      ]
+    },
+    {
+      "_note": "Customers — Status is DESCRIPTIVE (value enumeration), not a default filter.",
+      "Name": "Customers",
+      "Synonyms": ["مشترك", "مشتركين", "المشترك", "المشتركين", "زبون", "زبائن", "الزبون", "الزبائن", "عميل", "عملاء", "العميل", "العملاء"],
+      "Description": "External utility subscriber. Status is a lifecycle state column with values Active, Suspended, Churned. Apply a Status filter ONLY when the question names a lifecycle state — a count / list of customers with no stated state spans ALL statuses. When you do filter lifecycle state, use Status (e.g. Status='Churned'), never the ChurnedAt timestamp. Soft-deleted customers have IsDeleted=1.",
+      "Columns": [
+        { "Name": "ChurnedAt", "Role": "date", "DateRole": "completed" },
+        { "Name": "SignupAt", "Role": "date", "DateRole": "created" },
+        { "Name": "Email", "Role": "label", "IsPii": true }
+      ]
+    },
+    {
+      "_note": "Tariffs — EffectiveTo NULL means active (no end date).",
+      "Name": "Tariffs",
+      "Description": "Historical pricing per (ServiceType, Region). EffectiveTo IS NULL means the tariff is currently active. To find 'active tariffs' use 'EffectiveTo IS NULL'. To find 'tariffs that changed in 2025' use 'EffectiveFrom BETWEEN ...'.",
+      "Columns": [
+        { "Name": "EffectiveFrom", "Role": "date", "DateRole": "started" },
+        { "Name": "EffectiveTo", "Role": "date", "DateRole": "completed" }
+      ]
+    },
+    {
+      "_note": "TicketCategories — hierarchical. ParentCategoryId NULL means Primary, NOT NULL means Secondary.",
+      "Name": "TicketCategories",
+      "Description": "Hierarchical taxonomy of complaint types. ParentCategoryId IS NULL means the row is a Primary (top-level) category; ParentCategoryId IS NOT NULL means it is a Secondary (child of a Primary). Tier column also encodes this enum-wise. To list 'primary categories' use ParentCategoryId IS NULL. To count 'secondary categories' use ParentCategoryId IS NOT NULL.",
+      "Columns": [
+        { "Name": "ParentCategoryId", "Role": "foreign_key", "References": "TicketCategories.Id" }
+      ]
+    },
+    {
+      "_note": "Outages — EndedAt NULL means still ongoing. Filter on Cause/Severity for typical analyst questions.",
+      "Name": "Outages",
+      "Synonyms": ["انقطاع", "انقطاعات", "الانقطاع", "الانقطاعات", "انقطاع الخدمة", "انقطاع التيار", "أعطال", "الأعطال"],
+      "Description": "Service outage events. EndedAt IS NULL means the outage is ongoing (still active). Use DATEDIFF(hour, StartedAt, EndedAt) for duration (only for resolved outages). Cause is an enum: Equipment, Weather, PipeBurst, FiberCut, etc. Severity: Minor, Moderate, Major, Critical.",
+      "Columns": [
+        { "Name": "StartedAt", "Role": "date", "DateRole": "started" },
+        { "Name": "EndedAt", "Role": "date", "DateRole": "completed" }
+      ]
+    },
+    {
+      "_note": "Regions — hierarchical (Governorate vs District) via ParentRegionId. Describe the grain; do NOT prescribe a ParentRegionId filter for plain 'region' questions.",
+      "Name": "Regions",
+      "Synonyms": ["محافظة", "محافظات", "المحافظة", "المحافظات", "منطقة", "مناطق", "المنطقة", "المناطق", "أحياء", "الحي", "الأحياء"],
+      "Description": "Hierarchical geography via ParentRegionId: a row with ParentRegionId IS NULL is a Governorate (14); a row with ParentRegionId IS NOT NULL is a District. GRAIN: Tickets and Customers reference a District (RegionId points at a leaf district); to roll a Ticket/Customer up to its governorate, join Regions to its parent on ParentRegionId. Departments reference a Governorate directly. Do NOT add a ParentRegionId or RegionType filter unless the question explicitly asks for governorates or districts; plain 'regions' means all rows.",
+      "Columns": [
+        { "Name": "ParentRegionId", "Role": "foreign_key", "References": "Regions.Id" }
+      ]
+    },
+    {
+      "_note": "AspNetUsers — the PRIMARY 'users/staff/agents' table. Arabic forms so an Arabic question ('كم عدد الموظفين') anchors here lexically and not on Customers (external subscribers).",
+      "Name": "AspNetUsers",
+      "Synonyms": ["موظف", "موظفين", "الموظف", "الموظفون", "الموظفين", "وكيل", "وكلاء", "مستخدم", "مستخدمين", "المستخدم", "المستخدمين"]
+    },
+
+    {
+      "_note": "Phase 06 Arabic synonyms. The blocks below add Arabic forms for the 15 new entities. Synonyms are MERGED with the auto-generated English ones (additive, not replacing). The English forms come from SchemaInferenceGenerator's TableSynonymDictionary; Arabic comes from here.",
+      "Name": "Currencies",
+      "Synonyms": ["العملة", "العملات", "النقد", "عملة", "عملات"]
+    },
+    {
+      "Name": "PaymentMethods",
+      "Synonyms": ["طريقة الدفع", "طرق الدفع", "وسيلة الدفع", "وسائل الدفع", "قناة الدفع"]
+    },
+    {
+      "Name": "CustomerSegments",
+      "Synonyms": ["شريحة العميل", "شرائح العملاء", "فئة العميل", "فئات العملاء", "تصنيف العميل"]
+    },
+    {
+      "Name": "ServicePoints",
+      "Synonyms": ["نقطة الخدمة", "نقاط الخدمة", "موقع العداد", "موقع الاشتراك", "العنوان", "العنوان الفيزيائي"]
+    },
+    {
+      "Name": "ServiceAccounts",
+      "Synonyms": ["عقد الخدمة", "عقود الخدمة", "الاشتراك", "الاشتراكات", "العقد", "العقود", "حساب الخدمة", "حسابات الخدمة"]
+    },
+    {
+      "Name": "Payments",
+      "Synonyms": ["الدفعة", "الدفعات", "دفعة", "دفعات", "تسديد", "تسديدات", "السداد", "المعاملة", "المعاملات", "تحويل", "تحويلات"]
+    },
+    {
+      "Name": "TariffTiers",
+      "Synonyms": ["شريحة التعرفة", "شرائح التعرفة", "شريحة سعرية", "الشرائح السعرية", "الشريحة", "الشرائح"]
+    },
+    {
+      "Name": "Subsidies",
+      "Synonyms": ["الدعم", "الإعانة", "الإعانات", "المعونة", "المعونات", "إعانة", "خصم حكومي", "خصم اجتماعي", "دعم حكومي"]
+    },
+    {
+      "Name": "Assets",
+      "Synonyms": ["الأصل", "الأصول", "البنية التحتية", "المعدات", "معدة", "المعدة", "محطة", "المحطة", "محوّل", "المحوّل", "العداد"]
+    },
+    {
+      "Name": "Technicians",
+      "Synonyms": ["الفني", "الفنيون", "الفنيين", "فني", "فنيون", "الكهربائي", "كهربائي", "السباك", "سباك", "الفريق الفني", "العامل الميداني"]
+    },
+    {
+      "Name": "WorkOrders",
+      "Synonyms": ["أمر عمل", "أوامر العمل", "أمر صيانة", "أوامر الصيانة", "تكليف ميداني", "مهمة ميدانية", "مهام ميدانية", "بلاغ صيانة", "تذكرة صيانة"]
+    },
+    {
+      "Name": "MaintenanceSchedules",
+      "Synonyms": ["جدولة الصيانة", "جداول الصيانة", "صيانة مجدولة", "موعد الصيانة", "نافذة الصيانة", "الصيانة الوقائية", "صيانة دورية"]
+    },
+    {
+      "Name": "CallLogs",
+      "Synonyms": ["سجل المكالمات", "سجلات المكالمات", "المكالمة", "المكالمات", "اتصال", "الاتصالات", "تواصل", "التواصل", "محادثة الواتساب", "رسالة قصيرة"]
+    },
+    {
+      "Name": "OutageNotifications",
+      "Synonyms": ["إشعار الانقطاع", "إشعارات الانقطاع", "تنبيه الانقطاع", "تنبيهات الانقطاع", "رسالة الانقطاع", "إشعار صيانة"]
+    },
+    {
+      "Name": "SlaPolicies",
+      "Synonyms": ["اتفاقية مستوى الخدمة", "اتفاقيات مستوى الخدمة", "اتفاقية الخدمة", "سياسة الاستجابة", "سياسة المستوى", "مستوى الخدمة", "SLA"]
+    }
+  ]
+}

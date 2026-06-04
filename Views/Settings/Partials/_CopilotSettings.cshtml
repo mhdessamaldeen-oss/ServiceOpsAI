@@ -157,11 +157,6 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-check form-switch mt-3">
-                        <input type="hidden" name="useVectorRetriever" value="false" />
-                        <input class="form-check-input" type="checkbox" name="useVectorRetriever" value="true" checked="@IsTrue(ViewBag.CopilotUseVectorRetriever)" />
-                        <label class="form-check-label small">Use embedding-based vector retriever</label>
-                    </div>
                 </section>
             </div>
 
@@ -280,12 +275,47 @@
         </div>
 
         <div id="schemaError" class="alert alert-danger mt-3 small mb-0 py-2" style="display:none;"></div>
+
+        <hr class="my-3" />
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+            <div>
+                <h6 class="fw-bold mb-1">Schema Embeddings</h6>
+                <p class="text-muted small mb-0">
+                    Similarity index that maps a question's words to the right tables (e.g. "users" → AspNetUsers).
+                    Built once with the configured <strong>Embedding</strong> workload model and persisted to disk, so
+                    restarts don't re-embed and the embedding model isn't held in memory at query time. Regenerate after a
+                    schema change (the schema job does this automatically).
+                </p>
+            </div>
+            <button type="button" id="embGenerateBtn" class="btn btn-primary btn-sm">
+                <i class="bi bi-cpu me-1"></i><span id="embGenerateBtnText">Generate</span>
+            </button>
+        </div>
+        <div class="row g-3 small">
+            <div class="col-md-3">
+                <div class="text-muted">Embedding model</div>
+                <div id="embModel" class="fw-semibold text-truncate" title="">—</div>
+            </div>
+            <div class="col-md-2">
+                <div class="text-muted">Vectors</div>
+                <div id="embCount" class="fw-semibold">—</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted">State</div>
+                <div id="embState" class="fw-semibold">—</div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted">Schema hash</div>
+                <div id="embHash" class="fw-semibold text-truncate" title="">—</div>
+            </div>
+        </div>
+        <div id="embError" class="alert alert-danger mt-3 small mb-0 py-2" style="display:none;"></div>
     </section>
 </div>
 
 <script>
     (function () {
-        const api = '/api/super-admin-copilot/schema-inference';
+        const api = '/api/analyst-agent/schema-inference';
         let pollTimer = null;
 
         function fmt(dt) {
@@ -370,5 +400,83 @@
         });
 
         refresh();
+    })();
+
+    // --- Schema Embeddings panel ---
+    (function () {
+        const api = '/api/analyst-agent/schema-inference/embeddings';
+        let embPoll = null;
+
+        function fmtHash(h) { return h ? (h.length > 12 ? h.slice(0, 12) + '…' : h) : '—'; }
+        function jget(o, k) { return o ? (o[k] !== undefined ? o[k] : o[k.charAt(0).toUpperCase() + k.slice(1)]) : undefined; }
+
+        function renderStatus(s) {
+            const model = s.embeddingModel || '';
+            const tables = (s.kinds || []).find(k => (k.kind || k.Kind) === 'tables') || {};
+            const count = tables.count ?? tables.Count ?? 0;
+            const stale = tables.stale ?? tables.Stale;
+            const gen = tables.generatedAt ?? tables.GeneratedAt;
+            const job = s.job || {};
+            const jobStatus = (jget(job, 'status') || 'Idle').toString();
+            const jobErr = jget(job, 'error');
+            const running = jobStatus.toLowerCase() === 'running';
+
+            const modelEl = document.getElementById('embModel');
+            modelEl.textContent = model || 'Not configured';
+            modelEl.title = model || '';
+            document.getElementById('embCount').textContent = count || '—';
+            const hashEl = document.getElementById('embHash');
+            hashEl.textContent = fmtHash(s.schemaHash);
+            hashEl.title = s.schemaHash || '';
+
+            const stateEl = document.getElementById('embState');
+            if (running) stateEl.innerHTML = '<span class="badge bg-info text-dark"><span class="spinner-border spinner-border-sm me-1" style="width:.7rem;height:.7rem;"></span>Generating…</span>';
+            else if (!model) stateEl.innerHTML = '<span class="badge bg-secondary">No model</span>';
+            else if (jobStatus.toLowerCase() === 'failed') stateEl.innerHTML = '<span class="badge bg-danger">Failed</span>';
+            else if (!count) stateEl.innerHTML = '<span class="badge bg-warning text-dark">Not generated</span>';
+            else if (stale) stateEl.innerHTML = '<span class="badge bg-warning text-dark">Stale — regenerate</span>';
+            else stateEl.innerHTML = '<span class="badge bg-success">Ready</span>' +
+                (gen ? ' <span class="text-muted">' + new Date(gen).toLocaleString() + '</span>' : '');
+
+            const errEl = document.getElementById('embError');
+            if (jobErr) { errEl.textContent = jobErr; errEl.style.display = 'block'; }
+            else if (!running) errEl.style.display = 'none';
+
+            const btn = document.getElementById('embGenerateBtn');
+            btn.disabled = !model || running;
+            document.getElementById('embGenerateBtnText').textContent = running ? 'Generating…' : (count ? 'Regenerate' : 'Generate');
+
+            // Poll while a background generation runs; stop once it settles.
+            if (running && !embPoll) embPoll = setInterval(refreshEmb, 2000);
+            else if (!running && embPoll) { clearInterval(embPoll); embPoll = null; }
+        }
+
+        async function refreshEmb() {
+            try {
+                const r = await fetch(api + '/status', { headers: { 'Accept': 'application/json' } });
+                if (r.ok) renderStatus(await r.json());
+            } catch (e) { /* silent */ }
+        }
+
+        document.getElementById('embGenerateBtn').addEventListener('click', async () => {
+            const errEl = document.getElementById('embError');
+            errEl.style.display = 'none';
+            document.getElementById('embGenerateBtn').disabled = true;
+            try {
+                const r = await fetch(api + '/generate', { method: 'POST' });
+                if (!r.ok && r.status !== 409) {
+                    const body = await r.json().catch(() => ({}));
+                    errEl.textContent = body.error || ('Generation failed (' + r.status + ')');
+                    errEl.style.display = 'block';
+                }
+            } catch (e) {
+                errEl.textContent = 'Generation request failed.';
+                errEl.style.display = 'block';
+            } finally {
+                await refreshEmb();   // picks up Running → starts polling
+            }
+        });
+
+        refreshEmb();
     })();
 </script>

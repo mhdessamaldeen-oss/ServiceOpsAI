@@ -1,0 +1,37 @@
+{
+  "WriteIntent": {
+    "Languages": [
+      {
+        "Locale": "en",
+        "Verbs": [
+          { "Pattern": "\\bdelete\\b", "Verb": "delete" },
+          { "Pattern": "\\b(drop|dropped|dropping|drp|dropp|droping)\\s+(?:[\\w-]+\\s+){0,4}(table|column|index|database|view|schema|entire\\s+database|everything|all)s?\\b", "Verb": "drop" },
+          { "Pattern": "\\b(truncate|truncating|trunc)\\b", "Verb": "truncate" },
+          { "Pattern": "\\b(insert|insrt)\\s+(a\\s+|an\\s+|new\\s+|into|row|record|entry)", "Verb": "insert" },
+          { "Pattern": "\\b(update|updated|updating|updat|updte)\\s+[\\w-]+(?:\\s+[\\w-]+){0,3}\\s+(to|set|=|with)\\b", "Verb": "update" },
+          { "Pattern": "\\balter\\s+(?:[\\w-]+\\s+){0,4}(table|column|database|schema)s?\\b", "Verb": "alter" },
+          { "Pattern": "\\bcreate\\s+(?:[\\w-]+\\s+){0,3}(table|user|account|role|index|view|database|schema)s?\\b", "Verb": "create" },
+          { "Pattern": "\\bmodify\\s+(?:[\\w-]+\\s+){1,5}(to|set|with)\\b", "Verb": "modify" },
+          { "Pattern": "\\bremove\\s+(?:[\\w-]+\\s+){1,5}(from|where|with)\\b", "Verb": "remove" },
+          { "Pattern": "\\bset\\s+(?:[\\w-]+\\s+){0,2}[\\w-]+\\s*=\\s*\\S", "Verb": "set" },
+          { "Pattern": "\\bmark\\s+(?:[\\w-]+\\s+){0,5}(as|=|to)\\b", "Verb": "mark" },
+          { "Pattern": "\\bassign\\s+(?:[\\w-]+\\s+){0,5}(to|=|as)\\b", "Verb": "assign" },
+          { "Pattern": "\\b(get\\s+rid\\s+of|wipe\\s+out|wiped\\s+out|wiping\\s+out|clean\\s+out|cleaning\\s+out|purge|purges|purging|purged|eradicate|eradicating|nuke|nuked|nuking|clear\\s+out|zap|zapped)\\b", "Verb": "destroy" }
+        ]
+      },
+      {
+        "Locale": "ar",
+        "Verbs": [
+          { "Pattern": "احذف|احذفي|حذف", "Verb": "delete" },
+          { "Pattern": "امسح|امسحي|مسح", "Verb": "erase" },
+          { "Pattern": "أنشئ|انشاء|انشئي", "Verb": "create" },
+          { "Pattern": "عدّل|عدل|تعديل", "Verb": "update" },
+          { "Pattern": "أدخل|أدخلي|إدخال|ادخال", "Verb": "insert" },
+          { "Pattern": "غيّر|تغيير", "Verb": "change" },
+          { "Pattern": "أضف|اضف|أضيفي|إضافة|اضافة", "Verb": "add" },
+          { "Pattern": "أزل|ازل|إزالة|ازالة", "Verb": "remove" }
+        ]
+      }
+    ]
+  }
+}

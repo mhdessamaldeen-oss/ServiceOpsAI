@@ -1,7 +1,7 @@
 # Per-Role LLM Bindings
 
 Sibling layer to the existing per-workload provider bindings in `AiProviderSettings`. Lets
-each new SuperAdminCopilot pipeline stage declare its own model independently — e.g.
+each new AnalystAgent pipeline stage declare its own model independently — e.g.
 schema-linking on a small 7B, QuerySpec composition on a fine-tuned 14B, paraphrase
 generation on Claude Sonnet — all configurable via `appsettings.json`.
 

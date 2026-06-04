@@ -300,7 +300,7 @@ namespace ServiceOpsAI.Services.AI.Copilot.Analysis
         private string SuggestFix(TraceInspectionResult trace)
         {
             if (trace.Analysis.CorrectnessIssues.Any(i => i.Contains("legacy")))
-                return "Review the SuperAdminCopilot semantic layer for better entity grounding";
+                return "Review the AnalystAgent semantic layer for better entity grounding";
             
             if (trace.Analysis.CorrectnessIssues.Any(i => i.Contains("clarification")))
                 return "Add more training examples for this question pattern";

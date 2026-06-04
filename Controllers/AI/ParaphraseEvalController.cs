@@ -6,11 +6,11 @@ namespace ServiceOpsAI.Controllers.AI
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
     using ServiceOpsAI.Constants;
-    using SuperAdminCopilot.Eval.Paraphrase;
+    using AnalystAgent.Eval.Paraphrase;
 
     /// <summary>
     /// Phase 0 — admin entry point for the paraphrase-robustness evaluation. Lists
-    /// paraphrase-suite files from <c>Areas/SuperAdminCopilot/Configuration/QuestionSuites/</c>
+    /// paraphrase-suite files from <c>Areas/AnalystAgent/Configuration/QuestionSuites/</c>
     /// (the same folder the live <c>CopilotAssessmentHandler</c> scans — paraphrase suites
     /// match the standard flat <c>Scenarios[]</c> shape so both runners read the same files)
     /// and runs a chosen suite through the live copilot pipeline. Returns the structured
@@ -173,12 +173,12 @@ namespace ServiceOpsAI.Controllers.AI
         // same shape. The Suites() endpoint above filters for the ClusterId marker so the
         // standard catalog isn't surfaced through this controller.
         private string ResolveSuitesFolder() => Path.Combine(
-            _env.ContentRootPath, "Areas", "SuperAdminCopilot", "Configuration", "QuestionSuites");
+            _env.ContentRootPath, "Areas", "AnalystAgent", "Eval", "QuestionSuites");
 
         // Reports get their own folder under Eval/ — they're paraphrase-runner artifacts,
         // not suite definitions.
         private string ResolveReportsFolder() => Path.Combine(
-            _env.ContentRootPath, "Areas", "SuperAdminCopilot", "Eval", "Reports");
+            _env.ContentRootPath, "Areas", "AnalystAgent", "Eval", "Reports");
 
         private async Task TryPersistReportAsync(string suiteFile, ParaphraseRobustnessReport report, CancellationToken ct)
         {

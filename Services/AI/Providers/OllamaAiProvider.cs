@@ -56,10 +56,13 @@ namespace ServiceOpsAI.Services.AI.Providers
         {
             get
             {
+                // From the AI settings: the dedicated embedding workload model (admin-editable),
+                // then the appsettings default. NO hardcoded model — if neither is set, return empty so
+                // the caller fails LOUD instead of silently embedding with the chat model (→ NaN).
                 var fromDb = GetDbSetting(SettingKeys.OllamaEmbeddingModel);
                 if (!string.IsNullOrWhiteSpace(fromDb)) return fromDb;
                 if (!string.IsNullOrWhiteSpace(_configOptions.EmbeddingModel)) return _configOptions.EmbeddingModel;
-                return ModelName;
+                return string.Empty;
             }
         }
 
@@ -100,7 +103,11 @@ namespace ServiceOpsAI.Services.AI.Providers
         // Reads from the centralized SettingKeys constant (admin-editable) so the value
         // shown in the Settings UI is the one the provider actually uses. The legacy
         // hardcoded "Ai:Ollama:ContextWindow" key is no longer consulted.
-        public int ContextCapacity => int.TryParse(GetDbSetting(SettingKeys.OllamaContextWindow), out var val) ? val : 4096;
+        // Default raised 4096 → 8192: at 4096 a rich schema prompt + question could overflow num_ctx
+        // and Ollama SILENTLY TRUNCATES the tail, dropping the question/schema → wrong/empty answers.
+        // qwen2.5-coder:7b supports far larger windows; 8192 fits the query-scoped schema with room for
+        // the response. Admin can raise further via the OllamaContextWindow setting.
+        public int ContextCapacity => int.TryParse(GetDbSetting(SettingKeys.OllamaContextWindow), out var val) ? val : 8192;
         
         private string GetBaseUrl() => GetDbSetting(SettingKeys.OllamaBaseUrl) ?? _configOptions.BaseUrl;
         private int GetTimeoutSeconds() => int.TryParse(GetDbSetting(SettingKeys.OllamaTimeoutSeconds), out var value) ? value : _configOptions.TimeoutSeconds;
@@ -160,11 +167,13 @@ namespace ServiceOpsAI.Services.AI.Providers
                         new { role = "user", content = safePrompt }
                     },
                     ["stream"] = false,
-                    // keep_alive is a TOP-LEVEL Ollama parameter, NOT an option. -1 pins the model in VRAM so
-                    // back-to-back planner calls and the assessment loop don't pay a model reload each turn.
-                    // (Previously nested under `options`, where Ollama silently ignores it and falls back to
-                    // the 5-minute default — the model was evicted between slow calls, causing reload churn.)
-                    ["keep_alive"] = -1,
+                    // keep_alive is a TOP-LEVEL Ollama parameter, NOT an option (nested under `options`
+                    // Ollama silently ignores it → 5-min default → reload churn between slow calls).
+                    // Default 1800s (30 min) keeps the model warm across a session while staying
+                    // EVICTABLE — a Forever pin (-1) would block the embedding model from ever loading
+                    // and deadlock schema-embedding generation on a single GPU. Tune via
+                    // OllamaProviderOptions.ChatKeepAliveSeconds.
+                    ["keep_alive"] = _configOptions.ChatKeepAliveSeconds,
                     ["options"] = new
                     {
                         temperature = GetTemperature(),
@@ -247,6 +256,21 @@ namespace ServiceOpsAI.Services.AI.Providers
             // why this is separate from the chat ModelName. modelOverride wins when provided
             // (workload-bound wrapper passes the per-workload Rag model here).
             var model = string.IsNullOrWhiteSpace(modelOverride) ? EmbeddingModelName : modelOverride!;
+            // GUARD: never embed with the chat/generator model — it returns NaN/garbage (its hidden states
+            // aren't similarity vectors) and silently darkens the retriever. If the override/cascade resolves
+            // to the chat model, use the CONFIGURED embedding setting; if none is configured, fail LOUD so
+            // the operator sets the Embedding/Rag model in AI settings (no hardcoded substitution).
+            if (string.IsNullOrWhiteSpace(model) || string.Equals(model, ModelName, StringComparison.OrdinalIgnoreCase))
+            {
+                var configured = EmbeddingModelName;
+                if (!string.IsNullOrWhiteSpace(configured) && !string.Equals(configured, ModelName, StringComparison.OrdinalIgnoreCase))
+                    model = configured;
+                else
+                {
+                    _logger.LogWarning("[Ollama] No embedding model configured (resolved to the chat model '{Chat}'). Set the Embedding/Rag model in AI settings — skipping embed to avoid NaN.", ModelName);
+                    return Array.Empty<float>();
+                }
+            }
 
             try
             {
@@ -254,9 +278,12 @@ namespace ServiceOpsAI.Services.AI.Providers
                 var fullUrl = baseUrl.TrimEnd('/') + "/api/embeddings";
                 using var callCts = new System.Threading.CancellationTokenSource(GetHttpClientTimeout());
 
-                // keep_alive = -1 pins the embedding model in VRAM alongside the chat model so an assessment
-                // run doesn't thrash between bge-m3 and the generator (each eviction costs a full reload).
-                var requestBody = new { model = model, prompt = text, keep_alive = -1 };
+                // keep_alive: 60s (NOT -1). The chat model (qwen) is pinned (-1) because it runs on every
+                // request; the embedder runs only at warmup + the rare no-anchor question (the SchemaLinker
+                // does similarity lexically most of the time). Pinning BOTH oversubscribes VRAM — Ollama then
+                // evicts qwen and reloads it cold every generation (the slowness). Let bge-m3 unload so qwen
+                // keeps the GPU.
+                var requestBody = new { model = model, prompt = text, keep_alive = 60 };
                 var json = JsonSerializer.Serialize(requestBody);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -278,6 +305,11 @@ namespace ServiceOpsAI.Services.AI.Providers
                 for (int i = 0; i < embedding.Length; i++)
                 {
                     embedding[i] = (float)data[i].GetDouble();
+                    if (float.IsNaN(embedding[i]) || float.IsInfinity(embedding[i]))
+                    {
+                        _logger.LogWarning("[Ollama] embedding from '{Model}' contained NaN/Inf — discarding (use a real embedding model like bge-m3).", model);
+                        return Array.Empty<float>();
+                    }
                 }
 
                 return embedding;

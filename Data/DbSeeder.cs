@@ -1472,7 +1472,7 @@ namespace ServiceOpsAI.Data
             // current working directory so it works under both dotnet run and IIS hosting.
             static List<CopilotToolDefinition> LoadToolsFromJsonOrFallback()
             {
-                var path = Path.Combine(Directory.GetCurrentDirectory(), "Areas", "SuperAdminCopilot", "Configuration", "copilot-tools.json");
+                var path = Path.Combine(Directory.GetCurrentDirectory(), "Areas", "AnalystAgent", "Configuration", "copilot-tools.json");
                 if (!File.Exists(path)) return InlineFallback();
                 try
                 {

@@ -140,7 +140,7 @@ namespace ServiceOpsAI.Services.AI.Copilot.Diagnostics
                 StartedAt = DateTime.UtcNow.AddMilliseconds(-elapsedMs),
                 CompletedAt = DateTime.UtcNow,
                 TechnicalData = payload,
-                Location = location ?? "SuperAdminCopilot"
+                Location = location ?? "AnalystAgent"
             });
         }
 

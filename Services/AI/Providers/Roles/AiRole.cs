@@ -1,9 +1,9 @@
 namespace ServiceOpsAI.Services.AI.Providers.Roles
 {
     /// <summary>
-    /// Per-stage LLM role identifier. Each new SuperAdminCopilot pipeline stage that needs
+    /// Per-stage LLM role identifier. Each new AnalystAgent pipeline stage that needs
     /// an LLM call declares its role here; the <see cref="IRoleBoundLlmClientFactory"/>
-    /// resolves it to a concrete <see cref="SuperAdminCopilot.Abstractions.ILlmClient"/>
+    /// resolves it to a concrete <see cref="AnalystAgent.Abstractions.ILlmClient"/>
     /// using the per-role binding configured in <see cref="AiRoleBindings"/>.
     ///
     /// <para><b>Why an enum instead of strings:</b> compile-time safety. Renaming a role
@@ -20,27 +20,10 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
         /// point at their fine-tuned model. Hardest task — code-specialised model recommended.</summary>
         QuerySpecComposer = 1,
 
-        /// <summary>Phase 2a — narrow "which tables/columns does this question reference?" stage.</summary>
-        SchemaLinker = 2,
-
-        /// <summary>Phase 2b — parses brackets / ordering / 'with their X' cues into a typed
-        /// display-shape. Tiny task; a small fine-tuned model is ideal.</summary>
-        StructuralCueParser = 3,
-
-        /// <summary>Phase 3 — reads error + bad SQL + question, returns corrected SQL.
-        /// Same skill as <see cref="QuerySpecComposer"/>; usually inherits its binding.</summary>
-        SelfCorrector = 4,
-
-        /// <summary>Phase 1 — offline batch paraphrase generation. Quality matters more than
-        /// cost; recommended binding: frontier model (Claude Sonnet, GPT-4-class).</summary>
-        Paraphraser = 5,
-
-        /// <summary>Phase 7 — escalation for hard questions. Recommended binding: frontier model.</summary>
-        Frontier = 6,
-
-        /// <summary>Phase 0 — offline synthetic Q→SQL generation for growing the eval set.
-        /// Same model as <see cref="Paraphraser"/> in practice.</summary>
-        SyntheticGenerator = 7,
+        // 2026-06-03 — consolidated to the 4 roles the live pipeline actually calls. The dead roles
+        // (SchemaLinker, StructuralCueParser, SelfCorrector, Paraphraser, Frontier, SyntheticGenerator)
+        // were removed: schema-linking is done by the embedding retrievers (no LLM call), self-correct
+        // is a retry on the SqlGenerator role, and the offline/escalation roles were never wired.
 
         /// <summary>Compound-question splitter (<c>LlmDecomposer</c>). Mid-size model is plenty —
         /// it's a sentence-segmentation task, not generation.</summary>

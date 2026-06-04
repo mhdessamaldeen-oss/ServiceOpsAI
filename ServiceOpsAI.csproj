@@ -10,7 +10,7 @@
   <!-- D2 — expose internals to the test project so safety-gate integration tests can
        instantiate `internal sealed class` gates directly without going through full DI. -->
   <ItemGroup>
-    <InternalsVisibleTo Include="SuperAdminCopilot.Tests" />
+    <InternalsVisibleTo Include="AnalystAgent.Tests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -76,29 +76,25 @@
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.2" />
-    <!-- SuperAdminCopilot in-host area dependency (Areas/SuperAdminCopilot/). FK graph only;
+    <!-- AnalystAgent in-host area dependency (Areas/AnalystAgent/). FK graph only;
          JSON parsing uses System.Text.Json (built-in). -->
     <PackageReference Include="QuikGraph" Version="2.5.0" />
   </ItemGroup>
 
-  <!-- SuperAdminCopilot lives in-host under Areas/SuperAdminCopilot/.
+  <!-- AnalystAgent lives in-host under Areas/AnalystAgent/.
        Configuration JSON files (semantic layer, few-shot examples, text catalog, question
        suites) ship next to the binaries so IOptionsMonitor can hot-reload edits at runtime
        without a redeploy. -->
   <ItemGroup>
-    <Content Update="Areas\SuperAdminCopilot\Configuration\QuestionSuites\*.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\semantic-layer.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\few-shot-examples.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\shape-examples.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\advanced-shape-keywords.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\refinement-cues.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\conversational-cues.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\decomposition-cues.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\copilot-text.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\write-intent-verbs.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\fk-role-patterns.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\verified-queries.json" CopyToOutputDirectory="PreserveNewest" />
-    <Content Update="Areas\SuperAdminCopilot\Configuration\copilot-tools.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\AnalystAgent\Eval\QuestionSuites\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\AnalystAgent\Configuration\semantic-layer.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\AnalystAgent\Configuration\conversational-cues.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\AnalystAgent\Configuration\decomposition-cues.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\AnalystAgent\Configuration\copilot-text.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\AnalystAgent\Configuration\write-intent-verbs.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\AnalystAgent\Configuration\fk-role-patterns.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\AnalystAgent\Configuration\verified-queries.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="Areas\AnalystAgent\Configuration\copilot-tools.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

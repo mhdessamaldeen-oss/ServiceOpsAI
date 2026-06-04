@@ -128,5 +128,5 @@ the provider at Gemini / Claude / GPT in **Global Configuration**.
 ## Tests
 
 ```bash
-dotnet test Tests/SuperAdminCopilot.Tests
+dotnet test Tests/AnalystAgent.Tests
 ```

@@ -15,7 +15,7 @@ using System.Reflection;
 using ServiceOpsAI.Services.AI.Copilot.Tools;
 using Microsoft.AspNetCore.SignalR;
 using ServiceOpsAI.Hubs;
-using SuperAdminCopilot.HostBridge;
+using AnalystAgent.HostBridge;
 
 
 namespace ServiceOpsAI.Services.AI.Copilot.Assessment
@@ -31,14 +31,17 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
         private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
         private readonly IHubContext<CopilotAssessmentHub> _hubContext;
         private readonly ILogger<CopilotAssessmentHandler> _logger;
-        // SuperAdminCopilot v2 bridge — assessment scenarios now route through the new pipeline.
-        private readonly ISuperAdminCopilotChatBridge _superAdminCopilotChatBridge;
-        private readonly SuperAdminCopilot.Eval.IExecutionAccuracyChecker _exChecker;
+        // AnalystAgent v2 bridge — assessment scenarios now route through the new pipeline.
+        private readonly IAnalystAgentChatBridge _analystAgentChatBridge;
+        private readonly AnalystAgent.Eval.IExecutionAccuracyChecker _exChecker;
         // C1 — auto-promotion writer. When EnableAssessmentAutoPromotion is on, EX-passing cases
         // that came via the LLM path are appended to verified-queries.json so the catalog grows
         // with every blessed run. Idempotent on canonical question text.
-        private readonly SuperAdminCopilot.Retrieval.IVerifiedQueryWriter _verifiedQueryWriter;
-        private readonly Microsoft.Extensions.Options.IOptions<SuperAdminCopilot.Configuration.CopilotOptions> _copilotOptions;
+        private readonly AnalystAgent.Retrieval.IVerifiedQueryWriter _verifiedQueryWriter;
+        private readonly Microsoft.Extensions.Options.IOptions<AnalystAgent.Configuration.AnalystOptions> _copilotOptions;
+        // Secondary SEMANTIC verifier (Pass/Partial/Fail over entity/op/filters/fields/agg/group-by).
+        // Diagnostic only — does NOT gate IsSuccess; used to enrich Detail + guard auto-promotion.
+        private readonly AnalystAgent.Eval.ExpectationVerifier.IExpectationVerifier _verifier;
 
         private readonly string _catalogPath;
         private readonly string _suitesFolder;
@@ -73,23 +76,25 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
             IWebHostEnvironment environment,
             IHubContext<CopilotAssessmentHub> hubContext,
             ILogger<CopilotAssessmentHandler> logger,
-            ISuperAdminCopilotChatBridge superAdminCopilotChatBridge,
-            SuperAdminCopilot.Eval.IExecutionAccuracyChecker exChecker,
-            SuperAdminCopilot.Retrieval.IVerifiedQueryWriter verifiedQueryWriter,
-            Microsoft.Extensions.Options.IOptions<SuperAdminCopilot.Configuration.CopilotOptions> copilotOptions)
+            IAnalystAgentChatBridge analystAgentChatBridge,
+            AnalystAgent.Eval.IExecutionAccuracyChecker exChecker,
+            AnalystAgent.Retrieval.IVerifiedQueryWriter verifiedQueryWriter,
+            Microsoft.Extensions.Options.IOptions<AnalystAgent.Configuration.AnalystOptions> copilotOptions,
+            AnalystAgent.Eval.ExpectationVerifier.IExpectationVerifier verifier)
 
         {
             _contextFactory = contextFactory;
             _hubContext = hubContext;
             _logger = logger;
-            _superAdminCopilotChatBridge = superAdminCopilotChatBridge;
+            _analystAgentChatBridge = analystAgentChatBridge;
             _exChecker = exChecker;
             _verifiedQueryWriter = verifiedQueryWriter;
             _copilotOptions = copilotOptions;
+            _verifier = verifier;
             _catalogPath = Path.Combine(environment.ContentRootPath, "Services", "AI", "Copilot", "Assessment", "copilot-assessment.json");
-            // ── SuperAdminCopilot v2 cutover (2026-05-09) ─────────────────────────────────
-            // The assessment page lists JSON files from the in-host SuperAdminCopilot area.
-            _suitesFolder = Path.Combine(environment.ContentRootPath, "Areas", "SuperAdminCopilot", "Configuration", "QuestionSuites");
+            // ── AnalystAgent v2 cutover (2026-05-09) ─────────────────────────────────
+            // The assessment page lists JSON files from the in-host AnalystAgent area.
+            _suitesFolder = Path.Combine(environment.ContentRootPath, "Areas", "AnalystAgent", "Eval", "QuestionSuites");
         }
 
         // Cache for ListSuites — every page load + suite dropdown + run-start used to walk
@@ -261,9 +266,9 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
             // "A", "B", "C" — the session selector dropdown lists each separately, and
             // every trace / chat message FKs back to its owning suite-session. Cases
             // missing SourceSuite (legacy master catalog fallback) bucket under a single
-            // "super-admin-copilot" session so they still get a non-null SessionId.
+            // "analyst-agent" session so they still get a non-null SessionId.
             var suiteGroups = orderedCases
-                .GroupBy(c => string.IsNullOrWhiteSpace(c.SourceSuite) ? "super-admin-copilot" : c.SourceSuite)
+                .GroupBy(c => string.IsNullOrWhiteSpace(c.SourceSuite) ? "analyst-agent" : c.SourceSuite)
                 .OrderBy(g => g.Min(c => c.LoadOrder))
                 .ToList();
 
@@ -381,7 +386,7 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                                     Metadata = metadata,
                                     IsAssessment = true
                                 };
-                                await _superAdminCopilotChatBridge.AskAsync(seedReq, ct);
+                                await _analystAgentChatBridge.AskAsync(seedReq, ct);
                             }
                             catch (Exception seedEx)
                             {
@@ -419,7 +424,7 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                         CaseCode = testCase.Code,
                         // The suite filename ("section ID") — the assessment grid uses this to
                         // group cases by category. Without it the trace row gets the generic
-                        // SourceSuite="super-admin-copilot" tag and the grid can't tell which
+                        // SourceSuite="analyst-agent" tag and the grid can't tell which
                         // file produced each answer.
                         SourceSuite = testCase.SourceSuite,
                         // Forward the curated reference SQL so the bridge can persist it to
@@ -430,10 +435,10 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                     };
 
                     var startTime = DateTime.UtcNow;
-                    // ── SuperAdminCopilot v2 cutover (2026-05-09) ─────────────────────────
-                    // Route assessment scenarios through the active in-host SuperAdminCopilot pipeline.
+                    // ── AnalystAgent v2 cutover (2026-05-09) ─────────────────────────
+                    // Route assessment scenarios through the active in-host AnalystAgent pipeline.
                     // var response = await _copilotService.AskAsync(request);                  // pre-2026 dead path
-                    var response = await _superAdminCopilotChatBridge.AskAsync(request, ct);
+                    var response = await _analystAgentChatBridge.AskAsync(request, ct);
                     var endTime = DateTime.UtcNow;
 
                     var assistantMsg = new CopilotChatMessageEntity
@@ -485,6 +490,13 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                         }
                     }
 
+                    // ── Secondary semantic verifier (diagnostic, non-gating) ───────────
+                    // Pass/Partial/Fail over entity/op/filters/fields/aggregations/group-by. Does NOT
+                    // affect IsSuccess (execution accuracy is primary); surfaced in Detail + guards
+                    // auto-promotion below. Returns NotApplicable for SQL-only gold (no facets declared).
+                    try { result.VerifierResult = _verifier.Verify(testCase, response.Notes); }
+                    catch (Exception vex) { _logger.LogDebug(vex, "[AssessmentVerify] verifier threw for case {Code}", testCase.Code); }
+
                     // ── C1 auto-promotion ─────────────────────────────────────────
                     // When enabled, append EX-passing LLM-emitted SQL to verified-queries.json so
                     // the catalog grows organically. Skip if the answer already came from the
@@ -492,13 +504,16 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                     // Idempotent on canonical question, so re-runs add nothing.
                     if (_copilotOptions.Value.EnableAssessmentAutoPromotion
                         && result.ExAccuracy == true
+                        && result.IsSuccess                                   // promote only a FULLY-correct case
+                        && (result.VerifierResult is null ||                  // ...that isn't structurally broken
+                            result.VerifierResult.Verdict != AnalystAgent.Eval.ExpectationVerifier.VerificationVerdict.Fail)
                         && !string.IsNullOrWhiteSpace(response.Notes)
                         && !string.Equals(response.ExecutionDetails?.Provenance, "verified", StringComparison.OrdinalIgnoreCase)
                         && !string.Equals(response.ExecutionDetails?.Provenance, "refusal", StringComparison.OrdinalIgnoreCase))
                     {
                         try
                         {
-                            var draft = new SuperAdminCopilot.Retrieval.VerifiedQueryDraft(
+                            var draft = new AnalystAgent.Retrieval.VerifiedQueryDraft(
                                 Question: testCase.Question,
                                 Sql: response.Notes,
                                 Shape: testCase.Category,
@@ -609,6 +624,33 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
             report.TotalCases = report.Results.Count;
             report.SuccessCount = report.Results.Count(r => r.IsSuccess);
             report.Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0";
+
+            // Per-shape / per-difficulty accuracy breakdown — the headline benchmark output. Shapes are
+            // the distinct Category strings in the loaded gold (data-driven; never enumerated in code).
+            try
+            {
+                var byShape = report.Results
+                    .GroupBy(r => string.IsNullOrWhiteSpace(r.Case?.Category) ? "(none)" : r.Case!.Category)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new
+                    {
+                        Shape = g.Key,
+                        Total = g.Count(),
+                        Passed = g.Count(r => r.IsSuccess),
+                        Accuracy = g.Count() == 0 ? 0d : Math.Round(100.0 * g.Count(r => r.IsSuccess) / g.Count(), 1),
+                        ByDifficulty = g
+                            .GroupBy(r => string.IsNullOrWhiteSpace(r.Case?.Difficulty) ? "(none)" : r.Case!.Difficulty)
+                            .OrderBy(d => d.Key)
+                            .ToDictionary(d => d.Key, d => new { Total = d.Count(), Passed = d.Count(r => r.IsSuccess) })
+                    })
+                    .ToList();
+                report.ShapeBreakdownJson = JsonSerializer.Serialize(byShape);
+                var overall = report.TotalCases == 0 ? 0d : Math.Round(100.0 * report.SuccessCount / report.TotalCases, 1);
+                _logger.LogInformation("[Benchmark] overall EX accuracy {Acc}% ({Pass}/{Total}). By shape: {Shapes}",
+                    overall, report.SuccessCount, report.TotalCases,
+                    string.Join(" | ", byShape.Select(s => $"{s.Shape}:{s.Accuracy}%({s.Passed}/{s.Total})")));
+            }
+            catch (Exception bx) { _logger.LogDebug(bx, "[Benchmark] shape breakdown failed"); }
 
             // Persist run summary so users can compare runs over time.
             try
@@ -796,6 +838,9 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
                                 if (scenario is null) { skippedInFile++; continue; }
                                 scenario.SourceSuite = suiteLabel;
                                 scenario.LoadOrder = loadCounter++;
+                                // Frozen gold must be execution-verified before it becomes oracle truth.
+                                if (suiteLabel.StartsWith("gold-", StringComparison.OrdinalIgnoreCase) && !scenario.GoldVerified)
+                                    _logger.LogWarning("[GoldBenchmark] case {Code} in {Suite} has GoldVerified=false — its gold answer is NOT execution-verified; do not trust it as oracle ground truth.", scenario.Code, suiteLabel);
                                 scenarios.Add(scenario);
                             }
                             catch (JsonException jex)

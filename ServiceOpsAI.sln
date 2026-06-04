@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceOpsAI", "ServiceOpsA
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SuperAdminCopilot.Tests", "Tests\SuperAdminCopilot.Tests\SuperAdminCopilot.Tests.csproj", "{782A927E-9192-47B0-8522-E1724C6B6CAA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AnalystAgent.Tests", "Tests\AnalystAgent.Tests\AnalystAgent.Tests.csproj", "{782A927E-9192-47B0-8522-E1724C6B6CAA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

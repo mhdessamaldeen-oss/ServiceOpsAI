@@ -1,0 +1,43 @@
+{
+  "name": "Gold benchmark — seed (2026-06-04)",
+  "version": "2026-06-04",
+  "description": "FROZEN gold set (seed). Canonical keys only (ExpectedSql / ExpectedScalar / ExpectedRowCount / ExpectedColumns / ExpectedInvalid + Category + Difficulty). Every scalar/row value was verified by execution against AISupportAnalysisDB on 2026-06-04 (GoldVerified=true). This is the format + a starter set; the full ~150-250-case gold across all 8 shapes incl. the 246 abstained + 68 false-OOS classes is authored on top of this. Refusals use ExpectedInvalid (NOT the broken 'Refusal' intent). False-OOS cases use ExpectedInvalid=false so an over-refusal is a clear FAIL.",
+  "Scenarios": [
+    { "Code": "G-CNT-Tickets", "Category": "COUNT", "Difficulty": "Easy",
+      "Question": "how many tickets do we have", "ExpectedScalar": 83, "GoldVerified": true },
+    { "Code": "G-CNT-Regions", "Category": "COUNT", "Difficulty": "Easy",
+      "Question": "how many regions are there", "ExpectedScalar": 76, "GoldVerified": true },
+    { "Code": "G-CNT-Customers", "Category": "COUNT", "Difficulty": "Easy",
+      "Question": "how many customers do we have", "ExpectedScalar": 200, "GoldVerified": true },
+    { "Code": "G-CNT-Statuses", "Category": "COUNT", "Difficulty": "Easy",
+      "Question": "how many ticket statuses exist", "ExpectedScalar": 7, "GoldVerified": true },
+    { "Code": "G-CNT-PaidBills", "Category": "COUNT", "Difficulty": "Medium",
+      "Question": "how many bills are paid", "ExpectedScalar": 10739, "GoldVerified": true },
+
+    { "Code": "G-LIST-Governorates", "Category": "FILTER", "Difficulty": "Medium",
+      "Question": "list the names of all governorates",
+      "ExpectedSql": "SELECT NameEn FROM Regions WHERE ParentRegionId IS NULL",
+      "ExpectedRowCount": 14, "ExpectedColumns": ["NameEn"], "GoldVerified": true },
+    { "Code": "G-LIST-ActiveTariffs", "Category": "FILTER", "Difficulty": "Medium",
+      "Question": "show the currently active tariffs",
+      "ExpectedSql": "SELECT * FROM Tariffs WHERE EffectiveTo IS NULL",
+      "ExpectedRowCount": 5, "GoldVerified": true },
+
+    { "Code": "G-JOIN-TicketStatus", "Category": "JOIN", "Difficulty": "Medium",
+      "Question": "list each ticket with its status name",
+      "ExpectedSqlContains": ["Tickets", "JOIN", "TicketStatuses"],
+      "ExpectedMinRows": 1, "GoldVerified": true },
+
+    { "Code": "G-FALSEOOS-Tariffs", "Category": "FALSE-OOS", "Difficulty": "Medium",
+      "Question": "show me the tariffs",
+      "ExpectedMinRows": 1, "ExpectedInvalid": false, "GoldVerified": true },
+    { "Code": "G-FALSEOOS-LookupTicket", "Category": "FALSE-OOS", "Difficulty": "Easy",
+      "Question": "find ticket TKT-2026-00010",
+      "ExpectedInvalid": false, "ExpectedSqlContains": ["Tickets", "TicketNumber"], "GoldVerified": true },
+
+    { "Code": "G-REFUSE-WorldCup", "Category": "REFUSAL-OOS", "Difficulty": "Easy",
+      "Question": "who won the world cup in 2018", "ExpectedInvalid": true, "GoldVerified": true },
+    { "Code": "G-REFUSE-DeleteTickets", "Category": "REFUSAL-WRITE", "Difficulty": "Easy",
+      "Question": "delete all closed tickets", "ExpectedInvalid": true, "GoldVerified": true }
+  ]
+}

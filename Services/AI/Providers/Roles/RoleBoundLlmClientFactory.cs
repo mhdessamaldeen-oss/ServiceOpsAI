@@ -7,7 +7,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
     using ServiceOpsAI.Constants;
     using ServiceOpsAI.Data;
     using ServiceOpsAI.Enums;
-    using SuperAdminCopilot.Abstractions;
+    using AnalystAgent.Abstractions;
 
     /// <summary>
     /// Real implementation of <see cref="IRoleBoundLlmClientFactory"/>. For each role, returns
@@ -39,9 +39,6 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
                 [AiRole.Classifier]          = (SettingKeys.AiClassifierProvider,               SettingKeys.ClassifierWorkloadModel),
                 [AiRole.QuerySpecComposer]   = (SettingKeys.AiCopilotProvider,                  SettingKeys.CopilotWorkloadModel),
                 [AiRole.Decomposer]          = (SettingKeys.DecomposerRoleProvider,             SettingKeys.DecomposerRoleModel),
-                [AiRole.SchemaLinker]        = (SettingKeys.SchemaLinkerRoleProvider,           SettingKeys.SchemaLinkerRoleModel),
-                [AiRole.StructuralCueParser] = (SettingKeys.StructuralCueParserRoleProvider,    SettingKeys.StructuralCueParserRoleModel),
-                [AiRole.SelfCorrector]       = (SettingKeys.SelfCorrectorRoleProvider,          SettingKeys.SelfCorrectorRoleModel),
                 [AiRole.Explainer]           = (SettingKeys.ExplainerRoleProvider,              SettingKeys.ExplainerRoleModel),
             };
 

@@ -19,10 +19,10 @@ using ServiceOpsAI.Services.AI.Investigation;
 using ServiceOpsAI.Services.AI.Copilot.Assessment;
 using ServiceOpsAI.Services.AI.Copilot.Tools;
 using ServiceOpsAI.Services.AI.Copilot.Suggestions;
-using SuperAdminCopilot.HostBridge;
-using SuperAdminCopilot.Retrieval;
-using SuperAdminCopilot.Schema;
-using SuperAdminCopilot.Semantic;
+using AnalystAgent.HostBridge;
+using AnalystAgent.Retrieval;
+using AnalystAgent.Schema;
+using AnalystAgent.Semantic;
 
 namespace ServiceOpsAI.Controllers.AI
 {
@@ -49,8 +49,8 @@ namespace ServiceOpsAI.Controllers.AI
         private readonly ICopilotSuggestionService _suggestionService;
         private readonly IMapper _mapper;
         private readonly ILogger<AiAnalysisController> _logger;
-        // SuperAdminCopilot v2 bridge — used by AskCopilot to route through the new in-host pipeline.
-        private readonly ISuperAdminCopilotChatBridge _superAdminCopilotChatBridge;
+        // AnalystAgent v2 bridge — used by AskCopilot to route through the new in-host pipeline.
+        private readonly IAnalystAgentChatBridge _analystAgentChatBridge;
         // Writer for the "Promote to Trusted" flow — appends a new entry to
         // verified-queries.json and triggers the matcher to reload it.
         private readonly IVerifiedQueryWriter _verifiedQueryWriter;
@@ -74,7 +74,7 @@ namespace ServiceOpsAI.Controllers.AI
             ICopilotSuggestionService suggestionService,
             IMapper mapper,
             ILogger<AiAnalysisController> logger,
-            ISuperAdminCopilotChatBridge superAdminCopilotChatBridge,
+            IAnalystAgentChatBridge analystAgentChatBridge,
             IVerifiedQueryWriter verifiedQueryWriter,
             IVerifiedQueryStore verifiedQueryStore)
         {
@@ -95,7 +95,7 @@ namespace ServiceOpsAI.Controllers.AI
             _suggestionService = suggestionService;
             _mapper = mapper;
             _logger = logger;
-            _superAdminCopilotChatBridge = superAdminCopilotChatBridge;
+            _analystAgentChatBridge = analystAgentChatBridge;
             _verifiedQueryWriter = verifiedQueryWriter;
             _verifiedQueryStore = verifiedQueryStore;
         }
@@ -394,7 +394,7 @@ namespace ServiceOpsAI.Controllers.AI
             // catalog (Services/AI/Copilot/Assessment/copilot-assessment.json, 206 cases)
             // whose scenarios have no SourceSuite tag — every trace then appeared in the
             // grid "without a section" and questions like "mobile address histories" ran
-            // under the generic super-admin-copilot bucket. Forcing an explicit pick keeps
+            // under the generic analyst-agent bucket. Forcing an explicit pick keeps
             // every run scoped to a real suite file so sessions/traces stay grouped.
             var hasSuiteSelection = request.SuiteFiles is { Count: > 0 };
             var hasCaseSelection = request.CaseIds is { Count: > 0 };
@@ -1247,8 +1247,8 @@ namespace ServiceOpsAI.Controllers.AI
             if (request.Columns is null || request.Columns.Count == 0 || request.Rows is null || request.Rows.Count == 0)
                 return BadRequest(new { message = "No result data to explain." });
 
-            var llm = HttpContext.RequestServices.GetService(typeof(SuperAdminCopilot.Abstractions.ILlmClient))
-                      as SuperAdminCopilot.Abstractions.ILlmClient;
+            var llm = HttpContext.RequestServices.GetService(typeof(AnalystAgent.Abstractions.ILlmClient))
+                      as AnalystAgent.Abstractions.ILlmClient;
             if (llm is null) return StatusCode(503, new { message = "LLM not available." });
 
             var sb = new System.Text.StringBuilder();
@@ -1303,8 +1303,8 @@ namespace ServiceOpsAI.Controllers.AI
             if (request is null || string.IsNullOrWhiteSpace(request.Question))
                 return BadRequest(new { message = "Question is required." });
 
-            var llm = HttpContext.RequestServices.GetService(typeof(SuperAdminCopilot.Abstractions.ILlmClient))
-                      as SuperAdminCopilot.Abstractions.ILlmClient;
+            var llm = HttpContext.RequestServices.GetService(typeof(AnalystAgent.Abstractions.ILlmClient))
+                      as AnalystAgent.Abstractions.ILlmClient;
             if (llm is null) return StatusCode(503, new { message = "LLM not available." });
 
             var sb = new System.Text.StringBuilder();
@@ -1355,7 +1355,7 @@ namespace ServiceOpsAI.Controllers.AI
                 return BadRequest(new { message = "A question is required." });
             }
 
-            NormalizeCopilotRequest(request);
+            NormalizeAnalystRequest(request);
 
             var session = await ResolveCopilotSessionAsync(request, HttpContext.RequestAborted);
             request.SessionId = session.Id;
@@ -1367,7 +1367,7 @@ namespace ServiceOpsAI.Controllers.AI
                 traceId: null,
                 HttpContext.RequestAborted);
             
-            var result = await _superAdminCopilotChatBridge.AskAsync(request, HttpContext.RequestAborted);
+            var result = await _analystAgentChatBridge.AskAsync(request, HttpContext.RequestAborted);
 
             await AddCopilotMessageAsync(
                 session,
@@ -1379,7 +1379,7 @@ namespace ServiceOpsAI.Controllers.AI
             return Json(BuildCopilotAskResponse(session.Id, result));
         }
 
-        private static void NormalizeCopilotRequest(CopilotChatRequest request)
+        private static void NormalizeAnalystRequest(CopilotChatRequest request)
         {
             request.Question = request.Question.Trim();
             request.Surface = string.IsNullOrWhiteSpace(request.Surface)
@@ -2014,7 +2014,7 @@ namespace ServiceOpsAI.Controllers.AI
         [HttpGet]
         public async Task<IActionResult> GetMetadataHints()
         {
-            // Entities come from the active SuperAdminCopilot semantic layer; fields come from
+            // Entities come from the active AnalystAgent semantic layer; fields come from
             // the active schema catalog.
             var semanticEntities = _semanticLayer.Config.Entities;
             var entityNamesByTable = semanticEntities

@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using SuperAdminCopilot.Schema;
+using AnalystAgent.Schema;
 
 namespace ServiceOpsAI.Controllers.AI;
 

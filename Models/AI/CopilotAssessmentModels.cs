@@ -96,7 +96,7 @@ namespace ServiceOpsAI.Models.AI
 
         // --- GoldenSetRunner-style structural validation ---
         // The legacy PassedFields / PassedFilters / PassedGroupBy checks need an
-        // AdminCopilotDynamicTicketQueryPlan from the response, which the SuperAdminCopilot
+        // AdminCopilotDynamicTicketQueryPlan from the response, which the AnalystAgent
         // bridge can't produce (the new pipeline doesn't emit that plan shape). These five
         // fields are the substitute: assertions on the *generated SQL text*, row count,
         // result column shape, terminal failed-stage, and latency budget. Together they let
@@ -127,6 +127,21 @@ namespace ServiceOpsAI.Models.AI
         /// <summary>Column names that must appear in the result set (case-insensitive). Skipped when null/empty.</summary>
         public List<string>? ExpectedColumns { get; set; }
 
+        /// <summary>The single returned cell VALUE for a scalar answer (e.g. COUNT(*)=13, SUM=…). Graded
+        /// by PassedScalar against the first cell of the first result row. Distinct from
+        /// <see cref="ExpectedRowCount"/> (which is a result-set size). Skipped when null.</summary>
+        public decimal? ExpectedScalar { get; set; }
+
+        /// <summary>The result-set ROW COUNT a list/projection answer must return (e.g. "list customers"
+        /// = 200). Graded against the actual row count. Replaces the broken ExpectedResultsCount path
+        /// (which read a constant-0 source). Skipped when null.</summary>
+        public int? ExpectedRowCount { get; set; }
+
+        /// <summary>Provenance flag for a frozen GOLD benchmark case: true once the ExpectedSql has been
+        /// verified-by-execution + a human row-sanity check. The gold loader WARNS on any gold-* case
+        /// left false, so an un-vetted gold answer can't silently become the oracle's ground truth.</summary>
+        public bool GoldVerified { get; set; }
+
         /// <summary>Reference SQL the case was curated against. The same string flows end-to-end:
         /// here on the case, through <c>CopilotChatRequest.ExpectedSql</c> on the wire, and finally
         /// stored in <c>CopilotTraceHistory.ExpectedScript</c> for side-by-side comparison with
@@ -138,6 +153,25 @@ namespace ServiceOpsAI.Models.AI
         /// (e.g. "Validator" / "Preflight"). Prevents writing-off all refusals as "we caught it"
         /// when the validator should have caught it but the planner did instead.</summary>
         public string? ExpectedFailedStage { get; set; }
+
+        // ── Legacy-suite compatibility shim ──────────────────────────────────────────────────────
+        // Older gold suites (suite-baseline / suite-matrix) used "GoldSQL" + "Shape" keys the grader
+        // never read, so those cases graded as failures. These aliases map them onto the canonical
+        // ExpectedSql / Category so they grade through the EX oracle WITHOUT rewriting every file.
+        // (Frozen gold-*.json files use the canonical keys directly.)
+        [System.Text.Json.Serialization.JsonPropertyName("GoldSQL")]
+        public string? GoldSqlAlias
+        {
+            get => null;   // write-only mapping; don't re-serialize a duplicate of ExpectedSql
+            set { if (!string.IsNullOrWhiteSpace(value)) ExpectedSql = value; }
+        }
+
+        [System.Text.Json.Serialization.JsonPropertyName("Shape")]
+        public string? ShapeAlias
+        {
+            get => null;
+            set { if (!string.IsNullOrWhiteSpace(value)) Category = value; }
+        }
 
         /// <summary>Per-case latency budget in ms. Overrides the global 30s default in
         /// CopilotAssessmentResult.PassedLatency. Use lower values (e.g. 5000) for the
@@ -335,12 +369,77 @@ namespace ServiceOpsAI.Models.AI
 
         /// <summary>If <see cref="ExAccuracy"/> is null, this carries the reason (empty/gold-failed/etc.).</summary>
         public string? ExError { get; set; }
+
+        /// <summary>SECONDARY semantic verdict from <c>IExpectationVerifier</c> (Pass/Partial/Fail/N/A
+        /// over entity/op/filters/fields/aggregations/group-by). Diagnostic ONLY — it does NOT gate
+        /// <see cref="IsSuccess"/> (execution accuracy is primary). Surfaced in <see cref="Detail"/>
+        /// and used by the auto-promotion gate (don't promote a structurally-broken query).</summary>
+        public AnalystAgent.Eval.ExpectationVerifier.VerificationResult? VerifierResult { get; set; }
         public string ActualIntent => ActualResponse?.ExecutionDetails?.DetectedIntent ?? string.Empty;
         public string ActualMode => ResolveActualMode();
         public string ActualTool => ActualResponse?.UsedTool ?? string.Empty;
         public bool ActualRequiresClarification => DetectClarification();
         public bool ActualInvalid => DetectInvalid();
         public bool HasRecordContext => DetectRecordContext();
+
+        // ── Case classification + gold definitions (schema-agnostic: reads only typed enums + the
+        //    case's own Expected* fields — no table/column/suite literal) ──────────────────────────
+
+        /// <summary>This case asserts a refusal or a clarification, not a data answer.</summary>
+        public bool IsRefusalOrClarifyCase =>
+            Case.ExpectedInvalid == true || Case.ExpectedClarification == true;
+
+        /// <summary>The case has gold SQL we can EXECUTE and compare result sets against.</summary>
+        public bool HasExecutableGold => !string.IsNullOrWhiteSpace(Case.ExpectedSql);
+
+        /// <summary>The case declares an objective RESULT expectation (columns / row bounds / row
+        /// count / scalar) even without gold SQL. Excludes ExpectedResultsCount/ExpectedAnyResults —
+        /// those grade against a constant-0 source and are not trustworthy gold.</summary>
+        public bool HasResultGold =>
+            (Case.ExpectedColumns is { Count: > 0 }) ||
+            (Case.ExpectedSqlContains is { Count: > 0 }) ||
+            (Case.ExpectedSqlAnyOf is { Count: > 0 }) ||
+            Case.ExpectedMinRows.HasValue || Case.ExpectedMaxRows.HasValue ||
+            Case.ExpectedRowCount.HasValue || Case.ExpectedScalar.HasValue;
+
+        /// <summary>The case carries ANY gold (executable or result-shaped).</summary>
+        public bool HasGold => HasExecutableGold || HasResultGold;
+
+        /// <summary>True for a question that must be answered by data (so a no-gold case is NOT
+        /// correct-by-default and an abstain is a real failure, not an "honest refusal").</summary>
+        public bool IsDataQueryCase =>
+            !IsRefusalOrClarifyCase && (
+                Case.ExpectedIntent == CopilotIntentKind.DataQuery ||
+                Case.ExpectedMode is CopilotChatMode.DynamicTicketQuery or CopilotChatMode.AppDataAnalysis ||
+                HasExecutableGold || HasResultGold);
+
+        /// <summary>A data-query case must actually PRODUCE an answer. A 0-row result is correct ONLY when
+        /// the copilot ran SQL AND the gold explicitly expects an empty/zero result. An abstain (no SQL),
+        /// or an unexplained empty result, is NOT correct — closes the "abstain passes via ExpectedMaxRows-
+        /// only or 0-row gold" holes (an empty result trivially satisfies a max bound / a 0==0 EX match).</summary>
+        public bool ProducedAnswerOrExpectedEmpty
+        {
+            get
+            {
+                if (!IsDataQueryCase) return true;
+                var rows = ActualResponse?.StructuredRows?.Count ?? 0;
+                if (rows > 0) return true;
+                var ranSql = !string.IsNullOrWhiteSpace(ActualResponse?.Notes);
+                var goldExpectsEmpty =
+                    Case.ExpectedRowCount == 0 ||
+                    (Case.ExpectedMinRows == 0 && !Case.ExpectedScalar.HasValue) ||      // author explicitly allows empty
+                    (HasExecutableGold && ExAccuracy == true && (ExExpectedRowCount ?? -1) == 0);
+                return ranSql && goldExpectsEmpty;
+            }
+        }
+
+        /// <summary>Which field caused the data-query classification — surfaced in <see cref="Detail"/>.</summary>
+        public string DataQueryTrigger =>
+            HasExecutableGold ? "ExpectedSql"
+            : HasResultGold ? "result-gold (columns/rows/scalar)"
+            : Case.ExpectedIntent == CopilotIntentKind.DataQuery ? "ExpectedIntent=DataQuery"
+            : Case.ExpectedMode is CopilotChatMode.DynamicTicketQuery or CopilotChatMode.AppDataAnalysis ? "ExpectedMode"
+            : "n/a";
 
         public bool PassedPrimaryEntity =>
             string.IsNullOrWhiteSpace(Case.ExpectedPrimaryEntity) ||
@@ -417,7 +516,7 @@ namespace ServiceOpsAI.Models.AI
         public bool PassedLatency => LatencyMs <= (Case.MaxLatencyMs ?? DefaultMaxLatencyMs);
 
         // ── GoldenSetRunner-style SQL / row / column / stage checks ──────────────────────
-        // These mirror the validation logic in Areas/SuperAdminCopilot/Eval/GoldenSetRunner.cs.
+        // These mirror the validation logic in Areas/AnalystAgent/Eval/GoldenSetRunner.cs.
         // Each returns true when the expectation is absent (case doesn't care), so legacy
         // CopilotAssessmentCase rows that don't set these fields aren't affected.
         // SQL is read from ActualResponse.Notes — that's where the bridge writes the
@@ -478,12 +577,44 @@ namespace ServiceOpsAI.Models.AI
             }
         }
 
-        /// <summary>True when the gold SQL's result set matches the copilot's (multiset-equal),
-        /// OR when no EX check was performed (no gold SQL declared / not applicable). This is
-        /// the most rigorous correctness check the suite can produce — two queries returning
-        /// the same row count and column shape can still produce entirely different data, and
-        /// this is what catches that.</summary>
-        public bool PassedExAccuracy => ExAccuracy != false;
+        /// <summary>Execution accuracy — the strongest correctness check (runs gold SQL + the copilot's
+        /// and compares result sets as multisets). <c>true</c>=rows matched, <c>false</c>=rows differed,
+        /// <c>null</c>=the check could not run. A null PASSES only when there was NO gold SQL to run; if
+        /// gold SQL was declared but the check returned null (gold SQL threw), that is a FAIL — a missing
+        /// answer must not silently pass. <see cref="ExError"/> carries the null reason.</summary>
+        public bool PassedExAccuracy => ExAccuracy switch
+        {
+            true => true,
+            false => false,
+            _ => !HasExecutableGold,
+        };
+
+        /// <summary>Scalar VALUE check — the first cell of the first result row equals
+        /// <see cref="CopilotAssessmentCase.ExpectedScalar"/>. Skipped when the case declares no scalar.</summary>
+        public bool PassedScalar
+        {
+            get
+            {
+                if (!Case.ExpectedScalar.HasValue) return true;
+                var rows = ActualResponse?.StructuredRows;
+                if (rows is not { Count: > 0 }) return false;
+                // Row.Values is a Dictionary<string,string> (column→cell). Match the expected scalar
+                // against ANY cell of the first row, so a leftover label/Id column before the aggregate
+                // (e.g. SELECT 'x', COUNT(*)) doesn't grade the wrong cell.
+                foreach (var cell in rows[0].Values.Values)
+                    if (decimal.TryParse(cell, System.Globalization.NumberStyles.Any,
+                                         System.Globalization.CultureInfo.InvariantCulture, out var got)
+                        && got == Case.ExpectedScalar.Value)
+                        return true;
+                return false;
+            }
+        }
+
+        /// <summary>Result-set ROW COUNT check (distinct from the scalar value). Skipped when the case
+        /// declares no <see cref="CopilotAssessmentCase.ExpectedRowCount"/>.</summary>
+        public bool PassedRowCount =>
+            !Case.ExpectedRowCount.HasValue ||
+            (ActualResponse?.StructuredRows?.Count ?? 0) == Case.ExpectedRowCount.Value;
 
         public bool PassedFailedStage
         {
@@ -516,6 +647,8 @@ namespace ServiceOpsAI.Models.AI
             (Case.ExpectedAggregations is { Count: > 0 }) ||
             Case.ExpectedMinRows.HasValue ||
             Case.ExpectedMaxRows.HasValue ||
+            Case.ExpectedRowCount.HasValue ||
+            Case.ExpectedScalar.HasValue ||
             Case.ExpectedResultsCount.HasValue ||
             Case.ExpectedAnyResults.HasValue ||
             Case.ExpectedInvalid.HasValue ||
@@ -525,34 +658,41 @@ namespace ServiceOpsAI.Models.AI
             Case.ExpectedIntent.HasValue ||
             !string.IsNullOrWhiteSpace(Case.ExpectedToolKey);
 
-        public bool IsSuccess => !IsException &&
-                                 IsVerified &&
-                                 PassedMode &&
-                                 PassedIntent &&
-                                 PassedTool &&
-                                 PassedContext &&
-                                 PassedResultsCount &&
-                                 PassedAnswerQuality &&
-                                 PassedClarification &&
-                                 PassedInvalid &&
-                                 PassedDecomposition &&
-                                 PassedLatency &&
-                                 PassedPrimaryEntity &&
-                                 PassedOperation &&
-                                 PassedFields &&
-                                 PassedGroupBy &&
-                                 PassedFilters &&
-                                 PassedAggregations &&
-                                 // Structural + execution-accuracy checks (extracted from the
-                                 // retired GoldenSetRunner). PassedExAccuracy is the strongest:
-                                 // it runs gold SQL + compares result sets as multisets.
-                                 PassedExAccuracy &&
-                                 PassedSqlContains &&
-                                 PassedSqlAnyOf &&
-                                 PassedSqlNotContains &&
-                                 PassedRowBounds &&
-                                 PassedColumns &&
-                                 PassedFailedStage;
+        // CORRECTNESS verdict — latency is NOT part of it (a correct answer 1ms over budget is still
+        // correct; latency is reported separately via WithinLatencyBudget). The six plan getters
+        // (PassedPrimaryEntity/Operation/Fields/GroupBy/Filters/Aggregations) and PassedResultsCount read
+        // sources the v2 bridge never populates (always-true / constant-0) — they are dropped from the
+        // verdict but kept as public getters for the diagnostic grid. A DataQuery case with NO gold is
+        // NOT correct-by-default: it cannot be graded, so it fails (forces the author to add gold).
+        public bool PassedCorrectness =>
+            !IsException &&
+            IsVerified &&
+            (!IsDataQueryCase || HasGold) &&
+            ProducedAnswerOrExpectedEmpty &&
+            PassedMode &&
+            PassedIntent &&
+            PassedTool &&
+            PassedContext &&
+            PassedAnswerQuality &&
+            PassedClarification &&
+            PassedInvalid &&
+            PassedDecomposition &&
+            PassedExAccuracy &&
+            PassedScalar &&
+            PassedRowCount &&
+            PassedSqlContains &&
+            PassedSqlAnyOf &&
+            PassedSqlNotContains &&
+            PassedRowBounds &&
+            PassedColumns &&
+            PassedFailedStage;
+
+        /// <summary>The single success verdict = correctness only (latency excluded).</summary>
+        public bool IsSuccess => PassedCorrectness;
+
+        /// <summary>Reported performance axis — did the answer land within the latency budget? NOT a
+        /// term in <see cref="IsSuccess"/>; surfaced separately so a correct-but-slow case isn't a "fail".</summary>
+        public bool WithinLatencyBudget => PassedLatency;
 
         public string Detail
         {
@@ -568,6 +708,16 @@ namespace ServiceOpsAI.Models.AI
                 if (!IsVerified)
                 {
                     issues.Add("unverified — case has no objective expectations (add ExpectedSql / ExpectedSqlContains / ExpectedColumns / ExpectedMinRows / ExpectedInvalid)");
+                }
+
+                if (IsDataQueryCase && !HasGold)
+                {
+                    issues.Add($"data-query case has no gold (add ExpectedSql / ExpectedColumns / ExpectedMinRows / ExpectedRowCount / ExpectedScalar) — cannot grade correctness; classified as data by {DataQueryTrigger}");
+                }
+
+                if (IsDataQueryCase && HasGold && !ProducedAnswerOrExpectedEmpty)
+                {
+                    issues.Add("data-query produced NO answer (0 rows / abstain) and the gold does not expect an empty result — failure, not an honest empty");
                 }
 
                 if (!PassedMode && Case.ExpectedMode.HasValue)
@@ -597,13 +747,32 @@ namespace ServiceOpsAI.Models.AI
 
                 if (!PassedExAccuracy)
                 {
-                    var expectedCount = ExExpectedRowCount?.ToString() ?? "?";
-                    var copilotCount = ActualResponse?.StructuredRows?.Count.ToString() ?? "?";
-                    issues.Add($"execution accuracy FAIL — expected SQL returned {expectedCount} row(s), copilot SQL returned {copilotCount} row(s); result sets differ");
+                    if (ExAccuracy is null)   // null + gold present => the gold SQL itself could not run/compare
+                        issues.Add($"execution accuracy FAIL — gold SQL could not run/compare: {ExError ?? "unknown"}");
+                    else
+                    {
+                        var expectedCount = ExExpectedRowCount?.ToString() ?? "?";
+                        var copilotCount = ActualResponse?.StructuredRows?.Count.ToString() ?? "?";
+                        issues.Add($"execution accuracy FAIL — expected SQL returned {expectedCount} row(s), copilot SQL returned {copilotCount} row(s); result sets differ");
+                    }
                 }
-                else if (ExAccuracy is null && !string.IsNullOrEmpty(ExError) && !string.IsNullOrWhiteSpace(Case.ExpectedSql))
+
+                if (!PassedScalar && Case.ExpectedScalar.HasValue)
                 {
-                    issues.Add($"execution accuracy skipped: {ExError}");
+                    var got = ActualResponse?.StructuredRows is { Count: > 0 } r ? (r[0].Values.Values.FirstOrDefault() ?? "(null)") : "(no rows)";
+                    issues.Add($"scalar value FAIL — expected {Case.ExpectedScalar.Value}, got {got}");
+                }
+                if (!PassedRowCount && Case.ExpectedRowCount.HasValue)
+                {
+                    issues.Add($"row-count FAIL — expected exactly {Case.ExpectedRowCount.Value} row(s), got {ActualResponse?.StructuredRows?.Count ?? 0}");
+                }
+
+                // Secondary semantic verifier (diagnostic only — not part of the pass/fail verdict).
+                if (VerifierResult is { Verdict: AnalystAgent.Eval.ExpectationVerifier.VerificationVerdict.Fail
+                                              or AnalystAgent.Eval.ExpectationVerifier.VerificationVerdict.Partial })
+                {
+                    issues.Add($"semantic verifier (secondary, advisory): {VerifierResult.Summary}" +
+                               (VerifierResult.FailedChecks.Count > 0 ? $" — {string.Join("; ", VerifierResult.FailedChecks)}" : ""));
                 }
 
                 if (!PassedClarification && Case.ExpectedClarification.HasValue)
@@ -651,8 +820,8 @@ namespace ServiceOpsAI.Models.AI
 
                 if (!PassedLatency)
                 {
-                    var budget = Case.MaxLatencyMs ?? 30000;
-                    issues.Add($"latency exceeded {budget}ms, got {LatencyMs}ms");
+                    var budget = Case.MaxLatencyMs ?? DefaultMaxLatencyMs;
+                    issues.Add($"latency over budget {budget}ms, got {LatencyMs}ms (advisory — latency is NOT part of the pass/fail verdict)");
                 }
 
                 // GoldenSetRunner-style structural checks. Each emits a specific reason so the
@@ -846,9 +1015,11 @@ namespace ServiceOpsAI.Models.AI
                 return DetectClarification() || DetectInvalid();
             }
 
+            // Explicit grouping: a retrieval-failure phrase OR a (tool + failed) pair indicates a
+            // non-answer. Parenthesized so '&&' (which binds tighter than '||') groups as intended.
             if (answer.Contains("couldn't retrieve", StringComparison.OrdinalIgnoreCase) ||
-                answer.Contains("external tool", StringComparison.OrdinalIgnoreCase) &&
-                answer.Contains("failed", StringComparison.OrdinalIgnoreCase))
+                (answer.Contains("external tool", StringComparison.OrdinalIgnoreCase) &&
+                 answer.Contains("failed", StringComparison.OrdinalIgnoreCase)))
             {
                 return false;
             }
@@ -929,15 +1100,16 @@ namespace ServiceOpsAI.Models.AI
                 RegexOptions.IgnoreCase);
         }
 
+        // Result-set size for the v2 bridge: read StructuredRows (the bridge populates this), falling
+        // back to the legacy StructuredQueryResults plan-shape when present. The old version read ONLY
+        // StructuredQueryResults — which the v2 bridge never emits — so this returned a constant 0,
+        // silently breaking ExpectedResultsCount / ExpectedAnyResults. (Prefer ExpectedRowCount.)
         private int GetTotalResultsCount()
         {
             if (ActualResponse == null) return 0;
-            int count = 0;
             if (ActualResponse.StructuredQueryResults?.Any() == true)
-            {
-                count += ActualResponse.StructuredQueryResults.Sum(r => r.Execution.TotalCount);
-            }
-            return count;
+                return ActualResponse.StructuredQueryResults.Sum(r => r.Execution.TotalCount);
+            return ActualResponse.StructuredRows?.Count ?? 0;
         }
 
         private int CountObservedWorkflows()
@@ -978,6 +1150,11 @@ namespace ServiceOpsAI.Models.AI
         public int SuccessCount { get; set; }
         public double SuccessRate => TotalCases > 0 ? (double)SuccessCount / TotalCases : 0;
         public long AverageLatencyMs => Results.Count > 0 ? (long)Results.Average(result => result.LatencyMs) : 0;
+
+        /// <summary>Per-shape (Category) / per-difficulty accuracy breakdown for the run, serialized.
+        /// The headline benchmark output — shapes are the distinct Category strings in the loaded gold
+        /// (data-driven, never enumerated in code). DB persistence is a follow-up; this is in-memory.</summary>
+        public string? ShapeBreakdownJson { get; set; }
     }
 
     public class CopilotAssessmentRunSummaryDto

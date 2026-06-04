@@ -318,25 +318,25 @@
     var stepsByCanonical = new Dictionary<string, CopilotExecutionStep>();
     foreach (var s in allSteps)
     {
-        stepsByCanonical[SuperAdminCopilot.Pipeline.PipelineArchitecture.CanonicalNameOf(s.Action)] = s;
+        stepsByCanonical[AnalystAgent.Pipeline.PipelineArchitecture.CanonicalNameOf(s.Action)] = s;
     }
 
     // Detect which router-outcome branch fired. The probe cascade short-circuits on the
     // first match; if all probes fall through, DataQuery default fires. Mirror that order.
-    string firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchDataQuery;
+    string firedBranch = AnalystAgent.Pipeline.PipelineArchitecture.BranchDataQuery;
     if (stepsByCanonical.ContainsKey("conversational") || stepsByCanonical.ContainsKey("knowledgematch"))
-        firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchGeneralChat;
+        firedBranch = AnalystAgent.Pipeline.PipelineArchitecture.BranchGeneralChat;
     else if (stepsByCanonical.ContainsKey("semanticsearch"))
-        firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchSemanticSearch;
+        firedBranch = AnalystAgent.Pipeline.PipelineArchitecture.BranchSemanticSearch;
     else if (stepsByCanonical.ContainsKey("tooldispatch"))
-        firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchExternalTool;
+        firedBranch = AnalystAgent.Pipeline.PipelineArchitecture.BranchExternalTool;
     else if (stepsByCanonical.ContainsKey("verifiedquery"))
-        firedBranch = SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchVerifiedQuery;
+        firedBranch = AnalystAgent.Pipeline.PipelineArchitecture.BranchVerifiedQuery;
 
     // ── renderSkippedNode: dimmed clickable row for an architectural stage that didn't
     // execute in this trace. Detail panel shows only the stage description (per the
     // locked plan decision — no trigger condition, no why-not-fired, no historical stats).
-    Func<SuperAdminCopilot.Pipeline.PipelineStageDescriptor, string> renderSkippedNode = desc =>
+    Func<AnalystAgent.Pipeline.PipelineStageDescriptor, string> renderSkippedNode = desc =>
     {
         var rowId = $"wfstep-skip-{Guid.NewGuid():N}";
         var pillCls = desc.Mandatory ? "mandatory" : "optional";
@@ -376,7 +376,7 @@
     // MANDATORY/OPTIONAL pill into the row. Not-fired → renderSkippedNode.
     // `stepNum` carries the position in execution order — pass -1 to suppress the
     // numeric badge (probes inside the Router are decisions, not pipeline steps).
-    Func<SuperAdminCopilot.Pipeline.PipelineStageDescriptor, int, string> renderArchNode = (desc, stepNum) =>
+    Func<AnalystAgent.Pipeline.PipelineStageDescriptor, int, string> renderArchNode = (desc, stepNum) =>
     {
         if (stepsByCanonical.TryGetValue(desc.CanonicalName, out var matched))
         {
@@ -409,30 +409,30 @@
     int stepCounter = 0;
 
     // Filter architecture by section / branch for the layout loop.
-    var arch = SuperAdminCopilot.Pipeline.PipelineArchitecture.Stages;
-    var railPre   = arch.Where(d => d.Section == SuperAdminCopilot.Pipeline.PipelineArchitecture.SectionRailPre).ToList();
-    var probes    = arch.Where(d => d.Section == SuperAdminCopilot.Pipeline.PipelineArchitecture.SectionRouterProbe).ToList();
-    var decomp    = arch.Where(d => d.Section == SuperAdminCopilot.Pipeline.PipelineArchitecture.SectionDecomposer).ToList();
-    var railPost  = arch.Where(d => d.Section == SuperAdminCopilot.Pipeline.PipelineArchitecture.SectionRailPost).ToList();
+    var arch = AnalystAgent.Pipeline.PipelineArchitecture.Stages;
+    var railPre   = arch.Where(d => d.Section == AnalystAgent.Pipeline.PipelineArchitecture.SectionRailPre).ToList();
+    var probes    = arch.Where(d => d.Section == AnalystAgent.Pipeline.PipelineArchitecture.SectionRouterProbe).ToList();
+    var decomp    = arch.Where(d => d.Section == AnalystAgent.Pipeline.PipelineArchitecture.SectionDecomposer).ToList();
+    var railPost  = arch.Where(d => d.Section == AnalystAgent.Pipeline.PipelineArchitecture.SectionRailPost).ToList();
 
     // 5 branch columns in router-outcome order. DataQuery has its own sub-pipeline; the
     // other four are terminal in the cascade and don't carry sub-stage architecture (they
     // each effectively map to "the matching probe fired + Explainer ran").
     var branchOrder = new[]
     {
-        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchGeneralChat,
-        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchSemanticSearch,
-        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchExternalTool,
-        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchVerifiedQuery,
-        SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchDataQuery,
+        AnalystAgent.Pipeline.PipelineArchitecture.BranchGeneralChat,
+        AnalystAgent.Pipeline.PipelineArchitecture.BranchSemanticSearch,
+        AnalystAgent.Pipeline.PipelineArchitecture.BranchExternalTool,
+        AnalystAgent.Pipeline.PipelineArchitecture.BranchVerifiedQuery,
+        AnalystAgent.Pipeline.PipelineArchitecture.BranchDataQuery,
     };
     var branchLabels = new Dictionary<string, (string Label, string Icon)>
     {
-        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchGeneralChat]    = ("General chat",    "bi-chat-left-text"),
-        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchSemanticSearch] = ("Semantic search", "bi-search"),
-        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchExternalTool]   = ("External tool",   "bi-cloud-arrow-down"),
-        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchVerifiedQuery]  = ("Trusted query",   "bi-shield-check"),
-        [SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchDataQuery]     = ("Live query",      "bi-database"),
+        [AnalystAgent.Pipeline.PipelineArchitecture.BranchGeneralChat]    = ("General chat",    "bi-chat-left-text"),
+        [AnalystAgent.Pipeline.PipelineArchitecture.BranchSemanticSearch] = ("Semantic search", "bi-search"),
+        [AnalystAgent.Pipeline.PipelineArchitecture.BranchExternalTool]   = ("External tool",   "bi-cloud-arrow-down"),
+        [AnalystAgent.Pipeline.PipelineArchitecture.BranchVerifiedQuery]  = ("Trusted query",   "bi-shield-check"),
+        [AnalystAgent.Pipeline.PipelineArchitecture.BranchDataQuery]     = ("Live query",      "bi-database"),
     };
 }
 
@@ -478,7 +478,7 @@
             // up the green trace; connectors touching a skipped node stay neutral grey. The
             // Question / Router / Fork / Answer endpoints are always on the path because they
             // always run. Tracked via `prevLit` across the linear segments above/below the fork.
-            Func<SuperAdminCopilot.Pipeline.PipelineStageDescriptor, bool> isStageLit = d => stepsByCanonical.ContainsKey(d.CanonicalName);
+            Func<AnalystAgent.Pipeline.PipelineStageDescriptor, bool> isStageLit = d => stepsByCanonical.ContainsKey(d.CanonicalName);
             bool prevLit = true; // Question is always lit.
         }
         <div class="workflow-node workflow-node-question is-on-active-path">
@@ -640,7 +640,7 @@
                         // branch (only runs when the router picks DataQuery), so prepend
                         // it to the DataQuery card's stage list rather than rendering it
                         // as a standalone rail step.
-                        var isDataQuery = branchKey == SuperAdminCopilot.Pipeline.PipelineArchitecture.BranchDataQuery;
+                        var isDataQuery = branchKey == AnalystAgent.Pipeline.PipelineArchitecture.BranchDataQuery;
                         // Each branch shows ONLY the stages explicitly mapped to it. The old
                         // "sharedPostRouterStages" trick (appending the full DataQuery stage
                         // list into every non-DataQuery active lane) was wrong: those stages
@@ -762,7 +762,7 @@
         var answerReason = !string.IsNullOrWhiteSpace(Model.DetectedIntent)
             ? $"Terminal node — what the user received. The pipeline classified this question as '{Model.DetectedIntent}' and ran the matching branch end-to-end."
             : "Terminal node — what the user received from the pipeline after all steps completed.";
-        var answerPayload = SuperAdminCopilot.Pipeline.StepPayload.Of(
+        var answerPayload = AnalystAgent.Pipeline.StepPayload.Of(
             kind: "answer",
             input: trace?.Question ?? "",
             output: answerText,

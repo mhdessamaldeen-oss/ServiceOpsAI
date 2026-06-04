@@ -3,8 +3,8 @@ using ServiceOpsAI.Data;
 using ServiceOpsAI.Models.AI;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SuperAdminCopilot.Models;
-using SuperAdminCopilot.Pipeline;
+using AnalystAgent.Models;
+using AnalystAgent.Pipeline;
 
 namespace ServiceOpsAI.Controllers.AI;
 

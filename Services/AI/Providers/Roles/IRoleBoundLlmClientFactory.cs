@@ -2,7 +2,7 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
 {
     using Microsoft.Extensions.Logging;
     using Microsoft.Extensions.Options;
-    using SuperAdminCopilot.Abstractions;
+    using AnalystAgent.Abstractions;
 
     /// <summary>
     /// Resolves an <see cref="ILlmClient"/> for a given <see cref="AiRole"/>. The pipeline

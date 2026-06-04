@@ -222,6 +222,17 @@ namespace ServiceOpsAI.Services.AI.Providers
         public int TimeoutSeconds { get; set; } = 1800;
         public int MaxPromptChars { get; set; } = 8000;
         public double Temperature { get; set; } = 0.1;
+
+        /// <summary>How long Ollama keeps the chat model loaded in VRAM after a call (the top-level
+        /// <c>keep_alive</c>, in seconds).
+        /// <para>• Positive (default <c>1800</c> = 30 min) keeps the model warm across a working
+        /// session but lets Ollama EVICT it when another model (e.g. the embedding model during a
+        /// schema-embedding generation) needs the VRAM. Safe default on a single-GPU box.</para>
+        /// <para>• <c>-1</c> pins the model in VRAM forever. Only when the GPU fits every model at
+        /// once — a Forever pin BLOCKS the embedding model from loading, deadlocking schema-embedding
+        /// generation on a constrained GPU.</para></summary>
+        public int ChatKeepAliveSeconds { get; set; } = 1800;
+
         /// <summary>Maximum tokens Ollama may emit in a single response (<c>num_predict</c>). Ollama's default is 128 — far too low for SpecExtractor JSON outputs which routinely need 800-1500 tokens. Truncation manifests as "LLM produced unparseable JSON" because the JSON ends mid-field.</summary>
         public int MaxOutputTokens { get; set; } = 2048;
     }
