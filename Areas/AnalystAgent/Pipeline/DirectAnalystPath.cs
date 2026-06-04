@@ -123,6 +123,11 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             var hints = BuildGroundingHints(grounding);
             var tableNames = names.ToList();
 
+            // KEYSTONE — repair provenance. Set true when a LOSSY repair fires (a load-bearing predicate dropped
+            // because of an invalid column). Closure-captured so PersistAsync, defined before the loop, can read
+            // the per-answer outcome and floor the confidence accordingly.
+            bool lossyRepairFired = false;
+
             // Explain + persist a successful execution. Local fn so both the happy path and the
             // empty-fallback path below share one implementation.
             async Task<AnalystResponse> PersistAsync(CompiledSql compiled, ExecutionResult exec, int attempt)
@@ -133,10 +138,16 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                 steps.RecordExplainer(question, compiled, exec, explanation, explainSw.ElapsedMilliseconds);
                 var grounded = grounding.LinkedValues.Count > 0 || grounding.LinkedNaturalKeys.Count > 0;
                 var conf = attempt > 0 ? 0.6 : (grounded ? 0.8 : 0.72);
+                // A lossy strip can ship an over-broad answer (the load-bearing filter was dropped). Floor the
+                // confidence so it is distinguishable from a clean grounded answer and a downstream confidence
+                // gate can act on it. Telemetry-only today — no abstain gate keys off it yet (measure first).
+                if (lossyRepairFired) conf = Math.Min(conf, 0.5);
+                var provenance = (attempt > 0 ? "direct-analyst:self-corrected" : "direct-analyst")
+                    + (lossyRepairFired ? ":lossy-strip" : "");
                 return (await _persister.PersistAsync(request, totalSw, steps,
                     reply: explanation.Reply, sql: compiled.Sql, rowCount: exec.RowCount, rows: exec.Rows,
                     cancellationToken: cancellationToken))
-                    with { Provenance = attempt > 0 ? "direct-analyst:self-corrected" : "direct-analyst", Confidence = conf };
+                    with { Provenance = provenance, Confidence = conf };
             }
 
             // CONTROL LOOP. Generate → validate → execute → VERIFY → resample. Three levers feed a fresh
@@ -152,6 +163,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             const int maxAttempts = 3;
             for (int attempt = 0; attempt < maxAttempts; attempt++)
             {
+                lossyRepairFired = false;   // per-attempt: the shipping attempt's provenance must be its own
                 var attemptHints = hints;
                 if (lastError is not null)
                     attemptHints = hints.Append($"Your previous T-SQL failed with this SQL Server error — FIX it and re-output valid T-SQL (use a WITH CTE if a derived-table alias was referenced out of scope): {lastError}").ToList();
@@ -204,6 +216,14 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                     _logger.LogInformation("[DirectAnalystPath] fixed GROUP BY grain (added entity key) for q='{Q}': {Before} => {After}", question, sqlToUse, regrained);
                     sqlToUse = regrained;
                 }
+                // CONTRADICTION: same column = two different literals (the bilingual "Name='مفتوحة' AND Name='Open'"
+                // case → 0 rows). Keep the grounded literal, drop the other. Backstops the in-injector conflict-
+                // replace, which misses some column-qualification forms. Runs last so it sees model + injected SQL.
+                if (TryResolveContradictoryEqualityLiterals(sqlToUse, grounding.LinkedValues.Select(v => v.Value), out var deConflicted))
+                {
+                    _logger.LogInformation("[DirectAnalystPath] resolved contradictory equality literals for q='{Q}': {Before} => {After}", question, sqlToUse, deConflicted);
+                    sqlToUse = deConflicted;
+                }
 
                 var compiled = new CompiledSql(sqlToUse, new Dictionary<string, object?>());
                 var validation = _validator.Validate(compiled);
@@ -234,6 +254,12 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                         _options.Value.BilingualLocaleSuffixes,
                         Internal.QuestionLanguageDetector.Detect(question), out var colRepaired))
                 {
+                    // The bilingual rewrite can MAP the model's Arabic-literal predicate onto the SAME column as
+                    // a grounded English value (NameAr='مفتوحة' → Name='مفتوحة', alongside an injected/own
+                    // Name='Open') — a FRESH same-column contradiction that didn't exist pre-execution (the
+                    // columns were NameAr vs Name then). Resolve it here, on the rewritten SQL, before re-exec.
+                    if (TryResolveContradictoryEqualityLiterals(colRepaired, grounding.LinkedValues.Select(v => v.Value), out var colDeconflicted))
+                        colRepaired = colDeconflicted;
                     var recompiledCol = new CompiledSql(colRepaired, new Dictionary<string, object?>());
                     if (_validator.Validate(recompiledCol).IsValid)
                     {
@@ -262,6 +288,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                             _logger.LogInformation("[DirectAnalystPath] deterministic invalid-column repair succeeded for q='{Q}'", question);
                             compiled = recompiled;
                             exec = reexec;
+                            lossyRepairFired = true;   // KEYSTONE: this strip drops a predicate → floor confidence
                         }
                     }
                 }
@@ -524,7 +551,35 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         if (Regex.IsMatch(sql, @"\bGROUP\s+BY\b", O)) return false;        // aggregation → skip (lower value, riskier)
         var s = sql;
         var changed = false;
-        foreach (var (table, col, val) in linked)
+        var linkedList = linked.Where(l => !string.IsNullOrWhiteSpace(l.Column) && !string.IsNullOrWhiteSpace(l.Value)).ToList();
+
+        // CONFLICT-REPLACE: the model put a DIFFERENT, non-grounded literal on a grounded column — most often
+        // the Arabic question word copied verbatim (WHERE Name='مفتوحة' while grounding resolved the real value
+        // 'Open'). Strip those predicates so the grounded value below doesn't AND into a contradiction (= 0 rows).
+        // Only strips literals that are NOT themselves grounded, so a legitimate multi-value filter ("Damascus
+        // AND Aleppo", both grounded) is preserved.
+        var groundedByCol = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var l in linkedList)
+        {
+            if (!groundedByCol.TryGetValue(l.Column, out var set)) groundedByCol[l.Column] = set = new(StringComparer.OrdinalIgnoreCase);
+            set.Add(l.Value);
+        }
+        foreach (var (col, gvals) in groundedByCol)
+        {
+            var conflictRx = new Regex($@"(?:\[?\w+\]?\.)?\[?{Regex.Escape(col)}\]?\s*=\s*N?'([^']*)'", O);
+            foreach (Match cm in conflictRx.Matches(s).Cast<Match>().ToList())
+            {
+                if (gvals.Contains(cm.Groups[1].Value)) continue;        // a grounded value → keep
+                var cpred = Regex.Escape(cm.Value);
+                var before = s;
+                s = Regex.Replace(s, $@"\bWHERE\s+{cpred}\s+AND\b", "WHERE", O);
+                s = Regex.Replace(s, $@"\s+AND\s+{cpred}", " ", O);
+                s = Regex.Replace(s, $@"\bWHERE\s+{cpred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);
+                if (!string.Equals(before, s, StringComparison.Ordinal)) changed = true;
+            }
+        }
+
+        foreach (var (table, col, val) in linkedList)
         {
             if (string.IsNullOrWhiteSpace(table) || string.IsNullOrWhiteSpace(col) || string.IsNullOrWhiteSpace(val)) continue;
             var escVal = val.Replace("'", "''");
@@ -542,6 +597,58 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             var keyword = Regex.IsMatch(s.Substring(0, at), @"\bWHERE\b", O) ? " AND " : " WHERE ";
             s = s.Insert(at, keyword + pred + " ");
             changed = true;
+        }
+        repaired = changed ? s.Trim() : sql;
+        return changed;
+    }
+
+    /// <summary>Resolve a self-contradicting filter: the SAME column equated to TWO different literals in one
+    /// AND-chain (<c>Name = 'مفتوحة' AND ... AND Name = 'Open'</c>) — a guaranteed 0-row result, since a column
+    /// cannot equal two distinct values. This is the bilingual failure mode where the 7B copies the question's
+    /// (Arabic) word AND also writes the resolved (English) enum value. We keep the GROUNDED literal (the value
+    /// the grounder resolved from the question) and strip the other(s). Schema-agnostic: keys off the grounded
+    /// VALUE SET and the column's bare name (qualifier/brackets stripped), so it is robust to <c>T.[Name]</c> vs
+    /// <c>Name</c> and needs no per-table knowledge. CONSERVATIVE: only strips a literal on a column that ALSO
+    /// carries a grounded literal in the same statement, so a legitimate single filter is never touched.</summary>
+    internal static bool TryResolveContradictoryEqualityLiterals(
+        string sql, IEnumerable<string>? groundedValues, out string repaired)
+    {
+        repaired = sql;
+        if (string.IsNullOrWhiteSpace(sql)) return false;
+        var grounded = (groundedValues ?? Enumerable.Empty<string>())
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (grounded.Count == 0) return false;
+        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
+        if (Regex.Matches(sql, @"\bWHERE\b", O).Count > 1) return false;   // subquery present → ambiguous, skip
+
+        // Every "<qualifier?>.<col> = 'literal'" equality, captured with its bare column + literal.
+        var eqRx = new Regex(@"(?:\[?\w+\]?\.)?\[?(?<col>\w+)\]?\s*=\s*N?'(?<val>[^']*)'", O);
+        var matches = eqRx.Matches(sql).Cast<Match>().ToList();
+        if (matches.Count < 2) return false;
+
+        // Group the equality literals by bare column name. A column with >=2 distinct literals where at least
+        // one is grounded is the contradiction — strip the NON-grounded literals on that column.
+        var byCol = matches
+            .GroupBy(m => m.Groups["col"].Value, StringComparer.OrdinalIgnoreCase);
+
+        var s = sql;
+        var changed = false;
+        foreach (var g in byCol)
+        {
+            var literals = g.Select(m => m.Groups["val"].Value).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (literals.Count < 2) continue;                          // not a contradiction
+            if (!literals.Any(v => grounded.Contains(v))) continue;    // no grounded anchor → can't safely pick
+            foreach (var m in g)
+            {
+                if (grounded.Contains(m.Groups["val"].Value)) continue; // keep the grounded literal
+                var cpred = Regex.Escape(m.Value);
+                var before = s;
+                s = Regex.Replace(s, $@"\bWHERE\s+{cpred}\s+AND\b", "WHERE", O);
+                s = Regex.Replace(s, $@"\s+AND\s+{cpred}", " ", O);
+                s = Regex.Replace(s, $@"\bWHERE\s+{cpred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);
+                if (!string.Equals(before, s, StringComparison.Ordinal)) changed = true;
+            }
         }
         repaired = changed ? s.Trim() : sql;
         return changed;

@@ -1,0 +1,139 @@
+{
+  "name": "Discriminating shape suite (2026-06-05)",
+  "version": "2026-06-05.disc",
+  "description": "Strong discriminating questions for under-covered shapes (anti-join, HAVING, multi-value IN, temporal range, named-entity EN+AR cross-lingual, strip-trap, aggregate+filter). Gold chosen on real data so a wrong shape returns a clearly different number.",
+  "Scenarios": [
+    {
+      "Code": "G-DISC-AntiJoin",
+      "Category": "ANTIJOIN",
+      "Difficulty": "Hard",
+      "Question": "which departments have never had a critical outage",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT d.NameEn FROM Departments d WHERE NOT EXISTS (SELECT 1 FROM Outages o WHERE o.DepartmentId=d.Id AND o.Severity='Critical')",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedRowCount": 222
+    },
+    {
+      "Code": "G-DISC-Having",
+      "Category": "HAVING",
+      "Difficulty": "Hard",
+      "Question": "which regions have more than 12 overdue bills",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT r.NameEn, COUNT(*) c FROM Bills b JOIN Customers cu ON b.CustomerId=cu.Id JOIN Regions r ON cu.RegionId=r.Id WHERE b.Status='Overdue' GROUP BY r.Id, r.NameEn HAVING COUNT(*) > 12",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedRowCount": 3
+    },
+    {
+      "Code": "G-DISC-MultiIN",
+      "Category": "FILTER",
+      "Difficulty": "Hard",
+      "Question": "how many tickets are open or in progress",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name IN ('Open','In Progress') AND t.IsDeleted=0",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedScalar": 35.0
+    },
+    {
+      "Code": "G-DISC-StripTrap",
+      "Category": "COUNT",
+      "Difficulty": "Hard",
+      "Question": "how many bills are paid",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills WHERE Status='Paid'",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedScalar": 10739.0
+    },
+    {
+      "Code": "G-DISC-TempRange",
+      "Category": "TEMPORAL",
+      "Difficulty": "Hard",
+      "Question": "how many bills were issued in the first quarter of 2025",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills WHERE IssuedAt >= '2025-01-01' AND IssuedAt < '2025-04-01'",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedScalar": 1485.0
+    },
+    {
+      "Code": "G-DISC-Year",
+      "Category": "TEMPORAL",
+      "Difficulty": "Hard",
+      "Question": "how many outages started in 2025",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Outages WHERE StartedAt >= '2025-01-01' AND StartedAt < '2026-01-01'",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedScalar": 5.0
+    },
+    {
+      "Code": "G-DISC-Avg",
+      "Category": "AGGREGATE",
+      "Difficulty": "Hard",
+      "Question": "what is the average bill amount",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT AVG(TotalAmount) FROM Bills",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedScalar": 35569.236363
+    },
+    {
+      "Code": "G-DISC-MaxCrit",
+      "Category": "AGGREGATE",
+      "Difficulty": "Hard",
+      "Question": "what is the largest number of affected customers in any critical outage",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT MAX(AffectedCustomerCount) FROM Outages WHERE Severity='Critical'",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedScalar": 3064.0
+    },
+    {
+      "Code": "G-DISC-NamedRegion",
+      "Category": "FILTER",
+      "Difficulty": "Hard",
+      "Question": "how many bills belong to customers in Harasta",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills b JOIN Customers c ON b.CustomerId=c.Id JOIN Regions r ON c.RegionId=r.Id WHERE r.NameEn='Harasta'",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedScalar": 475.0
+    },
+    {
+      "Code": "A-DISC-Harasta",
+      "Category": "FILTER",
+      "Difficulty": "Hard",
+      "Question": "كم عدد الفواتير لعملاء منطقة حرستا؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Bills b JOIN Customers c ON b.CustomerId=c.Id JOIN Regions r ON c.RegionId=r.Id WHERE r.NameEn='Harasta'",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedScalar": 475.0
+    },
+    {
+      "Code": "A-DISC-MultiIN",
+      "Category": "FILTER",
+      "Difficulty": "Hard",
+      "Question": "كم عدد التذاكر المفتوحة أو قيد التنفيذ؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name IN ('Open','In Progress') AND t.IsDeleted=0",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedScalar": 35.0
+    },
+    {
+      "Code": "A-DISC-Having",
+      "Category": "HAVING",
+      "Difficulty": "Hard",
+      "Question": "ما هي المناطق التي لديها أكثر من 12 فاتورة متأخرة؟",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT r.NameEn, COUNT(*) c FROM Bills b JOIN Customers cu ON b.CustomerId=cu.Id JOIN Regions r ON cu.RegionId=r.Id WHERE b.Status='Overdue' GROUP BY r.Id, r.NameEn HAVING COUNT(*) > 12",
+      "GoldVerified": true,
+      "GoldSource": "discriminating suite, executed gold 2026-06-05",
+      "ExpectedRowCount": 3
+    }
+  ]
+}

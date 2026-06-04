@@ -231,5 +231,65 @@ public sealed class DirectAnalystPathHintsTests
         Assert.Contains("TicketStatuses.Name = 'Open'", r);
     }
 
+    // ── Injector conflict-replace: a grounded value REPLACES the model's different non-grounded literal ──
+    [Fact]
+    public void InjectGroundedValueFilters_ReplacesConflictingModelLiteral_OnGroundedColumn()
+    {
+        // The Arabic case: model copied the question word as the literal (Name='مفتوحة'), grounding resolved
+        // 'Open' via cross-lingual linking. The conflicting non-grounded literal is stripped so the grounded
+        // value isn't AND-ed into a contradiction (which returned 0 rows).
+        var open = new[] { ("TicketStatuses", "Name", "Open") };
+        Assert.True(DirectAnalystPath.TryInjectGroundedValueFilters(
+            "SELECT COUNT(*) FROM Tickets JOIN TicketStatuses ON Tickets.StatusId = TicketStatuses.Id WHERE TicketStatuses.Name = 'مفتوحة' AND Tickets.IsDeleted = 0",
+            open, out var r));
+        Assert.Contains("TicketStatuses.Name = 'Open'", r);
+        Assert.DoesNotContain("مفتوحة", r);
+
+        // multi-value: BOTH literals are grounded ("Damascus AND Aleppo") → neither is stripped, no change.
+        var twoRegions = new[] { ("Regions", "NameEn", "Damascus"), ("Regions", "NameEn", "Aleppo") };
+        Assert.False(DirectAnalystPath.TryInjectGroundedValueFilters(
+            "SELECT COUNT(*) FROM Tickets t JOIN Regions r ON t.RegionId=r.Id WHERE r.NameEn = 'Damascus' AND r.NameEn = 'Aleppo'",
+            twoRegions, out _));
+    }
+
+    // ── Standalone contradiction repair: same column = two different literals, keep grounded, drop other ──
+    // This is the LIVE A-OpenTickets failure the in-injector conflict-replace missed: the model wrote BOTH the
+    // Arabic word AND the English value, on a BRACKETED column form (TicketStatuses.[Name]), so both survived
+    // and AND-ed to 0 rows.
+    [Fact]
+    public void ResolveContradictoryEqualityLiterals_LiveOpenTickets_DropsArabicKeepsGrounded()
+    {
+        var sql = "SELECT COUNT(Tickets.Id) AS NumberOfOpenTickets FROM Tickets JOIN TicketStatuses ON Tickets.StatusId = TicketStatuses.Id WHERE TicketStatuses.[Name] = 'مفتوحة' AND Tickets.IsDeleted = 0 AND TicketStatuses.Name = 'Open'";
+        Assert.True(DirectAnalystPath.TryResolveContradictoryEqualityLiterals(sql, new[] { "Open" }, out var r));
+        Assert.DoesNotContain("مفتوحة", r);
+        Assert.Contains("TicketStatuses.Name = 'Open'", r);
+        Assert.Contains("Tickets.IsDeleted = 0", r);   // unrelated predicate preserved
+    }
+
+    [Fact]
+    public void ResolveContradictoryEqualityLiterals_LeavesLegitMultiValueAndCleanSql_Untouched()
+    {
+        // Both literals grounded (a real multi-value filter, though oddly ANDed) → no grounded-vs-ungrounded
+        // split on the column → no change.
+        Assert.False(DirectAnalystPath.TryResolveContradictoryEqualityLiterals(
+            "SELECT COUNT(*) FROM Regions r WHERE r.NameEn = 'Damascus' AND r.NameEn = 'Aleppo'",
+            new[] { "Damascus", "Aleppo" }, out _));
+
+        // A contradiction with NO grounded anchor → can't safely pick which to keep → no change.
+        Assert.False(DirectAnalystPath.TryResolveContradictoryEqualityLiterals(
+            "SELECT COUNT(*) FROM T WHERE Status = 'A' AND Status = 'B'",
+            new[] { "Open" }, out _));
+
+        // A clean single-literal filter → no change.
+        Assert.False(DirectAnalystPath.TryResolveContradictoryEqualityLiterals(
+            "SELECT COUNT(*) FROM Bills WHERE Status = 'Paid'",
+            new[] { "Paid" }, out _));
+
+        // No grounded values at all → no change.
+        Assert.False(DirectAnalystPath.TryResolveContradictoryEqualityLiterals(
+            "SELECT COUNT(*) FROM T WHERE Name = 'x' AND Name = 'y'",
+            System.Array.Empty<string>(), out _));
+    }
+
     private static string Norm(string s) => System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim();
 }

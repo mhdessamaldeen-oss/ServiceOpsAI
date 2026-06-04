@@ -196,9 +196,9 @@ internal sealed class EntityCatalog : IEntityCatalog
 
     private IReadOnlyList<(string, string)> FetchInlineEnumValues(string tableName, int maxDistinct)
     {
-        // Candidate columns: SHORT string types (<=50 len; not nvarchar(max)) whose name isn't free-text/id.
+        // Candidate columns: any char/nchar/varchar/nvarchar column whose name isn't free-text/id.
         var cols = Snapshot.ColumnsOf(tableName)
-            .Where(c => IsBindableStringColumn(c.DataType, c.MaxLength))
+            .Where(c => IsBindableStringColumn(c.DataType))
             .Where(c => !InlineEnumSkipHints.Any(h => c.ColumnName.Contains(h, StringComparison.OrdinalIgnoreCase)))
             .Select(c => c.ColumnName)
             .ToList();
@@ -210,23 +210,27 @@ internal sealed class EntityCatalog : IEntityCatalog
             using var conn = _connectionFactory.Open();
             foreach (var col in cols)
             {
-                long distinct;
-                using (var cnt = conn.CreateCommand())
-                {
-                    cnt.CommandText = $"SELECT COUNT(DISTINCT [{col}]) FROM [{tableName}];";
-                    cnt.CommandTimeout = 5;
-                    distinct = Convert.ToInt64(cnt.ExecuteScalar());
-                }
-                if (distinct < 1 || distinct > maxDistinct) continue;   // not a low-cardinality enum → skip
+                // ONE bounded probe per column: fetch up to maxDistinct+1 distinct values. If the server
+                // returns more than maxDistinct, the column is high-cardinality (free text / key / FK) and
+                // is NOT an enum → skip. The TOP cap keeps this cheap even on nvarchar(MAX) text columns
+                // (the engine stops as soon as it has N+1 distinct rows), which is what lets us probe MAX
+                // columns at all — this DB stores status/severity enums as nvarchar(MAX) (EF default).
+                var vals = new List<string>();
+                int rawCount = 0;
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = $"SELECT DISTINCT [{col}] FROM [{tableName}] WHERE [{col}] IS NOT NULL;";
+                cmd.CommandText = $"SELECT DISTINCT TOP ({maxDistinct + 1}) [{col}] FROM [{tableName}] WHERE [{col}] IS NOT NULL;";
                 cmd.CommandTimeout = 5;
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read())
+                using (var reader = cmd.ExecuteReader())
                 {
-                    var v = reader.IsDBNull(0) ? null : reader.GetValue(0)?.ToString();
-                    if (!string.IsNullOrWhiteSpace(v) && v!.Length >= 3) results.Add((col, v));
+                    while (reader.Read())
+                    {
+                        rawCount++;
+                        var v = reader.GetValue(0)?.ToString();
+                        if (!string.IsNullOrWhiteSpace(v) && v!.Length >= 3) vals.Add(v);
+                    }
                 }
+                if (rawCount == 0 || rawCount > maxDistinct) continue;   // empty or high-cardinality → not an enum
+                foreach (var v in vals) results.Add((col, v));
             }
             return results;
         }
@@ -237,14 +241,15 @@ internal sealed class EntityCatalog : IEntityCatalog
         }
     }
 
-    private static bool IsBindableStringColumn(string dataType, int? maxLength)
+    private static bool IsBindableStringColumn(string dataType)
     {
         var dt = (dataType ?? string.Empty).ToLowerInvariant();
-        if (!dt.Contains("char")) return false;           // varchar/nvarchar/char/nchar only (not text/MAX-like)
-        // Exclude nvarchar(MAX) (-1) and unknown (null) — free text, expensive to probe. A BOUNDED string
-        // column with few distinct values is an enum; the cardinality gate confirms it. NB: this DB's
-        // status/severity columns are nvarchar(450) or MAX (EF default, no explicit length), so a small
-        // length cap can't be used to identify enums — only "bounded vs MAX" + name-exclusion + cardinality.
-        return maxLength is > 0;
+        if (!dt.Contains("char")) return false;   // char/nchar/varchar/nvarchar only (not text/ntext/xml/numeric)
+        // Length is deliberately NOT used as an enum signal: EF stores low-cardinality status/severity enums
+        // as BOTH nvarchar(450) and nvarchar(MAX) (no explicit length), so a length cap can't separate enums
+        // from free text. Instead, the name-exclusion (InlineEnumSkipHints) drops obvious free-text/id columns
+        // and the bounded TOP(N+1) cardinality probe in FetchInlineEnumValues cheaply rejects any remaining
+        // high-cardinality column — including MAX-typed ones — so accepting all char-family columns is safe.
+        return true;
     }
 }

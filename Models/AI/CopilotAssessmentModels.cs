@@ -1155,6 +1155,60 @@ namespace ServiceOpsAI.Models.AI
         /// The headline benchmark output — shapes are the distinct Category strings in the loaded gold
         /// (data-driven, never enumerated in code). DB persistence is a follow-up; this is in-memory.</summary>
         public string? ShapeBreakdownJson { get; set; }
+
+        /// <summary>TRUST triage over the gradeable data-query cases (executable gold only). Distinguishes
+        /// the three outcomes the user cares about — a correct answer, an honest abstain, and the dangerous
+        /// CONFIDENT-WRONG (a non-empty answer that is wrong). Computed purely from the existing per-result
+        /// getters; no re-execution. Null until the post-run roll-up fills it.</summary>
+        public TrustBreakdown? Trust { get; set; }
+    }
+
+    /// <summary>The trust triage. Denominator is the gradeable slice: data-query cases WITH executable gold.
+    /// Correct + ConfidentWrong + (Honest+OverCautious)Abstain + Ungraded == Gradeable. The headline is
+    /// <see cref="ConfidentWrongRate"/> — drive it toward zero even at the cost of more abstains (an abstain
+    /// costs a retry; a confident-wrong costs a bad decision). All fields derive from existing result getters.</summary>
+    public class TrustBreakdown
+    {
+        public int Gradeable { get; set; }
+        public int Correct { get; set; }
+        public int ConfidentWrong { get; set; }
+        public int HonestAbstain { get; set; }
+        public int OverCautiousAbstain { get; set; }
+        /// <summary>Produced rows but EX didn't run (gold threw / copilot errored mid-check) — can't classify.</summary>
+        public int Ungraded { get; set; }
+
+        public double ConfidentWrongRate => Gradeable > 0 ? Math.Round(100.0 * ConfidentWrong / Gradeable, 1) : 0;
+        public double CorrectRate => Gradeable > 0 ? Math.Round(100.0 * Correct / Gradeable, 1) : 0;
+        public double AbstainRate => Gradeable > 0 ? Math.Round(100.0 * (HonestAbstain + OverCautiousAbstain) / Gradeable, 1) : 0;
+
+        /// <summary>The codes of the confident-wrong cases — the tonight targets, surfaced for the run note.</summary>
+        public List<string> ConfidentWrongCodes { get; set; } = new();
+        public List<string> OverCautiousAbstainCodes { get; set; } = new();
+
+        /// <summary>Roll up a finished report's results into the trust triage. Schema-agnostic: reads only
+        /// the typed getters (IsDataQueryCase, HasExecutableGold, ExAccuracy, ExExpectedRowCount) + the
+        /// produced row count — no table/column/suite literal, portable to any gold suite.</summary>
+        public static TrustBreakdown From(IEnumerable<CopilotAssessmentResult> results)
+        {
+            var t = new TrustBreakdown();
+            foreach (var r in results)
+            {
+                if (!r.IsDataQueryCase || !r.HasExecutableGold) continue;   // only the executable-gold slice is gradeable
+                t.Gradeable++;
+                var rows = r.ActualResponse?.StructuredRows?.Count ?? 0;
+                var code = r.Case?.Code ?? string.Empty;
+                if (rows == 0)
+                {
+                    // No answer produced = abstain. Honest when the gold itself returns empty, else over-cautious.
+                    if ((r.ExExpectedRowCount ?? -1) == 0) t.HonestAbstain++;
+                    else { t.OverCautiousAbstain++; t.OverCautiousAbstainCodes.Add(code); }
+                }
+                else if (r.ExAccuracy == true) t.Correct++;
+                else if (r.ExAccuracy == false) { t.ConfidentWrong++; t.ConfidentWrongCodes.Add(code); }
+                else t.Ungraded++;   // rows > 0 but EX didn't run
+            }
+            return t;
+        }
     }
 
     public class CopilotAssessmentRunSummaryDto

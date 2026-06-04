@@ -22,19 +22,26 @@ internal sealed class ValueLinker : IValueLinker
     private readonly IEntityCatalog _catalog;
     private readonly ISemanticLayer _semanticLayer;
     private readonly IFuzzyEntityResolver _fuzzyResolver;
+    private readonly Abstractions.ITextEmbedder _embedder;
     private readonly IOptions<AnalystOptions> _options;
     private readonly ILogger<ValueLinker> _logger;
+
+    // Process-wide cache of (table.col=value -> embedding) for cross-lingual matching. Values are stable
+    // (the data's enum domain), so this is computed once and reused across questions.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, float[]> _valueEmbedCache = new();
 
     public ValueLinker(
         IEntityCatalog catalog,
         ISemanticLayer semanticLayer,
         IFuzzyEntityResolver fuzzyResolver,
+        Abstractions.ITextEmbedder embedder,
         IOptions<AnalystOptions> options,
         ILogger<ValueLinker> logger)
     {
         _catalog = catalog;
         _semanticLayer = semanticLayer;
         _fuzzyResolver = fuzzyResolver;
+        _embedder = embedder;
         _options = options;
         _logger = logger;
     }
@@ -142,6 +149,17 @@ internal sealed class ValueLinker : IValueLinker
             }
         }
 
+        // Cross-lingual value pass: an ARABIC question ("الفواتير المتأخرة") can't whole-word/trigram match
+        // the ENGLISH data value ("Overdue"), so every value-filtered Arabic question returned all rows.
+        // bge-m3 is multilingual — embed the Arabic content words + the linked tables' enum/lookup VALUES
+        // and bind the nearest. NO hand-curated synonym table; the embedder bridges the languages. Gated to
+        // NON-English questions, so it can never affect English linking (cost + spurious-bind safety).
+        if (!string.Equals(Internal.QuestionLanguageDetector.Detect(question),
+                Internal.QuestionLanguageDetector.English, System.StringComparison.OrdinalIgnoreCase))
+        {
+            await AddCrossLingualValueLinksAsync(question, lookupCandidates, linkedTables, results, seenPerTableColumn, cancellationToken);
+        }
+
         if (results.Count > 0)
         {
             _logger.LogInformation("[ValueLinker] resolved {Count} value link(s): {Pairs}",
@@ -178,6 +196,134 @@ internal sealed class ValueLinker : IValueLinker
         var rest = qLowPadded.Substring(idx + needle.Length);
         var words = rest.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
         return words.Length > 0 && VerbContextPrepositions.Contains(words[0]);
+    }
+
+    /// <summary>Bind Arabic question words to English enum VALUES via the multilingual embedder. Candidates
+    /// are restricted to LOW-CARDINALITY enums (status/severity/type), not large entity-name lists (those are
+    /// already bilingual via NameAr and would be slow to embed). Per content word, bind its single nearest
+    /// value above a cosine threshold + margin. Process-cached value vectors; question-scoped word vectors.</summary>
+    private async System.Threading.Tasks.Task AddCrossLingualValueLinksAsync(
+        string question, List<string> lookupCandidates, IReadOnlyList<InferredTable> linkedTables,
+        List<ValueLinkBinding> results, HashSet<string> seen, CancellationToken ct)
+    {
+        const int maxEnumValuesPerColumn = 30;   // skip big entity-name lists; keep status/type enums
+        var candidates = new List<(string Table, string Col, string Val)>();
+        foreach (var table in lookupCandidates)
+        {
+            var vals = _catalog.GetAllLookupValues(table);
+            if (vals.Count == 0 || vals.Count > maxEnumValuesPerColumn) continue;   // big list -> not a status enum
+            foreach (var (col, val) in vals) if (val.Length >= 3) candidates.Add((table, col, val));
+        }
+        foreach (var t in linkedTables)
+            foreach (var (col, val) in _catalog.GetInlineEnumValues(t.Name))
+                if (val.Length >= 3) candidates.Add((t.Name, col, val));
+        if (candidates.Count == 0) return;
+
+        var words = ExtractContentWords(question);
+        if (words.Count == 0) return;
+
+        var valVecs = new List<((string Table, string Col, string Val) C, float[] Vec)>();
+        foreach (var c in candidates)
+        {
+            var key = c.Table + "." + c.Col + "=" + c.Val;
+            if (seen.Contains(key)) continue;
+            var vec = await EmbedValueCachedAsync(key, c.Val, ct);
+            if (vec.Length > 0) valVecs.Add((c, vec));
+        }
+        if (valVecs.Count == 0) return;
+
+        // Entity-vs-value anchor: embed the candidate TABLE NAMES. A word binds to a value ONLY if it is
+        // more VALUE-like than ENTITY-like — "الفواتير" (bills) is closer to the Bills table than to any
+        // value (skip), while "المتأخرة" (overdue) is closer to the value 'Overdue' than to "Bills" (bind).
+        // This separates status/type descriptors from entity nouns without a fragile absolute threshold.
+        var tableVecs = new List<float[]>();
+        foreach (var tn in candidates.Select(c => c.Table).Distinct(System.StringComparer.OrdinalIgnoreCase))
+        {
+            var v = await EmbedValueCachedAsync("TABLE::" + tn, tn, ct);
+            if (v.Length > 0) tableVecs.Add(v);
+        }
+
+        // Absolute cosine bar for a cross-lingual value match. Measured separation: valid status words
+        // (overdue 0.67, paid 0.79, active 0.86, open 0.82) sit ABOVE spurious entity-noun matches
+        // (bills->Wallet 0.64, regions->District 0.64). 0.66 keeps the real status filters and rejects the
+        // entity nouns. (A genuinely ambiguous word like "critical"->0.49 is left unbound rather than guessed.)
+        const float threshold = 0.66f;
+        const float margin = 0.05f;
+        const float entityMargin = 0.02f;   // value-cos must also beat the best table-name-cos (secondary guard)
+        foreach (var w in words)
+        {
+            var wvec = await SafeEmbedAsync(w, ct);
+            if (wvec.Length == 0) continue;
+            float best = -1f, second = -1f; int bestIdx = -1;
+            for (int i = 0; i < valVecs.Count; i++)
+            {
+                var cs = Cosine(wvec, valVecs[i].Vec);
+                if (cs > best) { second = best; best = cs; bestIdx = i; }
+                else if (cs > second) { second = cs; }
+            }
+            float bestTableCos = 0f;
+            foreach (var tv in tableVecs) { var tc = Cosine(wvec, tv); if (tc > bestTableCos) bestTableCos = tc; }
+            if (bestIdx >= 0 && best >= threshold && (best - second) >= margin && best > bestTableCos + entityMargin)
+            {
+                var c = valVecs[bestIdx].C;
+                var key = c.Table + "." + c.Col + "=" + c.Val;
+                if (seen.Add(key))
+                {
+                    results.Add(new ValueLinkBinding(Table: c.Table, Column: c.Col, Value: c.Val, MatchedToken: w, Confidence: best));
+                    _logger.LogInformation("[ValueLinker] cross-lingual bind '{Word}' -> {Table}.{Col}='{Val}' (cos={Cos:F2})", w, c.Table, c.Col, c.Val, best);
+                }
+            }
+        }
+    }
+
+    private async System.Threading.Tasks.Task<float[]> SafeEmbedAsync(string text, CancellationToken ct)
+    {
+        try { return await _embedder.EmbedAsync(text, ct) ?? System.Array.Empty<float>(); }
+        catch (OperationCanceledException) { throw; }
+        catch { return System.Array.Empty<float>(); }
+    }
+
+    private async System.Threading.Tasks.Task<float[]> EmbedValueCachedAsync(string key, string val, CancellationToken ct)
+    {
+        if (_valueEmbedCache.TryGetValue(key, out var cached)) return cached;
+        var vec = await SafeEmbedAsync(val, ct);
+        if (vec.Length > 0) _valueEmbedCache[key] = vec;
+        return vec;
+    }
+
+    private static readonly HashSet<string> CrossLingualStopWords = new(System.StringComparer.OrdinalIgnoreCase)
+    { "how","many","what","which","show","list","count","number","total","the","all","are","there","have","our","do","we","of","in","is",
+      "كم","عدد","ما","هو","هي","كل","من","في","لدينا","اعرض","قائمة","جميع","هل","التي","عن","إجمالي","مجموع","يوجد","كانت" };
+
+    /// <summary>Content words (>=3 chars, minus EN/AR function words) — and for Arabic words carrying the
+    /// definite article "ال", also the stripped form ("المتأخرة" -> "متأخرة"), which embeds closer to the value.</summary>
+    private static List<string> ExtractContentWords(string question)
+    {
+        var raw = question.Split(new[] { ' ', '\t', '\n', '\r', ',', '.', '?', '!', '،', '؛', '؟', ':', ';', '"', '\'' },
+            System.StringSplitOptions.RemoveEmptyEntries);
+        var result = new List<string>();
+        var seen = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        foreach (var raww in raw)
+        {
+            var w = raww.Trim();
+            if (w.Length < 3 || CrossLingualStopWords.Contains(w)) continue;
+            if (seen.Add(w)) result.Add(w);
+            if (w.Length > 4 && w.StartsWith("ال", System.StringComparison.Ordinal))
+            {
+                var stripped = w.Substring(2);
+                if (stripped.Length >= 3 && seen.Add(stripped)) result.Add(stripped);
+            }
+        }
+        return result;
+    }
+
+    private static float Cosine(float[] a, float[] b)
+    {
+        if (a.Length == 0 || b.Length == 0 || a.Length != b.Length) return 0f;
+        double dot = 0, na = 0, nb = 0;
+        for (int i = 0; i < a.Length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+        if (na == 0 || nb == 0) return 0f;
+        return (float)(dot / (System.Math.Sqrt(na) * System.Math.Sqrt(nb)));
     }
 
     private List<string> ExpandToLookupNeighbors(List<string> seeds)

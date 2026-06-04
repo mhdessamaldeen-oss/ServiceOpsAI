@@ -659,6 +659,21 @@ namespace ServiceOpsAI.Services.AI.Copilot.Assessment
             }
             catch (Exception bx) { _logger.LogDebug(bx, "[Benchmark] shape breakdown failed"); }
 
+            // TRUST triage — Correct vs CONFIDENT-WRONG vs Abstain over the executable-gold slice. The
+            // headline is CWR: a non-empty answer that is wrong. Pure roll-up over existing getters.
+            try
+            {
+                report.Trust = TrustBreakdown.From(report.Results);
+                var tb = report.Trust;
+                _logger.LogInformation(
+                    "[Trust] gradeable={Gradeable} | CWR {Cwr}% ({Cw}) | correct {Cor}% ({CorN}) | abstain {Abs}% (honest {H}, over-cautious {OC}) | ungraded {Ung}{CwCodes}{OcCodes}",
+                    tb.Gradeable, tb.ConfidentWrongRate, tb.ConfidentWrong, tb.CorrectRate, tb.Correct,
+                    tb.AbstainRate, tb.HonestAbstain, tb.OverCautiousAbstain, tb.Ungraded,
+                    tb.ConfidentWrongCodes.Count > 0 ? " | confident-wrong: " + string.Join(",", tb.ConfidentWrongCodes) : "",
+                    tb.OverCautiousAbstainCodes.Count > 0 ? " | over-cautious: " + string.Join(",", tb.OverCautiousAbstainCodes) : "");
+            }
+            catch (Exception tx) { _logger.LogDebug(tx, "[Trust] breakdown failed"); }
+
             // Persist run summary so users can compare runs over time.
             try
             {
