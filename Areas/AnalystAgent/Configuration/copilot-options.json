@@ -49,6 +49,9 @@
     "VqFewShotMinSimilarity":   0.65,     // Phase 3: was hardcoded in SpecExtractor:181
     "VqFewShotTopK":            3,        // Phase 3: was hardcoded in SpecExtractor:181
     "ScopeGateRetrieverTopK":   1,        // Phase 3: was hardcoded in ScopeConfidenceGate:74
+    // Max words in a value the exact-match value-linker will bind: a real lookup value is a short
+    // label ("Open", "In Progress"); a longer one is a free-text column masquerading as a label.
+    "MaxLookupValueWords":      4,
 
     // ── SpecExtractor prompt gating ──────────────────────────────────────────────
     // Minimum planner tier to inject the copilot-text.json iteration-loop extra guidance

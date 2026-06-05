@@ -498,6 +498,16 @@ public sealed class AnalystOptions
     /// no-op. Default on.</summary>
     public bool EnableFuzzyValueLinking { get; set; } = true;
 
+    /// <summary>Upper word-count bound on a value the exact-match lookup pass will bind. A genuine lookup /
+    /// enum value is a short label ("Open", "Rural Damascus", "In Progress"); a value longer than this is a
+    /// free-text column (a Title/Name/Notes field that captured a whole sentence) masquerading as a label.
+    /// Mirrors the inline-enum pass's cardinality guard for the lookup pass, closing the divergence that let
+    /// a short-row table's free-text column self-bind a logged question. One scalar bound — no table/column
+    /// list, fully portable. Default 4 (the longest legitimate value in-domain is 2 words, so this has
+    /// margin); 1 is unsafe (would clip two-word statuses like "In Progress").</summary>
+    [Range(1, 10, ErrorMessage = "MaxLookupValueWords must be between 1 and 10.")]
+    public int MaxLookupValueWords { get; set; } = 4;
+
     /// <summary>When true, the schema linker consults a global VALUE→TABLE index so a question token that is a
     /// distinctive ENTITY-SUBTYPE value ("transformers" → Assets.AssetType) anchors its owning table — fixing
     /// the entity-type→wrong-table confident-wrong (today "how many transformers" counts the nearest

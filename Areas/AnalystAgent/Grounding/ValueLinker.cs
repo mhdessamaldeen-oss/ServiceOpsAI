@@ -89,6 +89,13 @@ internal sealed class ValueLinker : IValueLinker
                 // documented source of spurious filters (a quarter token binding to a status value). Whole-word
                 // + >=3 chars keeps real values ("Open", "Paid", "Damascus") while dropping incidental shorts.
                 if (val.Length < 3) continue;
+                // Structural invariant: a real lookup/enum value is a short label ("Open", "Rural Damascus"),
+                // never a captured sentence. Reject multi-word values to seal the free-text-label residual class
+                // — a short-row business table's Title/Name column can otherwise surface a whole logged question
+                // as a "lookup value" and force a spurious WHERE (the same self-poisoning class the access gate
+                // closes for operational tables; this closes it for queryable BUSINESS tables). Portable: one
+                // scalar bound, no table/column list. Mirrors the inline-enum pass's existing cardinality guard.
+                if (ExceedsWordCap(val, _options.Value.MaxLookupValueWords)) continue;
                 var needle = " " + val.ToLowerInvariant() + " ";
                 if (!qLow.Contains(needle, System.StringComparison.Ordinal)) continue;
 
@@ -194,6 +201,12 @@ internal sealed class ValueLinker : IValueLinker
     // adjective filter ("issued IN ...", "paid BY ...", "created ON ..."). Not 'of'/'to'/'at' (too weak).
     private static readonly HashSet<string> VerbContextPrepositions = new(System.StringComparer.OrdinalIgnoreCase)
     { "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from" };
+
+    /// <summary>True when <paramref name="value"/> has more whitespace-separated words than <paramref name="maxWords"/>.
+    /// A genuine lookup/enum value is a short label; anything longer is a free-text column (a Title/Name/Notes
+    /// field that captured a whole sentence) masquerading as a label. Used to gate the exact-match lookup pass.</summary>
+    internal static bool ExceedsWordCap(string value, int maxWords) =>
+        value.Split(' ', System.StringSplitOptions.RemoveEmptyEntries).Length > maxWords;
 
     /// <summary>Whole-word match of an enum value against the (space-padded, lowercased) question, PLURAL-aware:
     /// matches the value itself ("transformer") OR its regular plural ("transformers") so an entity-subtype
