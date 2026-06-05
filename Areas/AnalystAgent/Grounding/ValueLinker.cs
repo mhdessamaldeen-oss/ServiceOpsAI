@@ -57,24 +57,27 @@ internal sealed class ValueLinker : IValueLinker
         if (string.IsNullOrWhiteSpace(question) || linkedTables.Count == 0)
             return System.Array.Empty<ValueLinkBinding>();
 
-        // Build the whole-word search corpus from the question.
-        var qLow = " " + question.ToLowerInvariant() + " ";
-        var sb = new System.Text.StringBuilder(qLow.Length);
-        foreach (var ch in qLow)
+        // Build the whole-word search corpus from the question. Keep a CASE-PRESERVED, punctuation-cleaned copy
+        // (qCased) alongside its lower-cased form (qLow): folding must run on the case-preserved text so a
+        // camelCase form the USER typed ("OnHold") splits to "on hold" too — lower-casing first would erase the
+        // boundary and "onhold" could never match the DB value's folded "on hold".
+        var qCased = " " + question + " ";
+        var sb = new System.Text.StringBuilder(qCased.Length);
+        foreach (var ch in qCased)
         {
             if (ch == ',' || ch == '.' || ch == '!' || ch == '?' || ch == ';' || ch == ':' || ch == '"' || ch == '\'')
                 sb.Append(' ');
             else sb.Append(ch);
         }
-        qLow = sb.ToString();
+        qCased = sb.ToString();
+        var qLow = qCased.ToLowerInvariant();
 
-        // FOLDED corpus: the same question with internal whitespace collapsed to single spaces, so a compact /
-        // camelCase DB enum value ('InProgress' -> 'in progress', 'OnHold' -> 'on hold') whole-word-matches its
-        // natural multi-word phrasing in the question. Re-padded with bordering spaces (FoldForMatch trims) so
-        // the " value " whole-word probe keeps both anchors. The question is already lower-cased here, so folding
-        // it only collapses whitespace runs — it injects NO camelCase boundaries (those exist only on the DB-value
-        // side, where the linker folds each value on demand). Computed once; qLow stays the exact-form corpus.
-        var qFolded = " " + FoldForMatch(qLow) + " ";
+        // FOLDED corpus: collapse camelCase / whitespace so a compact / camelCase DB enum value
+        // ('InProgress' -> 'in progress', 'OnHold' -> 'on hold') whole-word-matches its natural phrasing —
+        // whether the user wrote "in progress" OR "OnHold". FoldForMatch lower-cases internally, so feeding it
+        // the case-preserved corpus injects the camelCase boundaries before the lower-case. Re-padded with
+        // bordering spaces (FoldForMatch trims) so the " value " whole-word probe keeps both anchors.
+        var qFolded = " " + FoldForMatch(qCased) + " ";
 
         // Expand the link set: each linked table + 1- and 2-hop FK neighbors that are lookup-shaped.
         // ACCESS GATE: never probe a table that isn't QUERYABLE — the copilot's own operational tables
