@@ -61,6 +61,12 @@
     "StripStatusFilterTrustGroundingOnly": true,
     // Skip binding an enum value used as a past-tense VERB before a time cue ("issued so far") as a status filter.
     "EnableVerbTimeCueGuard": true,
+    // Execution-guided self-consistency: on a would-be ABSTAIN, draw k diverse candidates, execute each,
+    // vote by result-set fingerprint, answer the majority (abstain on disagreement). Bounded cost — fires
+    // only on abstains. Default OFF (the safe ship posture); flip true to enable. Measured 2026-06-06: fires
+    // + votes + abstains-on-disagreement correctly, 0 new confident-wrong; on a complex-heavy suite the 7B's
+    // samples diverged so it rescued 0 — the lift needs Slice 2 (hard-shape trigger) and/or a stronger model.
+    "EnableSelfConsistency": false,
 
     // ── External-tool vs data routing ────────────────────────────────────────────
     // Semantic tool selection (embed Title+Description, cosine-rank). false -> legacy lexical scorer only.
