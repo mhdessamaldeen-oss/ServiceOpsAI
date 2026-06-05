@@ -21,6 +21,15 @@ public class EnumValueIndexTests
         return m.Object;
     }
 
+    // Allow-all access policy — these tests exercise the *Type/distinctiveness filtering, not the access gate
+    // (the gate has its own coverage in AccessPolicyTests + EnumValueIndexExcludesHiddenTables below).
+    private static IAnalystSchemaAccessPolicy AllowAll()
+    {
+        var p = new Mock<IAnalystSchemaAccessPolicy>(MockBehavior.Loose);
+        p.Setup(x => x.IsTableQueryable(It.IsAny<string>())).Returns(true);
+        return p.Object;
+    }
+
     [Fact]
     public void IndexesEntitySubtypeValues_AndExcludesAttributeValues()
     {
@@ -29,7 +38,7 @@ public class EnumValueIndexTests
             ("Customers", new[] { ("Status", "Active") }),                 // attribute col → never indexed
             ("ServiceAccounts", new[] { ("Status", "Active") }));          // ditto (also would be ambiguous)
 
-        var idx = SchemaLinker.BuildEnumValueIndex(catalog, new[] { "Type" }, NullLogger.Instance);
+        var idx = SchemaLinker.BuildEnumValueIndex(catalog, AllowAll(), new[] { "Type" }, NullLogger.Instance);
 
         Assert.Equal(("Assets", "AssetType"), idx["transformer"]);
         Assert.Equal(("Assets", "AssetType"), idx["generator"]);
@@ -45,13 +54,32 @@ public class EnumValueIndexTests
                                ("AssetType", "Other"), ("AssetType", "Bus"), ("AssetType", "Smart Meter") }),
             ("WorkOrders", new[] { ("OrderType", "Reactive") }));          // 'Reactive' now owned by TWO tables
 
-        var idx = SchemaLinker.BuildEnumValueIndex(catalog, new[] { "Type" }, NullLogger.Instance);
+        var idx = SchemaLinker.BuildEnumValueIndex(catalog, AllowAll(), new[] { "Type" }, NullLogger.Instance);
 
         Assert.True(idx.ContainsKey("transformer"));    // distinctive, single-token, long enough
         Assert.False(idx.ContainsKey("reactive"));      // ambiguous (Assets.AssetType + WorkOrders.OrderType) → dropped
         Assert.False(idx.ContainsKey("other"));         // generic stop word
         Assert.False(idx.ContainsKey("bus"));           // < 4 chars (collision-prone)
         Assert.False(idx.ContainsKey("smart meter"));   // multi-word phrase, not a single noun token
+    }
+
+    [Fact]
+    public void EnumValueIndex_ExcludesHiddenOperationalTables()
+    {
+        // The same self-reference defect class fixed in the value-linker: a *Type column on a HIDDEN copilot
+        // table (CopilotToolDefinitions.ToolType='External') must NEVER be indexed, else "external" in a
+        // question would anchor the copilot's own operational table.
+        var catalog = Catalog(
+            ("Assets", new[] { ("AssetType", "Transformer") }),
+            ("CopilotToolDefinitions", new[] { ("ToolType", "External") }));
+        var policy = new Mock<IAnalystSchemaAccessPolicy>(MockBehavior.Loose);
+        policy.Setup(x => x.IsTableQueryable("Assets")).Returns(true);
+        policy.Setup(x => x.IsTableQueryable("CopilotToolDefinitions")).Returns(false);
+
+        var idx = SchemaLinker.BuildEnumValueIndex(catalog, policy.Object, new[] { "Type" }, NullLogger.Instance);
+
+        Assert.Equal(("Assets", "AssetType"), idx["transformer"]);  // queryable table indexed
+        Assert.False(idx.ContainsKey("external"));                  // hidden table NEVER indexed
     }
 
     [Fact]
@@ -73,10 +101,10 @@ public class EnumValueIndexTests
     {
         var catalog = Catalog(("Bills", new[] { ("Status", "Paid"), ("PaymentMethod", "Cash") }));
         // No *Type column on this table → nothing indexed.
-        Assert.Empty(SchemaLinker.BuildEnumValueIndex(catalog, new[] { "Type" }, NullLogger.Instance));
+        Assert.Empty(SchemaLinker.BuildEnumValueIndex(catalog, AllowAll(), new[] { "Type" }, NullLogger.Instance));
         // No suffixes configured → feature off → empty.
         Assert.Empty(SchemaLinker.BuildEnumValueIndex(
             Catalog(("Assets", new[] { ("AssetType", "Transformer") })),
-            System.Array.Empty<string>(), NullLogger.Instance));
+            AllowAll(), System.Array.Empty<string>(), NullLogger.Instance));
     }
 }

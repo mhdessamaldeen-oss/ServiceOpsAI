@@ -41,6 +41,7 @@ internal sealed class SchemaLinker : ISchemaLinker
     private readonly IForeignKeyGraph _fkGraph;
     private readonly ISemanticLayer _semanticLayer;
     private readonly IOptions<Configuration.AnalystOptions> _options;
+    private readonly IAnalystSchemaAccessPolicy _accessPolicy;
     private readonly ILogger<SchemaLinker> _logger;
 
     /// <summary>Compiled natural-key formats from semantic-layer.json (e.g. Tickets TKT-…, Bills ELEC-…),
@@ -64,6 +65,7 @@ internal sealed class SchemaLinker : ISchemaLinker
         IForeignKeyGraph fkGraph,
         ISemanticLayer semanticLayer,
         IOptions<Configuration.AnalystOptions> options,
+        IAnalystSchemaAccessPolicy accessPolicy,
         ILogger<SchemaLinker> logger)
     {
         _knowledge = knowledge;
@@ -72,10 +74,11 @@ internal sealed class SchemaLinker : ISchemaLinker
         _fkGraph = fkGraph;
         _semanticLayer = semanticLayer;
         _options = options;
+        _accessPolicy = accessPolicy;
         _logger = logger;
         _naturalKeyFormats = new Lazy<IReadOnlyList<Regex>>(BuildNaturalKeyFormats);
         _enumValueIndex = new Lazy<IReadOnlyDictionary<string, (string, string)>>(
-            () => BuildEnumValueIndex(_catalog, _options.Value.EntitySubtypeColumnSuffixes, _logger));
+            () => BuildEnumValueIndex(_catalog, _accessPolicy, _options.Value.EntitySubtypeColumnSuffixes, _logger));
     }
 
     /// <summary>Prime the value→table index (the one-time probe of entity-subtype columns) at warmup so the
@@ -92,7 +95,7 @@ internal sealed class SchemaLinker : ISchemaLinker
     /// (e.g. "Type"), drops short/multi-word/generic tokens, and keeps a value ONLY if exactly one table owns
     /// it (distinctive). Pure data, no business vocab. Fail-soft: any error yields an empty index.</summary>
     internal static IReadOnlyDictionary<string, (string Table, string Column)> BuildEnumValueIndex(
-        IEntityCatalog catalog, IReadOnlyList<string> subtypeSuffixes, ILogger logger)
+        IEntityCatalog catalog, IAnalystSchemaAccessPolicy accessPolicy, IReadOnlyList<string> subtypeSuffixes, ILogger logger)
     {
         var empty = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
         if (subtypeSuffixes is null || subtypeSuffixes.Count == 0) return empty;
@@ -105,6 +108,7 @@ internal sealed class SchemaLinker : ISchemaLinker
             var seenUncovered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var t in catalog.AllTables())
             {
+                if (!accessPolicy.IsTableQueryable(t.Name)) continue;   // never index the copilot's own / hidden tables
                 foreach (var (col, val) in catalog.GetInlineEnumValues(t.Name))
                 {
                     if (!subtypeSuffixes.Any(s => !string.IsNullOrEmpty(s) && col.EndsWith(s, StringComparison.OrdinalIgnoreCase)))
@@ -218,7 +222,7 @@ internal sealed class SchemaLinker : ISchemaLinker
             foreach (var token in tokens)
             {
                 if (LookupEnumValue(token) is not { } hit) continue;
-                if (!_catalog.TableExists(hit.Table)) continue;
+                if (!_catalog.TableExists(hit.Table) || !_accessPolicy.IsTableQueryable(hit.Table)) continue;  // never anchor a hidden table
                 if (selected.Add(hit.Table)) { anchors.Add(hit.Table); valueAnchored = true; }
                 _logger.LogDebug("[SchemaLinker] value-anchor token='{Tok}' → {Tbl}.{Col}", token, hit.Table, hit.Column);
             }
@@ -232,13 +236,15 @@ internal sealed class SchemaLinker : ISchemaLinker
         var linkMode = valueAnchored ? (lexicalAnchorCount > 0 ? "anchor+value" : "value") : "anchor";
         if (selected.Count == 0)
         {
+            // The retriever may still embed a pattern-hidden table (it filters only the exact hidden list);
+            // gate the CONSUMER so no hidden/operational table enters the slice via the embedding fallback.
             var retrieval = await _retriever.RetrieveAsync(question, _options.Value.RetrieverTopK, cancellationToken);
-            foreach (var m in retrieval.Tables.Where(m => m.Score >= EmbedFallbackFloor).Take(4))
+            foreach (var m in retrieval.Tables.Where(m => m.Score >= EmbedFallbackFloor && _accessPolicy.IsTableQueryable(m.Table.Name)).Take(4))
                 selected.Add(m.Table.Name);
             linkMode = "embedding";
             if (selected.Count == 0)
             {
-                foreach (var m in retrieval.Tables.Take(3)) selected.Add(m.Table.Name);   // best effort
+                foreach (var m in retrieval.Tables.Where(m => _accessPolicy.IsTableQueryable(m.Table.Name)).Take(3)) selected.Add(m.Table.Name);   // best effort
                 linkMode = "best-effort";
                 _logger.LogWarning(
                     "[SchemaLinker] q='{Q}' — no anchor and nothing cleared the {Floor} embedding floor; "
@@ -296,7 +302,7 @@ internal sealed class SchemaLinker : ISchemaLinker
                 if (string.Equals(fk.ParentTable, s, StringComparison.OrdinalIgnoreCase))
                 {
                     var target = fk.ReferencedTable;
-                    if (have.Contains(target) || !_catalog.TableExists(target)) continue;
+                    if (have.Contains(target) || !_catalog.TableExists(target) || !_accessPolicy.IsTableQueryable(target)) continue;
                     var t = _knowledge.GetTable(target);
                     if (t is not null && (t.Flags.IsLookup || t.Columns.Count <= 8) && have.Add(target))
                         result.Add(target);
@@ -304,7 +310,7 @@ internal sealed class SchemaLinker : ISchemaLinker
 
         foreach (var grp in fks.GroupBy(f => f.ParentTable, StringComparer.OrdinalIgnoreCase))
         {
-            if (have.Contains(grp.Key) || !_catalog.TableExists(grp.Key)) continue;
+            if (have.Contains(grp.Key) || !_catalog.TableExists(grp.Key) || !_accessPolicy.IsTableQueryable(grp.Key)) continue;
             var refsMatched = grp.Select(f => f.ReferencedTable)
                                  .Where(rt => matched.Contains(rt))
                                  .Distinct(StringComparer.OrdinalIgnoreCase).Count();
@@ -326,7 +332,8 @@ internal sealed class SchemaLinker : ISchemaLinker
                     if (path is null || path.Count == 0 || path.Count > MaxBridgePathHops) continue;
                     foreach (var edge in path)
                         foreach (var node in new[] { edge.SourceTable, edge.TargetTable })
-                            if (!matched.Contains(node) && _catalog.TableExists(node) && have.Add(node))
+                            if (!matched.Contains(node) && _catalog.TableExists(node)
+                                && _accessPolicy.IsTableQueryable(node) && have.Add(node))
                                 result.Add(node);
                 }
         }
