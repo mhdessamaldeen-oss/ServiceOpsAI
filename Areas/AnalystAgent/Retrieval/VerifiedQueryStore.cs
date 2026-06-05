@@ -219,11 +219,12 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
             // a compare-marker ("vs", "versus", "compared to", "against", "or", "diff").
             var questionHasCompareMarker = QuestionHasCompareMarker(question);
 
+            // Shared in-memory cosine rank + fail-open (skip length-mismatch). The per-entry
+            // threshold + shape gates + best-pick stay here unchanged — RankByCosine preserves
+            // input order, so the per-rejection debug logs fire in the same sequence as before.
             VerifiedMatch? best = null;
-            foreach (var (vq, vec) in vectors)
+            foreach (var (vq, score) in EmbeddingRank.RankByCosine(queryVec, vectors))
             {
-                if (vec.Length != queryVec.Length) continue;
-                var score = VectorMath.Cosine(queryVec, vec);
                 var threshold = (float)(vq.MinSimilarity ?? _options.Value.VerifiedQueryMinSimilarity);
                 if (score < threshold) continue;
                 // Shape-intent check: skip cache entries that would clearly return the wrong shape.
@@ -324,11 +325,12 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
             var queryVec = await _embedder.EmbedAsync(question, cancellationToken);
             if (queryVec.Length == 0) return 0f;
 
+            // Shared in-memory cosine rank + fail-open. Floor at 0f exactly as the previous
+            // loop did: best starts at 0, so a catalog of only-negative cosines returns 0, not
+            // the (negative) true max. ScopeConfidenceGate relies on that non-negative floor.
             float best = 0f;
-            foreach (var (_, vec) in vectors)
+            foreach (var (_, score) in EmbeddingRank.RankByCosine(queryVec, vectors))
             {
-                if (vec.Length != queryVec.Length) continue;
-                var score = VectorMath.Cosine(queryVec, vec);
                 if (score > best) best = score;
             }
             return best;
@@ -353,11 +355,11 @@ internal sealed class VerifiedQueryMatcher : IVerifiedQueryMatcher
             // Score every vector once, but dedupe by VerifiedQuery.Id afterwards — each
             // entry contributes its canonical + each questionVariant, so the same entry
             // can appear multiple times in the vector list. Keep only the best score per id.
+            // Shared in-memory cosine rank + fail-open (skip length-mismatch), then the same
+            // min-similarity floor + best-per-id dedup as before (order-independent).
             var bestById = new Dictionary<string, VerifiedMatch>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (vq, vec) in vectors)
+            foreach (var (vq, score) in EmbeddingRank.RankByCosine(queryVec, vectors))
             {
-                if (vec.Length != queryVec.Length) continue;
-                var score = VectorMath.Cosine(queryVec, vec);
                 if (score < minSimilarity) continue;
                 if (!bestById.TryGetValue(vq.Id, out var existing) || score > existing.Similarity)
                     bestById[vq.Id] = new VerifiedMatch(vq, score);

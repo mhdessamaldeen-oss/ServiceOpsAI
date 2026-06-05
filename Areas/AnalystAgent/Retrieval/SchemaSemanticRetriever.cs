@@ -119,16 +119,16 @@ internal sealed class SchemaSemanticRetriever : ISchemaSemanticRetriever
             // breaking near-ties toward the main entity. Set to 0 to disable.
             var auxPenalty = (float)_options.CurrentValue.AuxiliaryTableScorePenalty;
 
-            var scored = new List<TableMatch>(tableVecs.Count);
-            foreach (var (table, vec) in tableVecs)
+            // Shared in-memory cosine rank + fail-open (skip length-mismatch). The aux-table
+            // penalty is layered on top of the raw cosine afterwards — it depends only on the
+            // table name, not on the score's position, so the result is byte-identical to the
+            // previous interleaved loop.
+            var ranked = EmbeddingRank.RankByCosine(queryVec, tableVecs);
+            var scored = new List<TableMatch>(ranked.Count);
+            foreach (var (table, rawScore) in ranked)
             {
-                if (vec.Length != queryVec.Length) continue;
-                var rawScore = VectorMath.Cosine(queryVec, vec);
-                if (IsAuxiliaryTable(table.Name, auxSuffixes))
-                {
-                    rawScore -= auxPenalty;
-                }
-                scored.Add(new TableMatch(table, rawScore));
+                var score = IsAuxiliaryTable(table.Name, auxSuffixes) ? rawScore - auxPenalty : rawScore;
+                scored.Add(new TableMatch(table, score));
             }
             scored.Sort((a, b) => b.Score.CompareTo(a.Score));
             return new SchemaSemanticRetrieval { Tables = scored.Take(topK).ToList() };
