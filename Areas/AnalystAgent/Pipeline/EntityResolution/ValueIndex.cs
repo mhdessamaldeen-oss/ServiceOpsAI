@@ -25,6 +25,7 @@ internal sealed class ValueIndex : IValueIndex
     private readonly IDbConnectionFactory _dbFactory;
     private readonly IOptionsMonitor<ValueIndexOptions> _options;
     private readonly ISemanticLayer _semanticLayer;
+    private readonly AnalystAgent.Schema.IAnalystSchemaAccessPolicy _accessPolicy;
     private readonly ILogger<ValueIndex> _logger;
     private readonly object _swapGate = new();
     private volatile IndexSnapshot _snapshot = IndexSnapshot.Empty;
@@ -33,11 +34,13 @@ internal sealed class ValueIndex : IValueIndex
         IDbConnectionFactory dbFactory,
         IOptionsMonitor<ValueIndexOptions> options,
         ISemanticLayer semanticLayer,
+        AnalystAgent.Schema.IAnalystSchemaAccessPolicy accessPolicy,
         ILogger<ValueIndex> logger)
     {
         _dbFactory = dbFactory;
         _options = options;
         _semanticLayer = semanticLayer;
+        _accessPolicy = accessPolicy;
         _logger = logger;
     }
 
@@ -185,6 +188,7 @@ internal sealed class ValueIndex : IValueIndex
             foreach (var (tbl, col) in candidates)
             {
                 if (!IsSafeIdentifier(tbl) || !IsSafeIdentifier(col)) continue;
+                if (!_accessPolicy.IsTableQueryable(tbl)) continue;   // never index a hidden/operational table's values
                 using var cnt = conn.CreateCommand();
                 cnt.CommandText = $"SELECT COUNT(*) FROM [{tbl}]";
                 cnt.CommandTimeout = 10;

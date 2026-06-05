@@ -44,6 +44,7 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
     private readonly IEntityCatalog _catalog;
     private readonly ITextEmbedder _embedder;
     private readonly IMemoryCache _cache;
+    private readonly AnalystAgent.Schema.IAnalystSchemaAccessPolicy _accessPolicy;
     private readonly ILogger<EntityEmbeddingMatcher> _logger;
 
     public EntityEmbeddingMatcher(
@@ -51,12 +52,14 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
         IEntityCatalog catalog,
         ITextEmbedder embedder,
         IMemoryCache cache,
+        AnalystAgent.Schema.IAnalystSchemaAccessPolicy accessPolicy,
         ILogger<EntityEmbeddingMatcher> logger)
     {
         _semantic = semantic;
         _catalog = catalog;
         _embedder = embedder;
         _cache = cache;
+        _accessPolicy = accessPolicy;
         _logger = logger;
     }
 
@@ -127,7 +130,7 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
                 return cached;
 
             var entities = (_semantic.Config?.Entities ?? Enumerable.Empty<EntityDefinition>())
-                .Where(e => !string.IsNullOrEmpty(e.Table) && _catalog.TableExists(e.Table))
+                .Where(e => !string.IsNullOrEmpty(e.Table) && _catalog.TableExists(e.Table) && _accessPolicy.IsTableQueryable(e.Table))
                 .ToList();
 
             var built = new List<(EntityDefinition, float[])>(entities.Count);

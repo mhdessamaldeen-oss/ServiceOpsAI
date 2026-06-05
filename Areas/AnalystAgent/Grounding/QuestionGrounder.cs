@@ -28,6 +28,7 @@ internal sealed class QuestionGrounder : IQuestionGrounder
     private readonly ISemanticLayer _semanticLayer;
     private readonly IEntityCatalog _catalog;
     private readonly ILinguisticRegistry _registry;
+    private readonly IAnalystSchemaAccessPolicy _accessPolicy;
     private readonly ILogger<QuestionGrounder> _logger;
 
     public QuestionGrounder(
@@ -36,6 +37,7 @@ internal sealed class QuestionGrounder : IQuestionGrounder
         ISemanticLayer semanticLayer,
         IEntityCatalog catalog,
         ILinguisticRegistry registry,
+        IAnalystSchemaAccessPolicy accessPolicy,
         ILogger<QuestionGrounder> logger)
     {
         _shapeClassifier = shapeClassifier;
@@ -43,6 +45,7 @@ internal sealed class QuestionGrounder : IQuestionGrounder
         _semanticLayer = semanticLayer;
         _catalog = catalog;
         _registry = registry;
+        _accessPolicy = accessPolicy;
         _logger = logger;
     }
 
@@ -126,6 +129,7 @@ internal sealed class QuestionGrounder : IQuestionGrounder
 
         foreach (var t in linkedTables)
         {
+            if (!_accessPolicy.IsTableQueryable(t.Name)) continue;   // never derive a metric from a hidden table
             var entity = _semanticLayer.GetEntityForTable(t.Name);
             if (entity?.DerivedMetrics is null || entity.DerivedMetrics.Count == 0) continue;
             foreach (var m in entity.DerivedMetrics)
@@ -183,7 +187,7 @@ internal sealed class QuestionGrounder : IQuestionGrounder
         foreach (var entity in _semanticLayer.Config.Entities)
         {
             if (string.IsNullOrEmpty(entity.NaturalKeyColumn) || string.IsNullOrEmpty(entity.NaturalKeyFormat)) continue;
-            if (!_catalog.TableExists(entity.Table)) continue;
+            if (!_catalog.TableExists(entity.Table) || !_accessPolicy.IsTableQueryable(entity.Table)) continue;  // never bind a hidden table's natural key
             if (!_catalog.ColumnExists(entity.Table, entity.NaturalKeyColumn!)) continue;
 
             Regex rx;
