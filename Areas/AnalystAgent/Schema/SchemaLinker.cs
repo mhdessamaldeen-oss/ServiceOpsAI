@@ -100,12 +100,24 @@ internal sealed class SchemaLinker : ISchemaLinker
         {
             // value_lower -> (distinct owning tables, first table, first column)
             var owners = new Dictionary<string, (HashSet<string> Tables, string Table, string Column)>(StringComparer.OrdinalIgnoreCase);
+            var matchedColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);          // table.col fed into the index
+            var uncoveredEndings = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase); // camelCase tail -> distinct-column count
+            var seenUncovered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var t in catalog.AllTables())
             {
                 foreach (var (col, val) in catalog.GetInlineEnumValues(t.Name))
                 {
                     if (!subtypeSuffixes.Any(s => !string.IsNullOrEmpty(s) && col.EndsWith(s, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        // PORTABILITY PASSPORT: a low-cardinality column the index does NOT cover. Group by its
+                        // camelCase tail so the operator can see which endings carry enum-like values but aren't
+                        // in EntitySubtypeColumnSuffixes — most are attributes (Status/Priority), but a
+                        // differently-named subtype column (AssetCategory/AssetKind) surfaces here for review.
+                        if (seenUncovered.Add(t.Name + "." + col))
+                            uncoveredEndings[LastSegment(col)] = uncoveredEndings.GetValueOrDefault(LastSegment(col)) + 1;
                         continue;                                                   // entity-subtype columns only
+                    }
+                    matchedColumns.Add(t.Name + "." + col);
                     if (string.IsNullOrWhiteSpace(val) || val.Length < 4) continue; // length floor (collision-prone short tokens)
                     if (val.IndexOf(' ') >= 0) continue;                            // single-token values only (a noun, not a phrase)
                     if (GenericValueStopWords.Contains(val)) continue;              // generic non-entity word
@@ -117,8 +129,16 @@ internal sealed class SchemaLinker : ISchemaLinker
             var map = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
             foreach (var (k, e) in owners)
                 if (e.Tables.Count == 1) map[k] = (e.Table, e.Column);             // distinctive: exactly one owner
-            logger.LogInformation("[SchemaLinker] enum-value index built: {Indexed} distinctive entity-subtype values (of {Seen} seen) over suffixes [{Suf}]",
-                map.Count, owners.Count, string.Join(",", subtypeSuffixes));
+
+            // Portability passport — make convention coverage VISIBLE at startup instead of silently degrading.
+            logger.LogInformation("[Portability] enum-value index: {Indexed} distinctive values from {Matched} entity-subtype column(s) over suffixes [{Suf}]",
+                map.Count, matchedColumns.Count, string.Join(",", subtypeSuffixes));
+            if (matchedColumns.Count == 0)
+                logger.LogWarning("[Portability] NO column matched EntitySubtypeColumnSuffixes [{Suf}] — entity-type value anchoring is INACTIVE on this schema. If entity-subtype columns use a different convention (e.g. *Category/*Kind), add the suffix to copilot-options.json.",
+                    string.Join(",", subtypeSuffixes));
+            else if (uncoveredEndings.Count > 0)
+                logger.LogInformation("[Portability] low-cardinality column endings NOT covered (mostly attributes; add a suffix if any names an entity subtype): {Endings}",
+                    string.Join(", ", uncoveredEndings.OrderByDescending(kv => kv.Value).Take(12).Select(kv => $"{kv.Key}({kv.Value})")));
             return map;
         }
         catch (Exception ex)
