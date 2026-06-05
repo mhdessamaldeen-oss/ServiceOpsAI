@@ -111,8 +111,10 @@ internal sealed class ValueLinker : IValueLinker
             foreach (var (col, val) in _catalog.GetInlineEnumValues(t.Name))
             {
                 if (val.Length < 3) continue;
-                var needle = " " + val.ToLowerInvariant() + " ";
-                if (!qLow.Contains(needle, System.StringComparison.Ordinal)) continue;
+                // Whole-word match, PLURAL-AWARE: an entity-subtype value ("Transformer") is named in the
+                // plural ("how many transformerS") — match the value's regular plural too so the filter binds.
+                // Additive: status values ("Overdue"/"Critical") aren't pluralized in questions, so no over-bind.
+                if (!QuestionContainsValueWord(qLow, val.ToLowerInvariant())) continue;
                 // Skip when the enum word is used as a VERB (immediately followed by a preposition) rather
                 // than an ADJECTIVE modifying the entity: "bills ISSUED in the last 30 days" / "bills PAID
                 // by cash" are date/method filters, NOT a Status filter — while "overdue BILLS",
@@ -183,6 +185,19 @@ internal sealed class ValueLinker : IValueLinker
     // adjective filter ("issued IN ...", "paid BY ...", "created ON ..."). Not 'of'/'to'/'at' (too weak).
     private static readonly HashSet<string> VerbContextPrepositions = new(System.StringComparer.OrdinalIgnoreCase)
     { "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from" };
+
+    /// <summary>Whole-word match of an enum value against the (space-padded, lowercased) question, PLURAL-aware:
+    /// matches the value itself ("transformer") OR its regular plural ("transformers") so an entity-subtype
+    /// value named in the plural still binds its filter. The plural form is only TRIED, never required, so
+    /// non-pluralizable status values ("overdue"/"critical") are unaffected. Mirrors the schema linker's
+    /// single-'s' morphology (no stemming) to stay consistent and avoid over-matching.</summary>
+    private static bool QuestionContainsValueWord(string qLowPadded, string valLower)
+    {
+        if (qLowPadded.Contains(" " + valLower + " ", System.StringComparison.Ordinal)) return true;
+        if (valLower.Length >= 4 && !valLower.EndsWith("s", System.StringComparison.Ordinal)
+            && qLowPadded.Contains(" " + valLower + "s ", System.StringComparison.Ordinal)) return true;
+        return false;
+    }
 
     /// <summary>True when the enum <paramref name="valLower"/> appears immediately followed by a
     /// verb-context preposition in the (space-padded, lowercased) question — i.e. it's the verb in

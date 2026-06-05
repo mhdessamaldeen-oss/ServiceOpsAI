@@ -47,6 +47,12 @@ internal sealed class SchemaLinker : ISchemaLinker
     /// built once. A question token matching one is a hard in-scope signal.</summary>
     private readonly Lazy<IReadOnlyList<Regex>> _naturalKeyFormats;
 
+    /// <summary>Global VALUE→TABLE index over distinctive ENTITY-SUBTYPE values, built once. Maps a lowercased
+    /// value ("transformer") to its owning (Table, Column) so a question naming an entity-via-its-type anchors
+    /// the right table. Restricted to entity-subtype columns (see AnalystOptions.EntitySubtypeColumnSuffixes)
+    /// so attribute values ("resolved"/"high") never steer table selection. Empty dict if disabled / build fails.</summary>
+    private readonly Lazy<IReadOnlyDictionary<string, (string Table, string Column)>> _enumValueIndex;
+
     private const double FuzzyAnchorFloor = 0.70;   // trigram for a TYPO'd table name
     private const float EmbedFallbackFloor = 0.30f; // min cosine to trust an embedding-only match
     private const int MaxBridgePathHops = 4;        // cap transitive FK-path bridging (keeps slice tight)
@@ -68,6 +74,69 @@ internal sealed class SchemaLinker : ISchemaLinker
         _options = options;
         _logger = logger;
         _naturalKeyFormats = new Lazy<IReadOnlyList<Regex>>(BuildNaturalKeyFormats);
+        _enumValueIndex = new Lazy<IReadOnlyDictionary<string, (string, string)>>(
+            () => BuildEnumValueIndex(_catalog, _options.Value.EntitySubtypeColumnSuffixes, _logger));
+    }
+
+    /// <summary>Prime the value→table index (the one-time probe of entity-subtype columns) at warmup so the
+    /// first real question doesn't pay the build cost. Safe to call repeatedly (Lazy builds once).</summary>
+    public int PrimeEnumValueIndex() => _enumValueIndex.Value.Count;
+
+    // Generic, schema-agnostic non-entity tokens — never an entity the user counts. NOT per-table business
+    // vocab (it's the same handful for any schema), so it stays portable.
+    private static readonly HashSet<string> GenericValueStopWords = new(StringComparer.OrdinalIgnoreCase)
+    { "other", "unknown", "unspecified", "none", "misc", "default", "general", "standard", "normal" };
+
+    /// <summary>Builds the distinctive entity-subtype VALUE→TABLE index. Reuses the catalog's bounded
+    /// inline-enum probe, keeps only values from columns whose name ends with a configured subtype suffix
+    /// (e.g. "Type"), drops short/multi-word/generic tokens, and keeps a value ONLY if exactly one table owns
+    /// it (distinctive). Pure data, no business vocab. Fail-soft: any error yields an empty index.</summary>
+    internal static IReadOnlyDictionary<string, (string Table, string Column)> BuildEnumValueIndex(
+        IEntityCatalog catalog, IReadOnlyList<string> subtypeSuffixes, ILogger logger)
+    {
+        var empty = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+        if (subtypeSuffixes is null || subtypeSuffixes.Count == 0) return empty;
+        try
+        {
+            // value_lower -> (distinct owning tables, first table, first column)
+            var owners = new Dictionary<string, (HashSet<string> Tables, string Table, string Column)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var t in catalog.AllTables())
+            {
+                foreach (var (col, val) in catalog.GetInlineEnumValues(t.Name))
+                {
+                    if (!subtypeSuffixes.Any(s => !string.IsNullOrEmpty(s) && col.EndsWith(s, StringComparison.OrdinalIgnoreCase)))
+                        continue;                                                   // entity-subtype columns only
+                    if (string.IsNullOrWhiteSpace(val) || val.Length < 4) continue; // length floor (collision-prone short tokens)
+                    if (val.IndexOf(' ') >= 0) continue;                            // single-token values only (a noun, not a phrase)
+                    if (GenericValueStopWords.Contains(val)) continue;              // generic non-entity word
+                    var key = val.ToLowerInvariant();
+                    if (owners.TryGetValue(key, out var e)) e.Tables.Add(t.Name);
+                    else owners[key] = (new HashSet<string>(StringComparer.OrdinalIgnoreCase) { t.Name }, t.Name, col);
+                }
+            }
+            var map = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (k, e) in owners)
+                if (e.Tables.Count == 1) map[k] = (e.Table, e.Column);             // distinctive: exactly one owner
+            logger.LogInformation("[SchemaLinker] enum-value index built: {Indexed} distinctive entity-subtype values (of {Seen} seen) over suffixes [{Suf}]",
+                map.Count, owners.Count, string.Join(",", subtypeSuffixes));
+            return map;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[SchemaLinker] enum-value index build failed — value-anchoring disabled for this process (non-fatal)");
+            return empty;
+        }
+    }
+
+    /// <summary>Look up a question token in the value index, trying a single plural→singular 's' strip
+    /// (mirrors IsAnchor) so "transformers" matches the value "Transformer". Returns the owning table or null.</summary>
+    private (string Table, string Column)? LookupEnumValue(string token)
+    {
+        var idx = _enumValueIndex.Value;
+        if (idx.TryGetValue(token, out var v)) return v;
+        if (token.Length > 4 && token.EndsWith("s", StringComparison.Ordinal)
+            && idx.TryGetValue(token[..^1], out var v2)) return v2;
+        return null;
     }
 
     private IReadOnlyList<Regex> BuildNaturalKeyFormats()
@@ -115,12 +184,32 @@ internal sealed class SchemaLinker : ISchemaLinker
 
         var selected = new HashSet<string>(anchors, StringComparer.OrdinalIgnoreCase);
 
+        // VALUE-INDEX anchor: a token that IS a distinctive entity-subtype value ("transformers" →
+        // Assets.AssetType) names the entity-via-its-type and anchors NO table by name — so without this the
+        // embedding fallback grabs the nearest name-matched table (Customers/Technicians) and the right table
+        // is never retrieved (the entity-type→wrong-table confident-wrong). ADD the owning table. Additive
+        // only: never evicts a lexical anchor, never calls the embedder; runs before the embedding fallback so
+        // a value hit suppresses a wrong embedding pick. Restricted to entity-subtype columns + distinctive
+        // values, so attribute words ("resolved"/"high") never steer selection.
+        var lexicalAnchorCount = anchors.Count;
+        var valueAnchored = false;
+        if (_options.Value.EnableEnumValueAnchoring && _enumValueIndex.Value.Count > 0)
+        {
+            foreach (var token in tokens)
+            {
+                if (LookupEnumValue(token) is not { } hit) continue;
+                if (!_catalog.TableExists(hit.Table)) continue;
+                if (selected.Add(hit.Table)) { anchors.Add(hit.Table); valueAnchored = true; }
+                _logger.LogDebug("[SchemaLinker] value-anchor token='{Tok}' → {Tbl}.{Col}", token, hit.Table, hit.Column);
+            }
+        }
+
         // Embedding is the RECALL fallback — only when the question names no table (e.g. "who handles
         // tickets", "staff"), so a 7B isn't handed a noisy slice for an already-anchored question.
         // linkMode records HOW the slice was chosen so a weak/desperate slice is diagnosable (ENH-5):
         //   anchor → lexical/synonym/trigram hit · embedding → above-floor cosine · best-effort →
         //   nothing cleared the floor (lowest confidence — the likeliest source of a wrong slice).
-        var linkMode = "anchor";
+        var linkMode = valueAnchored ? (lexicalAnchorCount > 0 ? "anchor+value" : "value") : "anchor";
         if (selected.Count == 0)
         {
             var retrieval = await _retriever.RetrieveAsync(question, _options.Value.RetrieverTopK, cancellationToken);

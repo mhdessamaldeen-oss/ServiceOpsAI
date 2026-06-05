@@ -1,0 +1,84 @@
+{
+  "name": "Entity-type value->table suite (2026-06-05)",
+  "version": "2026-06-05.entitytype",
+  "description": "Entity-subtype values named as the entity noun (transformer/generator/substation = Assets.AssetType) must count Assets, not the nearest name-matched table. Trap cases: attribute values (resolved/active/high) must not be indexed or pull a wrong table.",
+  "Scenarios": [
+    {
+      "Code": "E-Transformers",
+      "Category": "FILTER",
+      "Difficulty": "Hard",
+      "Question": "how many transformers do we have",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Assets WHERE AssetType='Transformer'",
+      "GoldVerified": true,
+      "GoldSource": "entity-type value->table index suite, executed gold 2026-06-05",
+      "ExpectedScalar": 9.0
+    },
+    {
+      "Code": "E-Generators",
+      "Category": "FILTER",
+      "Difficulty": "Hard",
+      "Question": "how many generators are there",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Assets WHERE AssetType='Generator'",
+      "GoldVerified": true,
+      "GoldSource": "entity-type value->table index suite, executed gold 2026-06-05",
+      "ExpectedScalar": 3.0
+    },
+    {
+      "Code": "E-Substations",
+      "Category": "FILTER",
+      "Difficulty": "Hard",
+      "Question": "how many substations do we have",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Assets WHERE AssetType='Substation'",
+      "GoldVerified": true,
+      "GoldSource": "entity-type value->table index suite, executed gold 2026-06-05",
+      "ExpectedScalar": 3.0
+    },
+    {
+      "Code": "E-TransformerSng",
+      "Category": "FILTER",
+      "Difficulty": "Hard",
+      "Question": "how many transformer assets are there",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Assets WHERE AssetType='Transformer'",
+      "GoldVerified": true,
+      "GoldSource": "entity-type value->table index suite, executed gold 2026-06-05",
+      "ExpectedScalar": 9.0
+    },
+    {
+      "Code": "T-ResolvedTickets",
+      "Category": "TRAP",
+      "Difficulty": "Hard",
+      "Question": "how many resolved tickets",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Tickets t JOIN TicketStatuses s ON t.StatusId=s.Id WHERE s.Name='Resolved' AND t.IsDeleted=0",
+      "GoldVerified": true,
+      "GoldSource": "entity-type value->table index suite, executed gold 2026-06-05",
+      "ExpectedScalar": 48.0
+    },
+    {
+      "Code": "T-ActiveCustomers",
+      "Category": "TRAP",
+      "Difficulty": "Hard",
+      "Question": "how many active customers",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM Customers WHERE Status='Active'",
+      "GoldVerified": true,
+      "GoldSource": "entity-type value->table index suite, executed gold 2026-06-05",
+      "ExpectedScalar": 181.0
+    },
+    {
+      "Code": "T-HighPriorityWO",
+      "Category": "TRAP",
+      "Difficulty": "Hard",
+      "Question": "how many high priority work orders",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT COUNT(*) FROM WorkOrders WHERE Priority='High'",
+      "GoldVerified": true,
+      "GoldSource": "entity-type value->table index suite, executed gold 2026-06-05",
+      "ExpectedScalar": 16.0
+    }
+  ]
+}

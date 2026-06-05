@@ -57,6 +57,19 @@ internal sealed class AnalystWarmupHostedService : BackgroundService
                 "[Warmup] SchemaKnowledge primed at {Ms}ms (available={Available}, tables={Tables}).",
                 sw.ElapsedMilliseconds, schemaKnowledge.IsAvailable, schemaKnowledge.TableCount);
 
+            // 1d) Value→table index — probes the entity-subtype columns ONCE so the first question that names
+            // an entity-via-its-type ("transformers" → Assets.AssetType) doesn't pay the build. Lazy otherwise.
+            try
+            {
+                if (sp.GetRequiredService<ISchemaLinker>() is SchemaLinker schemaLinker)
+                    _logger.LogInformation("[Warmup] Enum-value index primed at {Ms}ms ({N} distinctive values).",
+                        sw.ElapsedMilliseconds, schemaLinker.PrimeEnumValueIndex());
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "[Warmup] Enum-value index priming failed (non-fatal).");
+            }
+
             // 2) Semantic layer — Config is Lazy too.
             var semantic = sp.GetRequiredService<ISemanticLayer>();
             _ = semantic.Config;

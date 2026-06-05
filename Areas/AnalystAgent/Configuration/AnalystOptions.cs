@@ -488,6 +488,23 @@ public sealed class AnalystOptions
     /// no-op. Default on.</summary>
     public bool EnableFuzzyValueLinking { get; set; } = true;
 
+    /// <summary>When true, the schema linker consults a global VALUE→TABLE index so a question token that is a
+    /// distinctive ENTITY-SUBTYPE value ("transformers" → Assets.AssetType) anchors its owning table — fixing
+    /// the entity-type→wrong-table confident-wrong (today "how many transformers" counts the nearest
+    /// name-matched table). Additive only: never evicts a lexical anchor, never calls the embedder. The index
+    /// is restricted to columns named with an <see cref="EntitySubtypeColumnSuffixes"/> suffix (targets
+    /// entity-subtype columns, NOT attribute columns like Status/Priority whose values are common words), keeps
+    /// only DISTINCTIVE values (owned by exactly one table), and drops short/generic tokens. Default on; set
+    /// false to revert instantly.</summary>
+    public bool EnableEnumValueAnchoring { get; set; } = true;
+
+    /// <summary>Column-name suffixes marking an ENTITY-SUBTYPE column — its values are entity nouns the user
+    /// names ("transformer" is a kind of asset). ONLY these columns feed the value→table index, keeping it off
+    /// attribute columns (Status/Priority/Outcome) whose values are common modifiers ("resolved"/"high"). A
+    /// naming-convention rule (like the bilingual NameEn/NameAr suffixes) → schema-data-driven and portable.
+    /// Default ["Type"] (AssetType, PointType, OrderType, …).</summary>
+    public List<string> EntitySubtypeColumnSuffixes { get; set; } = new() { "Type" };
+
     // ── Profile selector (Phase 4) ──────────────────────────────────────────────────────────
     // Names a preset block in copilot-options.json that overlays threshold properties at
     // load time. Null/empty = use the explicit values above with no overlay. Built-in
