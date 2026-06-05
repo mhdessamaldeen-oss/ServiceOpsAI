@@ -488,6 +488,22 @@ public sealed class CopilotTextCatalog
     // (above, ConversationalCapabilities) is the default when this list is empty.
     public List<string> ConversationalCapabilitiesReplies { get; set; } = new();
 
+    // Small-talk ("how are you", "tell me a joke", "are you a robot"). These are the CANNED fallback
+    // used when SmallTalkUseLlm is off OR the one warm LLM reply fails — so small-talk is never a cold
+    // refusal and never reaches the planner. Schema-agnostic; operators can rebrand the persona here.
+    public string ConversationalSmallTalk { get; set; } =
+        "I'm doing great, thanks for asking! I'm a data copilot — ask me anything about the database " +
+        "and I'll turn it into SQL for you.";
+
+    public List<string> ConversationalSmallTalkReplies { get; set; } = new()
+    {
+        "Doing great, thanks! I'm best at data though — what would you like to know from the database?",
+        "All good here! Ask me anything about the data and I'll pull it for you.",
+        "I'm just a data copilot, but I'm happy you're here — what can I look up for you?",
+        "Ha — I'll leave the small talk to the humans. Want me to query something for you?",
+        "I'm well! Ready whenever you are with a question about the data.",
+    };
+
     // ── F3 — Tool-routing stopwords (Tier 2 i18n) ────────────────────────────
     // Comma-separated stopwords filtered out before scoring tool keyword overlap. Default
     // covers English question/auxiliary words; ops can override or extend with locale-specific
@@ -692,6 +708,30 @@ Output only the JSON object — no preamble, no markdown.";
 السؤال: {0}
 
 أخرج فقط كائن JSON — بلا مقدمات أو تنسيق.";
+
+    // ── Small-talk reply prompt (i18n) ─────────────────────────────────────────
+    // Used ONLY when SmallTalkUseLlm is on and a small-talk cue matched. One bounded call to the
+    // Classifier (generalist) model to produce a warm, human reply — NOT a data answer. The guardrails
+    // ("one sentence", "never answer a data question") keep the narrow model from drifting into SQL.
+    // {0} = the user's message. No schema/business vocab → portable. Override per deployment in copilot-text.json.
+    public string SmallTalkPromptEn { get; set; } =
+@"You are a friendly data copilot. The user said something conversational, not a data question.
+Reply warmly in ONE short sentence. Do NOT answer or attempt any data/database question, do NOT make
+up facts, and do NOT mention SQL internals. If they seem to want data, gently invite them to ask about
+the database. Keep it human and brief.
+
+User said: {0}
+
+Your one-sentence reply:";
+
+    public string SmallTalkPromptAr { get; set; } =
+@"أنت مساعد بيانات ودود. قال المستخدم شيئًا محادثيًا وليس سؤالًا عن البيانات.
+أجب بدفء في جملة واحدة قصيرة. لا تُجب عن أي سؤال يتعلق بالبيانات أو قاعدة البيانات، ولا تختلق معلومات،
+ولا تذكر تفاصيل SQL. إن بدا أنه يريد بيانات، فادعُه بلطف إلى السؤال عن قاعدة البيانات. اجعلها إنسانية وموجزة.
+
+قال المستخدم: {0}
+
+ردّك في جملة واحدة:";
 
     // ── Explainer language hint (i18n) ─────────────────────────────────────────
     // Single-line instruction appended to the Explainer system prompt so the LLM produces

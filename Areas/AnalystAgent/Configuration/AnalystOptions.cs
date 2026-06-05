@@ -95,6 +95,13 @@ public sealed class AnalystOptions
     /// is separate (copilot-text.json). Edit this file (not code) to tune detection or add a language.</summary>
     public string ConversationalCuesPath { get; set; } = "Areas/AnalystAgent/Configuration/conversational-cues.json";
 
+    /// <summary>When true, a matched SMALL-TALK cue ("how are you", "tell me a joke") gets exactly ONE
+    /// LLM call (Classifier workload) for a warm one-sentence reply — fail-open to a canned redirect when the
+    /// model is unavailable. When false, the canned redirect is used with zero LLM. Pure greetings / thanks /
+    /// farewell / capabilities stay 0-LLM either way (they never call the model). The handler still
+    /// short-circuits BEFORE the intent classifier + planner, so small-talk never reaches the SQL path.</summary>
+    public bool SmallTalkUseLlm { get; set; } = true;
+
     /// <summary>Path to the compound/sequential question DECOMPOSITION cues (split + no-decompose-guard
     /// regexes, per locale). Absent → byte-identical in-code English fallback. Edit this file (not code) to
     /// tune how compound questions are split or add a language.</summary>

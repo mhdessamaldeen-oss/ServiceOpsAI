@@ -5,13 +5,15 @@
       "capabilities": [ "^\\s*(?:what\\s+can\\s+(?:you|i)\\s+(?:do|ask)|how\\s+(?:do\\s+)?(?:you|this)\\s+work|what\\s+(?:are\\s+)?(?:your|the)\\s+(?:capabilities|features)|what\\s+(?:do|can)\\s+you\\s+(?:know|support|handle)|show\\s+me\\s+(?:what\\s+you\\s+can\\s+do|examples?|some\\s+examples?|sample(?:\\s+questions?)?)|give\\s+me\\s+(?:some\\s+)?examples?|^help(?:\\s+me(?:\\s+please)?)?\\s*$|who\\s+are\\s+you|introduce\\s+yourself|tell\\s+me\\s+about\\s+(?:yourself|this\\s+(?:bot|copilot|tool|app)))[!?.\\s]*$" ],
       "greeting": [ "^\\s*(?:hi|hello|hey(?:\\s+there)?|hiya|howdy|greetings|good\\s+(?:morning|afternoon|evening|day))\\s*[!.?]*\\s*$" ],
       "thanks": [ "^\\s*(?:thanks(?:\\s+a\\s+lot|\\s+so\\s+much)?|thank\\s+you|thx|ty|appreciate(?:\\s+it|d)?|cheers|nice(?:\\s+job)?|cool|awesome|perfect|great)\\s*[!.]*\\s*$" ],
-      "farewell": [ "^\\s*(?:bye(?:\\s+now)?|goodbye|good\\s*bye|see\\s+you(?:\\s+(?:later|soon|around))?|see\\s+ya|later|cya|farewell|take\\s+care|catch\\s+you\\s+later|talk\\s+to\\s+you\\s+later|ttyl)\\s*[!.]*\\s*$" ]
+      "farewell": [ "^\\s*(?:bye(?:\\s+now)?|goodbye|good\\s*bye|see\\s+you(?:\\s+(?:later|soon|around))?|see\\s+ya|later|cya|farewell|take\\s+care|catch\\s+you\\s+later|talk\\s+to\\s+you\\s+later|ttyl)\\s*[!.]*\\s*$" ],
+      "smalltalk": [ "^\\s*(?:how\\s+(?:are|r)\\s+(?:you|u)(?:\\s+doing)?|how(?:'s|\\s+is)\\s+it\\s+going|how\\s+have\\s+you\\s+been|what(?:'s|\\s+is)\\s+up|what(?:'s|\\s+is)\\s+new|how\\s+do\\s+you\\s+feel|are\\s+you\\s+(?:a\\s+)?(?:robot|ai|human|real|ok|okay|there)|who\\s+made\\s+you|do\\s+you\\s+(?:have\\s+a\\s+name|sleep|dream|love\\s+me)|tell\\s+me\\s+a\\s+joke|say\\s+something\\s+funny|are\\s+you\\s+(?:happy|sad|bored)|nice\\s+to\\s+meet\\s+you|how\\s+old\\s+are\\s+you)\\s*[!?.\\s]*$" ]
     },
     "ar": {
       "capabilities": [ "^\\s*(?:ماذا\\s+(?:يمكنك|تستطيع|بإمكانك)|ما\\s+(?:هي\\s+)?(?:قدراتك|إمكانياتك|ميزاتك)|كيف\\s+تعمل|من\\s+أنت|عرّف\\s+بنفسك|ساعدني|مساعدة|أعطني\\s+أمثلة|اعطني\\s+امثلة)[!؟.\\s]*$" ],
       "greeting": [ "^\\s*(?:مرحبا|مرحبًا|اهلا|أهلا|أهلًا|السلام\\s+عليكم|صباح\\s+الخير|مساء\\s+الخير|هاي)\\s*[!.؟]*\\s*$" ],
       "thanks": [ "^\\s*(?:شكرا|شكرًا|شكرا\\s+(?:جزيلا|لك)|متشكر|ممتاز|رائع|جميل|أحسنت)\\s*[!.]*\\s*$" ],
-      "farewell": [ "^\\s*(?:مع\\s+السلامة|وداعا|وداعًا|إلى\\s+اللقاء|الى\\s+اللقاء|باي|أراك\\s+لاحقا)\\s*[!.]*\\s*$" ]
+      "farewell": [ "^\\s*(?:مع\\s+السلامة|وداعا|وداعًا|إلى\\s+اللقاء|الى\\s+اللقاء|باي|أراك\\s+لاحقا)\\s*[!.]*\\s*$" ],
+      "smalltalk": [ "^\\s*(?:كيف\\s+حالك|كيف\\s+الحال|كيفك|شو\\s+الأخبار|ما\\s+الأخبار|هل\\s+أنت\\s+(?:روبوت|إنسان|حقيقي|بخير)|من\\s+صنعك|أخبرني\\s+نكتة|قل\\s+شيئا\\s+مضحكا|هل\\s+لديك\\s+اسم|كم\\s+عمرك|سعدت\\s+بلقائك)\\s*[!؟.\\s]*$" ]
     }
   }
 }

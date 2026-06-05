@@ -157,7 +157,9 @@ internal sealed partial class AnalystOrchestrator : IAnalystAgent
         steps.RecordWriteIntentPassed(question);
 
         // ── Conversational fast-path ─────────────────────────────────────────
-        var convReply = _conversational.TryHandle(question);
+        // Async: a small-talk hit may spend exactly ONE LLM call for a warm reply (fail-open to canned).
+        // Greetings/thanks/farewell/capabilities stay 0-LLM. Either way this short-circuits before the planner.
+        var convReply = await _conversational.TryHandleAsync(question, cancellationToken);
         if (convReply is not null)
         {
             steps.RecordConversational(question, convReply);
