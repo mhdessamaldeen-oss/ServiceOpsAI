@@ -63,4 +63,43 @@ public class SchemaBlockBilingualTagTests
         Assert.Contains("[localized", text);
         Assert.Contains("LabelFr / LabelDe", text);
     }
+
+    [Fact]
+    public void Tail_named_projection_subject_keeps_its_label_columns()
+    {
+        // "AspNetUsers" is asked for by its bare tail "users", not "aspnetusers". Without the focal tail-match
+        // it is classified non-focal and UserName/Email are compacted away — so the 7B has no name column and
+        // guesses a non-existent NameEn (the live "list users and their roles" abstain). The tail-match keeps it focal.
+        var t = new InferredTable
+        {
+            Name = "AspNetUsers",
+            Schema = "dbo",
+            Columns = new[] { "Id", "UserName", "Email", "IsActive", "DepartmentId", "FirstName", "LastName", "PhoneNumber" }
+                .Select(Col).ToList(),
+        };
+        var sb = new StringBuilder();
+        LlmDirectSqlEmitter.AppendSchemaBlock(sb, new[] { t }, "list of users and their roles",
+            Array.Empty<string>(), compactAll: false);
+        var text = sb.ToString();
+
+        Assert.DoesNotContain("key columns only", text);   // focal via the tail "users" — NOT compacted
+        Assert.Contains("AspNetUsers.UserName", text);      // the label columns the model needs are visible
+        Assert.Contains("AspNetUsers.Email", text);
+    }
+
+    [Fact]
+    public void NonFocal_neighbor_not_named_stays_compacted()
+    {
+        // A wide neighbor the question never names stays key-only (the over-fetch guard the tail-match must not break).
+        var t = new InferredTable
+        {
+            Name = "ServiceTypes",
+            Schema = "dbo",
+            Columns = new[] { "Id", "NameEn", "NameAr", "IconClass", "SortOrder", "IsActive", "Code", "Description" }
+                .Select(Col).ToList(),
+        };
+        var sb = new StringBuilder();
+        LlmDirectSqlEmitter.AppendSchemaBlock(sb, new[] { t }, "how many transformers", Array.Empty<string>(), compactAll: false);
+        Assert.Contains("key columns only", sb.ToString());  // "transformers" matches neither name nor tail "types"
+    }
 }

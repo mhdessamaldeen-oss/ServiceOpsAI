@@ -191,6 +191,16 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
             var n = t.Name.ToLowerInvariant();
             if (ql.Contains(n) || hintBlob.Contains(n)) return true;
             if (n.Length > 3 && n.EndsWith("s") && (ql.Contains(n[..^1]) || hintBlob.Contains(n[..^1]))) return true;
+            // TAIL match (mirrors the schema linker's anchor): a table named by its BARE entity — "AspNetUsers"
+            // is asked for as "users", not "aspnetusers" — is the projection SUBJECT and must keep its full
+            // columns (UserName/Email), else the 7B has no label column and guesses a non-existent one (NameEn).
+            // Whole-word on the space-padded question/hints so "users" doesn't match inside "abusers".
+            var tail = LastNameSegment(t.Name).ToLowerInvariant();
+            if (tail.Length > 3 && tail != n)
+            {
+                bool Word(string s) => ql.Contains(" " + s + " ") || hintBlob.Contains(" " + s + " ");
+                if (Word(tail) || (tail.EndsWith("s") && Word(tail[..^1]))) return true;
+            }
             return false;
         }
 
@@ -302,6 +312,17 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
         foreach (var fk in t.ForeignKeysOut) keep.Add(fk.Column);
         if (!string.IsNullOrWhiteSpace(t.Roles.SoftDeleteColumn)) keep.Add(t.Roles.SoftDeleteColumn!);
         return t.Columns.Where(c => keep.Contains(c.Name)).ToList();
+    }
+
+    // The trailing camelCase segment of a table name — "AspNetUsers" -> "Users", "TicketStatuses" -> "Statuses".
+    // The user names a table by this bare entity, not its full prefixed name; used by IsFocal's tail-match.
+    private static string LastNameSegment(string name)
+    {
+        int start = 0;
+        for (int i = 1; i < name.Length; i++)
+            if (char.IsUpper(name[i]) && (char.IsLower(name[i - 1]) || (i + 1 < name.Length && char.IsLower(name[i + 1]))))
+                start = i;
+        return name[start..];
     }
 
     /// <summary>
