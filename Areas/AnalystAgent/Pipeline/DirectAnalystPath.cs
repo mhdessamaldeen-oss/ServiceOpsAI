@@ -10,6 +10,7 @@ using AnalystAgent.Grounding;
 using AnalystAgent.Models;
 using AnalystAgent.Retrieval;
 using AnalystAgent.Schema;
+using AnalystAgent.Validation;
 
 /// <summary>
 /// The minimal "direct analyst" path — the lean answer to copilot weakness (NOT model weakness):
@@ -314,6 +315,32 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
     private static int CountStringLiterals(string? sql) =>
         string.IsNullOrEmpty(sql) ? 0 : Regex.Matches(sql, "'[^']*'").Count;
 
+    // The clause keyword / terminator set that ENDS a WHERE clause — the boundary a sole-predicate WHERE is
+    // dropped before. Beyond GROUP BY / ORDER BY / HAVING / ) / ; / end, this now also covers OFFSET, FETCH,
+    // and the set operators (UNION / EXCEPT / INTERSECT) so a `WHERE <pred> OFFSET 10 ROWS` or
+    // `WHERE <pred> UNION SELECT ...` has its now-empty WHERE removed cleanly instead of leaving a dangling
+    // `WHERE` glued to the next clause (a parse error). Used by the shared StripPredicate helper below.
+    private const string WhereClauseBoundary =
+        @"(?:GROUP\s+BY|ORDER\s+BY|HAVING|OFFSET|FETCH|UNION|EXCEPT|INTERSECT|\)|;|$)";
+
+    /// <summary>The shared WHERE/AND predicate-removal triplet used by every deterministic strip. Removes a
+    /// matched predicate in all three positions it can occupy: <c>WHERE &lt;pred&gt; AND …</c> (leading) →
+    /// keep WHERE; <c>… AND &lt;pred&gt; …</c> (trailing) → drop the AND; and a sole <c>WHERE &lt;pred&gt;</c>
+    /// right before a clause boundary (<see cref="WhereClauseBoundary"/>) → drop the whole WHERE. The caller
+    /// passes <paramref name="predicateRegex"/> already regex-ready (e.g. <see cref="Regex.Escape"/> of a
+    /// literal match, or a small alternation); it is wrapped in a non-capturing group here so a top-level
+    /// alternation is safe. Pure string→string (no allocation of intent); returns the SQL unchanged when the
+    /// predicate isn't present. NOT trimmed — the caller trims/compares.</summary>
+    private static string StripPredicate(string sql, string predicateRegex)
+    {
+        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
+        var p = "(?:" + predicateRegex + ")";
+        var s = Regex.Replace(sql, $@"\bWHERE\s+{p}\s+AND\b", "WHERE", O);                 // WHERE <bad> AND ... -> WHERE ...
+        s = Regex.Replace(s, $@"\s+AND\s+{p}", " ", O);                                    // ... AND <bad> ... -> ...
+        s = Regex.Replace(s, $@"\bWHERE\s+{p}\s*(?={WhereClauseBoundary})", "", O);        // WHERE <bad> (only pred) -> drop WHERE
+        return s;
+    }
+
     /// <summary>Deterministically remove an equality / IS-NULL predicate that references a column SQL
     /// Server reported as non-existent ("Invalid column name 'X'"). Targets the 7B model's habit of
     /// bolting <c>WHERE IsDeleted = 0</c> onto a table that has no such column (and re-emitting it when
@@ -328,13 +355,8 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         var col = Regex.Escape(m.Groups[1].Value);
         var pred = $@"(?:\[?\w+\]?\.)?\[?{col}\]?\s*(?:=|<>|>=|<=|>|<)\s*[^()\s]+"
                  + $@"|(?:\[?\w+\]?\.)?\[?{col}\]?\s+IS(?:\s+NOT)?\s+NULL";
-        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
         var before = sql.Trim();
-        var s = sql;
-        s = Regex.Replace(s, $@"\bWHERE\s+(?:{pred})\s+AND\b", "WHERE", O);                                   // WHERE <bad> AND ... -> WHERE ...
-        s = Regex.Replace(s, $@"\s+AND\s+(?:{pred})", " ", O);                                                 // ... AND <bad> ... -> ...
-        s = Regex.Replace(s, $@"\bWHERE\s+(?:{pred})\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);     // WHERE <bad> (only pred) -> drop WHERE
-        repaired = s.Trim();
+        repaired = StripPredicate(sql, pred).Trim();
         return !string.Equals(repaired, before, StringComparison.Ordinal);
     }
 
@@ -370,10 +392,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             // Gated: trustGroundingOnly=false preserves the old question-contains fallback.
             var keep = grounded.Contains(literal) || (!trustGroundingOnly && qLower.Contains(literal.ToLowerInvariant()));
             if (keep) continue; // requested → keep
-            var pred = Regex.Escape(m.Value);
-            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s+AND\b", "WHERE", O);                                 // WHERE <bad> AND ... -> WHERE ...
-            s = Regex.Replace(s, $@"\s+AND\s+{pred}", " ", O);                                              // ... AND <bad> ... -> ...
-            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);  // WHERE <bad> (only pred) -> drop WHERE
+            s = StripPredicate(s, Regex.Escape(m.Value));
         }
         repaired = s.Trim();
         return !string.Equals(repaired, sql.Trim(), StringComparison.Ordinal);
@@ -405,10 +424,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             // also keep when a 4+ char stem is present (planned/unplanned/planning share "plan")
             var stem = c.Length > 5 ? c.Substring(0, c.Length - 2) : c;
             if (stem.Length >= 4 && qLower.Contains(stem)) continue;
-            var pred = Regex.Escape(m.Value);
-            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s+AND\b", "WHERE", O);
-            s = Regex.Replace(s, $@"\s+AND\s+{pred}", " ", O);
-            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);
+            s = StripPredicate(s, Regex.Escape(m.Value));
         }
         repaired = s.Trim();
         return !string.Equals(repaired, sql.Trim(), StringComparison.Ordinal);
@@ -432,12 +448,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             O);
         var s = sql;
         foreach (Match m in rx.Matches(sql))
-        {
-            var pred = Regex.Escape(m.Value);
-            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s+AND\b", "WHERE", O);
-            s = Regex.Replace(s, $@"\s+AND\s+{pred}", " ", O);
-            s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);
-        }
+            s = StripPredicate(s, Regex.Escape(m.Value));
         repaired = s.Trim();
         return !string.Equals(repaired, sql.Trim(), StringComparison.Ordinal);
     }
@@ -528,20 +539,28 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             foreach (Match cm in conflictRx.Matches(s).Cast<Match>().ToList())
             {
                 if (gvals.Contains(cm.Groups[1].Value)) continue;        // a grounded value → keep
-                var cpred = Regex.Escape(cm.Value);
                 var before = s;
-                s = Regex.Replace(s, $@"\bWHERE\s+{cpred}\s+AND\b", "WHERE", O);
-                s = Regex.Replace(s, $@"\s+AND\s+{cpred}", " ", O);
-                s = Regex.Replace(s, $@"\bWHERE\s+{cpred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);
+                s = StripPredicate(s, Regex.Escape(cm.Value));
                 if (!string.Equals(before, s, StringComparison.Ordinal)) changed = true;
             }
         }
 
-        foreach (var (table, col, val) in linkedList)
+        // Group by (table, column): two values on the SAME column ("tickets in Damascus OR Aleppo" →
+        // Regions.NameEn in {Damascus, Aleppo}) must become a single `col IN ('a','b')` — emitting a separate
+        // `AND col = 'a' AND col = 'b'` ANDs into a contradiction (a column can't equal two values) → 0 rows.
+        // A single value keeps the plain `col = 'val'` (unchanged). Distinct values per group preserve order.
+        var byTableColumn = linkedList
+            .Where(l => !string.IsNullOrWhiteSpace(l.Table) && !string.IsNullOrWhiteSpace(l.Column) && !string.IsNullOrWhiteSpace(l.Value))
+            .GroupBy(l => (l.Table, l.Column));
+        foreach (var grp in byTableColumn)
         {
-            if (string.IsNullOrWhiteSpace(table) || string.IsNullOrWhiteSpace(col) || string.IsNullOrWhiteSpace(val)) continue;
-            var escVal = val.Replace("'", "''");
-            if (s.IndexOf("'" + escVal + "'", StringComparison.OrdinalIgnoreCase) >= 0) continue;       // already filtered
+            var (table, col) = grp.Key;
+            // Distinct values for this column, dropping any already present in the SQL as a literal (no double-filter).
+            var values = grp.Select(l => l.Value)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(v => s.IndexOf("'" + v.Replace("'", "''") + "'", StringComparison.OrdinalIgnoreCase) < 0)
+                .ToList();
+            if (values.Count == 0) continue;                                                            // all already filtered
             // Find the table in FROM/JOIN and capture its alias if any. When a table is aliased
             // (JOIN TicketStatuses s) SQL Server REQUIRES the alias, so qualify the predicate with it.
             var mt = Regex.Match(s, $@"\b(?:FROM|JOIN)\s+\[?{Regex.Escape(table)}\]?(?:\s+(?:AS\s+)?(?<a>\w+))?", O);
@@ -549,7 +568,10 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             var qualifier = table;
             if (mt.Groups["a"].Success && !SqlAliasStopWords.Contains(mt.Groups["a"].Value))
                 qualifier = mt.Groups["a"].Value;
-            var pred = $"{qualifier}.{col} = '{escVal}'";
+            // Single value → equality (unchanged); 2+ distinct values → one IN(...) so they OR, not AND-to-empty.
+            var pred = values.Count == 1
+                ? $"{qualifier}.{col} = '{values[0].Replace("'", "''")}'"
+                : $"{qualifier}.{col} IN ({string.Join(", ", values.Select(v => "'" + v.Replace("'", "''") + "'"))})";
             var m = Regex.Match(s, @"\b(ORDER\s+BY|HAVING)\b", O);
             var at = m.Success ? m.Index : (s.LastIndexOf(';') >= 0 ? s.LastIndexOf(';') : s.TrimEnd().Length);
             var keyword = Regex.IsMatch(s.Substring(0, at), @"\bWHERE\b", O) ? " AND " : " WHERE ";
@@ -600,11 +622,8 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             foreach (var m in g)
             {
                 if (grounded.Contains(m.Groups["val"].Value)) continue; // keep the grounded literal
-                var cpred = Regex.Escape(m.Value);
                 var before = s;
-                s = Regex.Replace(s, $@"\bWHERE\s+{cpred}\s+AND\b", "WHERE", O);
-                s = Regex.Replace(s, $@"\s+AND\s+{cpred}", " ", O);
-                s = Regex.Replace(s, $@"\bWHERE\s+{cpred}\s*(?=(GROUP\s+BY|ORDER\s+BY|HAVING|\)|;|$))", "", O);
+                s = StripPredicate(s, Regex.Escape(m.Value));
                 if (!string.Equals(before, s, StringComparison.Ordinal)) changed = true;
             }
         }
@@ -861,57 +880,53 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         if (string.IsNullOrWhiteSpace(emit.Sql))
             return new AttemptOutcome { EmitProducedNoSql = true, EmitSql = emit.Sql, EmitError = emit.Error };
 
+        // STAGE-0 PARSE GATE. Every string-mutation repair below routes its candidate through this gate
+        // BEFORE it becomes the running SQL. A repair is accepted only when its rewrite still PARSES as
+        // T-SQL (cheap TSql170Parser syntax check, no allowlist) — so a bad regex rewrite (e.g. a clause
+        // glued to the next keyword) is DISCARDED at the source and can never poison the next repair pass
+        // before the real AST validator runs. The strips preserve validity and so always pass; the one
+        // clause-rebuilder (grain) is now protected here. Returns the candidate when it parses (and records
+        // the repair in the trace), else keeps `current` and logs a discarded-repair warning.
+        var sqlToUse = emit.Sql!;
+        string AcceptIfParses(string repairName, string current, bool changed, string candidate)
+        {
+            if (!changed) return current;
+            if (!Validation.SqlAstValidator.ParsesAsSingleSelect(candidate))
+            {
+                _logger.LogWarning("[repair] {Repair} produced unparseable SQL, discarded for q='{Q}'. SQL: {Sql}", repairName, question, candidate);
+                return current;
+            }
+            _logger.LogInformation("[DirectAnalystPath] {Repair} for q='{Q}': {Before} => {After}", repairName, question, current, candidate);
+            repairsApplied.Add((repairName, current, candidate));
+            return candidate;
+        }
+
         // OVER-FILTER GUARD: the 7B invents an unrequested status/lifecycle filter (WHERE Status='Paid'
         // on "total of all bills") regardless of the system-prompt rule. Deterministically strip a
         // status-column equality whose literal is neither in the question nor a grounded value — it was
         // made up. No prompt, no LLM; the one fix for the model prior that prose can't reach.
-        var sqlToUse = emit.Sql!;
-        if (TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped,
-                trustGroundingOnly: _options.Value.StripStatusFilterTrustGroundingOnly))
-        {
-            _logger.LogInformation("[DirectAnalystPath] stripped unrequested status filter for q='{Q}': {Before} => {After}", question, sqlToUse, deScoped);
-            repairsApplied.Add(("unrequested-status-strip", sqlToUse, deScoped));
-            sqlToUse = deScoped;
-        }
+        sqlToUse = AcceptIfParses("unrequested-status-strip", sqlToUse,
+            TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped,
+                trustGroundingOnly: _options.Value.StripStatusFilterTrustGroundingOnly), deScoped);
         // Same model prior, boolean flavour: an invented IsPlanned=0 / IsActive=1 the question never named.
-        if (TryStripUnrequestedFlagFilter(sqlToUse, question, out var deFlagged))
-        {
-            _logger.LogInformation("[DirectAnalystPath] stripped unrequested boolean-flag filter for q='{Q}': {Before} => {After}", question, sqlToUse, deFlagged);
-            repairsApplied.Add(("unrequested-flag-strip", sqlToUse, deFlagged));
-            sqlToUse = deFlagged;
-        }
+        sqlToUse = AcceptIfParses("unrequested-flag-strip", sqlToUse,
+            TryStripUnrequestedFlagFilter(sqlToUse, question, out var deFlagged), deFlagged);
         // A grounded enum value ("overdue"->Bills.Status) means an invented relative-date predicate
         // (WHERE DueDate<GETDATE()) is the model APPROXIMATING that concept — strip it so the injector's
         // grounded Status filter stands alone (else they AND to an empty intersection). No temporal cue → safe.
-        if (TryStripUngroundedDatePredicate(sqlToUse, grounding.LinkedValues.Count > 0, grounding.LinkedTemporal.Count > 0, out var deDated))
-        {
-            _logger.LogInformation("[DirectAnalystPath] stripped ungrounded relative-date predicate for q='{Q}': {Before} => {After}", question, sqlToUse, deDated);
-            repairsApplied.Add(("ungrounded-date-strip", sqlToUse, deDated));
-            sqlToUse = deDated;
-        }
+        sqlToUse = AcceptIfParses("ungrounded-date-strip", sqlToUse,
+            TryStripUngroundedDatePredicate(sqlToUse, grounding.LinkedValues.Count > 0, grounding.LinkedTemporal.Count > 0, out var deDated), deDated);
         // Symmetric to the strip: ENFORCE a filter the question named but the 7B dropped (flaky under-filter).
-        if (TryInjectGroundedValueFilters(sqlToUse, grounding.LinkedValues.Select(v => (v.Table, v.Column, v.Value)), out var injected))
-        {
-            _logger.LogInformation("[DirectAnalystPath] injected grounded value filter for q='{Q}': {Before} => {After}", question, sqlToUse, injected);
-            repairsApplied.Add(("grounded-value-injection", sqlToUse, injected));
-            sqlToUse = injected;
-        }
+        sqlToUse = AcceptIfParses("grounded-value-injection", sqlToUse,
+            TryInjectGroundedValueFilters(sqlToUse, grounding.LinkedValues.Select(v => (v.Table, v.Column, v.Value)), out var injected), injected);
         // GRAIN: a label-only GROUP BY merges distinct entities sharing a name — add the entity key.
-        if (TryFixGroupByGrain(sqlToUse, _knowledge.GetTable, out var regrained))
-        {
-            _logger.LogInformation("[DirectAnalystPath] fixed GROUP BY grain (added entity key) for q='{Q}': {Before} => {After}", question, sqlToUse, regrained);
-            repairsApplied.Add(("group-by-grain-fix", sqlToUse, regrained));
-            sqlToUse = regrained;
-        }
+        sqlToUse = AcceptIfParses("group-by-grain-fix", sqlToUse,
+            TryFixGroupByGrain(sqlToUse, _knowledge.GetTable, out var regrained), regrained);
         // CONTRADICTION: same column = two different literals (the bilingual "Name='مفتوحة' AND Name='Open'"
         // case → 0 rows). Keep the grounded literal, drop the other. Backstops the in-injector conflict-
         // replace, which misses some column-qualification forms. Runs last so it sees model + injected SQL.
-        if (TryResolveContradictoryEqualityLiterals(sqlToUse, grounding.LinkedValues.Select(v => v.Value), out var deConflicted))
-        {
-            _logger.LogInformation("[DirectAnalystPath] resolved contradictory equality literals for q='{Q}': {Before} => {After}", question, sqlToUse, deConflicted);
-            repairsApplied.Add(("contradiction-resolution", sqlToUse, deConflicted));
-            sqlToUse = deConflicted;
-        }
+        sqlToUse = AcceptIfParses("contradiction-resolution", sqlToUse,
+            TryResolveContradictoryEqualityLiterals(sqlToUse, grounding.LinkedValues.Select(v => v.Value), out var deConflicted), deConflicted);
 
         var compiled = new CompiledSql(sqlToUse, new Dictionary<string, object?>());
         var validation = _validator.Validate(compiled);

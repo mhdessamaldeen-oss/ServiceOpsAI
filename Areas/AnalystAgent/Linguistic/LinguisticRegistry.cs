@@ -73,7 +73,7 @@ internal sealed class LinguisticRegistry : ILinguisticRegistry
     // words / temporal adverbs), not domain vocabulary — portable to any schema.
     private static readonly System.Collections.Generic.IReadOnlySet<string> FallbackVerbContextPrepositionsEn =
         new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
-        { "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from" };
+        { "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from", "to", "for", "with" };
 
     private static readonly System.Collections.Generic.IReadOnlySet<string> FallbackVerbContextTimeCuesEn =
         new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)

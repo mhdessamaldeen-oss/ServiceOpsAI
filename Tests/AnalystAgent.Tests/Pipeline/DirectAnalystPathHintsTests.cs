@@ -66,6 +66,16 @@ public sealed class DirectAnalystPathHintsTests
         "SELECT COUNT(*) FROM Customers WHERE IsDeleted = 0",
         "Invalid column name 'IsDeleted'.",
         "SELECT COUNT(*) FROM Customers")]
+    // sole predicate directly before OFFSET (paging) → the now-empty WHERE is dropped cleanly (boundary-set gap fix)
+    [InlineData(
+        "SELECT Id FROM Customers WHERE IsDeleted = 0 OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY",
+        "Invalid column name 'IsDeleted'.",
+        "SELECT Id FROM Customers OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY")]
+    // sole predicate before UNION (set operator) → the now-empty WHERE is dropped before UNION (boundary-set gap fix)
+    [InlineData(
+        "SELECT Id FROM Customers WHERE IsDeleted = 0 UNION SELECT Id FROM Suppliers",
+        "Invalid column name 'IsDeleted'.",
+        "SELECT Id FROM Customers UNION SELECT Id FROM Suppliers")]
     public void StripInvalidColumnPredicate_RemovesOffendingFilter(string sql, string error, string expected)
     {
         var changed = DirectAnalystPath.TryStripInvalidColumnPredicate(sql, error, out var repaired);
@@ -265,6 +275,28 @@ public sealed class DirectAnalystPathHintsTests
         var did = DirectAnalystPath.TryInjectGroundedValueFilters(sql, open, out var r);
         Assert.True(did);
         Assert.Contains("TicketStatuses.Name = 'Open'", r);
+    }
+
+    // ── Multi-value same-column injection → IN(...) (not multiple ANDed equalities that yield 0 rows) ──
+    [Fact]
+    public void InjectGroundedValueFilters_TwoValuesSameColumn_EmitsSingleIn_OneValueStaysEquality()
+    {
+        // "tickets in Damascus or Aleppo" → both ground Regions.NameEn. A separate AND col='a' AND col='b'
+        // is a contradiction (0 rows); the injector must emit a single col IN ('Damascus','Aleppo').
+        var twoRegions = new[] { ("Regions", "NameEn", "Damascus"), ("Regions", "NameEn", "Aleppo") };
+        Assert.True(DirectAnalystPath.TryInjectGroundedValueFilters(
+            "SELECT COUNT(*) FROM Tickets t JOIN Regions r ON t.RegionId = r.Id",
+            twoRegions, out var rIn));
+        Assert.Contains("r.NameEn IN ('Damascus', 'Aleppo')", rIn);
+        Assert.DoesNotContain("r.NameEn = 'Damascus' AND", rIn);   // never two ANDed equalities on one column
+
+        // single value on the same column → plain equality, unchanged shape (no IN()).
+        var oneRegion = new[] { ("Regions", "NameEn", "Damascus") };
+        Assert.True(DirectAnalystPath.TryInjectGroundedValueFilters(
+            "SELECT COUNT(*) FROM Tickets t JOIN Regions r ON t.RegionId = r.Id",
+            oneRegion, out var rEq));
+        Assert.Contains("r.NameEn = 'Damascus'", rEq);
+        Assert.DoesNotContain("IN (", rEq);
     }
 
     // ── Injector conflict-replace: a grounded value REPLACES the model's different non-grounded literal ──

@@ -35,6 +35,27 @@ internal sealed class SqlAstValidator : IValidator
         @"\{\s*""[A-Za-z_][A-Za-z0-9_]*""\s*:",
         RegexOptions.Compiled);
 
+    /// <summary>
+    /// CHEAP, SYNTAX-ONLY parse check — runs <see cref="TSql170Parser"/> and reports whether the text
+    /// has ZERO parse errors. This is NOT the full allowlist/identifier validation (no catalog, no policy,
+    /// no GROUP-BY semantics): it answers only "is this syntactically a parseable T-SQL fragment?".
+    ///
+    /// <para>Used by the deterministic repair chain to PARSE-CHECK each rewrite at its source: a string
+    /// mutation that produces unparseable SQL is discarded (kept as a no-op) instead of poisoning the next
+    /// repair pass before the real validator runs. A valid SELECT always parses, so this never false-rejects
+    /// a behaviour-preserving strip; it only catches a rewrite that broke the syntax (e.g. a clause glued to
+    /// the next keyword). Empty/whitespace parses to no fragment with no errors → true (the executor handles
+    /// the empty case, mirroring <see cref="Validate"/>'s posture).</para>
+    /// </summary>
+    public static bool ParsesAsSingleSelect(string? sql)
+    {
+        if (sql is null) return false;
+        var parser = new TSql170Parser(initialQuotedIdentifiers: true);
+        using var reader = new StringReader(sql);
+        parser.Parse(reader, out var parseErrors);
+        return parseErrors is null || parseErrors.Count == 0;
+    }
+
     public ValidationResult Validate(CompiledSql compiled)
     {
         var errors = new List<string>();

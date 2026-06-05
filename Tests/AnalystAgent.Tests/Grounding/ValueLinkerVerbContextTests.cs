@@ -24,12 +24,16 @@ public class ValueLinkerVerbContextTests
     private static readonly IReadOnlyCollection<string> TicketNouns =
         new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tickets", "ticket" };
 
+    private static readonly IReadOnlyCollection<string> WorkOrderNouns =
+        new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "work orders", "work order", "orders", "order" };
+
     // The English closed-class verb-context cue sets, passed IN to IsVerbContext (now a parameter, sourced
     // per-locale from ILinguisticRegistry in production). Byte-identical to the English fallback so these
-    // assertions pin the same behaviour the externalisation preserves.
+    // assertions pin the same behaviour the externalisation preserves. INCLUDES to/for/with — the 2026-06
+    // "assigned to"/"allocated for"/"with" over-filter fix (see DeptsWithNoWorkOrderAssignedTo tests).
     private static readonly IReadOnlySet<string> EnPrepositions =
         new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
-        { "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from" };
+        { "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from", "to", "for", "with" };
 
     private static readonly IReadOnlySet<string> EnTimeCues =
         new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
@@ -90,6 +94,45 @@ public class ValueLinkerVerbContextTests
         // (the preposition test predates and is independent of the time-cue arm).
         var q = Folded("bills issued in the last 30 days");
         Assert.True(ValueLinker.IsVerbContext(q, "issued", BillNouns, EnPrepositions, EnTimeCues, enableTimeCueArm: false));
+    }
+
+    // ── "assigned to" / "allocated for" / "... with" — the 2026-06 verb-preposition gap (to/for/with) ──────
+    // BUG: "how many departments have no work order ASSIGNED TO them" → the model adds Status='Assigned';
+    // because 'to'/'for'/'with' were NOT in the preposition set, 'Assigned' was BOUND and force-filtered →
+    // a confidently-wrong narrower count. With to/for/with added, the enum word before them reads as a VERB.
+
+    [Fact]
+    public void Verb_before_to_is_verb_context_skip()
+    {
+        // "work order assigned to them" — "assigned" before "to" → VERB → SKIP (even arm OFF: it's a preposition).
+        var q = Folded("how many departments have no work order assigned to them");
+        Assert.True(ValueLinker.IsVerbContext(q, "assigned", WorkOrderNouns, EnPrepositions, EnTimeCues, enableTimeCueArm: false));
+    }
+
+    [Fact]
+    public void Verb_before_for_is_verb_context_skip()
+    {
+        // "work orders allocated for the region" — "allocated" before "for" → VERB → SKIP.
+        var q = Folded("work orders allocated for the northern region");
+        Assert.True(ValueLinker.IsVerbContext(q, "allocated", WorkOrderNouns, EnPrepositions, EnTimeCues, enableTimeCueArm: false));
+    }
+
+    [Fact]
+    public void Verb_before_with_is_verb_context_skip()
+    {
+        // "tickets resolved with a workaround" — "resolved" before "with" → VERB → SKIP.
+        var q = Folded("tickets resolved with a workaround");
+        Assert.True(ValueLinker.IsVerbContext(q, "resolved", TicketNouns, EnPrepositions, EnTimeCues, enableTimeCueArm: false));
+    }
+
+    [Fact]
+    public void Attributive_value_before_entity_noun_still_binds_with_to_for_with_in_set()
+    {
+        // The CAUTION: adding to/for/with must NOT break the attributive case. "assigned tickets" — the
+        // value is BEFORE the entity noun → the attributive override (rule 1) fires and returns BIND, proving
+        // the new prepositions only catch the post-value VERB usage, never the adjective-before-noun case.
+        var q = Folded("how many assigned tickets are there");
+        Assert.False(ValueLinker.IsVerbContext(q, "assigned", TicketNouns, EnPrepositions, EnTimeCues, enableTimeCueArm: false));
     }
 
     // ── Time-cue arm OFF — time-cue / number cases fall back to BIND ───────────────────────────
