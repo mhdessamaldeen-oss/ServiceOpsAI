@@ -75,6 +75,9 @@ internal sealed class ToolHandler : IToolHandler
     private readonly Pipeline.IRetryBudget _budget;
     private readonly ISemanticLayer _semanticLayer;
     private readonly Microsoft.Extensions.Options.IOptionsMonitor<Configuration.CopilotTextCatalog> _textMonitor;
+    private readonly Microsoft.Extensions.Options.IOptionsMonitor<Configuration.AnalystOptions> _options;
+    private readonly IToolSemanticSelector _selector;
+    private readonly Retrieval.ISchemaSemanticRetriever _schemaRetriever;
     private readonly ILogger<ToolHandler> _logger;
 
     /// <summary>
@@ -100,6 +103,9 @@ internal sealed class ToolHandler : IToolHandler
         Pipeline.IRetryBudget budget,
         ISemanticLayer semanticLayer,
         Microsoft.Extensions.Options.IOptionsMonitor<Configuration.CopilotTextCatalog> textMonitor,
+        Microsoft.Extensions.Options.IOptionsMonitor<Configuration.AnalystOptions> options,
+        IToolSemanticSelector selector,
+        Retrieval.ISchemaSemanticRetriever schemaRetriever,
         ILogger<ToolHandler> logger)
     {
         _registry = registry;
@@ -108,6 +114,9 @@ internal sealed class ToolHandler : IToolHandler
         _budget = budget;
         _semanticLayer = semanticLayer;
         _textMonitor = textMonitor;
+        _options = options;
+        _selector = selector;
+        _schemaRetriever = schemaRetriever;
         _logger = logger;
         _dbShapeMarkers = new Lazy<Regex>(BuildDbShapeMarkers);
     }
@@ -266,10 +275,117 @@ internal sealed class ToolHandler : IToolHandler
     private async Task<(ToolDefinition? Tool, string Detail)> ResolveToolAsync(
         string question, IReadOnlyList<ToolDefinition> tools, CancellationToken cancellationToken)
     {
+        // Zero-cost exact short-circuit ABOVE everything: the user named the tool / used its test
+        // prompt. Unchanged on both the semantic and legacy paths.
         var deterministic = ResolveDirectRegistryMatch(question, tools);
         if (deterministic is not null)
             return (deterministic, $"direct registry match: {deterministic.ToolKey}");
 
+        // Semantic path — embedding-driven tool-vs-data gate + which-tool pick. Default ON; reverts
+        // to the legacy lexical scorer below when the flag is off OR the embedder is unavailable.
+        var opts = _options.CurrentValue;
+        if (opts.EnableSemanticToolSelection && _selector.IsAvailable)
+        {
+            var semantic = await ResolveSemanticAsync(question, tools, opts, cancellationToken);
+            if (semantic.Handled)
+                return (semantic.Tool, semantic.Detail);
+            // Not handled → embedder produced no usable ranking this call (empty vectors / transient
+            // failure). Fall through to the legacy lexical path below (fail-open).
+        }
+
+        return await ResolveByLexicalAsync(question, tools, cancellationToken);
+    }
+
+    /// <summary>
+    /// Embedding-driven 2-stage gate (replaces the ad-hoc DB-shape veto on the semantic path).
+    /// <list type="number">
+    ///   <item><b>Stage 1 — data-or-tool.</b> Compare the best tool cosine against the best schema-table
+    ///   cosine. Dispatch a tool ONLY when the tool clears the absolute floor AND beats the schema top by
+    ///   the configured margin (<see cref="ShouldDispatchTool"/>). Otherwise it's a DATA question — return
+    ///   "no tool" so the orchestrator falls through to the planner. A data question can never be eaten by
+    ///   a tool here.</item>
+    ///   <item><b>Stage 2 — which tool.</b> If the top two tools are clearly separated (gap ≥
+    ///   <c>ToolSelectGap</c>), dispatch the top directly with zero LLM. On a genuine tie, spend ≤1
+    ///   budget-gated LLM confirm over the ≤4 top candidates (the existing ResolveByLlmAsync).</item>
+    /// </list>
+    /// Returns <c>Handled=false</c> when the selector produced no ranking (embedder down this call) so
+    /// the caller fails open to the lexical path.
+    /// </summary>
+    private async Task<(bool Handled, ToolDefinition? Tool, string Detail)> ResolveSemanticAsync(
+        string question, IReadOnlyList<ToolDefinition> tools,
+        Configuration.AnalystOptions opts, CancellationToken cancellationToken)
+    {
+        var ranked = await _selector.RankAsync(question, tools, cancellationToken);
+        if (ranked.Count == 0)
+            return (false, null, "semantic selector unavailable — falling back to lexical");
+
+        var top = ranked[0];
+        var second = ranked.Count > 1 ? ranked[1].Score : 0f;
+
+        // Stage 1 — data-or-tool. The schema retriever gives the competing "this is a data question"
+        // signal; fail-open to schemaTop=0 when it's unavailable, which just lets the tool floor decide.
+        var schemaTop = await BestSchemaCosineAsync(question, cancellationToken);
+        var rankSummary = FormatSemanticCandidates(ranked);
+        if (!ShouldDispatchTool(top.Score, schemaTop, opts.ToolSelectMinCosine, opts.ToolVsSchemaMargin))
+        {
+            return (true, null,
+                $"semantic: data-or-tool gate → DATA (toolTop {top.Score:F3} vs schemaTop {schemaTop:F3}, " +
+                $"floor {opts.ToolSelectMinCosine:F2}, margin {opts.ToolVsSchemaMargin:F2}); candidates: {rankSummary}");
+        }
+
+        // Stage 2 — which tool. Clear winner → dispatch directly (0 LLM).
+        if (top.Score - second >= (float)opts.ToolSelectGap)
+        {
+            return (true, top.Tool,
+                $"semantic: TOOL {top.Tool.ToolKey} (cosine {top.Score:F3}, gap {top.Score - second:F3} ≥ {opts.ToolSelectGap:F2}, " +
+                $"schemaTop {schemaTop:F3}); candidates: {rankSummary}");
+        }
+
+        // Genuine tie → ≤1 budget-gated LLM confirm over the top candidates.
+        var (picked, llmDetail) = await ResolveByLlmAsync(
+            question, ranked.Take(4).Select(r => r.Tool).ToList(), cancellationToken);
+        return (true, picked,
+            $"semantic: ambiguous (gap {top.Score - second:F3} < {opts.ToolSelectGap:F2}) → {llmDetail}");
+    }
+
+    /// <summary>Best schema-table cosine for the question (the competing "data question" signal in the
+    /// Stage-1 gate). Fail-open to 0f when the retriever is unavailable so the tool floor alone decides.</summary>
+    private async Task<float> BestSchemaCosineAsync(string question, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!_schemaRetriever.IsAvailable) return 0f;
+            var result = await _schemaRetriever.RetrieveAsync(question, topK: 1, cancellationToken);
+            return result.Tables.Count > 0 ? result.Tables[0].Score : 0f;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "[ToolHandler] schema-retrieval for tool-vs-data gate failed; treating schemaTop as 0.");
+            return 0f;
+        }
+    }
+
+    /// <summary>
+    /// Stage-1 decision (pure, unit-testable): is this a TOOL question or a DATA question?
+    /// A tool is dispatched only when its cosine clears the absolute <paramref name="minCosine"/> floor
+    /// AND beats the best schema-table cosine by at least <paramref name="margin"/>. Both conditions are
+    /// required: the floor rejects weak coincidental tool matches; the margin guarantees a data question
+    /// (which scores high on schema) can never be eaten by a tool scoring in the same neighborhood.
+    /// </summary>
+    internal static bool ShouldDispatchTool(double toolTop, double schemaTop, double minCosine, double margin)
+        => toolTop >= minCosine && (toolTop - schemaTop) >= margin;
+
+    private static string FormatSemanticCandidates(IReadOnlyList<(ToolDefinition Tool, float Score)> ranked)
+        => string.Join("; ", ranked.Take(4).Select(r => $"{r.Tool.ToolKey}={r.Score:F3}"));
+
+    /// <summary>
+    /// Legacy lexical resolution — stopword-filtered token overlap + keyword + fuzzy scoring, plus the
+    /// DB-shape veto. Used when <c>EnableSemanticToolSelection</c> is off OR the embedder is unavailable
+    /// (fail-open). Behaviour is byte-identical to the pre-semantic code path.
+    /// </summary>
+    private async Task<(ToolDefinition? Tool, string Detail)> ResolveByLexicalAsync(
+        string question, IReadOnlyList<ToolDefinition> tools, CancellationToken cancellationToken)
+    {
         var candidates = ScoreCandidates(question, tools)
             .Where(c => c.Score > 0)
             .OrderByDescending(c => c.Score)

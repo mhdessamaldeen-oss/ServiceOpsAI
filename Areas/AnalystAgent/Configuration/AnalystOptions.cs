@@ -396,6 +396,42 @@ public sealed class AnalystOptions
     [Range(0.0, 1.0, ErrorMessage = "ResolverMinConfidence must be 0.0..1.0.")]
     public double ResolverMinConfidence { get; set; } = 0.60;
 
+    // ── Semantic external-tool selection (name + description embedding) ───────────────
+    // Drives ToolHandler's tool-vs-data gate and which-tool pick from the tool's MEANING
+    // (admin-editable CopilotToolDefinitions rows embedded by bge-m3), replacing the ad-hoc
+    // "DB-shape veto" with a principled tool-vs-data-question margin. No hardcoded vocabulary:
+    // every signal comes from the tool rows + these knobs. Fail-open: when the embedder is down
+    // the handler reverts to the legacy lexical scorer + DB-shape veto path.
+
+    /// <summary>Master switch for embedding-driven external-tool selection. When true (default), the
+    /// ToolHandler routes by the tool's name+description cosine and gates tool-vs-data with
+    /// <see cref="ToolVsSchemaMargin"/>. When false, it reverts to the legacy lexical keyword scorer +
+    /// DB-shape veto — instant rollback with no behavior change on the disabled path. Fail-open
+    /// regardless: if the embedder is unavailable the lexical path is used even when this is on.</summary>
+    public bool EnableSemanticToolSelection { get; set; } = true;
+
+    /// <summary>Absolute cosine floor a tool must beat to be eligible for dispatch in the semantic
+    /// path. Below this the question is treated as "not a tool question" and falls through to the
+    /// data/planner path. Default 0.55 — a real tool-shaped question against a relevant tool typically
+    /// scores 0.6+; this rejects the long tail of weak coincidental matches.</summary>
+    [Range(0.0, 1.0, ErrorMessage = "ToolSelectMinCosine must be 0.0..1.0.")]
+    public double ToolSelectMinCosine { get; set; } = 0.55;
+
+    /// <summary>Stage-1 tool-vs-data margin: the best tool cosine must beat the best schema-table
+    /// cosine (from the schema-semantic retriever) by at least this much for the question to route to a
+    /// TOOL. Otherwise it is a DATA question and falls through to the planner — so "how many tickets are
+    /// open" can never be eaten by a tool whose embedding happens to score in the same neighborhood.
+    /// Default 0.05.</summary>
+    [Range(0.0, 1.0, ErrorMessage = "ToolVsSchemaMargin must be 0.0..1.0.")]
+    public double ToolVsSchemaMargin { get; set; } = 0.05;
+
+    /// <summary>Stage-2 disambiguation gap: when the top two tools are within this cosine delta the
+    /// pick is ambiguous, so the handler spends at most ONE budget-gated LLM confirm over the ≤4 top
+    /// candidates (the existing ResolveByLlmAsync). When the gap is wider, the top tool is dispatched
+    /// directly with zero LLM. Default 0.04.</summary>
+    [Range(0.0, 1.0, ErrorMessage = "ToolSelectGap must be 0.0..1.0.")]
+    public double ToolSelectGap { get; set; } = 0.04;
+
     /// <summary>
     /// Default join kind the compiler emits for projection joins (no aggregation, no filter on
     /// the target table, no explicit kind from the planner). Historically the compiler always

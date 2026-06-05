@@ -329,6 +329,12 @@ public static class ServiceCollectionExtensions
         // ensure it's available for any test/eval host that doesn't auto-add it.
         services.AddHttpClient();
         services.AddScoped<Tools.IToolRegistry, HostBridge.HostToolRegistryBridge>();
+        // Embedding-driven tool selector (semantic twin of EntityEmbeddingMatcher). Routes tools by
+        // name+description cosine instead of lexical keyword luck, and feeds ToolHandler's principled
+        // tool-vs-data gate. Scoped because it consumes the Scoped IToolRegistry (per-request DbContext).
+        // Fail-open: returns no ranking when the embedder is down, and ToolHandler reverts to the
+        // legacy lexical scorer. Tool vectors cached in IMemoryCache keyed by model + tool-set hash.
+        services.AddScoped<Semantic.IToolSemanticSelector, Semantic.ToolSemanticSelector>();
         // Scoped because it consumes the Scoped IToolRegistry (which holds a per-request DbContext).
         services.AddScoped<Pipeline.Stages.IToolHandler, Pipeline.Stages.ToolHandler>();
 
