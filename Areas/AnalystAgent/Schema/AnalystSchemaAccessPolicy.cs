@@ -8,6 +8,14 @@ using AnalystAgent.Semantic;
 public interface IAnalystSchemaAccessPolicy
 {
     bool IsTableAllowed(string table);
+
+    /// <summary>STRICTER than <see cref="IsTableAllowed"/>: a table the copilot may QUERY/ground on. Excludes
+    /// the retriever-hidden set (RetrieverHiddenTables/Patterns) ON TOP OF the hard BlockedTables — so the
+    /// copilot's own operational tables (Copilot*) and other hidden tables can never be probed for values or
+    /// joined as a data source, even via FK-neighbor expansion. Use this anywhere the grounding/value layer
+    /// reaches a table; <see cref="IsTableAllowed"/> stays the hard security gate for the validator/metadata.</summary>
+    bool IsTableQueryable(string table);
+
     bool IsColumnAllowed(string table, string column);
     bool IsColumnSensitive(string table, string column);
     IReadOnlyList<TableInfo> FilterTables(IEnumerable<TableInfo> tables);
@@ -46,6 +54,29 @@ internal sealed class AnalystSchemaAccessPolicy : IAnalystSchemaAccessPolicy
         }
 
         foreach (var pattern in _options.BlockedTablePatterns ?? Enumerable.Empty<string>())
+        {
+            if (WildcardMatches(pattern, bare) || WildcardMatches(pattern, normalized))
+                return false;
+        }
+
+        return true;
+    }
+
+    public bool IsTableQueryable(string table)
+    {
+        if (!IsTableAllowed(table)) return false;                       // hard blocks first
+        var normalized = NormalizeObjectName(table);
+        var bare = BareName(normalized);
+
+        foreach (var hidden in _options.RetrieverHiddenTables ?? Enumerable.Empty<string>())
+        {
+            var h = NormalizeObjectName(hidden);
+            if (string.Equals(normalized, h, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(bare, BareName(h), StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        foreach (var pattern in _options.RetrieverHiddenTablePatterns ?? Enumerable.Empty<string>())
         {
             if (WildcardMatches(pattern, bare) || WildcardMatches(pattern, normalized))
                 return false;

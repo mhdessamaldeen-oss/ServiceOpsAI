@@ -1,0 +1,18 @@
+{
+  "name": "Users-roles join (1 case, 2026-06-05)",
+  "version": "2026-06-05.userroles",
+  "description": "The AspNet identity many-to-many join the copilot abstained on (trace 561) — proves the value-linker no longer self-poisons on CopilotChatSessions.Title.",
+  "Scenarios": [
+    {
+      "Code": "UR-ListUsersRoles",
+      "Category": "LIST",
+      "Difficulty": "Hard",
+      "Question": "list of user and there roles",
+      "ExpectedIntent": "DataQuery",
+      "ExpectedSql": "SELECT u.UserName, r.Name FROM AspNetUsers u JOIN AspNetUserRoles ur ON u.Id=ur.UserId JOIN AspNetRoles r ON ur.RoleId=r.Id",
+      "GoldVerified": true,
+      "GoldSource": "users+roles many-to-many join, executable gold 2026-06-05",
+      "ExpectedRowCount": 13
+    }
+  ]
+}

@@ -24,6 +24,7 @@ internal sealed class ValueLinker : IValueLinker
     private readonly IFuzzyEntityResolver _fuzzyResolver;
     private readonly Abstractions.ITextEmbedder _embedder;
     private readonly IOptions<AnalystOptions> _options;
+    private readonly Schema.IAnalystSchemaAccessPolicy _accessPolicy;
     private readonly ILogger<ValueLinker> _logger;
 
     // Process-wide cache of (table.col=value -> embedding) for cross-lingual matching. Values are stable
@@ -36,6 +37,7 @@ internal sealed class ValueLinker : IValueLinker
         IFuzzyEntityResolver fuzzyResolver,
         Abstractions.ITextEmbedder embedder,
         IOptions<AnalystOptions> options,
+        Schema.IAnalystSchemaAccessPolicy accessPolicy,
         ILogger<ValueLinker> logger)
     {
         _catalog = catalog;
@@ -43,6 +45,7 @@ internal sealed class ValueLinker : IValueLinker
         _fuzzyResolver = fuzzyResolver;
         _embedder = embedder;
         _options = options;
+        _accessPolicy = accessPolicy;
         _logger = logger;
     }
 
@@ -66,7 +69,12 @@ internal sealed class ValueLinker : IValueLinker
         qLow = sb.ToString();
 
         // Expand the link set: each linked table + 1- and 2-hop FK neighbors that are lookup-shaped.
-        var lookupCandidates = ExpandToLookupNeighbors(linkedTables.Select(t => t.Name).ToList());
+        // ACCESS GATE: never probe a table that isn't QUERYABLE — the copilot's own operational tables
+        // (Copilot*), EF/identity-internal, and any RetrieverHidden table must never become a value source.
+        // This closes the self-poisoning hole where the question text matched its own logged chat-session Title.
+        var lookupCandidates = ExpandToLookupNeighbors(linkedTables.Select(t => t.Name).ToList())
+            .Where(t => _accessPolicy.IsTableQueryable(t))
+            .ToList();
 
         var results = new List<ValueLinkBinding>();
         var seenPerTableColumn = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
@@ -108,6 +116,7 @@ internal sealed class ValueLinker : IValueLinker
         // the model's invented date predicate. Schema-driven (cardinality-gated), portable — no value list.
         foreach (var t in linkedTables)
         {
+            if (!_accessPolicy.IsTableQueryable(t.Name)) continue;   // never inline-bind on a hidden/operational table
             foreach (var (col, val) in _catalog.GetInlineEnumValues(t.Name))
             {
                 if (val.Length < 3) continue;
@@ -230,8 +239,11 @@ internal sealed class ValueLinker : IValueLinker
             foreach (var (col, val) in vals) if (val.Length >= 3) candidates.Add((table, col, val));
         }
         foreach (var t in linkedTables)
+        {
+            if (!_accessPolicy.IsTableQueryable(t.Name)) continue;   // never bind on a hidden/operational table
             foreach (var (col, val) in _catalog.GetInlineEnumValues(t.Name))
                 if (val.Length >= 3) candidates.Add((t.Name, col, val));
+        }
         if (candidates.Count == 0) return;
 
         var words = ExtractContentWords(question);

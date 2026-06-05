@@ -110,9 +110,11 @@
     ],
     "RetrieverHiddenTablePatterns": [
       "__*",        // EF Core migration tables
-      "AspNet*",    // ASP.NET Identity tables (override per host if needed)
+      "Copilot*",   // the copilot's OWN operational tables (chat sessions/messages/traces/tools) — never a data source for answers; self-reference hazard
       "*ApiKey*",   // API-key stores (Groq, Gemini, future providers) — never user-queryable
       "*Benchmark*" // model-eval / retrieval-benchmark tables — not domain data
+      // NB: "AspNet*" was removed — ASP.NET Identity TABLES are legitimately queryable ("users and their
+      //     roles"); the sensitive Identity COLUMNS (PasswordHash/SecurityStamp/...) are denied via BlockedColumns.
     ],
 
     // ── Access denylist (hard blocks, applied to every Copilot layer) ────────────
