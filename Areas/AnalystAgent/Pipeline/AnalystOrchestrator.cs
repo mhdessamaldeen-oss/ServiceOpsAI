@@ -94,7 +94,7 @@ internal sealed partial class AnalystOrchestrator : IAnalystAgent
         new(r.SignalRConnectionId, r.ConversationId);
 
     /// <summary>Outcome of <see cref="DecideScope"/> — what to do with the scope-confidence gate.</summary>
-    internal enum ScopeDecision { RefuseOutOfScope, SkipGate, RunGate }
+    internal enum ScopeDecision { RefuseOutOfScope, SkipGate, RunGate, Chat }
 
     /// <summary>What to do with the scope gate, given the classifier verdict. Pure + unit-testable.
     /// <list type="bullet">
@@ -111,6 +111,12 @@ internal sealed partial class AnalystOrchestrator : IAnalystAgent
             return ScopeDecision.RefuseOutOfScope;
         if (intent == Stages.ClassifierIntent.Sql && confidence >= decisiveConf)
             return ScopeDecision.SkipGate;
+        // Decisive CHAT verdict — a fresh-phrased greeting/small-talk the anchored cues missed. Route to a
+        // warm conversational reply instead of leaking to the scope gate / data path (which returned garbage
+        // rows for "morning! hope you're having a good one"). The classifier, not regex, separates chat from
+        // a real data question ("hi, how many tickets").
+        if (intent == Stages.ClassifierIntent.Chat && confidence >= decisiveConf)
+            return ScopeDecision.Chat;
         return ScopeDecision.RunGate;
     }
 
@@ -251,6 +257,15 @@ internal sealed partial class AnalystOrchestrator : IAnalystAgent
                         Text.IntentOutOfScope, MatchedPattern: "intent-out-of-scope", Language: "auto");
                 }
                 break;
+            // Decisive CHAT verdict the cues missed → warm conversational reply, never the planner.
+            case ScopeDecision.Chat:
+            {
+                var chatReply = await _conversational.ForceSmallTalkReplyAsync(question, cancellationToken);
+                steps.RecordConversational(question, chatReply);
+                return (await _persister.PersistAsync(request, totalSw, steps,
+                    reply: chatReply.Reply, cancellationToken: cancellationToken))
+                    with { Provenance = "conversational", Confidence = 1.0 };
+            }
             // Not decisively SQL nor decisively OOS → the cosine scope gate decides.
             case ScopeDecision.RunGate:
             {

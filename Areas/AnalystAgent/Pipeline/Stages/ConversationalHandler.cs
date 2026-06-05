@@ -44,6 +44,12 @@ public interface IConversationalHandler
     /// <c>SmallTalkUseLlm</c> is on) spends exactly ONE LLM call to produce a warm one-sentence reply,
     /// failing open to the canned reply. Greetings/thanks/farewell/capabilities never call the model.</summary>
     Task<ConversationalReply?> TryHandleAsync(string question, CancellationToken cancellationToken = default);
+
+    /// <summary>Produce a small-talk reply UNCONDITIONALLY — used when the deterministic cues missed but the
+    /// LLM intent classifier judged the question to be chat (a fresh-phrased greeting like "morning! hope
+    /// you're having a good one" that the anchored regexes can't catch). One LLM call when SmallTalkUseLlm is
+    /// on, else canned; never the planner, never a cold refusal.</summary>
+    Task<ConversationalReply> ForceSmallTalkReplyAsync(string question, CancellationToken cancellationToken = default);
 }
 
 /// <summary>The four kinds of conversational hits. Each kind drives a different reply tone +
@@ -149,6 +155,16 @@ internal sealed class ConversationalHandler : IConversationalHandler
         var warm = await GenerateSmallTalkAsync(question, cancellationToken);
         // Fail-open: empty / failed generation keeps the canned reply, so it's still ≤1 LLM and never errors.
         return string.IsNullOrWhiteSpace(warm) ? reply : reply with { Reply = warm! };
+    }
+
+    public async Task<ConversationalReply> ForceSmallTalkReplyAsync(string question, CancellationToken cancellationToken = default)
+    {
+        var text = _textMonitor.CurrentValue;
+        var canned = PickVariant(text.ConversationalSmallTalkReplies, text.ConversationalSmallTalk);
+        if (!_optionsMonitor.CurrentValue.SmallTalkUseLlm)
+            return new ConversationalReply(ConversationalKind.SmallTalk, canned);
+        var warm = await GenerateSmallTalkAsync(question, cancellationToken);
+        return new ConversationalReply(ConversationalKind.SmallTalk, string.IsNullOrWhiteSpace(warm) ? canned : warm!);
     }
 
     /// <summary>Exactly ONE generalist-model call for a friendly one-sentence small-talk reply, in the

@@ -41,8 +41,12 @@ public class ScopeDecisionTests
         Assert.Equal(AnalystOrchestrator.ScopeDecision.RunGate, Decide(ClassifierIntent.Sql, 0.50));
 
     [Fact]
-    public void Chat_runsGate() =>                    // neither decisive-SQL nor decisive-OOS
-        Assert.Equal(AnalystOrchestrator.ScopeDecision.RunGate, Decide(ClassifierIntent.Chat, 0.99));
+    public void Chat_decisive_routesToChat() =>        // fresh-phrased greeting the cues missed → warm reply
+        Assert.Equal(AnalystOrchestrator.ScopeDecision.Chat, Decide(ClassifierIntent.Chat, 0.99));
+
+    [Fact]
+    public void Chat_belowFloor_runsGate() =>          // not confident enough → let the cosine gate decide
+        Assert.Equal(AnalystOrchestrator.ScopeDecision.RunGate, Decide(ClassifierIntent.Chat, 0.50));
 
     [Fact]
     public void Unknown_runsGate() =>
