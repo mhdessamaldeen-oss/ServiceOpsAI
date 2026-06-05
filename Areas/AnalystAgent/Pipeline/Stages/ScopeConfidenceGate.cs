@@ -30,15 +30,26 @@ using AnalystAgent.Retrieval;
 /// </summary>
 public interface IScopeConfidenceGate
 {
-    /// <summary>Returns a refusal when both scope signals are below their floors; null otherwise.
-    /// Callers should run this AFTER the fast-path probes have all missed, so the only
-    /// remaining question is whether the LLM-driven schema-extraction path should fire.</summary>
-    Task<OutOfScopeResult?> CheckAsync(string question, CancellationToken cancellationToken = default);
+    /// <summary>Computes both scope signals and decides refuse-vs-answer. <see cref="ScopeGateOutcome.Refusal"/>
+    /// is non-null only when both signals are below their floors; <see cref="ScopeGateOutcome.Signals"/> carries
+    /// the actual cosines + floors so the trace can show the "moat" on every gated question (answered or refused).
+    /// Callers should run this AFTER the fast-path probes have all missed.</summary>
+    Task<ScopeGateOutcome> CheckAsync(string question, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Outcome of a scope-gate refusal. <see cref="MatchedPattern"/> carries a short
 /// machine-readable reason ("low-scope-confidence") so the trace can attribute the refusal.</summary>
 public sealed record OutOfScopeResult(string Reason, string MatchedPattern, string Language);
+
+/// <summary>The two scope cosines + their floors + the resolved top table — the refuse-vs-answer "moat",
+/// surfaced into the trace so the owner sees WHY a question was (not) refused without reading code.</summary>
+public sealed record ScopeSignals(
+    double VerifiedQueryMax, double VerifiedQueryFloor,
+    double SchemaTop, double SchemaFloor, string TopTable, bool FailedOpen);
+
+/// <summary>Gate result: the optional refusal + the signals that produced it. Signals is null only when the
+/// gate is disabled or the question was blank (nothing computed).</summary>
+public sealed record ScopeGateOutcome(OutOfScopeResult? Refusal, ScopeSignals? Signals);
 
 internal sealed class ScopeConfidenceGate : IScopeConfidenceGate
 {
@@ -62,11 +73,11 @@ internal sealed class ScopeConfidenceGate : IScopeConfidenceGate
         _logger = logger;
     }
 
-    public async Task<OutOfScopeResult?> CheckAsync(string question, CancellationToken cancellationToken = default)
+    public async Task<ScopeGateOutcome> CheckAsync(string question, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(question)) return null;
+        if (string.IsNullOrWhiteSpace(question)) return new ScopeGateOutcome(null, null);
         var opts = _options.CurrentValue;
-        if (!opts.EnableScopeConfidenceGate) return null;
+        if (!opts.EnableScopeConfidenceGate) return new ScopeGateOutcome(null, null);
 
         // Always compute BOTH signals up-front and log them — even on a pass — so trace
         // history captures the actual scores. Critical for floor-calibration tuning later.
@@ -81,11 +92,15 @@ internal sealed class ScopeConfidenceGate : IScopeConfidenceGate
             question, vqMaxSimilarity, opts.OutOfScopeVerifiedQueryFloor,
             schemaTopScore, topTable, opts.OutOfScopeSchemaFloor);
 
+        ScopeSignals Signals(bool failedOpen) => new(
+            vqMaxSimilarity, opts.OutOfScopeVerifiedQueryFloor,
+            schemaTopScore, opts.OutOfScopeSchemaFloor, topTable, failedOpen);
+
         // Signal A: verified-query catalog cosine
-        if (vqMaxSimilarity >= opts.OutOfScopeVerifiedQueryFloor) return null;
+        if (vqMaxSimilarity >= opts.OutOfScopeVerifiedQueryFloor) return new ScopeGateOutcome(null, Signals(false));
 
         // Signal B: schema-semantic top match
-        if (schemaTopScore >= opts.OutOfScopeSchemaFloor) return null;
+        if (schemaTopScore >= opts.OutOfScopeSchemaFloor) return new ScopeGateOutcome(null, Signals(false));
 
         // Both signals EXACTLY zero is the embedder-failure signature: both retrievers return
         // 0f from their catch blocks / empty-vector guards. Real cosines between non-zero
@@ -95,15 +110,17 @@ internal sealed class ScopeConfidenceGate : IScopeConfidenceGate
         if (vqMaxSimilarity == 0f && schemaTopScore == 0f)
         {
             _logger.LogWarning("[ScopeGate] both signals exactly 0 for '{Q}' — likely embedder failure; failing open.", question);
-            return null;
+            return new ScopeGateOutcome(null, Signals(failedOpen: true));
         }
 
         // Both signals weak — and the upstream fast paths already missed — so this question
         // does not link to anything in our configured scope. Refuse with the catalog message.
         _logger.LogInformation("[ScopeGate] REFUSED '{Q}' — both signals below floor.", question);
-        return new OutOfScopeResult(
-            _textMonitor.CurrentValue.PreflightOutOfScope,
-            MatchedPattern: "low-scope-confidence",
-            Language: "auto");
+        return new ScopeGateOutcome(
+            new OutOfScopeResult(
+                _textMonitor.CurrentValue.PreflightOutOfScope,
+                MatchedPattern: "low-scope-confidence",
+                Language: "auto"),
+            Signals(false));
     }
 }

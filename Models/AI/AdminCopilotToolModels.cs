@@ -5,8 +5,9 @@ namespace ServiceOpsAI.Models.AI
         /// <summary>Trace JSON schema version. Bumped when a structural change is made to
         /// CopilotExecutionStep or its child types. The investigation page checks this to
         /// know which renderer to use (legacy v1 traces won't have LlmCalls / Decisions /
-        /// PhaseDiagnostics; v2+ traces do).</summary>
-        public int TraceSchemaVersion { get; set; } = 2;
+        /// PhaseDiagnostics; v2+ traces do). v3 (2026-06-05): scope-gate signals (cosines vs floors)
+        /// captured on every gated question; small-talk LLM reply recorded as an LLM call.</summary>
+        public int TraceSchemaVersion { get; set; } = 3;
 
         public string DetectedIntent { get; set; } = "";
         public string RouteReason { get; set; } = "";

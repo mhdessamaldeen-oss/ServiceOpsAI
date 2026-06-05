@@ -228,6 +228,7 @@ internal sealed partial class AnalystOrchestrator : IAnalystAgent
         // verdict + the decisive-confidence floor — extracted to DecideScope so it is unit-testable
         // without standing up the whole orchestrator.
         Stages.OutOfScopeResult? scopeRefusal = null;
+        Stages.ScopeSignals? scopeSignals = null;   // the two cosines vs floors — surfaced into the trace ("the moat")
         switch (DecideScope(intentResult.Intent, intentResult.Confidence, decisiveConf))
         {
             // Decisive classifier OOS — normally refuse OUTRIGHT instead of deferring to the weak cosine
@@ -252,15 +253,23 @@ internal sealed partial class AnalystOrchestrator : IAnalystAgent
                 break;
             // Not decisively SQL nor decisively OOS → the cosine scope gate decides.
             case ScopeDecision.RunGate:
-                scopeRefusal = await _scopeConfidenceGate.CheckAsync(question, cancellationToken);
+            {
+                var scopeOutcome = await _scopeConfidenceGate.CheckAsync(question, cancellationToken);
+                scopeRefusal = scopeOutcome.Refusal;
+                scopeSignals = scopeOutcome.Signals;
+                // On an in-scope PASS, record the moat scores here (no refusal step will run). On a REFUSE
+                // they ride along on RecordOutOfScopeRefusal below so the refusal carries its own scores.
+                if (scopeSignals is not null && scopeRefusal is null)
+                    steps.RecordScopeGate(question, scopeSignals);
                 break;
+            }
             // ScopeDecision.SkipGate (decisive SQL) → leave scopeRefusal null (prior behavior).
         }
         if (scopeRefusal is not null)
         {
             activity?.SetTag("copilot.outcome", "refused.out_of_scope");
             activity?.SetTag("copilot.refusal_pattern", scopeRefusal.MatchedPattern);
-            steps.RecordOutOfScopeRefusal(question, scopeRefusal);
+            steps.RecordOutOfScopeRefusal(question, scopeRefusal, scopeSignals);
             return (await _persister.PersistAsync(request, totalSw, steps,
                 reply: scopeRefusal.Reason,
                 error: scopeRefusal.Reason, cancellationToken: cancellationToken))

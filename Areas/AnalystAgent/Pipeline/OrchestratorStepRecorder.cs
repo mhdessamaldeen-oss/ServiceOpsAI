@@ -53,9 +53,12 @@ internal static class OrchestratorStepRecorder
                 reason: $"Deterministic preflight detected a write verb. The pipeline is read-only by design — no LLM call needed to reject this.",
                 details: new { matchedVerb = result.MatchedVerb, language = result.Language, fullReason = result.Reason })));
 
-    public static void RecordOutOfScopeRefusal(this BroadcastingStepList steps, string question, OutOfScopeResult result) =>
+    public static void RecordOutOfScopeRefusal(this BroadcastingStepList steps, string question,
+        OutOfScopeResult result, ScopeSignals? signals = null) =>
         steps.Add(Step(StageNames.StepOutOfScopeGuard, StageNames.StatusFailed, 0,
-            $"refused: {result.MatchedPattern} ({result.Language})",
+            signals is not null
+                ? $"refused: vqMax {signals.VerifiedQueryMax:F3} < {signals.VerifiedQueryFloor}, schemaTop {signals.SchemaTop:F3} < {signals.SchemaFloor}"
+                : $"refused: {result.MatchedPattern} ({result.Language})",
             technical: StepPayload.Of(StepPayloadKinds.Gate,
                 input: question,
                 // Reason depends on WHICH signal refused — the LLM intent classifier's decisive OOS verdict,
@@ -65,7 +68,28 @@ internal static class OrchestratorStepRecorder
                 reason: result.MatchedPattern == "intent-out-of-scope"
                     ? "The LLM intent classifier returned a high-confidence OUT_OF_SCOPE verdict (>= IntentClassifierDecisiveConfidence), so the question is refused outright rather than deferred to the embedding scope gate."
                     : "Positive scope-confidence gate: all fast paths missed AND both scope signals (verified-query cosine + schema-linker top score) were below their floors — the residual is out of scope. The copilot answers from the database only.",
-                details: new { matchedPattern = result.MatchedPattern, language = result.Language, fullReason = result.Reason })));
+                details: signals is not null
+                    ? new { matchedPattern = result.MatchedPattern, language = result.Language, fullReason = result.Reason,
+                            verifiedQueryMax = signals.VerifiedQueryMax, verifiedQueryFloor = signals.VerifiedQueryFloor,
+                            schemaTop = signals.SchemaTop, schemaFloor = signals.SchemaFloor, topTable = signals.TopTable }
+                    : (object)new { matchedPattern = result.MatchedPattern, language = result.Language, fullReason = result.Reason })));
+
+    /// <summary>Records the scope-gate's two cosines vs their floors on an IN-SCOPE pass (the moat made visible
+    /// on answered questions too, not just refusals). Schema-driven — pure scores, no vocab.</summary>
+    public static void RecordScopeGate(this BroadcastingStepList steps, string question, ScopeSignals s) =>
+        steps.Add(Step(StageNames.StepOutOfScopeGuard, StageNames.StatusOk, 0,
+            s.FailedOpen
+                ? "in scope (fail-open — embedder returned 0/0)"
+                : $"in scope — schemaTop {s.SchemaTop:F3} on {s.TopTable} (vqMax {s.VerifiedQueryMax:F3})",
+            technical: StepPayload.Of(StepPayloadKinds.Gate,
+                input: question,
+                output: s.FailedOpen ? "PASSED (fail-open)" : $"PASSED — linked to '{s.TopTable}'",
+                reason: s.FailedOpen
+                    ? "Both scope signals were exactly 0 — the embedder likely failed, so the gate FAILS OPEN (answers) rather than mis-refuse a valid question."
+                    : "The 'moat': a question is in scope only if it cosine-links to the schema (or a verified query) above the floor. Shows both signals so the answer/refuse decision is auditable without reading code.",
+                details: new { verifiedQueryMax = s.VerifiedQueryMax, verifiedQueryFloor = s.VerifiedQueryFloor,
+                                schemaTop = s.SchemaTop, schemaFloor = s.SchemaFloor, topTable = s.TopTable,
+                                failedOpen = s.FailedOpen, verdict = "answer" })));
 
     public static void RecordWriteIntentPassed(this BroadcastingStepList steps, string question) =>
         steps.Add(Step(StageNames.StepWriteIntentGuard, StageNames.StatusOk, 0, "passed",

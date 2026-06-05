@@ -64,8 +64,9 @@ public class ScopeConfidenceGateTests
         // "what's a good recipe for pasta" — no schema match, no VQ match. Refuse.
         var gate = BuildGate(vqMaxSimilarity: 0.10f, schemaTopScore: 0.15f);
         var result = await gate.CheckAsync("what's a good recipe for pasta");
-        Assert.NotNull(result);
-        Assert.Equal("low-scope-confidence", result!.MatchedPattern);
+        Assert.NotNull(result.Refusal);
+        Assert.Equal("low-scope-confidence", result.Refusal!.MatchedPattern);
+        Assert.NotNull(result.Signals);   // scores captured on refuse too
     }
 
     [Fact]
@@ -73,7 +74,7 @@ public class ScopeConfidenceGateTests
     {
         // The other deferred-failing case in suite-7 — unrelated domain entirely.
         var gate = BuildGate(vqMaxSimilarity: 0.08f, schemaTopScore: 0.12f);
-        Assert.NotNull(await gate.CheckAsync("how do I build a treehouse"));
+        Assert.NotNull((await gate.CheckAsync("how do I build a treehouse")).Refusal);
     }
 
     [Fact]
@@ -82,7 +83,7 @@ public class ScopeConfidenceGateTests
         // A real data question — "how many tickets" — cosine-matches the Tickets table strongly
         // even if it didn't appear in the VQ catalog. Should pass.
         var gate = BuildGate(vqMaxSimilarity: 0.20f, schemaTopScore: 0.80f);
-        Assert.Null(await gate.CheckAsync("how many tickets do we have"));
+        Assert.Null((await gate.CheckAsync("how many tickets do we have")).Refusal);
     }
 
     [Fact]
@@ -91,7 +92,7 @@ public class ScopeConfidenceGateTests
         // Question matches a catalog entry but schema retrieval is noisy. Should pass — the VQ
         // signal alone is sufficient evidence the question is in scope.
         var gate = BuildGate(vqMaxSimilarity: 0.75f, schemaTopScore: 0.10f);
-        Assert.Null(await gate.CheckAsync("show me open tickets"));
+        Assert.Null((await gate.CheckAsync("show me open tickets")).Refusal);
     }
 
     [Fact]
@@ -99,14 +100,14 @@ public class ScopeConfidenceGateTests
     {
         // Boundary test: exactly at the floor (>=) should be in scope.
         var gate = BuildGate(vqMaxSimilarity: 0.10f, schemaTopScore: 0.25f);
-        Assert.Null(await gate.CheckAsync("some borderline question"));
+        Assert.Null((await gate.CheckAsync("some borderline question")).Refusal);
     }
 
     [Fact]
     public async Task Passes_at_exact_vq_floor()
     {
         var gate = BuildGate(vqMaxSimilarity: 0.55f, schemaTopScore: 0.10f);
-        Assert.Null(await gate.CheckAsync("some borderline question"));
+        Assert.Null((await gate.CheckAsync("some borderline question")).Refusal);
     }
 
     [Theory]
@@ -116,7 +117,7 @@ public class ScopeConfidenceGateTests
     public async Task Empty_or_whitespace_question_passes(string? question)
     {
         var gate = BuildGate(vqMaxSimilarity: 0.0f, schemaTopScore: 0.0f);
-        Assert.Null(await gate.CheckAsync(question!));
+        Assert.Null((await gate.CheckAsync(question!)).Refusal);
     }
 
     [Fact]
@@ -126,7 +127,7 @@ public class ScopeConfidenceGateTests
         // failure (observed live: Ollama returning NaN for one input). Treat the exact-zero
         // pair as "no signal" and pass — refusing in this case mis-rejected a clear data query.
         var gate = BuildGate(vqMaxSimilarity: 0f, schemaTopScore: 0f);
-        Assert.Null(await gate.CheckAsync("list users with their roles and ticket counts"));
+        Assert.Null((await gate.CheckAsync("list users with their roles and ticket counts")).Refusal);
     }
 
     [Fact]
@@ -135,6 +136,6 @@ public class ScopeConfidenceGateTests
         // Even when signals are below floor, a disabled gate must pass everything through.
         // This is the kill switch — operators flip EnableScopeConfidenceGate=false to bypass.
         var gate = BuildGate(vqMaxSimilarity: 0.0f, schemaTopScore: 0.0f, gateEnabled: false);
-        Assert.Null(await gate.CheckAsync("what's a good recipe for pasta"));
+        Assert.Null((await gate.CheckAsync("what's a good recipe for pasta")).Refusal);
     }
 }
