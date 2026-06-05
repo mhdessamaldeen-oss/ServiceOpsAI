@@ -55,6 +55,20 @@ public class EnumValueIndexTests
     }
 
     [Fact]
+    public void InlineEnumSkipColumnHints_AreExternalizedToConfig_NotAHardcodedWall()
+    {
+        // The free-text/identifier deny-list used to be a static string[] inside EntityCatalog with no override
+        // (the one true no-portability hard-wall). It now lives on AnalystOptions so a schema with a status enum
+        // in e.g. "MessagePriority" can clear the offending fragment without a code change.
+        var opts = new AnalystAgent.Configuration.AnalystOptions();
+        Assert.NotEmpty(opts.InlineEnumSkipColumnHints);                 // sane defaults preserved
+        Assert.Contains("Description", opts.InlineEnumSkipColumnHints);
+        Assert.Contains("Id", opts.InlineEnumSkipColumnHints);
+        opts.InlineEnumSkipColumnHints = new() { "Custom" };            // operator-overridable
+        Assert.Equal(new[] { "Custom" }, opts.InlineEnumSkipColumnHints);
+    }
+
+    [Fact]
     public void EmptyIndex_WhenNoSubtypeSuffixesOrNoMatches()
     {
         var catalog = Catalog(("Bills", new[] { ("Status", "Paid"), ("PaymentMethod", "Cash") }));

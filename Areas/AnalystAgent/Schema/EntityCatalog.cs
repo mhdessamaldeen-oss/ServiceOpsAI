@@ -49,6 +49,7 @@ internal sealed class EntityCatalog : IEntityCatalog
     private readonly Lazy<IForeignKeyGraph> _graph;
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly ILogger<EntityCatalog> _logger;
+    private readonly IReadOnlyList<string> _inlineEnumSkipHints;
     private readonly ConcurrentDictionary<string, IReadOnlyList<string>> _sampleValueCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<(string, string)>> _allValuesCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, IReadOnlyList<(string, string)>> _inlineEnumCache = new(StringComparer.OrdinalIgnoreCase);
@@ -59,10 +60,17 @@ internal sealed class EntityCatalog : IEntityCatalog
     // sampled (English first then Arabic) so Arabic-language questions also match.
     internal static readonly string[] LabelColumnPriority = new[] { "Name", "NameEn", "Title", "Code", "Label", "NameAr", "TitleAr" };
 
-    public EntityCatalog(ISchemaIntrospector introspector, IDbConnectionFactory connectionFactory, ILogger<EntityCatalog> logger)
+    public EntityCatalog(ISchemaIntrospector introspector, IDbConnectionFactory connectionFactory,
+        ILogger<EntityCatalog> logger,
+        Microsoft.Extensions.Options.IOptions<Configuration.AnalystOptions> options)
     {
         _connectionFactory = connectionFactory;
         _logger = logger;
+        // Operator-configurable free-text/identifier column-name fragments (was a hardcoded deny-list — the one
+        // true no-portability hard-wall). Falls back to the built-in default if config is empty so an empty list
+        // can't accidentally disable the pre-filter and over-probe wide text columns.
+        var hints = options.Value.InlineEnumSkipColumnHints;
+        _inlineEnumSkipHints = hints is { Count: > 0 } ? hints.ToArray() : DefaultInlineEnumSkipHints;
         _snapshot = new Lazy<SchemaSnapshot>(() =>
         {
             logger.LogInformation("[AnalystAgent] Introspecting database schema…");
@@ -182,7 +190,9 @@ internal sealed class EntityCatalog : IEntityCatalog
 
     // Column-name fragments that mark a string column as FREE TEXT or an identifier — never an enum
     // worth value-binding (so we don't probe / bind on Title, Description, a BillNumber, an Email, …).
-    private static readonly string[] InlineEnumSkipHints =
+    // Built-in DEFAULT only — the live list is AnalystOptions.InlineEnumSkipColumnHints (operator-configurable),
+    // resolved in the ctor into _inlineEnumSkipHints. Kept here as the fail-safe fallback when config is empty.
+    private static readonly string[] DefaultInlineEnumSkipHints =
         { "Name", "Title", "Description", "Notes", "Summary", "Comment", "Address", "Reason",
           "Specification", "Json", "Content", "Message", "Email", "Phone", "Number", "Code",
           "Reference", "Url", "Path", "Hash", "Stamp", "Token", "Key", "Id" };
@@ -199,7 +209,7 @@ internal sealed class EntityCatalog : IEntityCatalog
         // Candidate columns: any char/nchar/varchar/nvarchar column whose name isn't free-text/id.
         var cols = Snapshot.ColumnsOf(tableName)
             .Where(c => IsBindableStringColumn(c.DataType))
-            .Where(c => !InlineEnumSkipHints.Any(h => c.ColumnName.Contains(h, StringComparison.OrdinalIgnoreCase)))
+            .Where(c => !_inlineEnumSkipHints.Any(h => c.ColumnName.Contains(h, StringComparison.OrdinalIgnoreCase)))
             .Select(c => c.ColumnName)
             .ToList();
         if (cols.Count == 0) return Array.Empty<(string, string)>();

@@ -505,6 +505,19 @@ public sealed class AnalystOptions
     /// Default ["Type"] (AssetType, PointType, OrderType, …).</summary>
     public List<string> EntitySubtypeColumnSuffixes { get; set; } = new() { "Type" };
 
+    /// <summary>Column-name FRAGMENTS that mark a column as free-text / identifier (NOT a bindable enum) — a
+    /// column whose name CONTAINS any of these is excluded from the inline-enum value probe. Externalized so a
+    /// schema with a status-like enum in a column named e.g. "MessagePriority" or "TransactionReferenceType"
+    /// can clear the offending fragment, instead of being silently un-probed by a hardcoded deny-list. The
+    /// cardinality gate (≤ maxDistinct) is the real free-text guard; this is a cheap name pre-filter. If left
+    /// empty the catalog falls back to its built-in default (an empty list would over-probe wide text columns).</summary>
+    public List<string> InlineEnumSkipColumnHints { get; set; } = new()
+    {
+        "Name", "Title", "Description", "Notes", "Summary", "Comment", "Address", "Reason",
+        "Specification", "Json", "Content", "Message", "Email", "Phone", "Number", "Code",
+        "Reference", "Url", "Path", "Hash", "Stamp", "Token", "Key", "Id"
+    };
+
     // ── Profile selector (Phase 4) ──────────────────────────────────────────────────────────
     // Names a preset block in copilot-options.json that overlays threshold properties at
     // load time. Null/empty = use the explicit values above with no overlay. Built-in
