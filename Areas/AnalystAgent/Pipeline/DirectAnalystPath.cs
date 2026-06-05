@@ -728,6 +728,123 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         return !string.Equals(repaired, sql, StringComparison.Ordinal);
     }
 
+    // ── STAGE-2 AST repair adapters (gated by AnalystOptions.EnableAstRepairs) ──────────────────
+    // Each adapter has the SAME (sql, …, out repaired) shape as its regex twin so the repair-chain call
+    // sites just switch which method they call based on the flag. The adapters supply the SAME decision
+    // inputs the regex versions use (label NAME-shape, grounded values, alias→table map, single-column PK)
+    // to SqlAstRepairs — only the MECHANISM (tree mutation vs string surgery) differs, never the POLICY.
+
+    // The label NAME-shape test the grain fix keys off — identical to the regex literal in TryFixGroupByGrain
+    // ("(Name|Title|Label)"). Schema-agnostic: a naming convention, not a per-table list.
+    private static readonly Regex LabelColumnShape = new("(Name|Title|Label)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    // The status/lifecycle column NAME-shape — a column whose name ENDS in Status/State (end-anchored \b),
+    // identical to the column part of TryStripUnrequestedStatusFilter's regex.
+    private static readonly Regex StatusColumnShape = new(@"\w*(?:Status|State)\b$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>AST adapter for the status-strip (Pass 2). Builds the same keep/strip decision the regex
+    /// version makes — keep a status literal only when GROUNDING bound it, or (unless trust-grounding-only)
+    /// the question contains it — and delegates the tree mutation to <see cref="SqlAstRepairs"/>.</summary>
+    private bool AstStripUnrequestedStatusFilter(
+        string sql, string? question, IEnumerable<string>? groundedValues, out string repaired)
+    {
+        var qLower = (question ?? string.Empty).ToLowerInvariant();
+        var grounded = new HashSet<string>(groundedValues ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        var trustGroundingOnly = _options.Value.StripStatusFilterTrustGroundingOnly;
+        bool ShouldStrip(string literal)
+        {
+            var keep = grounded.Contains(literal) || (!trustGroundingOnly && qLower.Contains(literal.ToLowerInvariant()));
+            return !keep;
+        }
+        return Validation.SqlAstRepairs.TryStripUnrequestedStatusFilter(
+            sql, col => StatusColumnShape.IsMatch(col), ShouldStrip, out repaired);
+    }
+
+    /// <summary>AST adapter for the multi-value injection (Pass 3). Runs the AST IN-predicate injection for
+    /// every (table,column) group with 2+ grounded values FIRST (the robust mechanism), then the regex
+    /// injector on the result — which now sees those literals already present and so skips them, while still
+    /// applying the single-value equality + conflict-replace cases unchanged. Net predicate set is identical
+    /// to the regex-only path; only the multi-value IN is built by the grammar instead of string surgery.</summary>
+    private bool AstInjectGroundedValueFilters(
+        string sql, IEnumerable<(string Table, string Column, string Value)>? linked, out string repaired)
+    {
+        repaired = sql;
+        var linkedList = (linked ?? Enumerable.Empty<(string Table, string Column, string Value)>())
+            .Where(l => !string.IsNullOrWhiteSpace(l.Table) && !string.IsNullOrWhiteSpace(l.Column) && !string.IsNullOrWhiteSpace(l.Value))
+            .ToList();
+
+        // The regex injector self-restricts to a single simple statement (one WHERE, no GROUP BY); mirror that
+        // guard so the AST multi-value pass fires on exactly the same shapes (else the two paths diverge).
+        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
+        var simpleStatement = Regex.Matches(sql, @"\bWHERE\b", O).Count <= 1 && !Regex.IsMatch(sql, @"\bGROUP\s+BY\b", O);
+
+        var working = sql;
+        var changedByAst = false;
+        if (simpleStatement)
+        {
+            var aliasMap = BuildAliasToTableMap(sql);
+            var groups = linkedList
+                .GroupBy(l => (l.Table, l.Column))
+                .Select(g => (
+                    g.Key.Table,
+                    g.Key.Column,
+                    Values: (IReadOnlyList<string>)g.Select(x => x.Value).Distinct(StringComparer.OrdinalIgnoreCase).ToList()))
+                .Where(g => g.Values.Count >= 2)
+                .ToList();
+            if (groups.Count > 0)
+            {
+                // Resolve the FROM/JOIN qualifier the SAME way the regex injector does: prefer the table's
+                // alias when aliased, else the bare table name; null when the table isn't in the query.
+                string? ResolveQualifier(string table)
+                {
+                    var mt = Regex.Match(working, $@"\b(?:FROM|JOIN)\s+\[?{Regex.Escape(table)}\]?(?:\s+(?:AS\s+)?(?<a>\w+))?", O);
+                    if (!mt.Success) return null;
+                    if (mt.Groups["a"].Success && !SqlAliasStopWords.Contains(mt.Groups["a"].Value))
+                        return mt.Groups["a"].Value;
+                    return table;
+                }
+                changedByAst = Validation.SqlAstRepairs.TryInjectGroundedValueFilters(
+                    working, groups, ResolveQualifier, out var astInjected) && (working = astInjected) is not null;
+            }
+        }
+
+        // Now the regex injector handles single-value equality + conflict-replace, and skips any literal the AST
+        // IN already placed (it filters values already present in the SQL) — so no double-injection.
+        var changedByRegex = TryInjectGroundedValueFilters(working, linkedList, out var regexInjected);
+        repaired = changedByRegex ? regexInjected : working;
+        return changedByAst || changedByRegex;
+    }
+
+    /// <summary>AST adapter for the GROUP-BY grain fix (Pass 1). Builds the same owner/PK resolution the
+    /// regex version does — qualified column → its mapped table; unqualified → the single FROM/JOIN owner
+    /// that has the column — then a single-column PK, and delegates the (gluing-proof) tree mutation.</summary>
+    private bool AstFixGroupByGrain(string sql, Func<string, Schema.InferredTable?> getTable, out string repaired)
+    {
+        var aliasMap = BuildAliasToTableMap(sql);
+        (string Qualifier, string PkColumn)? ResolvePk(Microsoft.SqlServer.TransactSql.ScriptDom.ColumnReferenceExpression colRef)
+        {
+            var ids = colRef.MultiPartIdentifier?.Identifiers;
+            if (ids is not { Count: > 0 }) return null;
+            var col = ids[^1].Value;
+            var qual = ids.Count > 1 ? ids[^2].Value : null;   // <qual>.<col> → take the qualifier
+
+            string? table = null;
+            if (!string.IsNullOrEmpty(qual) && aliasMap.TryGetValue(qual, out var tq)) table = tq;
+            else
+            {
+                var owners = aliasMap.Values.Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Where(tn => { var ti = getTable(tn); return ti is not null && HasColumn(ti, col); }).ToList();
+                if (owners.Count == 1) table = owners[0];
+            }
+            if (table is null) return null;
+            var t = getTable(table);
+            if (t?.PrimaryKey is not { Count: 1 } pk) return null;       // single-column PK only
+            var qualifier = string.IsNullOrEmpty(qual) ? table : qual;
+            return (qualifier!, pk[0]);
+        }
+        return Validation.SqlAstRepairs.TryFixGroupByGrain(
+            sql, c => LabelColumnShape.IsMatch(c), ResolvePk, out repaired);
+    }
+
     /// <summary>Maps FROM/JOIN aliases (and bare table names) to their base table, so a column
     /// qualifier can be resolved to the table it points at. Lightweight (no parser); SQL clause
     /// keywords are never captured as an alias.</summary>
@@ -926,13 +1043,19 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             return candidate;
         }
 
+        // STAGE-2 mechanism switch: when EnableAstRepairs is on, the three highest-risk repairs run as
+        // gluing-proof AST mutations; when off (default), the regex twins run unchanged (byte-identical).
+        var useAst = _options.Value.EnableAstRepairs;
+
         // OVER-FILTER GUARD: the 7B invents an unrequested status/lifecycle filter (WHERE Status='Paid'
         // on "total of all bills") regardless of the system-prompt rule. Deterministically strip a
         // status-column equality whose literal is neither in the question nor a grounded value — it was
         // made up. No prompt, no LLM; the one fix for the model prior that prose can't reach.
-        sqlToUse = AcceptIfParses("unrequested-status-strip", sqlToUse,
-            TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped,
-                trustGroundingOnly: _options.Value.StripStatusFilterTrustGroundingOnly), deScoped);
+        var statusStripped = useAst
+            ? AstStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped)
+            : TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out deScoped,
+                trustGroundingOnly: _options.Value.StripStatusFilterTrustGroundingOnly);
+        sqlToUse = AcceptIfParses("unrequested-status-strip", sqlToUse, statusStripped, deScoped);
         // Same model prior, boolean flavour: an invented IsPlanned=0 / IsActive=1 the question never named.
         sqlToUse = AcceptIfParses("unrequested-flag-strip", sqlToUse,
             TryStripUnrequestedFlagFilter(sqlToUse, question, out var deFlagged), deFlagged);
@@ -942,11 +1065,15 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         sqlToUse = AcceptIfParses("ungrounded-date-strip", sqlToUse,
             TryStripUngroundedDatePredicate(sqlToUse, grounding.LinkedValues.Count > 0, grounding.LinkedTemporal.Count > 0, out var deDated), deDated);
         // Symmetric to the strip: ENFORCE a filter the question named but the 7B dropped (flaky under-filter).
-        sqlToUse = AcceptIfParses("grounded-value-injection", sqlToUse,
-            TryInjectGroundedValueFilters(sqlToUse, grounding.LinkedValues.Select(v => (v.Table, v.Column, v.Value)), out var injected), injected);
+        var valueInjected = useAst
+            ? AstInjectGroundedValueFilters(sqlToUse, grounding.LinkedValues.Select(v => (v.Table, v.Column, v.Value)), out var injected)
+            : TryInjectGroundedValueFilters(sqlToUse, grounding.LinkedValues.Select(v => (v.Table, v.Column, v.Value)), out injected);
+        sqlToUse = AcceptIfParses("grounded-value-injection", sqlToUse, valueInjected, injected);
         // GRAIN: a label-only GROUP BY merges distinct entities sharing a name — add the entity key.
-        sqlToUse = AcceptIfParses("group-by-grain-fix", sqlToUse,
-            TryFixGroupByGrain(sqlToUse, _knowledge.GetTable, out var regrained), regrained);
+        var regrainedOk = useAst
+            ? AstFixGroupByGrain(sqlToUse, _knowledge.GetTable, out var regrained)
+            : TryFixGroupByGrain(sqlToUse, _knowledge.GetTable, out regrained);
+        sqlToUse = AcceptIfParses("group-by-grain-fix", sqlToUse, regrainedOk, regrained);
         // CONTRADICTION: same column = two different literals (the bilingual "Name='مفتوحة' AND Name='Open'"
         // case → 0 rows). Keep the grounded literal, drop the other. Backstops the in-injector conflict-
         // replace, which misses some column-qualification forms. Runs last so it sees model + injected SQL.

@@ -67,6 +67,12 @@
     // + votes + abstains-on-disagreement correctly, 0 new confident-wrong; on a complex-heavy suite the 7B's
     // samples diverged so it rescued 0 — the lift needs Slice 2 (hard-shape trigger) and/or a stronger model.
     "EnableSelfConsistency": false,
+    // STAGE-2 MECHANISM switch (default OFF). When true, the three highest-risk deterministic repairs —
+    // GROUP-BY grain, unrequested-status-predicate strip, multi-value grounded-filter injection — run as
+    // gluing-proof AST mutations on the parsed ScriptDom tree instead of regex-on-text. Same POLICY (label
+    // test, grounded values, PK/owner lookup); only the mechanism differs. The other repairs are unaffected.
+    // OFF = byte-identical to today's regex repairs. Flip true once proven equivalent on the gold corpus.
+    "EnableAstRepairs": false,
 
     // ── External-tool vs data routing ────────────────────────────────────────────
     // Semantic tool selection (embed Title+Description, cosine-rank). false -> legacy lexical scorer only.

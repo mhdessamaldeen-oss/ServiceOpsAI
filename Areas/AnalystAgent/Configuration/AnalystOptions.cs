@@ -590,6 +590,19 @@ public sealed class AnalystOptions
     /// Default on.</summary>
     public bool TrustGroundedEmptyResult { get; set; } = true;
 
+    /// <summary>
+    /// STAGE-2 mechanism switch (default OFF). When false, the three highest-risk deterministic repairs —
+    /// GROUP-BY grain, unrequested-status-predicate strip, and multi-value grounded-filter injection — run
+    /// via their original regex-on-text implementations in <c>DirectAnalystPath</c> (today's behavior,
+    /// byte-identical). When true, those same three repairs run as AST MUTATIONS on the ScriptDom tree
+    /// (<c>SqlAstRepairs</c>): the tree is parsed once, mutated, and re-rendered by the grammar, so a clause
+    /// can never be glued to the next keyword (the bug class that motivated this) and OR/parenthesis/subquery
+    /// WHERE shapes the regex strip can't reach are handled. The POLICY is unchanged (same label test, same
+    /// grounded values, same PK/owner lookup); only the MECHANISM differs. The other deterministic repairs are
+    /// unaffected by this flag. Flip on once the AST path is proven equivalent on the gold corpus.
+    /// </summary>
+    public bool EnableAstRepairs { get; set; } = false;
+
     /// <summary>When true, SchemaLinker materializes the intermediate bridge tables on the shortest
     /// FK path between two anchored tables that the lookup/≤8-column closure heuristic leaves
     /// unconnected — including WIDE non-lookup tables (e.g. Customers) needed only for join-ability.
