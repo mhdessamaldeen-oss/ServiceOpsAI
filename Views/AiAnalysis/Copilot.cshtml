@@ -5293,13 +5293,80 @@
         updateCopilotScrollTopBtn();
     });
 
-    let rec;
-    if ('webkitSpeechRecognition' in window) {
-        rec = new webkitSpeechRecognition();
-        rec.onresult = (e) => {
-            let t = ''; for (let i = e.resultIndex; i < e.results.length; ++i) if (e.results[i].isFinal) t += e.results[i][0].transcript;
-            if (t) { const i = document.getElementById('copilot-question'); i.value += t; i.dispatchEvent(new Event('input')); }
+    // ── Voice dictation (Web Speech API) ─────────────────────────────────────────
+    // A real toggle with a visible "listening" state and surfaced errors. The previous
+    // version only ever called start() (so a 2nd click threw InvalidStateError) and wired
+    // no onerror/onend, so a denied-mic / no-speech / network failure failed silently and
+    // the button looked dead. Recognition language follows the page locale, so Arabic
+    // dictation works without a code change.
+    (function initCopilotSpeech() {
+        const micBtn = document.getElementById('copilot-mic-btn');
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        // No browser support (e.g. Firefox) — disable the button instead of a dead no-op.
+        if (!SpeechRec) {
+            if (micBtn) {
+                micBtn.disabled = true;
+                micBtn.title = "Voice input isn't supported in this browser — try Chrome or Edge.";
+                micBtn.style.opacity = '0.45';
+                micBtn.style.cursor = 'not-allowed';
+            }
+            window.toggleSpeechRecognition = () =>
+                _showCopilotToast("Voice input isn't supported in this browser — try Chrome or Edge.", 'error');
+            return;
+        }
+
+        const pickLang = () => document.documentElement.lang || navigator.language || 'en-US';
+
+        const rec = new SpeechRec();
+        rec.continuous = true;       // keep listening until the user taps the mic again
+        rec.interimResults = false;  // only commit finalized phrases (no duplicated text)
+        rec.lang = pickLang();
+        let listening = false;
+
+        const setListening = (on) => {
+            listening = on;
+            micBtn?.classList.toggle('recording', on);
+            micBtn?.setAttribute('aria-pressed', String(on));
+            if (micBtn) micBtn.title = on ? 'Listening… tap to stop' : 'Dictate your question';
         };
-    }
-    function toggleSpeechRecognition() { if (rec) rec.start(); }
+
+        rec.onstart = () => setListening(true);
+        rec.onend   = () => setListening(false);
+
+        rec.onresult = (e) => {
+            let finalText = '';
+            for (let i = e.resultIndex; i < e.results.length; ++i)
+                if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+            finalText = finalText.trim();
+            if (!finalText) return;
+            const input = document.getElementById('copilot-question');
+            if (!input) return;
+            input.value += (input.value && !/\s$/.test(input.value) ? ' ' : '') + finalText;
+            input.dispatchEvent(new Event('input'));
+        };
+
+        rec.onerror = (e) => {
+            // 'aborted' is the normal result of the user stopping — don't surface it.
+            const msg = {
+                'not-allowed':         'Microphone blocked. Allow mic access for this site, then tap the mic again.',
+                'service-not-allowed': 'Microphone blocked by browser/OS policy. Check site + system mic permissions.',
+                'no-speech':           "Didn't catch any speech — check your mic and try again.",
+                'audio-capture':       'No microphone found. Connect one (or check OS sound settings) and retry.',
+                'network':             'Speech service unreachable (it needs internet). Check your connection.',
+            }[e.error];
+            if (msg) _showCopilotToast(msg, 'error');
+        };
+
+        window.toggleSpeechRecognition = function () {
+            if (listening) { rec.stop(); return; }
+            try {
+                rec.lang = pickLang();   // re-read in case the UI locale was toggled
+                rec.start();
+            } catch {
+                // start() throws InvalidStateError if a prior session is still tearing down.
+                _showCopilotToast('Voice input is busy — wait a moment and tap the mic again.', 'info');
+            }
+        };
+    })();
 </script>
