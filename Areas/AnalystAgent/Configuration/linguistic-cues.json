@@ -33,6 +33,10 @@
 
       "dateColumnTokens": [ "date", "createdat", "updatedat", "month", "year", "week" ],
 
+      "verbContextPrepositions": [ "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from" ],
+
+      "verbContextTimeCues": [ "this", "last", "next", "so", "today", "yesterday", "tomorrow", "ago", "ytd", "now", "currently", "recently", "lately", "yet", "already", "still", "when", "while", "until", "till" ],
+
       "absence": [
         "without", "missing", "lacks", "lacking",
         "has no", "have no", "do not have", "don't have",
@@ -249,6 +253,10 @@
       ],
 
       "dateColumnTokens": [ "تاريخ", "شهر", "سنة", "أسبوع", "يوم" ],
+
+      "verbContextPrepositions": [ "في", "خلال", "منذ", "بين", "قبل", "بعد", "حسب", "عبر" ],
+
+      "verbContextTimeCues": [ "هذا", "هذه", "الماضي", "الماضية", "القادم", "القادمة", "اليوم", "أمس", "امس", "غدا", "الآن", "حاليا", "مؤخرا", "بعد", "حتى", "عندما", "بينما", "للتو" ],
 
       "absence": [ "بدون", "ما عنده", "بلا", "من غير" ],
 

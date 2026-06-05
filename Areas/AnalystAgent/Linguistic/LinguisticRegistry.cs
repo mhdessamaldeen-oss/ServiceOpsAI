@@ -67,6 +67,36 @@ internal sealed class LinguisticRegistry : ILinguisticRegistry
         return false;
     }
 
+    // Built-in ENGLISH fallback for the verb-context cue sets — byte-identical to the sets that were
+    // previously hardcoded in ValueLinker. Returned when the requested locale declares NEITHER set, so
+    // English behaviour is unchanged when no locale file / section exists. Closed-class grammar (function
+    // words / temporal adverbs), not domain vocabulary — portable to any schema.
+    private static readonly System.Collections.Generic.IReadOnlySet<string> FallbackVerbContextPrepositionsEn =
+        new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+        { "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from" };
+
+    private static readonly System.Collections.Generic.IReadOnlySet<string> FallbackVerbContextTimeCuesEn =
+        new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+        { "this", "last", "next", "so", "today", "yesterday", "tomorrow", "ago", "ytd", "now", "currently",
+          "recently", "lately", "yet", "already", "still", "when", "while", "until", "till" };
+
+    public VerbContextCues GetVerbContextCues(string languageCode)
+    {
+        // Look up the requested locale's declared cue sets. If the locale block exists and declares at
+        // least ONE of the two sets, use what it declares (the other may legitimately be empty). Only when
+        // the locale declares NEITHER (missing file / missing both arrays) do we fall back to the built-in
+        // English sets — preserving byte-identical pre-externalisation behaviour.
+        if (!string.IsNullOrWhiteSpace(languageCode)
+            && _cues.Compiled.Locales is not null
+            && _cues.Compiled.Locales.TryGetValue(languageCode, out var locale)
+            && locale is not null
+            && (locale.VerbContextPrepositions.Count > 0 || locale.VerbContextTimeCues.Count > 0))
+        {
+            return new VerbContextCues(locale.VerbContextPrepositions, locale.VerbContextTimeCues);
+        }
+        return new VerbContextCues(FallbackVerbContextPrepositionsEn, FallbackVerbContextTimeCuesEn);
+    }
+
     public bool LooksLikeAggregateQuery(string question)
     {
         question = StripAnnotation(question);

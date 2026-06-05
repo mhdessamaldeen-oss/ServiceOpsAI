@@ -1,5 +1,7 @@
 namespace AnalystAgent.Semantic;
 
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using AnalystAgent.Abstractions;
@@ -19,8 +21,9 @@ using AnalystAgent.Schema;
 /// (~95% of entity references hit a declared synonym).</para>
 ///
 /// <para><b>Caching</b>: entity vectors are computed once on first call and held for the
-/// process lifetime via <see cref="IMemoryCache"/> (no expiry). The embedder model name is part
-/// of the cache key so swapping models invalidates the cache automatically.</para>
+/// process lifetime via <see cref="IMemoryCache"/> (no expiry). The cache key folds in the embedder
+/// model name AND a content hash of the (queryable) entity set's name|synonyms|table, so BOTH a model
+/// swap and a semantic-layer synonym/description edit invalidate the cache automatically.</para>
 ///
 /// <para><b>Cost</b>: one embedding call per fallback invocation (the user's text), plus the
 /// one-time entity priming. Catalog filtering ensures entities for tables that don't exist in
@@ -43,9 +46,9 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
     private readonly ISemanticLayer _semantic;
     private readonly IEntityCatalog _catalog;
     private readonly ITextEmbedder _embedder;
-    private readonly IMemoryCache _cache;
     private readonly AnalystAgent.Schema.IAnalystSchemaAccessPolicy _accessPolicy;
     private readonly ILogger<EntityEmbeddingMatcher> _logger;
+    private readonly EmbeddingVectorCache<EntityDefinition> _vectorCache;
 
     public EntityEmbeddingMatcher(
         ISemanticLayer semantic,
@@ -58,9 +61,11 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
         _semantic = semantic;
         _catalog = catalog;
         _embedder = embedder;
-        _cache = cache;
         _accessPolicy = accessPolicy;
         _logger = logger;
+        // Compose the shared prime+rank+fail-open cache. This matcher keeps its own label builder
+        // (BuildEntityLabel) + cache-key builder (model name + content hash of the queryable entity set).
+        _vectorCache = new EmbeddingVectorCache<EntityDefinition>(embedder, cache, logger);
     }
 
     public bool IsAvailable =>
@@ -72,93 +77,44 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
         if (string.IsNullOrWhiteSpace(text)) return null;
         if (!IsAvailable) return null;
 
-        try
+        // The queryable entity set (table declared + exists + not hidden) — both the prime corpus and
+        // the content-hash source, so a synonym/description edit re-keys the cache.
+        var entities = (_semantic.Config?.Entities ?? Enumerable.Empty<EntityDefinition>())
+            .Where(e => !string.IsNullOrEmpty(e.Table) && _catalog.TableExists(e.Table) && _accessPolicy.IsTableQueryable(e.Table))
+            .ToList();
+        if (entities.Count == 0) return null;
+
+        var cacheKey = CachePrefix + (_embedder.ModelName ?? "default") + "::" + ComputeEntitySetHash(entities);
+
+        // Shared prime + cosine-rank + fail-open. Returns scored pairs in INPUT order, so the
+        // best-above-threshold selection below (strict '>', first-wins on ties) is byte-identical to before.
+        var scored = await _vectorCache.PrimeAndRankAsync(entities, BuildEntityLabel, cacheKey, text, cancellationToken);
+        if (scored.Count == 0) return null;
+
+        EntityDefinition? best = null;
+        var bestScore = 0f;
+        foreach (var (entity, score) in scored)
         {
-            var queryVec = await _embedder.EmbedAsync(text, cancellationToken);
-            if (queryVec.Length == 0) return null;
-
-            var entityVecs = await GetEntityVectorsAsync(cancellationToken);
-            if (entityVecs.Count == 0) return null;
-
-            EntityDefinition? best = null;
-            var bestScore = 0f;
-            foreach (var (entity, vec) in entityVecs)
+            if (score > bestScore)
             {
-                if (vec.Length != queryVec.Length) continue;
-                var score = AnalystAgent.Retrieval.VectorMath.Cosine(queryVec, vec);
-                if (score > bestScore)
-                {
-                    best = entity;
-                    bestScore = score;
-                }
+                best = entity;
+                bestScore = score;
             }
-
-            if (best is null || bestScore < minConfidence)
-            {
-                _logger.LogDebug("[EntityEmbeddingMatcher] no match above {Min} for '{Text}' (best={Score:F3}).", minConfidence, text, bestScore);
-                return null;
-            }
-
-            _logger.LogDebug("[EntityEmbeddingMatcher] '{Text}' → {Department} (cosine={Score:F3}).", text, best.Name, bestScore);
-            return best;
         }
-        catch (Exception ex)
+
+        if (best is null || bestScore < minConfidence)
         {
-            _logger.LogWarning(ex, "[EntityEmbeddingMatcher] FindAsync failed for '{Text}'.", text);
+            _logger.LogDebug("[EntityEmbeddingMatcher] no match above {Min} for '{Text}' (best={Score:F3}).", minConfidence, text, bestScore);
             return null;
         }
-    }
 
-    /// <summary>Single-flight semaphore — when N concurrent callers race to prime the cache,
-    /// only one actually issues the embedder calls; the rest wait and read the populated cache.
-    /// Without this, parallel evals (or concurrent chat requests after a cold start) each
-    /// invoked the embedder N×entity_count times, wasting tokens and racing on the cache write.</summary>
-    private readonly SemaphoreSlim _primingLock = new(1, 1);
-
-    private async Task<IReadOnlyList<(EntityDefinition Department, float[] Vector)>> GetEntityVectorsAsync(CancellationToken cancellationToken)
-    {
-        var cacheKey = CachePrefix + (_embedder.ModelName ?? "default");
-        if (_cache.TryGetValue<IReadOnlyList<(EntityDefinition, float[])>>(cacheKey, out var cached) && cached is not null)
-            return cached;
-
-        // First miss — acquire the priming lock so concurrent callers don't all hit the embedder.
-        await _primingLock.WaitAsync(cancellationToken);
-        try
-        {
-            // Re-check: another caller may have populated the cache while we waited.
-            if (_cache.TryGetValue<IReadOnlyList<(EntityDefinition, float[])>>(cacheKey, out cached) && cached is not null)
-                return cached;
-
-            var entities = (_semantic.Config?.Entities ?? Enumerable.Empty<EntityDefinition>())
-                .Where(e => !string.IsNullOrEmpty(e.Table) && _catalog.TableExists(e.Table) && _accessPolicy.IsTableQueryable(e.Table))
-                .ToList();
-
-            var built = new List<(EntityDefinition, float[])>(entities.Count);
-            foreach (var e in entities)
-            {
-                var label = BuildEntityLabel(e);
-                try
-                {
-                    var vec = await _embedder.EmbedAsync(label, cancellationToken);
-                    if (vec.Length > 0) built.Add((e, vec));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "[EntityEmbeddingMatcher] entity priming failed for '{Department}'.", e.Name);
-                }
-            }
-            _cache.Set(cacheKey, (IReadOnlyList<(EntityDefinition, float[])>)built);   // no expiry — invalidated on model swap via cache key
-            return built;
-        }
-        finally
-        {
-            _primingLock.Release();
-        }
+        _logger.LogDebug("[EntityEmbeddingMatcher] '{Text}' → {Department} (cosine={Score:F3}).", text, best.Name, bestScore);
+        return best;
     }
 
     /// <summary>Compose a single vector-friendly string from the entity. Description first when
     /// present (more discriminative than the bare table name), then name + synonyms.</summary>
-    private static string BuildEntityLabel(EntityDefinition e)
+    internal static string BuildEntityLabel(EntityDefinition e)
     {
         var parts = new List<string> { e.Name };
         if (!string.IsNullOrEmpty(e.Description)) parts.Add(e.Description);
@@ -166,4 +122,19 @@ internal sealed class EntityEmbeddingMatcher : IEntityEmbeddingMatcher
         return string.Join(" — ", parts);
     }
 
+    /// <summary>Stable content hash of the queryable entity set — concatenate each entity's
+    /// name|synonyms|description|table and SHA-256 it. Any semantic-layer edit that changes the embedded
+    /// label (a renamed entity, an added/removed synonym, an edited description, a re-pointed table)
+    /// changes the hash → the cache key → a fresh prime. Backported from <see cref="ToolSemanticSelector"/>
+    /// so an entity-synonym edit invalidates (the old model-name-only key did not). Lines are sorted so a
+    /// pure re-ordering of the entity list doesn't needlessly invalidate.</summary>
+    internal static string ComputeEntitySetHash(IReadOnlyList<EntityDefinition> entities)
+    {
+        var lines = entities
+            .Select(e => $"{e.Name}|{(e.Synonyms is { Count: > 0 } ? string.Join(",", e.Synonyms) : "")}|{e.Description}|{e.Table}")
+            .OrderBy(s => s, StringComparer.Ordinal);
+        var joined = string.Join("\n", lines);
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(joined));
+        return Convert.ToHexString(bytes);
+    }
 }

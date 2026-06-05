@@ -73,6 +73,17 @@ public sealed class CompiledLocaleCues
     /// <summary>Date-column NAME tokens (substring match on a GROUP BY column id) — ChartTypeSuggester time-axis hint.</summary>
     public IReadOnlyList<string> DateColumnTokens { get; init; } = System.Array.Empty<string>();
 
+    /// <summary>Closed-class grammar: function words that mark an enum word as a verb when they immediately follow it
+    /// ("issued IN", "paid BY"). Case-insensitive set so the single-token lookup in ValueLinker.IsVerbContext is O(1).
+    /// Empty when this locale declares none.</summary>
+    public IReadOnlySet<string> VerbContextPrepositions { get; init; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Closed-class grammar: temporal adverbs that mark an enum word as a past-tense verb introducing a time
+    /// clause ("issued SO far", "closed LAST month"). Case-insensitive set; empty when this locale declares none.</summary>
+    public IReadOnlySet<string> VerbContextTimeCues { get; init; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Compiled compare-shape vocabulary (single alternation regex). Null when no entries.</summary>
     public Regex? CompareMarkersRegex { get; init; }
 

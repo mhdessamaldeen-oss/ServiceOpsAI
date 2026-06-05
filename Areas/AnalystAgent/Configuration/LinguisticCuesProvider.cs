@@ -93,6 +93,8 @@ internal sealed class LinguisticCuesProvider : ILinguisticCuesProvider
                 AntiJoin       = (IReadOnlyList<string>)(raw.AntiJoin ?? new List<string>()),
                 OrderingIntent = (IReadOnlyList<string>)(raw.OrderingIntent ?? new List<string>()),
                 DateColumnTokens = (IReadOnlyList<string>)(raw.DateColumnTokens ?? new List<string>()),
+                VerbContextPrepositions = ToCaseInsensitiveSet(raw.VerbContextPrepositions),
+                VerbContextTimeCues     = ToCaseInsensitiveSet(raw.VerbContextTimeCues),
                 CompareMarkersRegex = CompileAlternation(raw.CompareMarkers, wholeWord: true),
                 TextSearchTriggers  = CompileRegexList(raw.TextSearchTriggers),
                 KnowledgeQuestionRegex = CompileKnowledgeQuestionRegex(raw.KnowledgeQuestion?.Verbs),
@@ -193,6 +195,18 @@ internal sealed class LinguisticCuesProvider : ILinguisticCuesProvider
         var pattern = $@"^\s*(?:{verbAlt})\s+(?:(?:a|an|the)\s+)?(?<term>{token}(?:\s+{token}){{0,2}})[?؟.\s]*$";
         try { return new Regex(pattern, DefaultOptions); }
         catch (ArgumentException) { return null; }
+    }
+
+    /// <summary>Build a case-insensitive lookup set from a phrase list (skipping null/blank entries).
+    /// Used for closed-class grammar cue sets that are matched by exact single-token Contains, not regex.
+    /// Returns an empty set (never null) when the source is empty.</summary>
+    private static IReadOnlySet<string> ToCaseInsensitiveSet(List<string>? words)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (words is null) return set;
+        foreach (var w in words)
+            if (!string.IsNullOrWhiteSpace(w)) set.Add(w.Trim());
+        return set;
     }
 
     /// <summary>Compile a list of full regex patterns to <see cref="Regex"/> objects, skipping malformed entries.</summary>

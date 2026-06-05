@@ -141,6 +141,25 @@ public sealed class LocaleCues
     /// only — never affects SQL or answers. e.g. "date", "createdat", "month", "year".
     /// </summary>
     public List<string> DateColumnTokens { get; set; } = new();
+
+    /// <summary>
+    /// CLOSED-CLASS GRAMMAR (not domain vocab): function words that — immediately AFTER an enum
+    /// word — mark it as a VERB/temporal usage rather than an adjective ("issued IN ...", "paid BY
+    /// ...", "created ON ..."). Consumed by ValueLinker.IsVerbContext to suppress a spurious status
+    /// filter. Per-locale so a non-English deployment keeps the verb-context guard active. When this
+    /// list is absent for the question's language, the in-code English fallback applies (byte-identical
+    /// to the pre-externalisation behaviour). Not 'of'/'to'/'at' (too weak).
+    /// </summary>
+    public List<string> VerbContextPrepositions { get; set; } = new();
+
+    /// <summary>
+    /// CLOSED-CLASS GRAMMAR (not domain vocab): temporal adverbs / function words that — immediately
+    /// AFTER an enum word — mark it as a past-tense VERB introducing a time clause ("issued SO far",
+    /// "closed LAST month", "paid YET"). Consumed by ValueLinker.IsVerbContext only when the time-cue
+    /// arm is enabled. Per-locale; absent-for-language → in-code English fallback (byte-identical).
+    /// A bare number after the enum word ("issued 2024") is handled separately in IsVerbContext.
+    /// </summary>
+    public List<string> VerbContextTimeCues { get; set; } = new();
 }
 
 public sealed class KnowledgeQuestionCues

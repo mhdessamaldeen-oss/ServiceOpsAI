@@ -25,6 +25,7 @@ internal sealed class ValueLinker : IValueLinker
     private readonly Abstractions.ITextEmbedder _embedder;
     private readonly IOptions<AnalystOptions> _options;
     private readonly Schema.IAnalystSchemaAccessPolicy _accessPolicy;
+    private readonly ILinguisticRegistry _linguistic;
     private readonly ILogger<ValueLinker> _logger;
 
     // Process-wide cache of (table.col=value -> embedding) for cross-lingual matching. Values are stable
@@ -38,6 +39,7 @@ internal sealed class ValueLinker : IValueLinker
         Abstractions.ITextEmbedder embedder,
         IOptions<AnalystOptions> options,
         Schema.IAnalystSchemaAccessPolicy accessPolicy,
+        ILinguisticRegistry linguistic,
         ILogger<ValueLinker> logger)
     {
         _catalog = catalog;
@@ -46,6 +48,7 @@ internal sealed class ValueLinker : IValueLinker
         _embedder = embedder;
         _options = options;
         _accessPolicy = accessPolicy;
+        _linguistic = linguistic;
         _logger = logger;
     }
 
@@ -128,6 +131,12 @@ internal sealed class ValueLinker : IValueLinker
             }
         }
 
+        // Verb-context cue sets for IsVerbContext, sourced ONCE per question from the linguistic registry,
+        // language-detected from the question text. Closed-class grammar (function words / temporal adverbs),
+        // per-locale + English-fallback — so the verb-context guard stays active on a non-English deployment
+        // instead of silently no-op'ing. IsVerbContext itself stays a pure static (the sets are passed IN).
+        var verbCues = _linguistic.GetVerbContextCues(Internal.QuestionLanguageDetector.Detect(question));
+
         // Inline-enum pass: bind question tokens to LOW-CARDINALITY string-column VALUES on the linked
         // tables THEMSELVES (Bills.Status='Overdue', Outages.Severity='Critical') — fact-table enums the
         // lookup pass above never sees (it only enumerates small lookup TABLES, bailing over 500 rows).
@@ -157,7 +166,7 @@ internal sealed class ValueLinker : IValueLinker
                 // "active ACCOUNTS", "completed work ORDERS" are real status filters (followed by a noun).
                 // Fact-table enum values double as common past-tense verbs (issued/paid/completed), so this
                 // cuts the over-bind the fresh TEMPORAL suite exposed without touching the adjective bindings.
-                if (IsVerbContext(qFolded, valFolded, entityNouns, _options.Value.EnableVerbTimeCueGuard)) continue;
+                if (IsVerbContext(qFolded, valFolded, entityNouns, verbCues.Prepositions, verbCues.TimeCues, _options.Value.EnableVerbTimeCueGuard)) continue;
                 var key = t.Name + "." + col + "=" + val;
                 if (!seenPerTableColumn.Add(key)) continue;
                 results.Add(new ValueLinkBinding(
@@ -207,30 +216,6 @@ internal sealed class ValueLinker : IValueLinker
 
         return results;
     }
-
-    /// <summary>
-    /// Returns the union of: (a) <paramref name="seeds"/> themselves and (b) all tables reachable
-    /// via 1-hop FK from any seed AND whose entity is marked IsLookup OR has a Label column
-    /// (heuristic lookup-shaped). The expansion is bidirectional (parent ↔ referenced).
-    /// <para>1 hop, NOT 2: a 2-hop bidirectional reach pulled in DISTANT, unrelated lookups — e.g. an
-    /// "outages" question reached TicketPriorities via Regions ← Tickets → TicketPriorities, so "critical"
-    /// mis-bound TicketPriorities.Name instead of Outages.Severity and forced an invalid join. A direct
-    /// (1-hop) FK neighbor is the lookup the question's tables actually reference.</para>
-    /// </summary>
-    // Prepositions that, immediately AFTER an enum word, mark it as a verb/temporal usage rather than an
-    // adjective filter ("issued IN ...", "paid BY ...", "created ON ..."). Not 'of'/'to'/'at' (too weak).
-    private static readonly HashSet<string> VerbContextPrepositions = new(System.StringComparer.OrdinalIgnoreCase)
-    { "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from" };
-
-    // Closed grammar set of English FUNCTION words / temporal adverbs that, immediately AFTER an enum word,
-    // mark it as a past-tense VERB introducing a time clause ("issued SO far", "closed LAST month",
-    // "paid YET", "resolved RECENTLY") rather than an adjective filter. These are not data/domain vocabulary —
-    // they are language closed-class words, so this stays portable to any schema. Used only by IsVerbContext
-    // and only when the time-cue arm is enabled. A bare number after the enum word ("issued 2024") is handled
-    // separately in IsVerbContext (digit check), so years/quarters are not enumerated here.
-    private static readonly HashSet<string> VerbContextTimeCues = new(System.StringComparer.OrdinalIgnoreCase)
-    { "this", "last", "next", "so", "today", "yesterday", "tomorrow", "ago", "ytd", "now", "currently",
-      "recently", "lately", "yet", "already", "still", "when", "while", "until", "till" };
 
     /// <summary>
     /// Canonical "comparison form" of a DB value OR a question span: lower-cased, with a SPACE inserted at every
@@ -316,20 +301,26 @@ internal sealed class ValueLinker : IValueLinker
     ///   <item><b>ATTRIBUTIVE OVERRIDE (wins):</b> if the next token is the entity NOUN
     ///   (<paramref name="entityNouns"/> = the linked table's Name + auto-generated singular/plural Synonyms),
     ///   the enum word is an adjective modifying the entity → return false (BIND). Covers "overdue BILLS".</item>
-    ///   <item><b>Verb preposition:</b> next token in <see cref="VerbContextPrepositions"/> ("issued IN",
+    ///   <item><b>Verb preposition:</b> next token in <paramref name="prepositions"/> ("issued IN",
     ///   "paid BY") → return true (SKIP). Always on (the original behaviour).</item>
     ///   <item><b>Time-cue arm (gated by <paramref name="enableTimeCueArm"/>):</b> next token in
-    ///   <see cref="VerbContextTimeCues"/> ("issued SO far", "closed LAST month") OR a bare number
+    ///   <paramref name="timeCues"/> ("issued SO far", "closed LAST month") OR a bare number
     ///   ("issued 2024") → return true (SKIP).</item>
     ///   <item><b>Default:</b> return false (BIND).</item>
     /// </list>
     /// <para>No token after the value (value ends the question, e.g. "list bills that are on hold") → return
     /// false (BIND), the original behaviour. <paramref name="entityNouns"/> may be null/empty (no override).</para>
+    /// <para>STAYS PURE + TESTABLE: the two closed-class cue sets (<paramref name="prepositions"/> /
+    /// <paramref name="timeCues"/>) are passed IN by the caller (sourced per-locale from the linguistic
+    /// registry), never read from a static — so this method is language-agnostic and unit-testable in
+    /// isolation. Both sets are case-insensitive; null is treated as empty.</para>
     /// </summary>
     internal static bool IsVerbContext(
         string qFoldedPadded,
         string valFolded,
         System.Collections.Generic.IReadOnlyCollection<string> entityNouns,
+        System.Collections.Generic.IReadOnlySet<string> prepositions,
+        System.Collections.Generic.IReadOnlySet<string> timeCues,
         bool enableTimeCueArm)
     {
         var needle = " " + valFolded + " ";
@@ -345,13 +336,13 @@ internal sealed class ValueLinker : IValueLinker
         if (entityNouns != null && entityNouns.Contains(nextToken)) return false;
 
         // 2. Verb preposition ("issued IN", "paid BY") → verb → SKIP.
-        if (VerbContextPrepositions.Contains(nextToken)) return true;
+        if (prepositions != null && prepositions.Contains(nextToken)) return true;
 
         // 3. Time-cue arm: temporal adverb ("issued SO far", "closed LAST month") or a bare year/number
         //    ("issued 2024") → verb introducing a time clause → SKIP. Gated so an operator can disable it.
         if (enableTimeCueArm)
         {
-            if (VerbContextTimeCues.Contains(nextToken)) return true;
+            if (timeCues != null && timeCues.Contains(nextToken)) return true;
             if (nextToken.Length > 0 && nextToken.All(char.IsDigit)) return true;
         }
 
@@ -504,6 +495,15 @@ internal sealed class ValueLinker : IValueLinker
         return (float)(dot / (System.Math.Sqrt(na) * System.Math.Sqrt(nb)));
     }
 
+    /// <summary>
+    /// Returns the union of: (a) <paramref name="seeds"/> themselves and (b) all tables reachable
+    /// via 1-hop FK from any seed AND whose entity is marked IsLookup OR has a Label column
+    /// (heuristic lookup-shaped). The expansion is bidirectional (parent ↔ referenced).
+    /// <para>1 hop, NOT 2: a 2-hop bidirectional reach pulled in DISTANT, unrelated lookups — e.g. an
+    /// "outages" question reached TicketPriorities via Regions ← Tickets → TicketPriorities, so "critical"
+    /// mis-bound TicketPriorities.Name instead of Outages.Severity and forced an invalid join. A direct
+    /// (1-hop) FK neighbor is the lookup the question's tables actually reference.</para>
+    /// </summary>
     private List<string> ExpandToLookupNeighbors(List<string> seeds)
     {
         var visited = new HashSet<string>(seeds, System.StringComparer.OrdinalIgnoreCase);

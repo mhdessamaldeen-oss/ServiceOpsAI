@@ -148,6 +148,7 @@ public class ValueLinkerFoldedMatchTests
             Mock.Of<ITextEmbedder>(),
             options,
             policy.Object,
+            FakeLinguisticRegistry.WithEnglishVerbCues(),
             NullLogger<ValueLinker>.Instance);
     }
 

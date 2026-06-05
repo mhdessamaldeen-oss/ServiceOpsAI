@@ -58,7 +58,22 @@ public interface ILinguisticRegistry
     /// "how many", "متوسط", "عدد"). Sourced from <c>linguistic-cues.json aggregateMarkers</c> per
     /// locale.</summary>
     bool LooksLikeAggregateQuery(string question);
+
+    /// <summary>The closed-class verb-context CUE sets for a given language code ("en"/"ar"/…): the
+    /// function words that — immediately after an enum word — mark it as a VERB (Prepositions: "issued
+    /// IN") or a past-tense verb introducing a time clause (TimeCues: "issued SO far"). Sourced from
+    /// <c>linguistic-cues.json verbContextPrepositions / verbContextTimeCues</c> for that locale.
+    /// <para>When the requested locale declares NEITHER set (e.g. the file is absent, or a locale block
+    /// omits both), the built-in ENGLISH fallback is returned so behaviour is byte-identical to the
+    /// pre-externalisation hardcoded sets. Both returned sets are case-insensitive and never null.</para></summary>
+    VerbContextCues GetVerbContextCues(string languageCode);
 }
+
+/// <summary>The two closed-class grammar sets ValueLinker.IsVerbContext consumes. Case-insensitive,
+/// never null. Pure data — no domain vocabulary.</summary>
+public sealed record VerbContextCues(
+    System.Collections.Generic.IReadOnlySet<string> Prepositions,
+    System.Collections.Generic.IReadOnlySet<string> TimeCues);
 
 public enum CueKind { Absence, AllTime, Distinct, Negation, Comparison }
 

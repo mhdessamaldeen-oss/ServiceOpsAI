@@ -68,6 +68,7 @@ public class ValueLinkerWordCapTests
             Mock.Of<ITextEmbedder>(),
             options,
             policy.Object,
+            FakeLinguisticRegistry.WithEnglishVerbCues(),
             NullLogger<ValueLinker>.Instance);
     }
 

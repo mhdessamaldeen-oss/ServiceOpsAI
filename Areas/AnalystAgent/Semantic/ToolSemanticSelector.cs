@@ -51,8 +51,8 @@ internal sealed class ToolSemanticSelector : IToolSemanticSelector
 
     private readonly IToolRegistry _registry;
     private readonly ITextEmbedder _embedder;
-    private readonly IMemoryCache _cache;
     private readonly ILogger<ToolSemanticSelector> _logger;
+    private readonly EmbeddingVectorCache<ToolDefinition> _vectorCache;
 
     public ToolSemanticSelector(
         IToolRegistry registry,
@@ -62,8 +62,10 @@ internal sealed class ToolSemanticSelector : IToolSemanticSelector
     {
         _registry = registry;
         _embedder = embedder;
-        _cache = cache;
         _logger = logger;
+        // Compose the shared prime+rank+fail-open cache. This selector keeps its own label builder
+        // (BuildToolLabel) and cache-key builder (model name + content hash of the enabled tool set).
+        _vectorCache = new EmbeddingVectorCache<ToolDefinition>(embedder, cache, logger);
     }
 
     public bool IsAvailable =>
@@ -74,78 +76,18 @@ internal sealed class ToolSemanticSelector : IToolSemanticSelector
     {
         if (string.IsNullOrWhiteSpace(question) || tools is null || tools.Count == 0)
             return Array.Empty<(ToolDefinition, float)>();
-        if (string.IsNullOrEmpty(_embedder.ModelName))
-            return Array.Empty<(ToolDefinition, float)>();
 
-        try
-        {
-            var queryVec = await _embedder.EmbedAsync(question, cancellationToken);
-            if (queryVec.Length == 0) return Array.Empty<(ToolDefinition, float)>();   // fail-open
-
-            var toolVecs = await GetToolVectorsAsync(tools, cancellationToken);
-            if (toolVecs.Count == 0) return Array.Empty<(ToolDefinition, float)>();
-
-            var scored = new List<(ToolDefinition Tool, float Score)>(toolVecs.Count);
-            foreach (var (tool, vec) in toolVecs)
-            {
-                if (vec.Length != queryVec.Length) continue;
-                scored.Add((tool, AnalystAgent.Retrieval.VectorMath.Cosine(queryVec, vec)));
-            }
-            scored.Sort((a, b) => b.Score.CompareTo(a.Score));
-            return scored;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[ToolSemanticSelector] RankAsync failed for '{Q}'.", question);
-            return Array.Empty<(ToolDefinition, float)>();   // fail-open
-        }
-    }
-
-    /// <summary>Single-flight semaphore — when concurrent callers race to prime the tool vectors, only one
-    /// issues the embedder calls; the rest wait and read the populated cache. STATIC so the guarantee is
-    /// process-wide: this selector is registered Scoped (it consumes the scoped tool registry), so a per-instance
-    /// lock would let concurrent cold-cache requests each prime. The cache is the shared singleton IMemoryCache;
-    /// a static lock makes the single-flight match it. (Keyed writes are idempotent + fail-open either way.)</summary>
-    private static readonly SemaphoreSlim _primingLock = new(1, 1);
-
-    private async Task<IReadOnlyList<(ToolDefinition Tool, float[] Vector)>> GetToolVectorsAsync(
-        IReadOnlyList<ToolDefinition> tools, CancellationToken cancellationToken)
-    {
-        // Cache key folds in the content hash of the enabled tool set so an admin edit (title /
-        // description / keyword / key) auto-invalidates — the next call re-primes against the new rows.
+        // Cache key folds in the embedder model name + a content hash of the enabled tool set, so an admin
+        // edit (title / description / keyword / key) OR a model swap auto-invalidates — the next call re-primes.
         var cacheKey = CachePrefix + (_embedder.ModelName ?? "default") + "::" + ComputeToolSetHash(tools);
-        if (_cache.TryGetValue<IReadOnlyList<(ToolDefinition, float[])>>(cacheKey, out var cached) && cached is not null)
-            return cached;
 
-        await _primingLock.WaitAsync(cancellationToken);
-        try
-        {
-            // Re-check: another caller may have populated the cache while we waited.
-            if (_cache.TryGetValue<IReadOnlyList<(ToolDefinition, float[])>>(cacheKey, out cached) && cached is not null)
-                return cached;
+        // Shared prime + cosine-rank + fail-open. Returns scored pairs in input order; sort descending here.
+        var scored = await _vectorCache.PrimeAndRankAsync(tools, BuildToolLabel, cacheKey, question, cancellationToken);
+        if (scored.Count == 0) return Array.Empty<(ToolDefinition, float)>();
 
-            var built = new List<(ToolDefinition, float[])>(tools.Count);
-            foreach (var t in tools)
-            {
-                var label = BuildToolLabel(t);
-                if (string.IsNullOrWhiteSpace(label)) continue;
-                try
-                {
-                    var vec = await _embedder.EmbedAsync(label, cancellationToken);
-                    if (vec.Length > 0) built.Add((t, vec));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "[ToolSemanticSelector] tool priming failed for '{Key}'.", t.ToolKey);
-                }
-            }
-            _cache.Set(cacheKey, (IReadOnlyList<(ToolDefinition, float[])>)built);   // no expiry — invalidated on model swap or tool edit via cache key
-            return built;
-        }
-        finally
-        {
-            _primingLock.Release();
-        }
+        var ordered = new List<(ToolDefinition Tool, float Score)>(scored);
+        ordered.Sort((a, b) => b.Score.CompareTo(a.Score));
+        return ordered;
     }
 
     /// <summary>Compose a single vector-friendly string from the tool. Description is the
