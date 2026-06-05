@@ -35,6 +35,20 @@ public interface ILlmDirectSqlEmitter
         IReadOnlyList<string> candidateTableNames,
         IReadOnlyList<string> groundingHints,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sampling overload for the execution-guided self-consistency path. Identical to the grounded
+    /// overload above, but threads <paramref name="sampling"/> (temperature / seed) into the one LLM
+    /// call so the orchestrator can draw DIVERSE SQL candidates for the same question. A null
+    /// <paramref name="sampling"/> is byte-identical to the grounded overload (which delegates here
+    /// with null).
+    /// </summary>
+    Task<DirectSqlResult> EmitAsync(
+        string question,
+        IReadOnlyList<string> candidateTableNames,
+        IReadOnlyList<string> groundingHints,
+        AnalystAgent.Abstractions.LlmSamplingOptions? sampling,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record DirectSqlResult(
@@ -71,10 +85,18 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
         CancellationToken cancellationToken = default)
         => EmitAsync(question, candidateTableNames, System.Array.Empty<string>(), cancellationToken);
 
+    public Task<DirectSqlResult> EmitAsync(
+        string question,
+        IReadOnlyList<string> candidateTableNames,
+        IReadOnlyList<string> groundingHints,
+        CancellationToken cancellationToken = default)
+        => EmitAsync(question, candidateTableNames, groundingHints, sampling: null, cancellationToken);
+
     public async Task<DirectSqlResult> EmitAsync(
         string question,
         IReadOnlyList<string> candidateTableNames,
         IReadOnlyList<string> groundingHints,
+        AnalystAgent.Abstractions.LlmSamplingOptions? sampling,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(question))
@@ -97,7 +119,9 @@ internal sealed class LlmDirectSqlEmitter : ILlmDirectSqlEmitter
         {
             using var hint = LlmCallStageHint.Use("LlmDirectSqlEmitter");
             var systemPrompt = _textCatalog.CurrentValue.DirectSqlSystemPrompt;
-            raw = await _llm.GenerateTextAsync(systemPrompt, prompt, cancellationToken);
+            // Sampling threads through only on the self-consistency draws; null → byte-identical to the
+            // legacy call (the default-interface overload forwards to the no-sampling GenerateTextAsync).
+            raw = await _llm.GenerateTextAsync(systemPrompt, prompt, sampling, cancellationToken);
         }
         catch (Exception ex)
         {

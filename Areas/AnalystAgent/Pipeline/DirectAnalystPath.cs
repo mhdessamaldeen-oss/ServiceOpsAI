@@ -45,6 +45,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
     private readonly IExecutor _executor;
     private readonly IExplainer _explainer;
     private readonly IResponsePersister _persister;
+    private readonly IRetryBudget _retryBudget;
     private readonly IOptions<AnalystOptions> _options;
     private readonly ILogger<DirectAnalystPath> _logger;
 
@@ -58,6 +59,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         IExecutor executor,
         IExplainer explainer,
         IResponsePersister persister,
+        IRetryBudget retryBudget,
         IOptions<AnalystOptions> options,
         ILogger<DirectAnalystPath> logger)
     {
@@ -70,6 +72,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         _executor = executor;
         _explainer = explainer;
         _persister = persister;
+        _retryBudget = retryBudget;
         _options = options;
         _logger = logger;
     }
@@ -161,165 +164,50 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             string? emptyHint = null;
             (CompiledSql Compiled, ExecutionResult Exec)? emptyFallback = null;
             const int maxAttempts = 3;
+            // Holds the greedy attempt's outcome so the self-consistency fallback can REUSE it as
+            // candidate 0 (it is NOT re-called). Captured from the last error-free greedy attempt.
+            AttemptOutcome? greedyCandidate = null;
             for (int attempt = 0; attempt < maxAttempts; attempt++)
             {
-                lossyRepairFired = false;   // per-attempt: the shipping attempt's provenance must be its own
-                var strippedValueLiteral = false;   // a load-bearing value filter was lossily dropped this attempt
-                var repairsApplied = new List<(string Name, string Before, string After)>();  // for the trace
                 var attemptHints = hints;
                 if (lastError is not null)
                     attemptHints = hints.Append($"Your previous T-SQL failed with this SQL Server error — FIX it and re-output valid T-SQL (use a WITH CTE if a derived-table alias was referenced out of scope): {lastError}").ToList();
                 else if (emptyHint is not null)
                     attemptHints = hints.Append(emptyHint).ToList();
 
-                var emitSw = Stopwatch.StartNew();
-                var emit = await _emitter.EmitAsync(question, tableNames, attemptHints, cancellationToken);
-                emitSw.Stop();
-                steps.RecordSqlEmit(question, emit, attempt, emitSw.ElapsedMilliseconds);
-                if (string.IsNullOrWhiteSpace(emit.Sql))
+                // One full attempt: emit → deterministic repairs → validate → execute → invalid-column
+                // repairs. Pure mechanical extraction (sampling=null here ⇒ identical to the inline block
+                // before the refactor), so the greedy loop's behavior is unchanged.
+                var outcome = await EmitRepairValidateExecuteOnce(
+                    question, tableNames, attemptHints, grounding, sampling: null, attemptLabel: attempt, steps, cancellationToken);
+
+                // KEYSTONE — surface the shipping attempt's repair provenance to PersistAsync.
+                lossyRepairFired = outcome.LossyStripFired;
+
+                if (outcome.EmitProducedNoSql)
                 {
-                    _logger.LogInformation("[DirectAnalystPath] emit produced no SQL (attempt {Attempt}) for q='{Q}': {Reason}", attempt, question, emit.Error ?? "(no reason)");
+                    _logger.LogInformation("[DirectAnalystPath] emit produced no SQL (attempt {Attempt}) for q='{Q}': {Reason}", attempt, question, outcome.EmitError ?? "(no reason)");
                     break;
                 }
-
-                // OVER-FILTER GUARD: the 7B invents an unrequested status/lifecycle filter (WHERE Status='Paid'
-                // on "total of all bills") regardless of the system-prompt rule. Deterministically strip a
-                // status-column equality whose literal is neither in the question nor a grounded value — it was
-                // made up. No prompt, no LLM; the one fix for the model prior that prose can't reach.
-                var sqlToUse = emit.Sql!;
-                if (TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped,
-                        trustGroundingOnly: _options.Value.StripStatusFilterTrustGroundingOnly))
+                if (outcome.ValidationFailed)
                 {
-                    _logger.LogInformation("[DirectAnalystPath] stripped unrequested status filter for q='{Q}': {Before} => {After}", question, sqlToUse, deScoped);
-                    repairsApplied.Add(("unrequested-status-strip", sqlToUse, deScoped));
-                    sqlToUse = deScoped;
-                }
-                // Same model prior, boolean flavour: an invented IsPlanned=0 / IsActive=1 the question never named.
-                if (TryStripUnrequestedFlagFilter(sqlToUse, question, out var deFlagged))
-                {
-                    _logger.LogInformation("[DirectAnalystPath] stripped unrequested boolean-flag filter for q='{Q}': {Before} => {After}", question, sqlToUse, deFlagged);
-                    repairsApplied.Add(("unrequested-flag-strip", sqlToUse, deFlagged));
-                    sqlToUse = deFlagged;
-                }
-                // A grounded enum value ("overdue"->Bills.Status) means an invented relative-date predicate
-                // (WHERE DueDate<GETDATE()) is the model APPROXIMATING that concept — strip it so the injector's
-                // grounded Status filter stands alone (else they AND to an empty intersection). No temporal cue → safe.
-                if (TryStripUngroundedDatePredicate(sqlToUse, grounding.LinkedValues.Count > 0, grounding.LinkedTemporal.Count > 0, out var deDated))
-                {
-                    _logger.LogInformation("[DirectAnalystPath] stripped ungrounded relative-date predicate for q='{Q}': {Before} => {After}", question, sqlToUse, deDated);
-                    repairsApplied.Add(("ungrounded-date-strip", sqlToUse, deDated));
-                    sqlToUse = deDated;
-                }
-                // Symmetric to the strip: ENFORCE a filter the question named but the 7B dropped (flaky under-filter).
-                if (TryInjectGroundedValueFilters(sqlToUse, grounding.LinkedValues.Select(v => (v.Table, v.Column, v.Value)), out var injected))
-                {
-                    _logger.LogInformation("[DirectAnalystPath] injected grounded value filter for q='{Q}': {Before} => {After}", question, sqlToUse, injected);
-                    repairsApplied.Add(("grounded-value-injection", sqlToUse, injected));
-                    sqlToUse = injected;
-                }
-                // GRAIN: a label-only GROUP BY merges distinct entities sharing a name — add the entity key.
-                if (TryFixGroupByGrain(sqlToUse, _knowledge.GetTable, out var regrained))
-                {
-                    _logger.LogInformation("[DirectAnalystPath] fixed GROUP BY grain (added entity key) for q='{Q}': {Before} => {After}", question, sqlToUse, regrained);
-                    repairsApplied.Add(("group-by-grain-fix", sqlToUse, regrained));
-                    sqlToUse = regrained;
-                }
-                // CONTRADICTION: same column = two different literals (the bilingual "Name='مفتوحة' AND Name='Open'"
-                // case → 0 rows). Keep the grounded literal, drop the other. Backstops the in-injector conflict-
-                // replace, which misses some column-qualification forms. Runs last so it sees model + injected SQL.
-                if (TryResolveContradictoryEqualityLiterals(sqlToUse, grounding.LinkedValues.Select(v => v.Value), out var deConflicted))
-                {
-                    _logger.LogInformation("[DirectAnalystPath] resolved contradictory equality literals for q='{Q}': {Before} => {After}", question, sqlToUse, deConflicted);
-                    repairsApplied.Add(("contradiction-resolution", sqlToUse, deConflicted));
-                    sqlToUse = deConflicted;
-                }
-
-                var compiled = new CompiledSql(sqlToUse, new Dictionary<string, object?>());
-                var validation = _validator.Validate(compiled);
-                if (!validation.IsValid)
-                {
-                    steps.RecordValidatorFailed(compiled, validation.Errors, attempt);
-                    lastError = string.Join("; ", validation.Errors); emptyHint = null;
-                    _logger.LogInformation("[DirectAnalystPath] validation rejected (attempt {Attempt}) for q='{Q}': {Errors}\n  SQL: {Sql}", attempt, question, lastError, emit.Sql);
+                    lastError = outcome.Error; emptyHint = null;
+                    _logger.LogInformation("[DirectAnalystPath] validation rejected (attempt {Attempt}) for q='{Q}': {Errors}\n  SQL: {Sql}", attempt, question, lastError, outcome.EmitSql);
                     continue;
                 }
-                steps.RecordValidatorOk(compiled, attempt);
 
-                var execSw = Stopwatch.StartNew();
-                var exec = await _executor.ExecuteAsync(compiled, cancellationToken);
-
-                // Deterministic invalid-column repairs, PRECISE before LOSSY (order is load-bearing):
-                //
-                // (1) Bilingual-column repair FIRST. The 7B uses the wrong locale form of a label column
-                //     in EITHER direction — wrote `Name` where the real column is `NameEn`, OR wrote
-                //     `TicketStatuses.NameEn` where the real column is a plain `Name`. Resolving it from
-                //     the schema PRESERVES the predicate/projection (intent was right, only the column
-                //     name was wrong). This MUST precede the strip below: stripping a real
-                //     `TicketStatuses.NameEn = 'Open'` predicate counted ALL tickets, not the open ones.
-                //     Operates on compiled.Sql (chains on any earlier status-strip/inject). No LLM call.
-                if (exec.Error is not null &&
-                    TryResolveInvalidProjectionColumn(
-                        compiled.Sql, exec.Error, tableNames, _knowledge.GetTable,
-                        _options.Value.BilingualLocaleSuffixes,
-                        Internal.QuestionLanguageDetector.Detect(question), out var colRepaired))
-                {
-                    // The bilingual rewrite can MAP the model's Arabic-literal predicate onto the SAME column as
-                    // a grounded English value (NameAr='مفتوحة' → Name='مفتوحة', alongside an injected/own
-                    // Name='Open') — a FRESH same-column contradiction that didn't exist pre-execution (the
-                    // columns were NameAr vs Name then). Resolve it here, on the rewritten SQL, before re-exec.
-                    if (TryResolveContradictoryEqualityLiterals(colRepaired, grounding.LinkedValues.Select(v => v.Value), out var colDeconflicted))
-                        colRepaired = colDeconflicted;
-                    var recompiledCol = new CompiledSql(colRepaired, new Dictionary<string, object?>());
-                    if (_validator.Validate(recompiledCol).IsValid)
-                    {
-                        var reexecCol = await _executor.ExecuteAsync(recompiledCol, cancellationToken);
-                        if (reexecCol.Error is null)
-                        {
-                            _logger.LogInformation("[DirectAnalystPath] deterministic bilingual-column repair succeeded for q='{Q}'", question);
-                            repairsApplied.Add(("bilingual-column-fix", compiled.Sql, colRepaired));
-                            compiled = recompiledCol;
-                            exec = reexecCol;
-                        }
-                    }
-                }
-
-                // (2) Strip-predicate FALLBACK — only when the column genuinely has no real sibling (the
-                //     dominant case: the 7B bolts `IsDeleted = 0` onto a table that lacks it, and re-emits
-                //     it when the error is fed back). LOSSY (drops the predicate), so it runs only after
-                //     the precise bilingual repair above had its chance. No LLM call, no wasted retry.
-                if (exec.Error is not null && TryStripInvalidColumnPredicate(compiled.Sql, exec.Error, out var repaired))
-                {
-                    var recompiled = new CompiledSql(repaired, new Dictionary<string, object?>());
-                    if (_validator.Validate(recompiled).IsValid)
-                    {
-                        var reexec = await _executor.ExecuteAsync(recompiled, cancellationToken);
-                        if (reexec.Error is null)
-                        {
-                            _logger.LogInformation("[DirectAnalystPath] deterministic invalid-column repair succeeded for q='{Q}'", question);
-                            repairsApplied.Add(("lossy-invalid-column-strip", compiled.Sql, repaired));
-                            // LOAD-BEARING if the dropped predicate carried a value LITERAL (WHERE BadCol='X') —
-                            // a filter the question wanted — vs a flag (IsDeleted=0). Counting string literals
-                            // before/after isolates that: fewer literals after ⇒ a value filter was lost.
-                            strippedValueLiteral = CountStringLiterals(compiled.Sql) > CountStringLiterals(repaired);
-                            compiled = recompiled;
-                            exec = reexec;
-                            lossyRepairFired = true;   // KEYSTONE: this strip drops a predicate → floor confidence
-                        }
-                    }
-                }
-                execSw.Stop();
-                steps.RecordExecutor(compiled, exec, execSw.ElapsedMilliseconds, attempt);
-                // Surface the deterministic repairs in the trace (richer investigation detail) — one step per
-                // attempt listing every no-LLM repair that fired, with before→after, so the UI shows WHY the
-                // final SQL differs from the model's first emit.
-                steps.RecordRepairsApplied(repairsApplied, attempt);
+                CompiledSql compiled = outcome.Compiled!;
+                ExecutionResult exec = outcome.Exec!;
 
                 if (exec.Error is not null)
                 {
                     lastError = exec.Error; emptyHint = null;
-                    _logger.LogInformation("[DirectAnalystPath] execution error (attempt {Attempt}) for q='{Q}': {Error}\n  SQL: {Sql}", attempt, question, exec.Error, emit.Sql);
+                    _logger.LogInformation("[DirectAnalystPath] execution error (attempt {Attempt}) for q='{Q}': {Error}\n  SQL: {Sql}", attempt, question, exec.Error, outcome.EmitSql);
                     continue;
                 }
+
+                // First error-free greedy attempt becomes self-consistency candidate 0 (reused, not re-run).
+                greedyCandidate ??= outcome;
 
                 // Verify: resample a suspicious empty result, keeping it as the honest fallback.
                 // ENH-2: but TRUST a grounded empty — when the question produced explicit filters
@@ -344,18 +232,22 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                     _logger.LogInformation(
                         "[DirectAnalystPath] ABSTAIN — zero grounding + no aggregate (generic projection) for q='{Q}'\n  SQL: {Sql}",
                         question, compiled.Sql);
-                    return null; // honest abstain → caller surfaces "could not answer"
+                    return await AbstainOrSelfConsistentAsync(
+                        "ungrounded-projection", request, question, tableNames, hints, grounding,
+                        greedyCandidate, totalSw, steps, PersistAsync, cancellationToken);
                 }
                 // Load-bearing-lossy-strip backstop: a value filter the question wanted was dropped and nothing
                 // grounded replaced it → the answer is over-broad. Abstain rather than ship a confident wrong
                 // number (keeps the zero-confident-wrong posture on data the agent wasn't tuned on).
                 if (exec.RowCount > 0
-                    && ShouldAbstainAfterLoadBearingLossyStrip(strippedValueLiteral, grounding, _options.Value))
+                    && ShouldAbstainAfterLoadBearingLossyStrip(outcome.StrippedValueLiteral, grounding, _options.Value))
                 {
                     _logger.LogInformation(
                         "[DirectAnalystPath] ABSTAIN — a load-bearing value filter was lossily stripped with no grounded replacement (over-broad answer) for q='{Q}'\n  SQL: {Sql}",
                         question, compiled.Sql);
-                    return null; // honest abstain
+                    return await AbstainOrSelfConsistentAsync(
+                        "load-bearing-lossy-strip", request, question, tableNames, hints, grounding,
+                        greedyCandidate, totalSw, steps, PersistAsync, cancellationToken);
                 }
                 return await PersistAsync(compiled, exec, attempt);
             }
@@ -363,7 +255,10 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             // All attempts errored or stayed empty — return the honest empty result if we got one.
             if (emptyFallback is { } ef)
                 return await PersistAsync(ef.Compiled, ef.Exec, maxAttempts);
-            return null; // genuinely couldn't answer → honest abstain
+            // genuinely couldn't answer → honest abstain (or self-consistency fallback when enabled).
+            return await AbstainOrSelfConsistentAsync(
+                "loop-fallthrough", request, question, tableNames, hints, grounding,
+                greedyCandidate, totalSw, steps, PersistAsync, cancellationToken);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -917,5 +812,296 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         if (g.IsAllTimeIntent)
             hints.Add("the question is 'all time' — do NOT add a default date filter.");
         return hints;
+    }
+
+    // ── Self-consistency (Slice 1: abstain-fallback) ───────────────────────────────────────────
+
+    /// <summary>Outcome of ONE emit→repair→validate→execute pass — the unit of work shared by the
+    /// greedy loop and the self-consistency candidate draws. A pure carrier of the per-attempt result
+    /// so the loop's control flow (break / continue / resample / abstain / persist) reads from it.</summary>
+    private sealed class AttemptOutcome
+    {
+        public CompiledSql? Compiled { get; init; }
+        public ExecutionResult? Exec { get; init; }
+        public List<(string Name, string Before, string After)> RepairsApplied { get; init; } = new();
+        public bool LossyStripFired { get; init; }
+        public bool StrippedValueLiteral { get; init; }
+        public string? EmitSql { get; init; }
+        public string? EmitError { get; init; }
+        public bool EmitProducedNoSql { get; init; }
+        public bool ValidationFailed { get; init; }
+        /// <summary>Validation-error string (when <see cref="ValidationFailed"/>), else null.</summary>
+        public string? Error { get; init; }
+    }
+
+    /// <summary>
+    /// ONE full attempt: emit (with optional <paramref name="sampling"/>) → deterministic repairs →
+    /// validate → execute → invalid-column repairs. This is a PURE MECHANICAL extraction of the block
+    /// that used to live inline in the greedy loop — with <paramref name="sampling"/>=null it is
+    /// byte-for-byte equivalent (same repairs, same order, same trace recorders, same outcome), which is
+    /// what keeps the greedy path's behavior unchanged. The self-consistency draws call it with a
+    /// non-null sampling (temperature + distinct seed) to get DIVERSE candidates through the SAME path.
+    /// </summary>
+    private async Task<AttemptOutcome> EmitRepairValidateExecuteOnce(
+        string question, IReadOnlyList<string> tableNames, IReadOnlyList<string> attemptHints,
+        QuestionGroundingContext grounding, Abstractions.LlmSamplingOptions? sampling, int attemptLabel,
+        BroadcastingStepList steps, CancellationToken cancellationToken)
+    {
+        var strippedValueLiteral = false;   // a load-bearing value filter was lossily dropped this attempt
+        var lossyRepairFired = false;       // a lossy invalid-column strip fired this attempt
+        var repairsApplied = new List<(string Name, string Before, string After)>();  // for the trace
+
+        var emitSw = Stopwatch.StartNew();
+        var emit = await _emitter.EmitAsync(question, tableNames, attemptHints, sampling, cancellationToken);
+        emitSw.Stop();
+        steps.RecordSqlEmit(question, emit, attemptLabel, emitSw.ElapsedMilliseconds);
+        if (string.IsNullOrWhiteSpace(emit.Sql))
+            return new AttemptOutcome { EmitProducedNoSql = true, EmitSql = emit.Sql, EmitError = emit.Error };
+
+        // OVER-FILTER GUARD: the 7B invents an unrequested status/lifecycle filter (WHERE Status='Paid'
+        // on "total of all bills") regardless of the system-prompt rule. Deterministically strip a
+        // status-column equality whose literal is neither in the question nor a grounded value — it was
+        // made up. No prompt, no LLM; the one fix for the model prior that prose can't reach.
+        var sqlToUse = emit.Sql!;
+        if (TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped,
+                trustGroundingOnly: _options.Value.StripStatusFilterTrustGroundingOnly))
+        {
+            _logger.LogInformation("[DirectAnalystPath] stripped unrequested status filter for q='{Q}': {Before} => {After}", question, sqlToUse, deScoped);
+            repairsApplied.Add(("unrequested-status-strip", sqlToUse, deScoped));
+            sqlToUse = deScoped;
+        }
+        // Same model prior, boolean flavour: an invented IsPlanned=0 / IsActive=1 the question never named.
+        if (TryStripUnrequestedFlagFilter(sqlToUse, question, out var deFlagged))
+        {
+            _logger.LogInformation("[DirectAnalystPath] stripped unrequested boolean-flag filter for q='{Q}': {Before} => {After}", question, sqlToUse, deFlagged);
+            repairsApplied.Add(("unrequested-flag-strip", sqlToUse, deFlagged));
+            sqlToUse = deFlagged;
+        }
+        // A grounded enum value ("overdue"->Bills.Status) means an invented relative-date predicate
+        // (WHERE DueDate<GETDATE()) is the model APPROXIMATING that concept — strip it so the injector's
+        // grounded Status filter stands alone (else they AND to an empty intersection). No temporal cue → safe.
+        if (TryStripUngroundedDatePredicate(sqlToUse, grounding.LinkedValues.Count > 0, grounding.LinkedTemporal.Count > 0, out var deDated))
+        {
+            _logger.LogInformation("[DirectAnalystPath] stripped ungrounded relative-date predicate for q='{Q}': {Before} => {After}", question, sqlToUse, deDated);
+            repairsApplied.Add(("ungrounded-date-strip", sqlToUse, deDated));
+            sqlToUse = deDated;
+        }
+        // Symmetric to the strip: ENFORCE a filter the question named but the 7B dropped (flaky under-filter).
+        if (TryInjectGroundedValueFilters(sqlToUse, grounding.LinkedValues.Select(v => (v.Table, v.Column, v.Value)), out var injected))
+        {
+            _logger.LogInformation("[DirectAnalystPath] injected grounded value filter for q='{Q}': {Before} => {After}", question, sqlToUse, injected);
+            repairsApplied.Add(("grounded-value-injection", sqlToUse, injected));
+            sqlToUse = injected;
+        }
+        // GRAIN: a label-only GROUP BY merges distinct entities sharing a name — add the entity key.
+        if (TryFixGroupByGrain(sqlToUse, _knowledge.GetTable, out var regrained))
+        {
+            _logger.LogInformation("[DirectAnalystPath] fixed GROUP BY grain (added entity key) for q='{Q}': {Before} => {After}", question, sqlToUse, regrained);
+            repairsApplied.Add(("group-by-grain-fix", sqlToUse, regrained));
+            sqlToUse = regrained;
+        }
+        // CONTRADICTION: same column = two different literals (the bilingual "Name='مفتوحة' AND Name='Open'"
+        // case → 0 rows). Keep the grounded literal, drop the other. Backstops the in-injector conflict-
+        // replace, which misses some column-qualification forms. Runs last so it sees model + injected SQL.
+        if (TryResolveContradictoryEqualityLiterals(sqlToUse, grounding.LinkedValues.Select(v => v.Value), out var deConflicted))
+        {
+            _logger.LogInformation("[DirectAnalystPath] resolved contradictory equality literals for q='{Q}': {Before} => {After}", question, sqlToUse, deConflicted);
+            repairsApplied.Add(("contradiction-resolution", sqlToUse, deConflicted));
+            sqlToUse = deConflicted;
+        }
+
+        var compiled = new CompiledSql(sqlToUse, new Dictionary<string, object?>());
+        var validation = _validator.Validate(compiled);
+        if (!validation.IsValid)
+        {
+            steps.RecordValidatorFailed(compiled, validation.Errors, attemptLabel);
+            return new AttemptOutcome
+            {
+                ValidationFailed = true,
+                Error = string.Join("; ", validation.Errors),
+                EmitSql = emit.Sql,
+                RepairsApplied = repairsApplied,
+            };
+        }
+        steps.RecordValidatorOk(compiled, attemptLabel);
+
+        var execSw = Stopwatch.StartNew();
+        var exec = await _executor.ExecuteAsync(compiled, cancellationToken);
+
+        // Deterministic invalid-column repairs, PRECISE before LOSSY (order is load-bearing):
+        //
+        // (1) Bilingual-column repair FIRST. The 7B uses the wrong locale form of a label column
+        //     in EITHER direction — wrote `Name` where the real column is `NameEn`, OR wrote
+        //     `TicketStatuses.NameEn` where the real column is a plain `Name`. Resolving it from
+        //     the schema PRESERVES the predicate/projection (intent was right, only the column
+        //     name was wrong). This MUST precede the strip below: stripping a real
+        //     `TicketStatuses.NameEn = 'Open'` predicate counted ALL tickets, not the open ones.
+        //     Operates on compiled.Sql (chains on any earlier status-strip/inject). No LLM call.
+        if (exec.Error is not null &&
+            TryResolveInvalidProjectionColumn(
+                compiled.Sql, exec.Error, tableNames, _knowledge.GetTable,
+                _options.Value.BilingualLocaleSuffixes,
+                Internal.QuestionLanguageDetector.Detect(question), out var colRepaired))
+        {
+            // The bilingual rewrite can MAP the model's Arabic-literal predicate onto the SAME column as
+            // a grounded English value (NameAr='مفتوحة' → Name='مفتوحة', alongside an injected/own
+            // Name='Open') — a FRESH same-column contradiction that didn't exist pre-execution (the
+            // columns were NameAr vs Name then). Resolve it here, on the rewritten SQL, before re-exec.
+            if (TryResolveContradictoryEqualityLiterals(colRepaired, grounding.LinkedValues.Select(v => v.Value), out var colDeconflicted))
+                colRepaired = colDeconflicted;
+            var recompiledCol = new CompiledSql(colRepaired, new Dictionary<string, object?>());
+            if (_validator.Validate(recompiledCol).IsValid)
+            {
+                var reexecCol = await _executor.ExecuteAsync(recompiledCol, cancellationToken);
+                if (reexecCol.Error is null)
+                {
+                    _logger.LogInformation("[DirectAnalystPath] deterministic bilingual-column repair succeeded for q='{Q}'", question);
+                    repairsApplied.Add(("bilingual-column-fix", compiled.Sql, colRepaired));
+                    compiled = recompiledCol;
+                    exec = reexecCol;
+                }
+            }
+        }
+
+        // (2) Strip-predicate FALLBACK — only when the column genuinely has no real sibling (the
+        //     dominant case: the 7B bolts `IsDeleted = 0` onto a table that lacks it, and re-emits
+        //     it when the error is fed back). LOSSY (drops the predicate), so it runs only after
+        //     the precise bilingual repair above had its chance. No LLM call, no wasted retry.
+        if (exec.Error is not null && TryStripInvalidColumnPredicate(compiled.Sql, exec.Error, out var repaired))
+        {
+            var recompiled = new CompiledSql(repaired, new Dictionary<string, object?>());
+            if (_validator.Validate(recompiled).IsValid)
+            {
+                var reexec = await _executor.ExecuteAsync(recompiled, cancellationToken);
+                if (reexec.Error is null)
+                {
+                    _logger.LogInformation("[DirectAnalystPath] deterministic invalid-column repair succeeded for q='{Q}'", question);
+                    repairsApplied.Add(("lossy-invalid-column-strip", compiled.Sql, repaired));
+                    // LOAD-BEARING if the dropped predicate carried a value LITERAL (WHERE BadCol='X') —
+                    // a filter the question wanted — vs a flag (IsDeleted=0). Counting string literals
+                    // before/after isolates that: fewer literals after ⇒ a value filter was lost.
+                    strippedValueLiteral = CountStringLiterals(compiled.Sql) > CountStringLiterals(repaired);
+                    compiled = recompiled;
+                    exec = reexec;
+                    lossyRepairFired = true;   // KEYSTONE: this strip drops a predicate → floor confidence
+                }
+            }
+        }
+        execSw.Stop();
+        steps.RecordExecutor(compiled, exec, execSw.ElapsedMilliseconds, attemptLabel);
+        // Surface the deterministic repairs in the trace (richer investigation detail) — one step per
+        // attempt listing every no-LLM repair that fired, with before→after, so the UI shows WHY the
+        // final SQL differs from the model's first emit.
+        steps.RecordRepairsApplied(repairsApplied, attemptLabel);
+
+        return new AttemptOutcome
+        {
+            Compiled = compiled,
+            Exec = exec,
+            RepairsApplied = repairsApplied,
+            LossyStripFired = lossyRepairFired,
+            StrippedValueLiteral = strippedValueLiteral,
+            EmitSql = emit.Sql,
+        };
+    }
+
+    /// <summary>
+    /// The single decision point at every former <c>return null</c> (abstain) exit: when self-consistency
+    /// is enabled for the abstain fallback, draw diverse candidates and vote; otherwise return <c>null</c>
+    /// exactly as before. Flag OFF ⇒ identical <c>return null</c> (byte-identical abstain path).
+    /// </summary>
+    private async Task<AnalystResponse?> AbstainOrSelfConsistentAsync(
+        string reason, AnalystRequest request, string question, IReadOnlyList<string> tableNames,
+        IReadOnlyList<string> hints, QuestionGroundingContext grounding, AttemptOutcome? greedyCandidate,
+        Stopwatch totalSw, BroadcastingStepList steps,
+        Func<CompiledSql, ExecutionResult, int, Task<AnalystResponse>> persistAsync,
+        CancellationToken cancellationToken)
+    {
+        var opts = _options.Value;
+        if (!(opts.EnableSelfConsistency && opts.SelfConsistencyOnAbstain))
+            return null;   // flag off → honest abstain, unchanged
+        return await TrySelfConsistentAnswerAsync(
+            reason, request, question, tableNames, hints, grounding, greedyCandidate,
+            totalSw, steps, persistAsync, cancellationToken);
+    }
+
+    /// <summary>
+    /// Execution-guided self-consistency fallback (Slice 1). Candidate 0 = the already-computed greedy
+    /// attempt (REUSED, not re-run). Candidates 1..k-1 are fresh diverse draws through the SAME
+    /// emit→repair→validate→execute path, each with a higher temperature and a distinct seed. Each
+    /// error-free result set is fingerprinted; the majority bucket wins. Returns the winner (persisted
+    /// with provenance "self-consistent") when a bucket reaches <c>SelfConsistencyMinAgreement</c>;
+    /// otherwise abstains (return null). Every sampled draw is gated by the per-question RetryBudget.
+    /// </summary>
+    private async Task<AnalystResponse?> TrySelfConsistentAnswerAsync(
+        string reason, AnalystRequest request, string question, IReadOnlyList<string> tableNames,
+        IReadOnlyList<string> hints, QuestionGroundingContext grounding, AttemptOutcome? greedyCandidate,
+        Stopwatch totalSw, BroadcastingStepList steps,
+        Func<CompiledSql, ExecutionResult, int, Task<AnalystResponse>> persistAsync,
+        CancellationToken cancellationToken)
+    {
+        var opts = _options.Value;
+        var k = Math.Max(2, opts.SelfConsistencyK);
+        var tol = Math.Max(0, opts.SelfConsistencyNumericTolerance);
+        steps.RecordSelfConsistencyTriggered(question, reason);
+
+        // Collect candidates. Candidate 0 reuses the greedy attempt when it produced an error-free
+        // execution; otherwise the first index is a fresh draw (so an abstain after a validation/exec
+        // failure still gets k diverse draws).
+        var candidates = new List<AttemptOutcome>();
+        if (greedyCandidate is { Compiled: not null, Exec: { Error: null } })
+            candidates.Add(greedyCandidate);
+
+        for (int i = candidates.Count == 0 ? 0 : 1; i < k; i++)
+        {
+            if (!_retryBudget.TryConsumeLlmCall("SelfConsistency"))
+            {
+                _logger.LogInformation("[DirectAnalystPath] self-consistency draw {I} skipped — retry budget exhausted for q='{Q}'", i, question);
+                break;
+            }
+            var sampling = new Abstractions.LlmSamplingOptions(
+                Temperature: opts.SelfConsistencyTemperature,
+                Seed: opts.SelfConsistencySeedBase + i);
+            var draw = await EmitRepairValidateExecuteOnce(
+                question, tableNames, hints, grounding, sampling, attemptLabel: i, steps, cancellationToken);
+            if (draw is { Compiled: not null, Exec: { Error: null } })
+                candidates.Add(draw);
+        }
+
+        // Fingerprint each error-free candidate's result set, then vote.
+        var fingerprints = candidates
+            .Select(c => SelfConsistencyVote.Fingerprint(c.Exec!, tol))
+            .ToList();
+        var hasCandidate0 = greedyCandidate is { Compiled: not null, Exec: { Error: null } };
+        var pick = SelfConsistencyVote.Pick(
+            fingerprints,
+            minAgreement: Math.Max(1, opts.SelfConsistencyMinAgreement),
+            candidate0Index: hasCandidate0 ? 0 : (int?)null,
+            lossyRepairCounts: candidates.Select(c => c.RepairsApplied.Count(r => r.Name.Contains("lossy", StringComparison.OrdinalIgnoreCase))).ToList(),
+            rowCounts: candidates.Select(c => c.Exec!.RowCount).ToList());
+
+        steps.RecordSelfConsistencyVote(question, fingerprints, pick);
+
+        if (pick.WinnerIndex is not int winnerIdx)
+        {
+            _logger.LogInformation("[DirectAnalystPath] self-consistency ABSTAIN — no bucket reached agreement {Min} (candidates={N}) for q='{Q}'",
+                opts.SelfConsistencyMinAgreement, candidates.Count, question);
+            return null;   // genuine disagreement → honest abstain
+        }
+
+        var winner = candidates[winnerIdx];
+        _logger.LogInformation("[DirectAnalystPath] self-consistency WINNER idx={Idx} agreement={Agree}/{N} for q='{Q}'",
+            winnerIdx, pick.Agreement, candidates.Count, question);
+
+        // Persist the winner via the shared explain+persist local fn, then stamp the self-consistency
+        // provenance + an agreement-derived confidence over it (attempt label 0 keeps the base confidence
+        // tier; provenance/confidence below are authoritative).
+        var response = await persistAsync(winner.Compiled!, winner.Exec!, 0);
+        var agreementRatio = candidates.Count > 0 ? (double)pick.Agreement / candidates.Count : 0.0;
+        return response with
+        {
+            Provenance = "self-consistent",
+            Confidence = Math.Round(agreementRatio, 3),
+        };
     }
 }

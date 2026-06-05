@@ -520,6 +520,51 @@ public sealed class AnalystOptions
     /// zero-confident-wrong posture on data the agent was not tuned on. Schema-agnostic (SQL-structure only).</summary>
     public bool AbstainOnLoadBearingLossyStrip { get; set; } = true;
 
+    // ── Execution-guided self-consistency (Slice 1: abstain-fallback ONLY) ────────────────────
+    // When the greedy DirectAnalystPath attempt loop would ABSTAIN (return null), draw k DIVERSE
+    // candidates (candidate 0 = the already-computed greedy attempt; 1..k-1 sampled with a higher
+    // temperature + distinct seed), execute each read-only, vote by result-set fingerprint, return
+    // the majority, and abstain only on genuine disagreement. EVERY knob defaults OFF/neutral so the
+    // flag-OFF path is byte-identical to today; on questions the system already answers NOTHING new runs.
+
+    /// <summary>Master switch for execution-guided self-consistency. Default OFF — when false the
+    /// DirectAnalystPath abstain exits return <c>null</c> exactly as before (byte-identical). Flip on to
+    /// recover answers the single greedy sample missed, at the cost of up to
+    /// <see cref="SelfConsistencyK"/>−1 extra LLM draws on questions that WOULD otherwise abstain.</summary>
+    public bool EnableSelfConsistency { get; set; } = false;
+
+    /// <summary>When true (default), self-consistency fires on the ABSTAIN fallback only — i.e. exactly
+    /// where the greedy loop would have returned <c>null</c>. (The hard-shape proactive trigger is a later
+    /// slice and out of scope here.) Has no effect unless <see cref="EnableSelfConsistency"/> is on.</summary>
+    public bool SelfConsistencyOnAbstain { get; set; } = true;
+
+    /// <summary>Number of candidates to consider, INCLUDING the reused greedy attempt (candidate 0). So
+    /// k=3 draws 2 additional sampled candidates. Range [2,7] keeps the extra LLM cost bounded.</summary>
+    [Range(2, 7, ErrorMessage = "SelfConsistencyK must be between 2 and 7.")]
+    public int SelfConsistencyK { get; set; } = 3;
+
+    /// <summary>Decoding temperature for the sampled candidates (1..k-1). Higher = more diverse draws.
+    /// Candidate 0 is the greedy attempt and is NOT resampled. Default 0.4 — enough diversity to escape a
+    /// single bad greedy sample without drifting off-question.</summary>
+    [Range(0.0, 1.5, ErrorMessage = "SelfConsistencyTemperature must be 0.0..1.5.")]
+    public double SelfConsistencyTemperature { get; set; } = 0.4;
+
+    /// <summary>Base RNG seed for the sampled candidates: candidate i (i≥1) uses
+    /// <c>SelfConsistencySeedBase + i</c>, so draws are distinct AND reproducible run-to-run.</summary>
+    public int SelfConsistencySeedBase { get; set; } = 1000;
+
+    /// <summary>Minimum number of candidates that must agree (share a result-set fingerprint bucket) for a
+    /// winner to be returned. Below this the path ABSTAINS (genuine disagreement → return null). Range
+    /// [1,7]; default 2 (a simple majority of the default k=3).</summary>
+    [Range(1, 7, ErrorMessage = "SelfConsistencyMinAgreement must be between 1 and 7.")]
+    public int SelfConsistencyMinAgreement { get; set; } = 2;
+
+    /// <summary>Decimal places to round floating-point result cells to when fingerprinting, so two
+    /// candidates that agree up to floating-point noise (4.0000 vs 4.00004) land in the SAME vote bucket.
+    /// Range [0,10]; default 4.</summary>
+    [Range(0, 10, ErrorMessage = "SelfConsistencyNumericTolerance must be 0..10.")]
+    public int SelfConsistencyNumericTolerance { get; set; } = 4;
+
     /// <summary>SQL aggregate-function names whose presence proves analytic intent and EXEMPTS a query
     /// from <see cref="EnableUngroundedProjectionAbstain"/>. Config-driven, no per-table/phrase vocabulary;
     /// default = the ANSI set. Matched as a function CALL (<c>\bNAME\s*\(</c>) so a column named

@@ -31,19 +31,31 @@ internal sealed class HostAiProviderLlmClient : ILlmClient
 
     public async Task<string> GenerateJsonAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken = default)
     {
-        return await InvokeAsync(jsonMode: true, systemPrompt, userPrompt, cancellationToken);
+        return await InvokeAsync(jsonMode: true, systemPrompt, userPrompt, sampling: null, cancellationToken);
     }
 
     public async Task<string> GenerateTextAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken = default)
     {
-        return await InvokeAsync(jsonMode: false, systemPrompt, userPrompt, cancellationToken);
+        return await InvokeAsync(jsonMode: false, systemPrompt, userPrompt, sampling: null, cancellationToken);
+    }
+
+    /// <summary>Plain text generation with optional per-call sampling overrides (temperature / seed) —
+    /// the self-consistency draw path. The AnalystAgent sampling record is translated to the
+    /// provider-layer DTO here (HostBridge is the only layer that touches host AI types) and applied
+    /// only when the resolved provider is Ollama (same compromise as the model override). A null
+    /// <paramref name="sampling"/> is byte-identical to the legacy overload above.</summary>
+    public async Task<string> GenerateTextAsync(string systemPrompt, string userPrompt,
+        AnalystAgent.Abstractions.LlmSamplingOptions? sampling, CancellationToken cancellationToken = default)
+    {
+        return await InvokeAsync(jsonMode: false, systemPrompt, userPrompt, sampling, cancellationToken);
     }
 
     /// <summary>Shared call path: builds the combined prompt, fires the provider with the per-call
     /// timeout, captures token usage + elapsed into the active <see cref="LlmCallScope"/> if one is
     /// open, and re-throws as <c>TimeoutException</c> on timeout. JSON and text modes only differ
     /// in whether they invoke <see cref="WorkloadAwareProvider.GenerateJsonAsync"/> when available.</summary>
-    private async Task<string> InvokeAsync(bool jsonMode, string systemPrompt, string userPrompt, CancellationToken cancellationToken)
+    private async Task<string> InvokeAsync(bool jsonMode, string systemPrompt, string userPrompt,
+        AnalystAgent.Abstractions.LlmSamplingOptions? sampling, CancellationToken cancellationToken)
     {
         // Token budget gate — runs BEFORE the call to prevent runaway retries from racking
         // up tokens past the per-question cap. Cost-gate is post-question (in HostTraceSink)
@@ -72,9 +84,16 @@ internal sealed class HostAiProviderLlmClient : ILlmClient
         using var cts = LinkedTimeoutCts(cancellationToken);
         try
         {
+            // Sampling overrides (self-consistency draws) apply only to the text path and only when the
+            // resolved provider is the workload wrapper (Ollama today). Null sampling → the legacy call,
+            // byte-identical. JSON mode never carries sampling (the classifier/decomposer are deterministic).
+            var providerSampling = sampling is null ? null
+                : new ServiceOpsAI.Services.AI.Providers.LlmSamplingOptions(sampling.Temperature, sampling.Seed);
             result = (jsonMode && provider is WorkloadAwareProvider workloadAware)
                 ? await workloadAware.GenerateJsonAsync(combinedPrompt).WaitAsync(cts.Token)
-                : await provider.GenerateAsync(combinedPrompt).WaitAsync(cts.Token);
+                : (!jsonMode && providerSampling is not null && provider is WorkloadAwareProvider sampledProvider)
+                    ? await sampledProvider.GenerateAsync(combinedPrompt, providerSampling).WaitAsync(cts.Token)
+                    : await provider.GenerateAsync(combinedPrompt).WaitAsync(cts.Token);
 
             if (!result.Success)
             {

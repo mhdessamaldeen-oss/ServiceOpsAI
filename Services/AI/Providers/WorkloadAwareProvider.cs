@@ -54,6 +54,17 @@ namespace ServiceOpsAI.Services.AI.Providers
                 ? ollama.GenerateAsync(prompt, modelOverride: ollama.GetModelNameForWorkload(_workload))
                 : _inner.GenerateAsync(prompt);
 
+        /// <summary>Generate with optional per-call sampling overrides (temperature / seed) for the
+        /// self-consistency path. Only Ollama applies them today (per-call model override is already
+        /// Ollama-only); other providers fall through to plain <see cref="GenerateAsync(string)"/>,
+        /// the same documented compromise as the model override. A null <paramref name="sampling"/>
+        /// is byte-identical to <see cref="GenerateAsync(string)"/>.</summary>
+        public Task<AiProviderResult> GenerateAsync(string prompt, LlmSamplingOptions? sampling) =>
+            _inner is OllamaAiProvider ollama
+                ? ollama.GenerateAsync(prompt, modelOverride: ollama.GetModelNameForWorkload(_workload),
+                    expectJson: false, sampling: sampling)
+                : _inner.GenerateAsync(prompt);
+
         /// <summary>Generate with constrained-JSON output. Used by the classifier / planner paths
         /// that expect a structured JSON plan back. For Ollama this sets <c>format:"json"</c> in
         /// the request body so the model is forced to emit a syntactically valid JSON object —

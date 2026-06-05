@@ -140,7 +140,17 @@ namespace ServiceOpsAI.Services.AI.Providers
         ///
         /// <para>Used by the classifier and any path that expects a structured plan back. Free
         /// chat (general-support, knowledge questions) stays at <c>expectJson=false</c>.</para></summary>
-        public async Task<AiProviderResult> GenerateAsync(string prompt, string? modelOverride, bool expectJson)
+        public Task<AiProviderResult> GenerateAsync(string prompt, string? modelOverride, bool expectJson)
+            => GenerateAsync(prompt, modelOverride, expectJson, sampling: null);
+
+        /// <summary>Generate with optional per-call sampling overrides (temperature / seed) for the
+        /// self-consistency path. When <paramref name="sampling"/> is non-null, its <c>Temperature</c>
+        /// and <c>Seed</c> override the request's <c>options</c> block; a null field falls back to the
+        /// configured default (so a null <paramref name="sampling"/> is byte-identical to the legacy
+        /// request body). <c>keep_alive</c> is UNCHANGED — still the configured
+        /// <see cref="OllamaProviderOptions.ChatKeepAliveSeconds"/>.</summary>
+        public async Task<AiProviderResult> GenerateAsync(string prompt, string? modelOverride, bool expectJson,
+            ServiceOpsAI.Services.AI.Providers.LlmSamplingOptions? sampling)
         {
             var baseUrl = GetBaseUrl();
             var model = string.IsNullOrWhiteSpace(modelOverride) ? ModelName : modelOverride!;
@@ -174,13 +184,17 @@ namespace ServiceOpsAI.Services.AI.Providers
                     // and deadlock schema-embedding generation on a single GPU. Tune via
                     // OllamaProviderOptions.ChatKeepAliveSeconds.
                     ["keep_alive"] = _configOptions.ChatKeepAliveSeconds,
+                    // Sampling: a non-null override wins per-field; a null field (or null sampling)
+                    // falls back to the configured default — so a null sampling reproduces the legacy
+                    // request body EXACTLY (temperature = GetTemperature(), seed = 42). This is what the
+                    // self-consistency path uses to draw diverse candidates (higher temp + distinct seed).
                     ["options"] = new
                     {
-                        temperature = GetTemperature(),
+                        temperature = sampling?.Temperature ?? GetTemperature(),
                         num_ctx = ContextCapacity,
                         // Cap response length explicitly. Ollama defaults to 128 which truncates JSON outputs mid-field; configurable via OllamaProviderOptions.MaxOutputTokens (default 2048).
                         num_predict = _configOptions.MaxOutputTokens,
-                        seed = 42,
+                        seed = sampling?.Seed ?? 42,
                         top_p = 1.0
                     }
                 };

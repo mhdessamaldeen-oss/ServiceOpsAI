@@ -171,12 +171,21 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
         }
 
         public Task<string> GenerateJsonAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken = default)
-            => InvokeAsync(systemPrompt, userPrompt, jsonMode: true, cancellationToken);
+            => InvokeAsync(systemPrompt, userPrompt, jsonMode: true, sampling: null, cancellationToken);
 
         public Task<string> GenerateTextAsync(string systemPrompt, string userPrompt, CancellationToken cancellationToken = default)
-            => InvokeAsync(systemPrompt, userPrompt, jsonMode: false, cancellationToken);
+            => InvokeAsync(systemPrompt, userPrompt, jsonMode: false, sampling: null, cancellationToken);
 
-        private async Task<string> InvokeAsync(string systemPrompt, string userPrompt, bool jsonMode, CancellationToken ct)
+        /// <summary>Text generation with optional per-call sampling overrides (self-consistency draws).
+        /// Threads <paramref name="sampling"/> through the SAME role-resolution path; applied only on the
+        /// Ollama branch (per-call model+sampling override is Ollama-only), ignored otherwise — same
+        /// compromise as the role model override. Null sampling is byte-identical to the legacy overload.</summary>
+        public Task<string> GenerateTextAsync(string systemPrompt, string userPrompt,
+            AnalystAgent.Abstractions.LlmSamplingOptions? sampling, CancellationToken cancellationToken = default)
+            => InvokeAsync(systemPrompt, userPrompt, jsonMode: false, sampling, cancellationToken);
+
+        private async Task<string> InvokeAsync(string systemPrompt, string userPrompt, bool jsonMode,
+            AnalystAgent.Abstractions.LlmSamplingOptions? sampling, CancellationToken ct)
         {
             var roleProviderName = RoleBoundLlmClientFactory.ReadDbSetting(_serviceProvider, _providerKey);
             var roleModel = RoleBoundLlmClientFactory.ReadDbSetting(_serviceProvider, _modelKey);
@@ -184,10 +193,11 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
             if (string.IsNullOrWhiteSpace(roleProviderName) && string.IsNullOrWhiteSpace(roleModel))
             {
                 // No overrides → use the default client (Copilot workload provider+model).
-                // This is the normal path until the admin configures a per-role binding.
+                // This is the normal path until the admin configures a per-role binding. Sampling is
+                // forwarded to the default client's sampling overload (text only); null → legacy call.
                 return jsonMode
                     ? await _fallback.GenerateJsonAsync(systemPrompt, userPrompt, ct)
-                    : await _fallback.GenerateTextAsync(systemPrompt, userPrompt, ct);
+                    : await _fallback.GenerateTextAsync(systemPrompt, userPrompt, sampling, ct);
             }
 
             // Resolve the provider: role's provider if set, otherwise fall back to Copilot workload.
@@ -227,7 +237,13 @@ namespace ServiceOpsAI.Services.AI.Providers.Roles
                 if (innerProvider is OllamaAiProvider ollama)
                 {
                     var modelToUse = string.IsNullOrWhiteSpace(roleModel) ? null : roleModel;
-                    result = await ollama.GenerateAsync(combinedPrompt, modelOverride: modelToUse, expectJson: jsonMode);
+                    // Translate the AnalystAgent sampling record into the provider-layer DTO (null → null,
+                    // byte-identical to the legacy request). JSON mode never carries sampling.
+                    ServiceOpsAI.Services.AI.Providers.LlmSamplingOptions? providerSampling = (jsonMode || sampling is null)
+                        ? null
+                        : new ServiceOpsAI.Services.AI.Providers.LlmSamplingOptions(sampling.Temperature, sampling.Seed);
+                    result = await ollama.GenerateAsync(combinedPrompt, modelOverride: modelToUse,
+                        expectJson: jsonMode, sampling: providerSampling);
                     if (!result.Success)
                         throw new InvalidOperationException(
                             $"LLM call failed for role {_role} on model '{modelToUse ?? "(provider default)"}': {result.Error}");

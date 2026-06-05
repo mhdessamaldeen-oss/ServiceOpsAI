@@ -269,6 +269,57 @@ internal static class OrchestratorStepRecorder
                 details: new { attempt, sqlLength = emit.Sql?.Length ?? 0, hadError = !string.IsNullOrEmpty(emit.Error), schemaWasCompacted = emit.SchemaWasCompacted }),
             kind: StageNames.KindLlmCall));
 
+    // ── Self-consistency (Slice 1: abstain-fallback) ──────────────────────────────────
+    // Best-effort trace markers for the execution-guided self-consistency path. These use literal
+    // step labels (NOT Step* constants) so they need no StageToGraphNode mapping and never trip the
+    // startup graph-coverage assertion; the investigation UI renders them via the legacy fallback.
+
+    /// <summary>Records that the greedy attempt loop hit an ABSTAIN exit and self-consistency took over
+    /// (the trigger reason names which abstain exit). Never throws.</summary>
+    public static void RecordSelfConsistencyTriggered(this BroadcastingStepList steps, string question, string reason)
+    {
+        try
+        {
+            steps.Add(Step("Self-consistency", StageNames.StatusOk, 0,
+                $"triggered ({reason})",
+                technical: StepPayload.Of(StepPayloadKinds.Branch,
+                    input: question,
+                    output: $"greedy attempt would abstain ({reason}) — drawing diverse candidates and voting by result-set fingerprint",
+                    reason: "Execution-guided self-consistency: rather than abstain on a single greedy sample, draw k diverse candidates, execute each read-only, and return the majority result. Abstains only on genuine disagreement.",
+                    details: new { reason })));
+        }
+        catch { /* trace must never break the answer path */ }
+    }
+
+    /// <summary>Records the self-consistency VOTE — every candidate fingerprint with its tally, the
+    /// winning bucket size (agreement), and the winner index (null = abstain on disagreement). Never throws.</summary>
+    public static void RecordSelfConsistencyVote(this BroadcastingStepList steps, string question,
+        IReadOnlyList<string> fingerprints, SelfConsistencyVote.VoteResult vote)
+    {
+        try
+        {
+            var won = vote.WinnerIndex is not null;
+            steps.Add(Step("Self-consistency vote", won ? StageNames.StatusOk : StageNames.StatusFailed, 0,
+                won ? $"winner idx {vote.WinnerIndex} (agreement {vote.Agreement}/{fingerprints.Count})"
+                    : $"abstain — no majority (best {vote.Agreement}/{fingerprints.Count})",
+                technical: StepPayload.Of(StepPayloadKinds.Branch,
+                    input: question,
+                    output: won
+                        ? $"WINNER candidate {vote.WinnerIndex} with {vote.Agreement} agreeing of {fingerprints.Count} candidates"
+                        : $"ABSTAIN — strongest bucket only {vote.Agreement} of {fingerprints.Count} candidates",
+                    reason: "Candidates are bucketed by result-set fingerprint (scalar cell, or row count + ordered first row, float-tolerant). The majority bucket wins when it reaches the agreement floor; otherwise the path abstains honestly.",
+                    details: new
+                    {
+                        candidates = fingerprints.Count,
+                        agreement = vote.Agreement,
+                        winnerIndex = vote.WinnerIndex,
+                        tally = vote.Tally.Select(t => new { fingerprint = t.Fingerprint, count = t.Count }).ToArray(),
+                        fingerprints = fingerprints.ToArray()
+                    })));
+        }
+        catch { /* trace must never break the answer path */ }
+    }
+
     // ── Validator / Executor / Explainer (live analyst-loop steps) ─────────────────────
 
     public static void RecordValidatorFailed(this BroadcastingStepList steps, CompiledSql compiled,
