@@ -132,9 +132,82 @@
     };
 
     var traceIdSafe = (ViewBag.Trace?.Id?.ToString() ?? "preview");
+
+    // ── One-line run narration ──────────────────────────────────────────────────
+    // A plain-English sentence describing what this run did, derived entirely from the
+    // recorded steps so it stays truthful on any trace (data / small-talk / knowledge /
+    // tool / refusal). Each clause is appended only when the corresponding step fired.
+    string ActionLower(CopilotExecutionStep s) => (s.Action ?? string.Empty).ToLowerInvariant();
+    bool HasStep(string needle) => allSteps.Any(s => ActionLower(s).Contains(needle));
+    string? StepDetail(string needle) =>
+        allSteps.FirstOrDefault(s => ActionLower(s).Contains(needle))?.Detail;
+
+    var narrationParts = new List<string>();
+    var narrationIcon = "bi-card-text";
+    if (allSteps.Count == 0)
+    {
+        narrationParts.Add("No steps were recorded for this run.");
+        narrationIcon = "bi-inbox";
+    }
+    else if (HasStep("conversational"))
+    {
+        narrationIcon = "bi-chat-heart";
+        var convLlm = allSteps.Any(s => ActionLower(s).Contains("conversational")
+                                        && ((s.PromptTokens ?? 0) + (s.CompletionTokens ?? 0) > 0
+                                            || !string.IsNullOrEmpty(s.LlmModelUsed)));
+        narrationParts.Add(convLlm ? "Small-talk → 1 LLM warm reply" : "Small-talk → templated reply (no LLM)");
+    }
+    else if (HasStep("knowledge"))
+    {
+        narrationIcon = "bi-book";
+        narrationParts.Add("Knowledge match → answered from the FAQ dictionary (no LLM)");
+    }
+    else if (HasStep("tool"))
+    {
+        narrationIcon = "bi-cloud-arrow-down";
+        narrationParts.Add("External tool → delegated to a registered tool");
+    }
+    else if (HasStep("semanticsearch"))
+    {
+        narrationIcon = "bi-search";
+        narrationParts.Add("Semantic search → matched indexed records by meaning");
+    }
+    else if (allSteps.Any(s => s.Status == CopilotStepStatus.Error
+                               && (ActionLower(s).Contains("scope") || ActionLower(s).Contains("outofscope"))))
+    {
+        narrationIcon = "bi-shield-slash";
+        narrationParts.Add("Refused — out of scope (scope-confidence gate)");
+    }
+    else
+    {
+        // Data-query narration: link → ground → validate → execute, with the salient numbers.
+        narrationIcon = "bi-database";
+        narrationParts.Add("Data query");
+        var linkDetail = StepDetail("schemalink") ?? StepDetail("schema link");
+        var tableMatch = linkDetail is null
+            ? null
+            : System.Text.RegularExpressions.Regex.Match(linkDetail, @"([A-Za-z_][A-Za-z0-9_]*)").Value;
+        if (!string.IsNullOrEmpty(tableMatch)) narrationParts.Add($"linked {tableMatch}");
+        var groundDetail = StepDetail("grounding") ?? StepDetail("grounder");
+        if (groundDetail is not null && groundDetail.Contains("grounded fact"))
+            narrationParts.Add(groundDetail.Replace("grounded fact(s)", "grounded facts"));
+        if (HasStep("validator") && !allSteps.Any(s => ActionLower(s).Contains("validator") && s.Status == CopilotStepStatus.Error))
+            narrationParts.Add("read-only validated");
+        if ((Model.ResultCount ?? 0) > 0)
+            narrationParts.Add($"{Model.ResultCount} row{(Model.ResultCount == 1 ? "" : "s")} in {FormatMs(totalElapsed)}");
+        else if (hadFailure)
+            narrationParts.Add($"failed in {FormatMs(totalElapsed)}");
+    }
+    var narration = string.Join(" → ", narrationParts);
 }
 
 <div class="investigation-preview mb-4">
+
+    <!-- ─── One-line run narration — the whole run in a sentence ───────────────── -->
+    <div class="story-narration">
+        <i class="bi @narrationIcon"></i>
+        <span class="story-narration-text">@narration</span>
+    </div>
 
     <!-- ─── Run Summary Header ─────────────────────────────────────────────── -->
     <div class="card border-0 shadow-sm rounded-4 mb-3">

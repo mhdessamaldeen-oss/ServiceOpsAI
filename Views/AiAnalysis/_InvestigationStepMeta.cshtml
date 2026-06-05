@@ -39,6 +39,51 @@
         catch { return (null, null, null, null, null); }
     }
 
+    // Pull the StepPayload "details" object out so render code can read individual scalar
+    // fields (the scope-gate moat reads cosines + floors + verdict). Null-safe: returns null
+    // on legacy / non-v1 / non-object payloads so callers degrade to "no widget".
+    private static System.Text.Json.JsonElement? PayloadDetailsObject(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var trimmed = raw!.TrimStart();
+        if (!trimmed.StartsWith("{")) return null;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("_payload", out var ver) || ver.GetString() != "v1") return null;
+            if (root.TryGetProperty("details", out var det)
+                && det.ValueKind == System.Text.Json.JsonValueKind.Object)
+                return det.Clone();
+            return null;
+        }
+        catch { return null; }
+    }
+
+    private static double? DetDouble(System.Text.Json.JsonElement? d, string name)
+    {
+        if (d is { } e && e.TryGetProperty(name, out var el)
+            && el.ValueKind == System.Text.Json.JsonValueKind.Number
+            && el.TryGetDouble(out var v)) return v;
+        return null;
+    }
+
+    private static string? DetString(System.Text.Json.JsonElement? d, string name)
+    {
+        if (d is { } e && e.TryGetProperty(name, out var el)
+            && el.ValueKind == System.Text.Json.JsonValueKind.String) return el.GetString();
+        return null;
+    }
+
+    private static bool DetBool(System.Text.Json.JsonElement? d, string name)
+    {
+        if (d is { } e && e.TryGetProperty(name, out var el)
+            && (el.ValueKind == System.Text.Json.JsonValueKind.True
+                || el.ValueKind == System.Text.Json.JsonValueKind.False))
+            return el.GetBoolean();
+        return false;
+    }
+
     private static string? GuessCodeLang(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -106,6 +151,25 @@
     var tokensSum = (Model.PromptTokens ?? 0) + (Model.CompletionTokens ?? 0);
     var isLlm = tokensSum > 0 || !string.IsNullOrEmpty(Model.LlmModelUsed);
     var payload = TryParsePayload(Model.TechnicalData);
+
+    // ── Scope-gate "moat" widget ────────────────────────────────────────────────
+    // The OutOfScopeGuard step's payload carries the two scope cosines + their floors (v3).
+    // We render a compact two-bar widget (verified-query cosine, schema cosine each vs floor)
+    // + the answer/refuse verdict, instead of leaving the owner to read the raw JSON.
+    var stepAction = (Model.Action ?? string.Empty).ToLowerInvariant();
+    var isScopeGate = stepAction.Contains("outofscope") || stepAction.Contains("scope");
+    var scopeDet = isScopeGate ? PayloadDetailsObject(Model.TechnicalData) : null;
+    var moatSchemaTop = DetDouble(scopeDet, "schemaTop");
+    var moatSchemaFloor = DetDouble(scopeDet, "schemaFloor");
+    var moatVqMax = DetDouble(scopeDet, "verifiedQueryMax");
+    var moatVqFloor = DetDouble(scopeDet, "verifiedQueryFloor");
+    var moatFailedOpen = DetBool(scopeDet, "failedOpen");
+    // verdict is recorded only on the in-scope pass; on refusal the step Status is Error.
+    var moatVerdictRaw = DetString(scopeDet, "verdict");
+    var moatRefused = Model.Status == CopilotStepStatus.Error;
+    var moatVerdict = moatRefused ? "refuse" : (moatVerdictRaw ?? "answer");
+    // Show the widget when we have at least the schema cosine OR a fail-open signal.
+    var showMoat = isScopeGate && (moatSchemaTop.HasValue || moatVqMax.HasValue || moatFailedOpen);
 }
 
 @* ── Where & when — layer / location / wall-clock window / elapsed ─────── *@
@@ -120,6 +184,70 @@
         <div><span class="runtrace-k">Elapsed</span><span class="runtrace-v"><i class="bi bi-stopwatch me-1 text-muted"></i>@FormatMs(Model.ElapsedMs)</span></div>
     </div>
 </div>
+
+@* ── Scope-gate "moat" widget — two cosine bars vs their floors + the verdict ─────
+     Replaces the raw JSON for the OutOfScopeGuard step with a compact, scannable view of
+     the refuse-vs-answer decision. The raw Details JSON disclosure still renders below. *@
+@if (showMoat)
+{
+    <div class="runtrace-section">
+        <div class="runtrace-section-label"><i class="bi bi-water"></i> Scope moat — refuse vs answer</div>
+        <div class="runtrace-moat @(moatRefused ? "is-refuse" : "is-answer")">
+            @if (moatFailedOpen)
+            {
+                <div class="runtrace-moat-failopen">
+                    <i class="bi bi-shield-exclamation"></i>
+                    Both scope signals were exactly 0 — likely an embedder failure, so the gate
+                    <strong>failed open</strong> (answered) rather than mis-refuse a valid question.
+                </div>
+            }
+            else
+            {
+                @* One bar per signal: the fill is the cosine; a notch marks the floor. A signal
+                   clears the moat when its bar reaches its floor notch. *@
+                var moatBars = new[]
+                {
+                    (Label: "Verified-query cosine", Score: moatVqMax, Floor: moatVqFloor),
+                    (Label: "Schema-link cosine",    Score: moatSchemaTop, Floor: moatSchemaFloor),
+                };
+                foreach (var bar in moatBars)
+                {
+                    if (bar.Score is not { } sc) { continue; }
+                    var pct = Math.Clamp(sc, 0, 1) * 100.0;
+                    var floorPct = bar.Floor is { } fl ? Math.Clamp(fl, 0, 1) * 100.0 : (double?)null;
+                    var cleared = bar.Floor is { } f && sc >= f;
+                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+                    <div class="runtrace-moat-bar">
+                        <div class="runtrace-moat-bar-head">
+                            <span class="runtrace-moat-bar-label">@bar.Label</span>
+                            <span class="runtrace-moat-bar-val @(cleared ? "cleared" : "below")">
+                                @sc.ToString("0.000")
+                                @if (bar.Floor is { } ff)
+                                {
+                                    <span class="runtrace-moat-bar-floor">floor @ff.ToString("0.00")</span>
+                                }
+                            </span>
+                        </div>
+                        <div class="runtrace-moat-track">
+                            <div class="runtrace-moat-fill @(cleared ? "cleared" : "below")"
+                                 style="width: @(pct.ToString("0.#", inv))%;"></div>
+                            @if (floorPct is { } fp)
+                            {
+                                <div class="runtrace-moat-floor-notch"
+                                     style="left: @(fp.ToString("0.#", inv))%;"
+                                     title="floor @(bar.Floor!.Value.ToString("0.00"))"></div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            <div class="runtrace-moat-verdict @(moatRefused ? "refuse" : "answer")">
+                <i class="bi @(moatRefused ? "bi-shield-slash" : "bi-check-circle-fill")"></i>
+                <span>Verdict: <strong>@(moatRefused ? "REFUSE (out of scope)" : "ANSWER (in scope)")</strong></span>
+            </div>
+        </div>
+    </div>
+}
 
 @* ── LLM call breakdown (LLM steps only) ──────────────────────────────── *@
 @if (isLlm && (tokensSum > 0 || !string.IsNullOrEmpty(Model.LlmModelUsed)))

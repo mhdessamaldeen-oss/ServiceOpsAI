@@ -105,9 +105,41 @@
     var verdict = VerdictFor(Model);
     // Every step is expandable now — even the simple ones surface a description + verdict.
     var rowId = $"runtrace-row-{Guid.NewGuid():N}";
+
+    // ── Ribbon scroll anchor — set by the timeline when this is the FIRST step that lit a
+    // ribbon node. Null on every other row + on legacy callers that pass no ViewData.
+    var ribbonAnchor = ViewData["RibbonAnchor"] as string;
+
+    // ── Per-stage timing bar — width is this step's share of the run total. The timeline
+    // passes RunTotalMs; absent (legacy/standalone callers) → no bar drawn.
+    long runTotalMs = ViewData["RunTotalMs"] is long rt && rt > 0 ? rt : 0;
+    double timingPct = runTotalMs > 0 ? Math.Min(100.0, (double)Model.ElapsedMs / runTotalMs * 100.0) : 0;
+    bool showTimingBar = runTotalMs > 0 && Model.ElapsedMs > 0;
+
+    var a = (Model.Action ?? string.Empty).ToLowerInvariant();
+    // ── Security pill — the SQL validator is the read-only gate. Green pill when it passed,
+    // red when it rejected the generated SQL. Keyed on the validator stage + status.
+    bool isValidatorStep = a.Contains("validator") && !a.Contains("rowshape");
+    bool validatorRejected = Model.Status == CopilotStepStatus.Error;
+
+    // ── Failure / empty category chip — names WHAT went wrong from status + stage so the
+    // owner reads "rejected" / "exec-error" / "empty-result" without opening the row.
+    string? failChip = null;
+    if (Model.Status == CopilotStepStatus.Error)
+    {
+        if (isValidatorStep || a.Contains("accesspolicy") || a.Contains("sqlintentguard")) failChip = "rejected";
+        else if (a.Contains("executor") || a.Contains("execution")) failChip = "exec-error";
+        else if (a.Contains("scope") || a.Contains("outofscope")) failChip = "refused";
+        else if (a.Contains("guard") || a.Contains("preflight")) failChip = "blocked";
+        else failChip = "error";
+    }
+    else if (a.Contains("rowshape") && Model.Status == CopilotStepStatus.Warn)
+    {
+        failChip = "empty-result";
+    }
 }
 
-<div class="runtrace-row runtrace-kind-@kind runtrace-status-@Model.Status.ToString().ToLowerInvariant()">
+<div class="runtrace-row runtrace-kind-@kind runtrace-status-@Model.Status.ToString().ToLowerInvariant()"@(ribbonAnchor is null ? "" : $" id=ribbon-stage-{ribbonAnchor}")>
     <div class="runtrace-row-bullet">
         <i class="bi @StatusIcon(Model.Status).Split(' ')[0]"></i>
     </div>
@@ -118,6 +150,25 @@
                 else if (kind == "sql") { <span class="runtrace-kind-badge sql"><i class="bi bi-database"></i>SQL</span> }
                 else if (kind == "gate") { <span class="runtrace-kind-badge gate"><i class="bi bi-shield-check"></i>GATE</span> }
                 <span class="runtrace-row-name">@Model.Action</span>
+                @if (isValidatorStep)
+                {
+                    @if (validatorRejected)
+                    {
+                        <span class="runtrace-security-pill rejected" title="SQL validator rejected the generated query">
+                            <i class="bi bi-shield-x"></i> SQL REJECTED
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="runtrace-security-pill enforced" title="ScriptDom AST check passed: no DML, no multi-statement, no disallowed functions — safe against the read-only connection">
+                            <i class="bi bi-shield-lock-fill"></i> READ-ONLY ENFORCED
+                        </span>
+                    }
+                }
+                @if (failChip is not null)
+                {
+                    <span class="runtrace-fail-chip cat-@failChip" title="failure category">@failChip</span>
+                }
             </div>
             <div class="runtrace-row-meta">
                 @if (tokensSum > 0)
@@ -142,6 +193,14 @@
                 <i class="bi bi-chevron-down runtrace-row-chevron"></i>
             </div>
         </div>
+        @if (showTimingBar)
+        {
+            @* Per-stage timing bar — this step's share of the total run, so slow stages pop
+               without reading numbers. Width is a pure CSS percentage; tinted by status. *@
+            <div class="runtrace-timing" title="@FormatMs(Model.ElapsedMs) — @($"{timingPct:0.#}")% of the @FormatMs(runTotalMs) run">
+                <div class="runtrace-timing-fill" style="width: @($"{timingPct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%");"></div>
+            </div>
+        }
         @if (!string.IsNullOrWhiteSpace(Model.Detail))
         {
             <div class="runtrace-row-detail">@Model.Detail</div>
