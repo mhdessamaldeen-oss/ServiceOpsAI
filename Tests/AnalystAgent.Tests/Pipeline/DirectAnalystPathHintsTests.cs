@@ -189,6 +189,83 @@ public sealed class DirectAnalystPathHintsTests
             "SELECT * FROM Tickets WHERE StatusId = 5", "tickets", out _));
     }
 
+    // ── BUG C: whole-word concept match, not a truncated-stem/substring (morphologically + verb aware) ──
+    [Fact]
+    public void StripUnrequestedFlagFilter_WholeWordConcept_NotSubstringStem()
+    {
+        // "active accounts" names the concept as a WHOLE WORD → keep IsActive
+        Assert.False(DirectAnalystPath.TryStripUnrequestedFlagFilter(
+            "SELECT COUNT(*) FROM Accounts WHERE IsActive = 1", "list active accounts", out _));
+
+        // "list activities" shares only a truncated prefix of "active" — NOT a whole word → strip IsActive.
+        // (The old Substring(0,len-2) stem 'activ' / the old Contains('active') substring both wrongly KEPT it.)
+        Assert.True(DirectAnalystPath.TryStripUnrequestedFlagFilter(
+            "SELECT COUNT(*) FROM Accounts WHERE IsActive = 1", "list activities", out var rAct));
+        Assert.DoesNotContain("IsActive", rAct);
+
+        // simple morphological tail still counts ("actively") — leading \b, trailing free
+        Assert.False(DirectAnalystPath.TryStripUnrequestedFlagFilter(
+            "SELECT COUNT(*) FROM Users WHERE IsActive = 1", "users actively logging in", out _));
+
+        // IsDeleted is the soft-delete invariant → ALWAYS kept, even when "deleted" is nowhere in the question
+        Assert.False(DirectAnalystPath.TryStripUnrequestedFlagFilter(
+            "SELECT COUNT(*) FROM Tickets WHERE IsDeleted = 0", "how many tickets", out _));
+
+        // grounding authority: the concept was grounded → keep even if the literal word isn't in the question
+        Assert.False(DirectAnalystPath.TryStripUnrequestedFlagFilter(
+            "SELECT COUNT(*) FROM Outages WHERE IsPlanned = 1", "scheduled maintenance", out _,
+            groundedConcepts: new[] { "Planned" }));
+    }
+
+    // ── BUG B: the status-column match is END-ANCHORED on Status/State, not "contains Status" ──
+    [Fact]
+    public void StripUnrequestedStatusFilter_OnlyEndAnchoredStatusOrState_NotAnyStarStatusStar()
+    {
+        // real lifecycle columns ending in Status/State → eligible to strip an invented literal
+        Assert.True(DirectAnalystPath.TryStripUnrequestedStatusFilter(
+            "SELECT COUNT(*) FROM Bills WHERE Status = 'X'", "all bills", System.Array.Empty<string>(), out _));
+        Assert.True(DirectAnalystPath.TryStripUnrequestedStatusFilter(
+            "SELECT COUNT(*) FROM Orders WHERE OrderStatus = 'X'", "all orders", System.Array.Empty<string>(), out _));
+        Assert.True(DirectAnalystPath.TryStripUnrequestedStatusFilter(
+            "SELECT COUNT(*) FROM Accounts WHERE AccountState = 'X'", "all accounts", System.Array.Empty<string>(), out _));
+
+        // columns that merely CONTAIN "Status" but do NOT end in it → a legitimate ungrounded filter is left alone
+        Assert.False(DirectAnalystPath.TryStripUnrequestedStatusFilter(
+            "SELECT COUNT(*) FROM Reports WHERE StatusReport = 'X'", "all reports", System.Array.Empty<string>(), out _));
+        Assert.False(DirectAnalystPath.TryStripUnrequestedStatusFilter(
+            "SELECT COUNT(*) FROM Users WHERE UserStatusFlag = 'X'", "all users", System.Array.Empty<string>(), out _));
+    }
+
+    // ── BUG A: load-bearing strip rides on PREDICATE literals only — a FORMAT/CASE literal never moves the count ──
+    [Fact]
+    public void CountPredicateValueLiterals_CountsOnlyComparisonContextLiterals_NotFunctionOrCaseLabels()
+    {
+        // A value FILTER literal (after '=') is counted; the FORMAT('yyyy-MM') time-bucket literal is NOT.
+        const string withStatusAndBucket =
+            "SELECT FORMAT(CreatedAt,'yyyy-MM') AS m, COUNT(*) FROM Tickets WHERE Status = 'X' GROUP BY FORMAT(CreatedAt,'yyyy-MM')";
+        // Stripping the Status predicate must register as load-bearing: the predicate-literal count drops by 1
+        // (1 → 0) while the two FORMAT literals are never counted (they stay invisible to the count).
+        const string afterStrip =
+            "SELECT FORMAT(CreatedAt,'yyyy-MM') AS m, COUNT(*) FROM Tickets GROUP BY FORMAT(CreatedAt,'yyyy-MM')";
+        Assert.Equal(1, DirectAnalystPath.CountPredicateValueLiterals(withStatusAndBucket));
+        Assert.Equal(0, DirectAnalystPath.CountPredicateValueLiterals(afterStrip));
+        Assert.True(DirectAnalystPath.CountPredicateValueLiterals(withStatusAndBucket)
+                  > DirectAnalystPath.CountPredicateValueLiterals(afterStrip));   // load-bearing: a value filter was lost
+
+        // A query whose ONLY literal is the FORMAT bucket (nothing stripped) registers 0 predicate literals —
+        // so a flag-only strip next to a time bucket is NOT mistaken for a load-bearing value strip.
+        const string bucketOnly =
+            "SELECT FORMAT(CreatedAt,'yyyy-MM') AS m, COUNT(*) FROM Tickets GROUP BY FORMAT(CreatedAt,'yyyy-MM')";
+        Assert.Equal(0, DirectAnalystPath.CountPredicateValueLiterals(bucketOnly));
+
+        // An IN(...) predicate is detected (the leading `IN (` literal counts once — enough to mark the
+        // predicate present); a LIKE predicate literal is counted; a CASE THEN/ELSE label literal is NOT.
+        Assert.Equal(1, DirectAnalystPath.CountPredicateValueLiterals(
+            "SELECT * FROM T WHERE Region IN ('Damascus', 'Aleppo')"));
+        Assert.Equal(1, DirectAnalystPath.CountPredicateValueLiterals(
+            "SELECT CASE WHEN x = 1 THEN 'high' ELSE 'low' END, Name FROM T WHERE Name LIKE '%a%'"));
+    }
+
     // ── Ungrounded relative-date strip: complete the inline-enum overdue fix ──────────────────────
     [Fact]
     public void StripUngroundedDatePredicate_RemovesInventedRelativeDate_WhenValueGrounded_NoTemporalCue()

@@ -310,10 +310,24 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         return g.LinkedValues.Count == 0 && g.LinkedNaturalKeys.Count == 0;  // nothing grounded replaced it
     }
 
-    /// <summary>Counts single-quoted string literals in SQL (<c>'...'</c>) — used to detect whether a lossy
-    /// strip dropped a value-literal predicate (load-bearing) vs a flag predicate (not).</summary>
-    private static int CountStringLiterals(string? sql) =>
-        string.IsNullOrEmpty(sql) ? 0 : Regex.Matches(sql, "'[^']*'").Count;
+    // A string literal sitting in a PREDICATE / comparison context — i.e. immediately preceded (ignoring
+    // whitespace) by a comparison operator or `IN (` / `LIKE`. This is the ONLY kind of literal that signals
+    // a value FILTER. It deliberately does NOT match a literal that is an argument to a function (a
+    // FORMAT(d,'yyyy-MM') time bucket, a CONVERT/DATENAME style mask) or a CASE label, because those are
+    // never preceded by a comparison operator — they sit after `(` or `,` or a keyword. Used to detect
+    // whether a lossy strip dropped a value-literal predicate (load-bearing) so the count no longer moves
+    // when an unrelated FORMAT/CASE literal is present.
+    private static readonly Regex PredicateValueLiteralRx = new(
+        @"(?:=|<>|!=|>=|<=|>|<|\bIN\s*\(|\bLIKE)\s*N?'[^']*'",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Counts single-quoted string literals that appear in a PREDICATE / comparison context (after a
+    /// comparison operator or <c>IN (</c> / <c>LIKE</c>) — NOT literals that are function arguments
+    /// (<c>FORMAT(d,'yyyy-MM')</c>) or CASE labels. Used to decide whether a lossy strip dropped a real
+    /// value-FILTER predicate (load-bearing) vs a flag predicate (not), without the abstain decision riding on
+    /// the total apostrophe count (a FORMAT bucket no longer moves the number).</summary>
+    internal static int CountPredicateValueLiterals(string? sql) =>
+        string.IsNullOrEmpty(sql) ? 0 : PredicateValueLiteralRx.Matches(sql).Count;
 
     // The clause keyword / terminator set that ENDS a WHERE clause — the boundary a sole-predicate WHERE is
     // dropped before. Beyond GROUP BY / ORDER BY / HAVING / ) / ; / end, this now also covers OFFSET, FETCH,
@@ -364,9 +378,11 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
     /// inventing <c>WHERE Status='Paid'</c> on "total of all bills" even when the prompt forbids it (a model
     /// prior prose can't reach). A status predicate is unrequested when its literal appears NEITHER in the
     /// question NOR among the grounded values (so the model made it up). Schema-agnostic: keys off the column
-    /// NAME shape (contains "Status"), not a hardcoded value list. Quoted-literal required, so an int FK like
-    /// <c>StatusId = 5</c> is never matched. Returns false (no change) when nothing was stripped, so a
-    /// legitimately-named status filter ("paid bills" / a synonym-grounded value) is never touched.</summary>
+    /// NAME shape — a column whose name ENDS in "Status" or "State" (end-anchored, so a real lifecycle column
+    /// like <c>Status</c>/<c>OrderStatus</c> matches but an unrelated <c>StatusReport</c>/<c>UserStatusFlag</c>
+    /// — Status not at the end — is NEVER stripped), not a hardcoded value list. Quoted-literal required, so an
+    /// int FK like <c>StatusId = 5</c> is never matched. Returns false (no change) when nothing was stripped, so
+    /// a legitimately-named status filter ("paid bills" / a synonym-grounded value) is never touched.</summary>
     internal static bool TryStripUnrequestedStatusFilter(
         string sql, string? question, IEnumerable<string>? groundedValues, out string repaired,
         bool trustGroundingOnly = false)
@@ -379,7 +395,10 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         // Match a status comparison to a quoted literal — EQUALITY (=) OR INEQUALITY (!= / <>). The 7B
         // over-filters in both directions: "bills issued this year" -> Status='Issued', and "how many customers
         // in total" -> Status != 'Churned' (200 -> 191). Both are ungrounded; both should go.
-        var rx = new Regex(@"(?:\[?\w+\]?\.)?\[?\w*Status\w*\]?\s*(?:=|!=|<>)\s*N?'([^']+)'", O);
+        // The column must END in Status/State (end-anchored `\b`), so OrderStatus/Status match while
+        // StatusReport / UserStatusFlag (Status NOT at the end) are excluded — a legitimate ungrounded filter
+        // on a *Status*-containing column that isn't actually a lifecycle column is no longer wrongly stripped.
+        var rx = new Regex(@"(?:\[?\w+\]?\.)?\[?\w*(?:Status|State)\b\]?\s*(?:=|!=|<>)\s*N?'([^']+)'", O);
         var s = sql;
         foreach (Match m in rx.Matches(sql))
         {
@@ -401,16 +420,22 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
     /// <summary>Deterministically strip an UNREQUESTED boolean-flag filter — the 7B's habit of bolting an
     /// invented <c>IsPlanned = 0</c> / <c>IsActive = 1</c> onto a query whose question names no such concept
     /// (e.g. "critical outages" came back filtered to UNPLANNED ones, 6 vs 7). The symmetric partner of
-    /// <see cref="TryStripUnrequestedStatusFilter"/> for boolean flags. A flag predicate <c>Is&lt;Concept&gt; = 0|1</c>
-    /// is unrequested when &lt;Concept&gt; (or its stem) appears nowhere in the question. EXCLUDES the soft-delete
-    /// invariant (any <c>Is*Delete*</c> flag is structural and always kept, so a Tickets <c>IsDeleted = 0</c> is
-    /// never stripped). Schema-agnostic (keys off the <c>Is&lt;word&gt;</c> shape + integer literal, so a quoted
-    /// status value or an int FK is never matched) and portable. Returns false when nothing was stripped.</summary>
-    internal static bool TryStripUnrequestedFlagFilter(string sql, string? question, out string repaired)
+    /// <see cref="TryStripUnrequestedStatusFilter"/> for boolean flags, and routed through the SAME authority:
+    /// a flag predicate <c>Is&lt;Concept&gt; = 0|1</c> is KEPT only when the concept was GROUNDED, or appears in
+    /// the question as a WHOLE WORD (<c>\bConcept</c> — so "active" matches "active"/"actively"/"actives" but
+    /// NOT "activities", which only shares a truncated prefix). This replaces the old brittle
+    /// <c>Substring(0,len-2)</c> stem inference, which was morphologically blind ("activities" kept an unrelated
+    /// IsActive filter) and verb-blind. EXCLUDES the soft-delete invariant (any <c>Is*Delete*</c> flag is
+    /// structural and always kept, so a Tickets <c>IsDeleted = 0</c> is never stripped). Schema-agnostic (keys
+    /// off the <c>Is&lt;word&gt;</c> shape + integer literal, so a quoted status value or an int FK is never
+    /// matched) and portable. Returns false when nothing was stripped.</summary>
+    internal static bool TryStripUnrequestedFlagFilter(
+        string sql, string? question, out string repaired, IEnumerable<string>? groundedConcepts = null)
     {
         repaired = sql;
         if (string.IsNullOrWhiteSpace(sql)) return false;
-        var qLower = (question ?? string.Empty).ToLowerInvariant();
+        var qText = question ?? string.Empty;
+        var grounded = new HashSet<string>(groundedConcepts ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
         const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
         // [qual.]Is<Concept> = 0|1 — a boolean flag set to an INTEGER literal (no quotes).
         var rx = new Regex(@"(?:\[?\w+\]?\.)?\[?Is(?<c>[A-Za-z]+)\]?\s*=\s*[01]\b", O);
@@ -419,11 +444,11 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         {
             var concept = m.Groups["c"].Value;                                          // "Planned","Active","Deleted"
             if (concept.IndexOf("Delete", StringComparison.OrdinalIgnoreCase) >= 0) continue;  // soft-delete invariant → keep
-            var c = concept.ToLowerInvariant();
-            if (qLower.Contains(c)) continue;                                           // requested ("active tariffs") → keep
-            // also keep when a 4+ char stem is present (planned/unplanned/planning share "plan")
-            var stem = c.Length > 5 ? c.Substring(0, c.Length - 2) : c;
-            if (stem.Length >= 4 && qLower.Contains(stem)) continue;
+            if (grounded.Contains(concept)) continue;                                   // grounding bound the concept → keep
+            // KEEP only when the concept is present in the question as a WHOLE WORD — a leading word boundary
+            // anchored at the concept start, so morphological tails (active→actively/actives) still count but a
+            // word that merely shares a truncated prefix (activities, planning) does NOT. No ad-hoc Substring.
+            if (Regex.IsMatch(qText, $@"\b{Regex.Escape(concept)}", RegexOptions.IgnoreCase)) continue;
             s = StripPredicate(s, Regex.Escape(m.Value));
         }
         repaired = s.Trim();
@@ -996,9 +1021,12 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                     _logger.LogInformation("[DirectAnalystPath] deterministic invalid-column repair succeeded for q='{Q}'", question);
                     repairsApplied.Add(("lossy-invalid-column-strip", compiled.Sql, repaired));
                     // LOAD-BEARING if the dropped predicate carried a value LITERAL (WHERE BadCol='X') —
-                    // a filter the question wanted — vs a flag (IsDeleted=0). Counting string literals
-                    // before/after isolates that: fewer literals after ⇒ a value filter was lost.
-                    strippedValueLiteral = CountStringLiterals(compiled.Sql) > CountStringLiterals(repaired);
+                    // a filter the question wanted — vs a flag (IsDeleted=0). Counting PREDICATE-scoped
+                    // literals (only those after a comparison op / IN / LIKE) before/after isolates that:
+                    // fewer such literals after ⇒ a value filter was lost. A FORMAT('yyyy-MM') bucket or a
+                    // CASE label is NOT a predicate literal, so it never moves this number (the abstain
+                    // decision no longer rides on the total apostrophe count).
+                    strippedValueLiteral = CountPredicateValueLiterals(compiled.Sql) > CountPredicateValueLiterals(repaired);
                     compiled = recompiled;
                     exec = reexec;
                     lossyRepairFired = true;   // KEYSTONE: this strip drops a predicate → floor confidence
