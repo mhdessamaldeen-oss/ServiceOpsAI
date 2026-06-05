@@ -53,7 +53,23 @@
     // label ("Open", "In Progress"); a longer one is a free-text column masquerading as a label.
     "MaxLookupValueWords":      4,
 
+    // ── Chat / grounding behaviour knobs ─────────────────────────────────────────
+    // Small-talk ("how are you") gets one warm LLM reply (true) or a 0-LLM canned redirect (false).
+    "SmallTalkUseLlm": true,
+    // The unrequested-status-filter strip trusts GROUNDING as the sole authority — drops a model-invented
+    // Status='X' the value-linker did not ground (kills "bills ISSUED this year" -> Status='Issued').
+    "StripStatusFilterTrustGroundingOnly": true,
+    // Skip binding an enum value used as a past-tense VERB before a time cue ("issued so far") as a status filter.
+    "EnableVerbTimeCueGuard": true,
+
     // ── External-tool vs data routing ────────────────────────────────────────────
+    // Semantic tool selection (embed Title+Description, cosine-rank). false -> legacy lexical scorer only.
+    "EnableSemanticToolSelection": true,
+    // A tool dispatches only when its cosine >= this floor AND beats the best table cosine by the margin below.
+    "ToolSelectMinCosine":  0.55,
+    "ToolVsSchemaMargin":   0.05,
+    // When the top two tools are within this gap it's ambiguous -> spend <=1 LLM confirm.
+    "ToolSelectGap":        0.04,
     // Tool-vs-data LEXICAL override: when the question NAMES a schema entity (deterministic
     // anchor match) AND the top tool's own cosine is below this threshold, treat it as DATA
     // and suppress the tool — so "list the currency codes" (a tiny lookup table with a weak

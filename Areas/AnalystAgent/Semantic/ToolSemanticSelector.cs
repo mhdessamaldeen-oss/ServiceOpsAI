@@ -101,10 +101,12 @@ internal sealed class ToolSemanticSelector : IToolSemanticSelector
         }
     }
 
-    /// <summary>Single-flight semaphore — when concurrent callers race to prime the tool vectors,
-    /// only one issues the embedder calls; the rest wait and read the populated cache. Same
-    /// rationale as <see cref="EntityEmbeddingMatcher"/>.</summary>
-    private readonly SemaphoreSlim _primingLock = new(1, 1);
+    /// <summary>Single-flight semaphore — when concurrent callers race to prime the tool vectors, only one
+    /// issues the embedder calls; the rest wait and read the populated cache. STATIC so the guarantee is
+    /// process-wide: this selector is registered Scoped (it consumes the scoped tool registry), so a per-instance
+    /// lock would let concurrent cold-cache requests each prime. The cache is the shared singleton IMemoryCache;
+    /// a static lock makes the single-flight match it. (Keyed writes are idempotent + fail-open either way.)</summary>
+    private static readonly SemaphoreSlim _primingLock = new(1, 1);
 
     private async Task<IReadOnlyList<(ToolDefinition Tool, float[] Vector)>> GetToolVectorsAsync(
         IReadOnlyList<ToolDefinition> tools, CancellationToken cancellationToken)

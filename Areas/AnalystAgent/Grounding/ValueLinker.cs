@@ -57,10 +57,11 @@ internal sealed class ValueLinker : IValueLinker
         if (string.IsNullOrWhiteSpace(question) || linkedTables.Count == 0)
             return System.Array.Empty<ValueLinkBinding>();
 
-        // Build the whole-word search corpus from the question. Keep a CASE-PRESERVED, punctuation-cleaned copy
-        // (qCased) alongside its lower-cased form (qLow): folding must run on the case-preserved text so a
-        // camelCase form the USER typed ("OnHold") splits to "on hold" too — lower-casing first would erase the
-        // boundary and "onhold" could never match the DB value's folded "on hold".
+        // Build the whole-word search corpus from the question, CASE-PRESERVED + punctuation-cleaned (qCased):
+        // folding must run on the case-preserved text so a camelCase form the USER typed ("OnHold") splits to
+        // "on hold" too — lower-casing first would erase the boundary and "onhold" could never match the DB
+        // value's folded "on hold". All matchers consume the folded corpus (qFolded); FoldForMatch lower-cases
+        // internally, so no separate lower-cased copy is needed.
         var qCased = " " + question + " ";
         var sb = new System.Text.StringBuilder(qCased.Length);
         foreach (var ch in qCased)
@@ -70,7 +71,6 @@ internal sealed class ValueLinker : IValueLinker
             else sb.Append(ch);
         }
         qCased = sb.ToString();
-        var qLow = qCased.ToLowerInvariant();
 
         // FOLDED corpus: collapse camelCase / whitespace so a compact / camelCase DB enum value
         // ('InProgress' -> 'in progress', 'OnHold' -> 'on hold') whole-word-matches its natural phrasing —
