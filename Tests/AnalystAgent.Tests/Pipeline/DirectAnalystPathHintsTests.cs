@@ -291,5 +291,27 @@ public sealed class DirectAnalystPathHintsTests
             System.Array.Empty<string>(), out _));
     }
 
+    // ── Load-bearing-lossy-strip abstain gate (#5): makes the repair-provenance keystone act ──
+    [Fact]
+    public void AbstainAfterLoadBearingLossyStrip_OnlyWhenValueStripped_AndUngrounded()
+    {
+        var opts = new AnalystAgent.Configuration.AnalystOptions();   // AbstainOnLoadBearingLossyStrip = true (default)
+        var ungrounded = QuestionGroundingContext.Empty;
+        var grounded = new QuestionGroundingContext
+        {
+            LinkedValues = new[] { new ValueLinkBinding("Bills", "Status", "Paid", "paid", 1.0f) }
+        };
+
+        // A value filter was lossily dropped AND nothing grounded replaced it → over-broad → ABSTAIN.
+        Assert.True(DirectAnalystPath.ShouldAbstainAfterLoadBearingLossyStrip(true, ungrounded, opts));
+        // Grounding resolved a real value (the injector enforced the right filter) → strip is harmless → KEEP.
+        Assert.False(DirectAnalystPath.ShouldAbstainAfterLoadBearingLossyStrip(true, grounded, opts));
+        // A flag strip (no value literal) is not load-bearing → KEEP.
+        Assert.False(DirectAnalystPath.ShouldAbstainAfterLoadBearingLossyStrip(false, ungrounded, opts));
+        // Gate disabled → never abstain.
+        opts.AbstainOnLoadBearingLossyStrip = false;
+        Assert.False(DirectAnalystPath.ShouldAbstainAfterLoadBearingLossyStrip(true, ungrounded, opts));
+    }
+
     private static string Norm(string s) => System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim();
 }

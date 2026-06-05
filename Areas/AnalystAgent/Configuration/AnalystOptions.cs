@@ -447,6 +447,16 @@ public sealed class AnalystOptions
     /// Aggregate presence (COUNT/SUM/…) exempts legitimate zero-value analytics like "count tickets by region".</summary>
     public bool EnableUngroundedProjectionAbstain { get; set; } = false;
 
+    /// <summary>Defense-in-depth abstain (Layer 2 backstop) that makes the repair-provenance keystone
+    /// load-bearing: when a LOSSY invalid-column strip dropped a predicate carrying a VALUE LITERAL
+    /// (<c>WHERE BadCol = 'X'</c> — a load-bearing filter the question wanted) AND grounding resolved NO real
+    /// value/key to replace it, the shipped answer is OVER-BROAD (it counts everything). Abstain instead of
+    /// returning a confident wrong number. Narrow by design: a flag strip (<c>IsDeleted = 0</c>, no literal) or
+    /// a grounded query (the injector enforced the right filter) is NOT affected. This is the asymmetry guard —
+    /// an abstain costs a retry, a confident-wrong costs a bad decision — and the backstop that keeps the
+    /// zero-confident-wrong posture on data the agent was not tuned on. Schema-agnostic (SQL-structure only).</summary>
+    public bool AbstainOnLoadBearingLossyStrip { get; set; } = true;
+
     /// <summary>SQL aggregate-function names whose presence proves analytic intent and EXEMPTS a query
     /// from <see cref="EnableUngroundedProjectionAbstain"/>. Config-driven, no per-table/phrase vocabulary;
     /// default = the ANSI set. Matched as a function CALL (<c>\bNAME\s*\(</c>) so a column named

@@ -164,6 +164,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             for (int attempt = 0; attempt < maxAttempts; attempt++)
             {
                 lossyRepairFired = false;   // per-attempt: the shipping attempt's provenance must be its own
+                var strippedValueLiteral = false;   // a load-bearing value filter was lossily dropped this attempt
                 var repairsApplied = new List<(string Name, string Before, string After)>();  // for the trace
                 var attemptHints = hints;
                 if (lastError is not null)
@@ -295,6 +296,10 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                         {
                             _logger.LogInformation("[DirectAnalystPath] deterministic invalid-column repair succeeded for q='{Q}'", question);
                             repairsApplied.Add(("lossy-invalid-column-strip", compiled.Sql, repaired));
+                            // LOAD-BEARING if the dropped predicate carried a value LITERAL (WHERE BadCol='X') —
+                            // a filter the question wanted — vs a flag (IsDeleted=0). Counting string literals
+                            // before/after isolates that: fewer literals after ⇒ a value filter was lost.
+                            strippedValueLiteral = CountStringLiterals(compiled.Sql) > CountStringLiterals(repaired);
                             compiled = recompiled;
                             exec = reexec;
                             lossyRepairFired = true;   // KEYSTONE: this strip drops a predicate → floor confidence
@@ -340,6 +345,17 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                         question, compiled.Sql);
                     return null; // honest abstain → caller surfaces "could not answer"
                 }
+                // Load-bearing-lossy-strip backstop: a value filter the question wanted was dropped and nothing
+                // grounded replaced it → the answer is over-broad. Abstain rather than ship a confident wrong
+                // number (keeps the zero-confident-wrong posture on data the agent wasn't tuned on).
+                if (exec.RowCount > 0
+                    && ShouldAbstainAfterLoadBearingLossyStrip(strippedValueLiteral, grounding, _options.Value))
+                {
+                    _logger.LogInformation(
+                        "[DirectAnalystPath] ABSTAIN — a load-bearing value filter was lossily stripped with no grounded replacement (over-broad answer) for q='{Q}'\n  SQL: {Sql}",
+                        question, compiled.Sql);
+                    return null; // honest abstain
+                }
                 return await PersistAsync(compiled, exec, attempt);
             }
 
@@ -382,6 +398,25 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         }
         return true;                                 // zero grounding + no aggregate = abstain
     }
+
+    /// <summary>Load-bearing-lossy-strip abstain guard — makes the repair-provenance keystone act. Returns
+    /// true (abstain) only when (a) the gate is enabled, (b) a lossy invalid-column strip dropped a predicate
+    /// carrying a VALUE LITERAL (a filter the question wanted, not a flag), and (c) grounding resolved NO real
+    /// value/key to replace it — so the shipped answer is over-broad. A grounded query is exempt: the injector
+    /// already enforced the right filter, so the strip of the model's wrong-column attempt is harmless. Pure
+    /// SQL-structure + grounding state — no schema/business vocab.</summary>
+    internal static bool ShouldAbstainAfterLoadBearingLossyStrip(
+        bool strippedValueLiteral, QuestionGroundingContext g, AnalystOptions opts)
+    {
+        if (!opts.AbstainOnLoadBearingLossyStrip) return false;
+        if (!strippedValueLiteral) return false;                       // a flag strip is not load-bearing
+        return g.LinkedValues.Count == 0 && g.LinkedNaturalKeys.Count == 0;  // nothing grounded replaced it
+    }
+
+    /// <summary>Counts single-quoted string literals in SQL (<c>'...'</c>) — used to detect whether a lossy
+    /// strip dropped a value-literal predicate (load-bearing) vs a flag predicate (not).</summary>
+    private static int CountStringLiterals(string? sql) =>
+        string.IsNullOrEmpty(sql) ? 0 : Regex.Matches(sql, "'[^']*'").Count;
 
     /// <summary>Deterministically remove an equality / IS-NULL predicate that references a column SQL
     /// Server reported as non-existent ("Invalid column name 'X'"). Targets the 7B model's habit of
