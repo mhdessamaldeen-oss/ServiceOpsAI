@@ -459,12 +459,15 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         var qLower = (question ?? string.Empty).ToLowerInvariant();
         var grounded = new HashSet<string>(groundedValues ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
         const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
-        var rx = new Regex(@"(?:\[?\w+\]?\.)?\[?\w*Status\w*\]?\s*=\s*N?'([^']+)'", O);
+        // Match a status comparison to a quoted literal — EQUALITY (=) OR INEQUALITY (!= / <>). The 7B
+        // over-filters in both directions: "bills issued this year" -> Status='Issued', and "how many customers
+        // in total" -> Status != 'Churned' (200 -> 191). Both are ungrounded; both should go.
+        var rx = new Regex(@"(?:\[?\w+\]?\.)?\[?\w*Status\w*\]?\s*(?:=|!=|<>)\s*N?'([^']+)'", O);
         var s = sql;
         foreach (Match m in rx.Matches(sql))
         {
             var literal = m.Groups[1].Value;
-            // KEEP a status equality only when GROUNDING bound this literal (grounding = the moat / single
+            // KEEP a status comparison only when GROUNDING bound this literal (grounding = the moat / single
             // authority on what to filter). The legacy fallback "the question contains the word" is verb-blind:
             // it kept Status='Issued' for "bills ISSUED so far this year" (a date verb, not a status). The value-
             // linker now does proper attributive-vs-verb grounding, so trusting grounding alone strips the 7B's

@@ -138,6 +138,17 @@ public sealed class DirectAnalystPathHintsTests
         Assert.False(DirectAnalystPath.TryStripUnrequestedStatusFilter(
             "SELECT COUNT(*) FROM Bills WHERE Status = 'Overdue'", "how many overdue bills",
             new[] { "Overdue" }, out _, trustGroundingOnly: true));
+
+        // INEQUALITY over-filter: "how many customers in total" → the 7B adds Status != 'Churned' (not grounded,
+        // not requested) → strip it so the count is the true total. Same rule, != / <> as well as =.
+        Assert.True(DirectAnalystPath.TryStripUnrequestedStatusFilter(
+            "SELECT COUNT(*) FROM Customers WHERE Status != 'Churned'", "how many customers do we have in total",
+            System.Array.Empty<string>(), out var rNe, trustGroundingOnly: true));
+        Assert.DoesNotContain("Churned", rNe);
+        // a grounded inequality stays ("customers who are not churned" → 'Churned' grounded) → KEEP
+        Assert.False(DirectAnalystPath.TryStripUnrequestedStatusFilter(
+            "SELECT COUNT(*) FROM Customers WHERE Status <> 'Churned'", "customers who are not churned",
+            new[] { "Churned" }, out _, trustGroundingOnly: true));
     }
 
     // ── Over-filter guard (boolean flags): strip an invented Is<Concept>=0/1 not named in the question ──
