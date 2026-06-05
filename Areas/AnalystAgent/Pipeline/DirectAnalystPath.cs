@@ -456,9 +456,12 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         if (string.IsNullOrWhiteSpace(sql)) return false;
         const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
         if (!Regex.IsMatch(sql, @"\b(?:SUM|COUNT|AVG|MIN|MAX)\s*\(", O)) return false;      // real aggregate only
-        // a SINGLE GROUP BY column immediately followed by ORDER BY / HAVING / end (multi-column GROUP BY won't match)
+        // a SINGLE GROUP BY column immediately followed by ORDER BY / HAVING / end (multi-column GROUP BY won't match).
+        // The whitespace before the next clause is in the LOOKAHEAD (not consumed) so it SURVIVES the replacement:
+        // consuming it (the old `\s*(?=...)`) glued the rebuilt GROUP BY to the following clause ("pm.NameEnHAVING"),
+        // a parse error that rejected otherwise-valid SQL from ANY model whenever this grain repair fired.
         var m = Regex.Match(sql,
-            @"\bGROUP\s+BY\s+(?<full>(?<qual>\[?\w+\]?\.)?\[?(?<col>\w+)\]?)\s*(?=(ORDER\s+BY|HAVING|;|\)|$))", O);
+            @"\bGROUP\s+BY\s+(?<full>(?<qual>\[?\w+\]?\.)?\[?(?<col>\w+)\]?)(?=\s*(ORDER\s+BY|HAVING|;|\)|$))", O);
         if (!m.Success) return false;
         var col = m.Groups["col"].Value;
         if (!Regex.IsMatch(col, "(Name|Title|Label)", RegexOptions.IgnoreCase)) return false;  // label-shaped only

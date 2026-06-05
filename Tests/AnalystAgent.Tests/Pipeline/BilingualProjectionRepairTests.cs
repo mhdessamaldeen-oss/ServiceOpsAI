@@ -229,4 +229,27 @@ public class BilingualProjectionRepairTests
             "SELECT Customers.Id, SUM(x) FROM Bills b JOIN Customers ON 1=1 GROUP BY Customers.Id",
             Lookup(TableWithPk("Customers", "FullNameEn", "Id", "Id", "FullNameEn")), out _));
     }
+
+    [Fact]
+    public void FixGroupByGrain_PreservesClauseBoundary_BeforeHavingAndOrderBy()
+    {
+        // The cloud-model bug: rebuilding the GROUP BY must KEEP the whitespace before the next clause.
+        // The old regex consumed it, gluing "GROUP BY pm.NameEn" to "HAVING" -> "pm.NameEnHAVING" -> a parse
+        // error that rejected valid SQL from ANY model (caught when a 70B's correct HAVING query was refused).
+        var pm = Lookup(TableWithPk("PaymentMethods", "NameEn", "Id", "Id", "NameEn"));
+
+        Assert.True(DirectAnalystPath.TryFixGroupByGrain(
+            "SELECT pm.NameEn, COUNT(p.Id) FROM Payments p JOIN PaymentMethods pm ON p.PaymentMethodId=pm.Id\nGROUP BY pm.NameEn\nHAVING COUNT(p.Id) > 100",
+            pm, out var rH));
+        Assert.DoesNotContain("NameEnHAVING", rH);           // boundary preserved
+        Assert.Matches(@"pm\.NameEn\s+HAVING", rH);          // a separator survives before HAVING
+        Assert.Contains("GROUP BY pm.Id, pm.NameEn", rH);    // the grain fix still applied
+
+        // same for ORDER BY
+        Assert.True(DirectAnalystPath.TryFixGroupByGrain(
+            "SELECT pm.NameEn, COUNT(*) FROM Payments p JOIN PaymentMethods pm ON p.PaymentMethodId=pm.Id GROUP BY pm.NameEn ORDER BY COUNT(*) DESC",
+            pm, out var rO));
+        Assert.DoesNotContain("NameEnORDER", rO);
+        Assert.Matches(@"pm\.NameEn\s+ORDER", rO);
+    }
 }
