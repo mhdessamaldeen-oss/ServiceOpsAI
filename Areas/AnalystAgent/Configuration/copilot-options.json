@@ -53,6 +53,14 @@
     // label ("Open", "In Progress"); a longer one is a free-text column masquerading as a label.
     "MaxLookupValueWords":      4,
 
+    // ── External-tool vs data routing ────────────────────────────────────────────
+    // Tool-vs-data LEXICAL override: when the question NAMES a schema entity (deterministic
+    // anchor match) AND the top tool's own cosine is below this threshold, treat it as DATA
+    // and suppress the tool — so "list the currency codes" (a tiny lookup table with a weak
+    // schema embedding) isn't eaten by a domain-overlapping tool. A strong tool match
+    // (cosine >= this) still dispatches. 0.0 disables the override (pre-fix floor+margin only).
+    "SchemaLexicalLinkOverrideToolThreshold": 0.66,
+
     // ── SpecExtractor prompt gating ──────────────────────────────────────────────
     // Minimum planner tier to inject the copilot-text.json iteration-loop extra guidance
     // into the planner prompt. One of: "Weak" | "Medium" | "Strong" (bound by name).

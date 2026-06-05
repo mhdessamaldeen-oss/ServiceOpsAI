@@ -78,6 +78,7 @@ internal sealed class ToolHandler : IToolHandler
     private readonly Microsoft.Extensions.Options.IOptionsMonitor<Configuration.AnalystOptions> _options;
     private readonly IToolSemanticSelector _selector;
     private readonly Retrieval.ISchemaSemanticRetriever _schemaRetriever;
+    private readonly Schema.ISchemaLinker _schemaLinker;
     private readonly ILogger<ToolHandler> _logger;
 
     /// <summary>
@@ -106,6 +107,7 @@ internal sealed class ToolHandler : IToolHandler
         Microsoft.Extensions.Options.IOptionsMonitor<Configuration.AnalystOptions> options,
         IToolSemanticSelector selector,
         Retrieval.ISchemaSemanticRetriever schemaRetriever,
+        Schema.ISchemaLinker schemaLinker,
         ILogger<ToolHandler> logger)
     {
         _registry = registry;
@@ -117,6 +119,7 @@ internal sealed class ToolHandler : IToolHandler
         _options = options;
         _selector = selector;
         _schemaRetriever = schemaRetriever;
+        _schemaLinker = schemaLinker;
         _logger = logger;
         _dbShapeMarkers = new Lazy<Regex>(BuildDbShapeMarkers);
     }
@@ -325,12 +328,22 @@ internal sealed class ToolHandler : IToolHandler
         // Stage 1 — data-or-tool. The schema retriever gives the competing "this is a data question"
         // signal; fail-open to schemaTop=0 when it's unavailable, which just lets the tool floor decide.
         var schemaTop = await BestSchemaCosineAsync(question, cancellationToken);
+
+        // Deterministic LEXICAL data-signal (Fix B): true when the question NAMES a schema entity by
+        // name/synonym/natural-key, independent of the (weak-for-tiny-tables) schema embedding. Reuses the
+        // schema linker's existing in-scope anchor check — no new vocabulary list. Lets a named small lookup
+        // table ("currency codes") outrank a domain-overlapping tool when the tool's own cosine is weak.
+        var hasSchemaLexicalMatch = SchemaLexicalMatch(question);
+
         var rankSummary = FormatSemanticCandidates(ranked);
-        if (!ShouldDispatchTool(top.Score, schemaTop, opts.ToolSelectMinCosine, opts.ToolVsSchemaMargin))
+        if (!ShouldDispatchTool(top.Score, schemaTop, opts.ToolSelectMinCosine, opts.ToolVsSchemaMargin,
+                hasSchemaLexicalMatch, opts.SchemaLexicalLinkOverrideToolThreshold))
         {
             return (true, null,
                 $"semantic: data-or-tool gate → DATA (toolTop {top.Score:F3} vs schemaTop {schemaTop:F3}, " +
-                $"floor {opts.ToolSelectMinCosine:F2}, margin {opts.ToolVsSchemaMargin:F2}); candidates: {rankSummary}");
+                $"floor {opts.ToolSelectMinCosine:F2}, margin {opts.ToolVsSchemaMargin:F2}, " +
+                $"lexicalMatch {hasSchemaLexicalMatch}, lexOverride {opts.SchemaLexicalLinkOverrideToolThreshold:F2}); " +
+                $"candidates: {rankSummary}");
         }
 
         // Stage 2 — which tool. Clear winner → dispatch directly (0 LLM).
@@ -365,15 +378,43 @@ internal sealed class ToolHandler : IToolHandler
         }
     }
 
+    /// <summary>Deterministic lexical "this is a data question" signal: does the question name a schema entity
+    /// by name / synonym / natural-key format? Reuses <see cref="Schema.ISchemaLinker.HasInScopeSignal"/> (the
+    /// same anchor check the orchestrator uses to override a shaky OOS verdict) — no new vocabulary. Fail-soft:
+    /// any error returns false so the tool gate decides on the embedding signals alone.</summary>
+    private bool SchemaLexicalMatch(string question)
+    {
+        try { return _schemaLinker.HasInScopeSignal(question); }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "[ToolHandler] schema lexical-link check failed; treating as no lexical match.");
+            return false;
+        }
+    }
+
     /// <summary>
     /// Stage-1 decision (pure, unit-testable): is this a TOOL question or a DATA question?
     /// A tool is dispatched only when its cosine clears the absolute <paramref name="minCosine"/> floor
     /// AND beats the best schema-table cosine by at least <paramref name="margin"/>. Both conditions are
     /// required: the floor rejects weak coincidental tool matches; the margin guarantees a data question
     /// (which scores high on schema) can never be eaten by a tool scoring in the same neighborhood.
+    ///
+    /// <para><b>Lexical-link override (Fix B).</b> A tiny lookup table ("Currencies") has a weak schema
+    /// EMBEDDING cosine, so a domain-overlapping tool can win the embedding margin even though the question
+    /// literally NAMES a schema entity ("list the currency codes"). <paramref name="hasSchemaLexicalMatch"/>
+    /// is the deterministic signal that the question lexically/anchor-matches a schema entity
+    /// (<see cref="Schema.ISchemaLinker.HasInScopeSignal"/>). When it is set AND the tool's OWN cosine is below
+    /// <paramref name="lexicalOverrideToolThreshold"/>, the question is treated as DATA (tool suppressed) — a
+    /// named schema entity outranks a merely-similar tool. A genuinely strong tool match (cosine at/above the
+    /// override threshold) still dispatches, so a real tool question that incidentally shares a word with a
+    /// schema entity is not starved. <paramref name="lexicalOverrideToolThreshold"/> = 0 disables the override
+    /// entirely → byte-identical to the original floor+margin logic.
     /// </summary>
-    internal static bool ShouldDispatchTool(double toolTop, double schemaTop, double minCosine, double margin)
-        => toolTop >= minCosine && (toolTop - schemaTop) >= margin;
+    internal static bool ShouldDispatchTool(
+        double toolTop, double schemaTop, double minCosine, double margin,
+        bool hasSchemaLexicalMatch, double lexicalOverrideToolThreshold)
+        => toolTop >= minCosine && (toolTop - schemaTop) >= margin
+           && !(hasSchemaLexicalMatch && lexicalOverrideToolThreshold > 0.0 && toolTop < lexicalOverrideToolThreshold);
 
     private static string FormatSemanticCandidates(IReadOnlyList<(ToolDefinition Tool, float Score)> ranked)
         => string.Join("; ", ranked.Take(4).Select(r => $"{r.Tool.ToolKey}={r.Score:F3}"));

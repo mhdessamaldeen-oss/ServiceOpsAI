@@ -68,6 +68,14 @@ internal sealed class ValueLinker : IValueLinker
         }
         qLow = sb.ToString();
 
+        // FOLDED corpus: the same question with internal whitespace collapsed to single spaces, so a compact /
+        // camelCase DB enum value ('InProgress' -> 'in progress', 'OnHold' -> 'on hold') whole-word-matches its
+        // natural multi-word phrasing in the question. Re-padded with bordering spaces (FoldForMatch trims) so
+        // the " value " whole-word probe keeps both anchors. The question is already lower-cased here, so folding
+        // it only collapses whitespace runs — it injects NO camelCase boundaries (those exist only on the DB-value
+        // side, where the linker folds each value on demand). Computed once; qLow stays the exact-form corpus.
+        var qFolded = " " + FoldForMatch(qLow) + " ";
+
         // Expand the link set: each linked table + 1- and 2-hop FK neighbors that are lookup-shaped.
         // ACCESS GATE: never probe a table that isn't QUERYABLE — the copilot's own operational tables
         // (Copilot*), EF/identity-internal, and any RetrieverHidden table must never become a value source.
@@ -96,8 +104,10 @@ internal sealed class ValueLinker : IValueLinker
                 // closes for operational tables; this closes it for queryable BUSINESS tables). Portable: one
                 // scalar bound, no table/column list. Mirrors the inline-enum pass's existing cardinality guard.
                 if (ExceedsWordCap(val, _options.Value.MaxLookupValueWords)) continue;
-                var needle = " " + val.ToLowerInvariant() + " ";
-                if (!qLow.Contains(needle, System.StringComparison.Ordinal)) continue;
+                // Whole-word match on the FOLDED corpus: matches the value's natural-language form regardless of
+                // internal whitespace / case / camelCase boundaries ('InProgress' and 'In Progress' both bind
+                // "in progress"). The EXACT DB literal `val` is bound below, never the question's spaced form.
+                if (!FoldedWholeWordMatch(qFolded, val)) continue;
 
                 // De-dup at (table, column, VALUE) level — so two distinct values in the SAME column
                 // (e.g. "tickets from Damascus AND Aleppo", both in Regions.NameEn) BOTH bind, while an
@@ -124,20 +134,27 @@ internal sealed class ValueLinker : IValueLinker
         foreach (var t in linkedTables)
         {
             if (!_accessPolicy.IsTableQueryable(t.Name)) continue;   // never inline-bind on a hidden/operational table
+            // Entity-noun set for the attributive override in IsVerbContext (this table's Name + Synonyms),
+            // built once per table. Lets "overdue BILLS" bind while "issued SO far" / "closed LAST month" don't.
+            var entityNouns = BuildEntityNouns(t);
             foreach (var (col, val) in _catalog.GetInlineEnumValues(t.Name))
             {
                 if (val.Length < 3) continue;
+                // Fold the DB value to its natural-language form once ('InProgress' -> 'in progress',
+                // 'Overdue' -> 'overdue') so a compact one-token enum still binds its multi-word phrase. The
+                // folded form is ONLY the comparison key — the EXACT DB literal `val` is what gets bound below.
+                var valFolded = FoldForMatch(val);
                 // Whole-word match, PLURAL-AWARE: an entity-subtype value ("Transformer") is named in the
                 // plural ("how many transformerS") — match the value's regular plural too so the filter binds.
                 // Additive: status values ("Overdue"/"Critical") aren't pluralized in questions, so no over-bind.
-                if (!QuestionContainsValueWord(qLow, val.ToLowerInvariant())) continue;
+                if (!QuestionContainsValueWord(qFolded, valFolded)) continue;
                 // Skip when the enum word is used as a VERB (immediately followed by a preposition) rather
                 // than an ADJECTIVE modifying the entity: "bills ISSUED in the last 30 days" / "bills PAID
                 // by cash" are date/method filters, NOT a Status filter — while "overdue BILLS",
                 // "active ACCOUNTS", "completed work ORDERS" are real status filters (followed by a noun).
                 // Fact-table enum values double as common past-tense verbs (issued/paid/completed), so this
                 // cuts the over-bind the fresh TEMPORAL suite exposed without touching the adjective bindings.
-                if (IsVerbContext(qLow, val.ToLowerInvariant())) continue;
+                if (IsVerbContext(qFolded, valFolded, entityNouns, _options.Value.EnableVerbTimeCueGuard)) continue;
                 var key = t.Name + "." + col + "=" + val;
                 if (!seenPerTableColumn.Add(key)) continue;
                 results.Add(new ValueLinkBinding(
@@ -202,6 +219,69 @@ internal sealed class ValueLinker : IValueLinker
     private static readonly HashSet<string> VerbContextPrepositions = new(System.StringComparer.OrdinalIgnoreCase)
     { "in", "by", "on", "during", "over", "since", "between", "within", "before", "after", "from" };
 
+    // Closed grammar set of English FUNCTION words / temporal adverbs that, immediately AFTER an enum word,
+    // mark it as a past-tense VERB introducing a time clause ("issued SO far", "closed LAST month",
+    // "paid YET", "resolved RECENTLY") rather than an adjective filter. These are not data/domain vocabulary —
+    // they are language closed-class words, so this stays portable to any schema. Used only by IsVerbContext
+    // and only when the time-cue arm is enabled. A bare number after the enum word ("issued 2024") is handled
+    // separately in IsVerbContext (digit check), so years/quarters are not enumerated here.
+    private static readonly HashSet<string> VerbContextTimeCues = new(System.StringComparer.OrdinalIgnoreCase)
+    { "this", "last", "next", "so", "today", "yesterday", "tomorrow", "ago", "ytd", "now", "currently",
+      "recently", "lately", "yet", "already", "still", "when", "while", "until", "till" };
+
+    /// <summary>
+    /// Canonical "comparison form" of a DB value OR a question span: lower-cased, with a SPACE inserted at every
+    /// camelCase / digit↔letter / underscore / hyphen boundary, and all runs of whitespace collapsed to one space.
+    /// So a compact one-token enum value matches its natural multi-word phrasing: <c>InProgress</c> →
+    /// <c>in progress</c>, <c>OnHold</c> → <c>on hold</c>, <c>In Progress</c> → <c>in progress</c>,
+    /// <c>WORK_ORDER</c> → <c>work order</c>. Purely character-class driven — no table / column / value
+    /// vocabulary — so it is portable to any camelCase / snake_case / spaced enum in any DB. A boundary is only
+    /// inserted before an upper-case letter that follows a lower-case letter or precedes one, so an acronym run
+    /// (<c>HTTPStatus</c>) folds to <c>http status</c>, not <c>h t t p status</c>.
+    /// </summary>
+    internal static string FoldForMatch(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        var chars = new System.Text.StringBuilder(value.Length + 8);
+        for (var i = 0; i < value.Length; i++)
+        {
+            var ch = value[i];
+            if (ch == '_' || ch == '-' || char.IsWhiteSpace(ch)) { chars.Append(' '); continue; }
+            if (i > 0)
+            {
+                var prev = value[i - 1];
+                var upperBoundary = char.IsUpper(ch)
+                    && (char.IsLower(prev) || (i + 1 < value.Length && char.IsLower(value[i + 1])));
+                var digitBoundary = (char.IsDigit(ch) && char.IsLetter(prev))
+                    || (char.IsLetter(ch) && char.IsDigit(prev));
+                if (upperBoundary || digitBoundary) chars.Append(' ');
+            }
+            chars.Append(char.ToLowerInvariant(ch));
+        }
+        // Collapse any run of spaces to one (covers already-spaced values + the inserted boundaries), then trim.
+        var outSb = new System.Text.StringBuilder(chars.Length);
+        var prevSpace = false;
+        foreach (var ch in chars.ToString())
+        {
+            if (ch == ' ') { if (!prevSpace) outSb.Append(' '); prevSpace = true; }
+            else { outSb.Append(ch); prevSpace = false; }
+        }
+        return outSb.ToString().Trim();
+    }
+
+    /// <summary>
+    /// Whole-word-ish match of a DB value's FOLDED form against a FOLDED, space-padded question corpus.
+    /// Requires a space on BOTH sides of the value's folded form, so a multi-word fold ('in progress') matches
+    /// the phrase "are in progress now" but a substring ('progress' inside 'progressively') never binds. The
+    /// caller binds the EXACT DB literal, not this folded form.
+    /// </summary>
+    internal static bool FoldedWholeWordMatch(string qFoldedPadded, string dbValue)
+    {
+        var valFolded = FoldForMatch(dbValue);
+        if (valFolded.Length == 0) return false;
+        return qFoldedPadded.Contains(" " + valFolded + " ", System.StringComparison.Ordinal);
+    }
+
     /// <summary>True when <paramref name="value"/> has more whitespace-separated words than <paramref name="maxWords"/>.
     /// A genuine lookup/enum value is a short label; anything longer is a free-text column (a Title/Name/Notes
     /// field that captured a whole sentence) masquerading as a label. Used to gate the exact-match lookup pass.</summary>
@@ -221,18 +301,73 @@ internal sealed class ValueLinker : IValueLinker
         return false;
     }
 
-    /// <summary>True when the enum <paramref name="valLower"/> appears immediately followed by a
-    /// verb-context preposition in the (space-padded, lowercased) question — i.e. it's the verb in
-    /// "bills <b>issued in</b> the last 30 days", not the adjective in "overdue bills". Used only by the
-    /// inline-enum pass, whose values double as common past-tense verbs.</summary>
-    private static bool IsVerbContext(string qLowPadded, string valLower)
+    /// <summary>True when the enum word is used as a past-tense VERB introducing a clause rather than an
+    /// ADJECTIVE modifying the entity — so the inline-enum pass should SKIP binding it as a status filter.
+    /// Fact-table enum values double as common past-tense verbs ("issued"/"paid"/"closed"/"completed"), and
+    /// "bills <b>issued so far this year</b>" is a date filter, not a Status='Issued' filter, while
+    /// "<b>overdue bills</b>" / "<b>open tickets</b>" / "<b>active accounts</b>" are real status filters.
+    ///
+    /// <para>The disambiguation is value-list-free and schema-driven. After locating the value and reading the
+    /// NEXT question token, the tests apply IN ORDER:</para>
+    /// <list type="number">
+    ///   <item><b>ATTRIBUTIVE OVERRIDE (wins):</b> if the next token is the entity NOUN
+    ///   (<paramref name="entityNouns"/> = the linked table's Name + auto-generated singular/plural Synonyms),
+    ///   the enum word is an adjective modifying the entity → return false (BIND). Covers "overdue BILLS".</item>
+    ///   <item><b>Verb preposition:</b> next token in <see cref="VerbContextPrepositions"/> ("issued IN",
+    ///   "paid BY") → return true (SKIP). Always on (the original behaviour).</item>
+    ///   <item><b>Time-cue arm (gated by <paramref name="enableTimeCueArm"/>):</b> next token in
+    ///   <see cref="VerbContextTimeCues"/> ("issued SO far", "closed LAST month") OR a bare number
+    ///   ("issued 2024") → return true (SKIP).</item>
+    ///   <item><b>Default:</b> return false (BIND).</item>
+    /// </list>
+    /// <para>No token after the value (value ends the question, e.g. "list bills that are on hold") → return
+    /// false (BIND), the original behaviour. <paramref name="entityNouns"/> may be null/empty (no override).</para>
+    /// </summary>
+    internal static bool IsVerbContext(
+        string qFoldedPadded,
+        string valFolded,
+        System.Collections.Generic.IReadOnlyCollection<string> entityNouns,
+        bool enableTimeCueArm)
     {
-        var needle = " " + valLower + " ";
-        var idx = qLowPadded.IndexOf(needle, System.StringComparison.Ordinal);
+        var needle = " " + valFolded + " ";
+        var idx = qFoldedPadded.IndexOf(needle, System.StringComparison.Ordinal);
         if (idx < 0) return false;
-        var rest = qLowPadded.Substring(idx + needle.Length);
+        var rest = qFoldedPadded.Substring(idx + needle.Length);
         var words = rest.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
-        return words.Length > 0 && VerbContextPrepositions.Contains(words[0]);
+        if (words.Length == 0) return false;   // value ends the question → adjective/bare usage → BIND
+
+        var nextToken = words[0];
+
+        // 1. ATTRIBUTIVE OVERRIDE (wins): enum word directly modifies the entity noun → adjective → BIND.
+        if (entityNouns != null && entityNouns.Contains(nextToken)) return false;
+
+        // 2. Verb preposition ("issued IN", "paid BY") → verb → SKIP.
+        if (VerbContextPrepositions.Contains(nextToken)) return true;
+
+        // 3. Time-cue arm: temporal adverb ("issued SO far", "closed LAST month") or a bare year/number
+        //    ("issued 2024") → verb introducing a time clause → SKIP. Gated so an operator can disable it.
+        if (enableTimeCueArm)
+        {
+            if (VerbContextTimeCues.Contains(nextToken)) return true;
+            if (nextToken.Length > 0 && nextToken.All(char.IsDigit)) return true;
+        }
+
+        // 4. Default → adjective/other → BIND.
+        return false;
+    }
+
+    /// <summary>The lower-cased entity-noun set for a linked table: its Name plus auto-generated
+    /// singular/plural <see cref="InferredTable.Synonyms"/>. Used by <see cref="IsVerbContext"/>'s attributive
+    /// override so "overdue BILLS" / "open TICKETS" bind while "issued SO far" doesn't. Schema-derived — no
+    /// hand-curated vocabulary. Empty set when the table is null.</summary>
+    internal static System.Collections.Generic.HashSet<string> BuildEntityNouns(InferredTable table)
+    {
+        var nouns = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        if (table is null) return nouns;
+        if (!string.IsNullOrWhiteSpace(table.Name)) nouns.Add(table.Name.ToLowerInvariant());
+        foreach (var s in table.Synonyms)
+            if (!string.IsNullOrWhiteSpace(s)) nouns.Add(s.ToLowerInvariant());
+        return nouns;
     }
 
     /// <summary>Bind Arabic question words to English enum VALUES via the multilingual embedder. Candidates

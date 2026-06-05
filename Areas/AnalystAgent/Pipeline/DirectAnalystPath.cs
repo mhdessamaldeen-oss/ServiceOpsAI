@@ -187,7 +187,8 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
                 // status-column equality whose literal is neither in the question nor a grounded value — it was
                 // made up. No prompt, no LLM; the one fix for the model prior that prose can't reach.
                 var sqlToUse = emit.Sql!;
-                if (TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped))
+                if (TryStripUnrequestedStatusFilter(sqlToUse, question, grounding.LinkedValues.Select(v => v.Value), out var deScoped,
+                        trustGroundingOnly: _options.Value.StripStatusFilterTrustGroundingOnly))
                 {
                     _logger.LogInformation("[DirectAnalystPath] stripped unrequested status filter for q='{Q}': {Before} => {After}", question, sqlToUse, deScoped);
                     repairsApplied.Add(("unrequested-status-strip", sqlToUse, deScoped));
@@ -450,7 +451,8 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
     /// <c>StatusId = 5</c> is never matched. Returns false (no change) when nothing was stripped, so a
     /// legitimately-named status filter ("paid bills" / a synonym-grounded value) is never touched.</summary>
     internal static bool TryStripUnrequestedStatusFilter(
-        string sql, string? question, IEnumerable<string>? groundedValues, out string repaired)
+        string sql, string? question, IEnumerable<string>? groundedValues, out string repaired,
+        bool trustGroundingOnly = false)
     {
         repaired = sql;
         if (string.IsNullOrWhiteSpace(sql)) return false;
@@ -462,7 +464,14 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         foreach (Match m in rx.Matches(sql))
         {
             var literal = m.Groups[1].Value;
-            if (qLower.Contains(literal.ToLowerInvariant()) || grounded.Contains(literal)) continue; // requested → keep
+            // KEEP a status equality only when GROUNDING bound this literal (grounding = the moat / single
+            // authority on what to filter). The legacy fallback "the question contains the word" is verb-blind:
+            // it kept Status='Issued' for "bills ISSUED so far this year" (a date verb, not a status). The value-
+            // linker now does proper attributive-vs-verb grounding, so trusting grounding alone strips the 7B's
+            // self-added status filter while keeping every adjective case ("overdue bills"->'Overdue' grounded).
+            // Gated: trustGroundingOnly=false preserves the old question-contains fallback.
+            var keep = grounded.Contains(literal) || (!trustGroundingOnly && qLower.Contains(literal.ToLowerInvariant()));
+            if (keep) continue; // requested → keep
             var pred = Regex.Escape(m.Value);
             s = Regex.Replace(s, $@"\bWHERE\s+{pred}\s+AND\b", "WHERE", O);                                 // WHERE <bad> AND ... -> WHERE ...
             s = Regex.Replace(s, $@"\s+AND\s+{pred}", " ", O);                                              // ... AND <bad> ... -> ...

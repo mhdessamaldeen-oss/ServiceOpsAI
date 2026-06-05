@@ -58,35 +58,41 @@ public class ToolSemanticSelectorTests
     public void ShouldDispatchTool_HighTool_LowSchema_IsTool()
     {
         // toolTop well above floor and well above schemaTop+margin → dispatch.
-        Assert.True(ToolHandler.ShouldDispatchTool(toolTop: 0.80, schemaTop: 0.30, minCosine: 0.55, margin: 0.05));
+        // Lexical override OFF (threshold 0.0) → original floor+margin logic.
+        Assert.True(ToolHandler.ShouldDispatchTool(toolTop: 0.80, schemaTop: 0.30, minCosine: 0.55, margin: 0.05,
+            hasSchemaLexicalMatch: false, lexicalOverrideToolThreshold: 0.0));
     }
 
     [Fact]
     public void ShouldDispatchTool_HighSchema_LowTool_IsData()
     {
         // A data question: schema scores high, tool low → never eaten by a tool.
-        Assert.False(ToolHandler.ShouldDispatchTool(toolTop: 0.40, schemaTop: 0.85, minCosine: 0.55, margin: 0.05));
+        Assert.False(ToolHandler.ShouldDispatchTool(toolTop: 0.40, schemaTop: 0.85, minCosine: 0.55, margin: 0.05,
+            hasSchemaLexicalMatch: false, lexicalOverrideToolThreshold: 0.0));
     }
 
     [Fact]
     public void ShouldDispatchTool_ToolBelowFloor_IsData()
     {
         // Tool wins the margin but is below the absolute floor → still not a tool.
-        Assert.False(ToolHandler.ShouldDispatchTool(toolTop: 0.50, schemaTop: 0.10, minCosine: 0.55, margin: 0.05));
+        Assert.False(ToolHandler.ShouldDispatchTool(toolTop: 0.50, schemaTop: 0.10, minCosine: 0.55, margin: 0.05,
+            hasSchemaLexicalMatch: false, lexicalOverrideToolThreshold: 0.0));
     }
 
     [Fact]
     public void ShouldDispatchTool_WithinMargin_IsData()
     {
         // Tool clears the floor but does NOT beat schema by the margin → ambiguous → data path.
-        Assert.False(ToolHandler.ShouldDispatchTool(toolTop: 0.60, schemaTop: 0.58, minCosine: 0.55, margin: 0.05));
+        Assert.False(ToolHandler.ShouldDispatchTool(toolTop: 0.60, schemaTop: 0.58, minCosine: 0.55, margin: 0.05,
+            hasSchemaLexicalMatch: false, lexicalOverrideToolThreshold: 0.0));
     }
 
     [Fact]
     public void ShouldDispatchTool_ExactlyAtThresholds_IsTool()
     {
         // Boundary: toolTop == floor AND (toolTop - schemaTop) == margin → inclusive → dispatch.
-        Assert.True(ToolHandler.ShouldDispatchTool(toolTop: 0.55, schemaTop: 0.50, minCosine: 0.55, margin: 0.05));
+        Assert.True(ToolHandler.ShouldDispatchTool(toolTop: 0.55, schemaTop: 0.50, minCosine: 0.55, margin: 0.05,
+            hasSchemaLexicalMatch: false, lexicalOverrideToolThreshold: 0.0));
     }
 
     // ── RankAsync (fake embedder) ────────────────────────────────────────────────

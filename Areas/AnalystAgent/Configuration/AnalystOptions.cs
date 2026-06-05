@@ -102,6 +102,14 @@ public sealed class AnalystOptions
     /// short-circuits BEFORE the intent classifier + planner, so small-talk never reaches the SQL path.</summary>
     public bool SmallTalkUseLlm { get; set; } = true;
 
+    /// <summary>When true, the unrequested-status-filter strip treats GROUNDING as the sole authority on
+    /// which status equality to keep — it drops a model-invented <c>Status='X'</c> whose literal the value-linker
+    /// did NOT ground, even if the word appears in the question. This kills the verb-blind over-filter
+    /// ("bills ISSUED so far this year" → an unrequested <c>Status='Issued'</c>) now that the value-linker does
+    /// proper attributive-vs-verb grounding. Adjective cases stay ("overdue bills" → 'Overdue' grounded → kept).
+    /// Set false to restore the legacy question-contains-the-word fallback. Schema/grounding-driven, no vocab.</summary>
+    public bool StripStatusFilterTrustGroundingOnly { get; set; } = true;
+
     /// <summary>Path to the compound/sequential question DECOMPOSITION cues (split + no-decompose-guard
     /// regexes, per locale). Absent → byte-identical in-code English fallback. Edit this file (not code) to
     /// tune how compound questions are split or add a language.</summary>
@@ -432,6 +440,18 @@ public sealed class AnalystOptions
     [Range(0.0, 1.0, ErrorMessage = "ToolSelectGap must be 0.0..1.0.")]
     public double ToolSelectGap { get; set; } = 0.04;
 
+    /// <summary>Tool-vs-data LEXICAL override (Fix B). A tiny lookup table has a weak schema EMBEDDING cosine,
+    /// so a domain-overlapping tool can win the <see cref="ToolVsSchemaMargin"/> even when the question
+    /// literally NAMES a schema entity ("list the currency codes"). When the question lexically/anchor-matches
+    /// a schema entity (deterministic <see cref="Schema.ISchemaLinker.HasInScopeSignal"/>) AND the top tool's
+    /// OWN cosine is below this threshold, the question is treated as DATA and the tool is suppressed — a named
+    /// schema entity outranks a merely-similar tool. A genuinely strong tool match (cosine at/above this
+    /// threshold) still dispatches. Default 0.66 (ENABLED): a real tool-shaped question against its tool
+    /// typically scores well above this, so the override only fires on the weak-tool / named-entity collision.
+    /// Set 0.0 to DISABLE the override entirely (byte-identical to the pre-fix floor+margin logic).</summary>
+    [Range(0.0, 1.0, ErrorMessage = "SchemaLexicalLinkOverrideToolThreshold must be 0.0..1.0.")]
+    public double SchemaLexicalLinkOverrideToolThreshold { get; set; } = 0.66;
+
     /// <summary>
     /// Default join kind the compiler emits for projection joins (no aggregation, no filter on
     /// the target table, no explicit kind from the planner). Historically the compiler always
@@ -550,6 +570,17 @@ public sealed class AnalystOptions
     /// margin); 1 is unsafe (would clip two-word statuses like "In Progress").</summary>
     [Range(1, 10, ErrorMessage = "MaxLookupValueWords must be between 1 and 10.")]
     public int MaxLookupValueWords { get; set; } = 4;
+
+    /// <summary>When true (default), the inline-enum value pass treats an enum word as a past-tense VERB
+    /// (and SKIPS binding it as a status filter) not only when it is immediately followed by a preposition
+    /// ("issued IN", "paid BY") but also when followed by a temporal adverb / function word ("issued SO far",
+    /// "closed LAST month", "paid YET") or a bare year ("issued 2024"). This fixes the status-verb over-filter
+    /// where "how many bills were issued so far this year" wrongly forced <c>WHERE Status='Issued'</c>. The
+    /// attributive override always protects real adjective bindings ("overdue BILLS", "open TICKETS") because
+    /// the next token is then the entity noun, so this is safe to leave on. The closed-class adverb list is
+    /// language grammar, not data/domain vocabulary, so it is portable to any schema. Set false to revert to
+    /// the preposition-only test.</summary>
+    public bool EnableVerbTimeCueGuard { get; set; } = true;
 
     /// <summary>When true, the schema linker consults a global VALUE→TABLE index so a question token that is a
     /// distinctive ENTITY-SUBTYPE value ("transformers" → Assets.AssetType) anchors its owning table — fixing

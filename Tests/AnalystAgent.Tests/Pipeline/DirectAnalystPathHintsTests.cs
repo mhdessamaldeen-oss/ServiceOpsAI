@@ -115,6 +115,31 @@ public sealed class DirectAnalystPathHintsTests
             "SELECT * FROM Tickets WHERE StatusId = 5", "tickets", System.Array.Empty<string>(), out _));
     }
 
+    // ── trustGroundingOnly: grounding is the sole authority; the verb-blind question-contains fallback is off ──
+    [Fact]
+    public void StripUnrequestedStatusFilter_TrustGroundingOnly_DropsVerbWordFilter()
+    {
+        // "bills issued so far this year" — the word "issued" IS in the question (as a date verb), but the value-
+        // linker did NOT ground 'Issued' (verb context). Legacy (false) keeps it via question-contains; the new
+        // grounding-only mode strips it.
+        const string sql = "SELECT COUNT(*) FROM Bills WHERE Status = 'Issued' AND IssuedAt >= '2026-01-01'";
+        const string q = "how many bills were issued so far this year";
+
+        // legacy fallback ON (default false): the word is in the question → KEEP (no change) — documents old behavior
+        Assert.False(DirectAnalystPath.TryStripUnrequestedStatusFilter(sql, q, System.Array.Empty<string>(), out _));
+
+        // grounding-only (true): 'Issued' not grounded → STRIP the status, keep the real date predicate
+        Assert.True(DirectAnalystPath.TryStripUnrequestedStatusFilter(
+            sql, q, System.Array.Empty<string>(), out var r, trustGroundingOnly: true));
+        Assert.DoesNotContain("'Issued'", r);
+        Assert.Contains("IssuedAt >= '2026-01-01'", r);
+
+        // grounding-only but the literal IS grounded ("overdue bills" → 'Overdue') → KEEP
+        Assert.False(DirectAnalystPath.TryStripUnrequestedStatusFilter(
+            "SELECT COUNT(*) FROM Bills WHERE Status = 'Overdue'", "how many overdue bills",
+            new[] { "Overdue" }, out _, trustGroundingOnly: true));
+    }
+
     // ── Over-filter guard (boolean flags): strip an invented Is<Concept>=0/1 not named in the question ──
     [Fact]
     public void StripUnrequestedFlagFilter_RemovesInvented_KeepsRequested_AndSoftDelete()
