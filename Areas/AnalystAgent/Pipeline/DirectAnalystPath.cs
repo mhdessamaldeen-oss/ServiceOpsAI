@@ -124,7 +124,7 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
             //      table-alias-in-subquery class the live run surfaced — the model rewrites it as a
             //      CTE.) If the corrected attempt still fails, return null and fall through to the
             //      heavy pipeline. Invented columns fail validation/execution and land here too.
-            var hints = BuildGroundingHints(grounding);
+            var hints = BuildGroundingHints(grounding, _options.Value.AllowMultiPeriodHints);
             var tableNames = names.ToList();
 
             // KEYSTONE — repair provenance. Set true when a LOSSY repair fires (a load-bearing predicate dropped
@@ -935,7 +935,13 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
     /// the exact wording is unit-testable. Mirrors what the live smoke proved is load-bearing:
     /// real values, natural keys, resolved dates, derived metrics, distinctness/all-time intent.
     /// </summary>
-    internal static List<string> BuildGroundingHints(QuestionGroundingContext g)
+    /// <param name="g">Resolved grounding facts for the question.</param>
+    /// <param name="allowMultiPeriodHints">When true (default) and the question has more than one
+    /// temporal binding, a SINGLE permissive multi-period hint is emitted instead of N strict
+    /// "filter NO other period" lines (which jointly forbid the required OR-of-ranges). When false,
+    /// the legacy per-binding strict hint is emitted for every period. Sourced from
+    /// <see cref="AnalystOptions.AllowMultiPeriodHints"/> at the call site.</param>
+    internal static List<string> BuildGroundingHints(QuestionGroundingContext g, bool allowMultiPeriodHints = true)
     {
         var hints = new List<string>();
         foreach (var lv in g.LinkedValues)
@@ -957,8 +963,23 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         // Name the period only — NOT the compiler's @-tokens (@month_start, @months:1). The direct
         // path has no token expander, so emitting raw tokens made the 7B copy undefined SQL or invent
         // broken date math. The system prompt defines the concrete T-SQL for each named period.
-        foreach (var t in g.LinkedTemporal)
-            hints.Add($"the question covers the period '{t.Label}' — apply the matching date range on the relevant date column (per the Dates rules) and filter NO other period.");
+        //
+        // MULTI-PERIOD: with ONE temporal binding the strict "filter NO other period" hint is correct.
+        // With MORE THAN ONE (e.g. "compare Q1 and Q3 2025"), emitting that strict line PER binding
+        // produces N jointly-contradictory instructions that forbid the required OR-of-ranges — a silent
+        // semantic UNDER-FETCH. So when AllowMultiPeriodHints is on (default), collapse the >1 case into a
+        // SINGLE permissive hint that names every period and asks for a range PER period (OR / UNION).
+        // Schema-agnostic — names no table or column. Set the option false to restore per-binding behavior.
+        if (allowMultiPeriodHints && g.LinkedTemporal.Count > 1)
+        {
+            var labels = string.Join(", ", g.LinkedTemporal.Select(t => $"'{t.Label}'"));
+            hints.Add($"the question covers multiple periods: {labels} — apply a date range for EACH period (combine with OR, or UNION) on the relevant date column (per the Dates rules); do not collapse them to one period and do not drop any.");
+        }
+        else
+        {
+            foreach (var t in g.LinkedTemporal)
+                hints.Add($"the question covers the period '{t.Label}' — apply the matching date range on the relevant date column (per the Dates rules) and filter NO other period.");
+        }
         if (!string.IsNullOrEmpty(g.TimeBucketHint))
         {
             var b = g.TimeBucketHint.ToLowerInvariant();

@@ -47,6 +47,72 @@ public sealed class DirectAnalystPathHintsTests
         Assert.Empty(DirectAnalystPath.BuildGroundingHints(QuestionGroundingContext.Empty));
     }
 
+    // ── Multi-period grounding hint: >1 temporal binding → ONE permissive hint, not N contradictory ones ──
+    // Two strict "filter NO other period" lines jointly forbid the OR-of-ranges a "compare Q1 and Q3" question
+    // needs (silent under-fetch). With AllowMultiPeriodHints on, the >1 case collapses to a single permissive
+    // hint that names BOTH periods and asks for a range per period (OR / UNION).
+    [Fact]
+    public void BuildGroundingHints_TwoPeriods_EmitsSinglePermissiveHint_NamingBoth_NotForbidding()
+    {
+        var g = new QuestionGroundingContext
+        {
+            LinkedTemporal = new[]
+            {
+                new TemporalBinding("Q1 2025", "@quarter_start", "@quarter_end", "gte"),
+                new TemporalBinding("Q3 2025", "@quarter_start", "@quarter_end", "gte"),
+            },
+        };
+
+        var hints = DirectAnalystPath.BuildGroundingHints(g, allowMultiPeriodHints: true);
+
+        // Exactly ONE temporal/period hint (no other grounding facts in this context).
+        var periodHints = hints.Where(h => h.Contains("period")).ToList();
+        Assert.Single(periodHints);
+        var hint = periodHints[0];
+        // Names BOTH period labels.
+        Assert.Contains("Q1 2025", hint);
+        Assert.Contains("Q3 2025", hint);
+        // Does NOT carry the contradictory single-period instruction.
+        Assert.DoesNotContain(hints, h => h.Contains("NO other period"));
+        // Asks for a per-period range combined with OR / UNION (the load-bearing permissive wording).
+        Assert.Contains("EACH period", hint);
+    }
+
+    // One binding → the strict single-period hint is UNCHANGED (the multi-period branch never fires).
+    [Fact]
+    public void BuildGroundingHints_OnePeriod_KeepsStrictSinglePeriodHint()
+    {
+        var g = new QuestionGroundingContext
+        {
+            LinkedTemporal = new[] { new TemporalBinding("this month", "@month_start", null, "gte") },
+        };
+
+        var hints = DirectAnalystPath.BuildGroundingHints(g, allowMultiPeriodHints: true);
+
+        Assert.Contains(hints, h => h.Contains("the question covers the period 'this month'") && h.Contains("filter NO other period"));
+        Assert.DoesNotContain(hints, h => h.Contains("multiple periods"));
+    }
+
+    // Flag OFF → legacy behavior: each of the >1 bindings emits its own strict per-period hint.
+    [Fact]
+    public void BuildGroundingHints_MultiPeriod_FlagOff_EmitsPerBindingStrictHints()
+    {
+        var g = new QuestionGroundingContext
+        {
+            LinkedTemporal = new[]
+            {
+                new TemporalBinding("Q1 2025", "@quarter_start", "@quarter_end", "gte"),
+                new TemporalBinding("Q3 2025", "@quarter_start", "@quarter_end", "gte"),
+            },
+        };
+
+        var hints = DirectAnalystPath.BuildGroundingHints(g, allowMultiPeriodHints: false);
+
+        // Two strict per-binding hints (the pre-fix contradictory behavior), no collapsed multi-period line.
+        Assert.Equal(2, hints.Count(h => h.Contains("filter NO other period")));
+        Assert.DoesNotContain(hints, h => h.Contains("multiple periods"));
+    }
+
     // ── Deterministic invalid-column repair ────────────────────────────────────
     // The dominant 7B failure: it adds `IsDeleted = 0` to a table that lacks the column and re-emits
     // it when the error is fed back. The stripper removes that predicate so the query can run.

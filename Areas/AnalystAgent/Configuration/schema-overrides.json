@@ -25,9 +25,9 @@
   },
   "Tables": [
     {
-      "_note": "Example 1 — TicketNumber has no DB-level UNIQUE constraint, so the heuristic misses it. Mark it as natural key here so 'find ticket TKT-2026-00123' resolves. Synonyms: Arabic forms so SchemaLinker.IsAnchor can lexically anchor an Arabic question on Tickets (the central entity) without depending on the bge-m3 embedding fallback. Merged additively with the auto-generated English synonyms.",
+      "_note": "Example 1 — TicketNumber has no DB-level UNIQUE constraint, so the heuristic misses it. Mark it as natural key here so 'find ticket TKT-2026-00123' resolves. Synonyms: English domain forms (formerly in SchemaInferenceGenerator's TableSynonymDictionary) + Arabic forms so SchemaLinker.IsAnchor can lexically anchor an Arabic question on Tickets (the central entity) without depending on the bge-m3 embedding fallback. Merged additively with the auto-generated inflection synonyms.",
       "Name": "Tickets",
-      "Synonyms": ["تذكرة", "تذاكر", "التذاكر", "التذكرة", "شكوى", "شكاوى", "الشكوى", "الشكاوى", "بلاغ", "بلاغات", "البلاغ", "البلاغات", "مشكلة", "مشاكل", "المشكلة", "المشاكل"],
+      "Synonyms": ["issue", "issues", "case", "cases", "complaint", "complaints", "report", "reports", "problem", "problems", "تذكرة", "تذاكر", "التذاكر", "التذكرة", "شكوى", "شكاوى", "الشكوى", "الشكاوى", "بلاغ", "بلاغات", "البلاغ", "البلاغات", "مشكلة", "مشاكل", "المشكلة", "المشاكل"],
       "Roles": {
         "NaturalKey": "TicketNumber"
       },
@@ -46,7 +46,7 @@
     {
       "_note": "Bills — Status is DESCRIPTIVE here, not a default filter. A neutral value enumeration avoids the 7B bolting Status='Issued' onto totals it was never asked to filter.",
       "Name": "Bills",
-      "Synonyms": ["فاتورة", "فواتير", "الفاتورة", "الفواتير"],
+      "Synonyms": ["invoice", "invoices", "charge", "charges", "statement", "statements", "فاتورة", "فواتير", "الفاتورة", "الفواتير"],
       "Description": "Utility bill. TotalAmount is the billed amount (SYP). Status is a lifecycle state column with values Issued, Paid, Overdue, Disputed, Cancelled. Apply a Status filter ONLY when the question names a payment state — a total / sum / count / average of bills with no stated state spans ALL statuses. When you do filter payment state, use Status (e.g. Status='Paid'), never the PaidAt timestamp.",
       "GrainNote": "TotalAmount is the billed amount (SYP). The payment lifecycle is the Status column — use Status (not the PaidAt timestamp) for payment state.",
       "Columns": [
@@ -58,7 +58,7 @@
     {
       "_note": "Customers — Status is DESCRIPTIVE (value enumeration), not a default filter.",
       "Name": "Customers",
-      "Synonyms": ["مشترك", "مشتركين", "المشترك", "المشتركين", "زبون", "زبائن", "الزبون", "الزبائن", "عميل", "عملاء", "العميل", "العملاء"],
+      "Synonyms": ["client", "clients", "subscriber", "subscribers", "account holder", "consumer", "consumers", "مشترك", "مشتركين", "المشترك", "المشتركين", "زبون", "زبائن", "الزبون", "الزبائن", "عميل", "عملاء", "العميل", "العملاء"],
       "Description": "External utility subscriber. Status is a lifecycle state column with values Active, Suspended, Churned. Apply a Status filter ONLY when the question names a lifecycle state — a count / list of customers with no stated state spans ALL statuses. When you do filter lifecycle state, use Status (e.g. Status='Churned'), never the ChurnedAt timestamp. Soft-deleted customers have IsDeleted=1.",
       "GrainNote": "The customer lifecycle is the Status column — use Status (not the ChurnedAt timestamp) for lifecycle state.",
       "Columns": [
@@ -70,6 +70,7 @@
     {
       "_note": "Tariffs — EffectiveTo NULL means active (no end date).",
       "Name": "Tariffs",
+      "Synonyms": ["price plan", "rate plan", "pricing", "pricings"],
       "Description": "Historical pricing per (ServiceType, Region). EffectiveTo IS NULL means the tariff is currently active. To find 'active tariffs' use 'EffectiveTo IS NULL'. To find 'tariffs that changed in 2025' use 'EffectiveFrom BETWEEN ...'.",
       "GrainNote": "One row per (ServiceType, Region) pricing period; EffectiveFrom and EffectiveTo bound the period.",
       "Columns": [
@@ -89,7 +90,7 @@
     {
       "_note": "Outages — EndedAt NULL means still ongoing. Filter on Cause/Severity for typical analyst questions.",
       "Name": "Outages",
-      "Synonyms": ["انقطاع", "انقطاعات", "الانقطاع", "الانقطاعات", "انقطاع الخدمة", "انقطاع التيار", "أعطال", "الأعطال"],
+      "Synonyms": ["blackout", "blackouts", "disconnection", "disconnections", "service disruption", "interruption", "interruptions", "انقطاع", "انقطاعات", "الانقطاع", "الانقطاعات", "انقطاع الخدمة", "انقطاع التيار", "أعطال", "الأعطال"],
       "Description": "Service outage events. EndedAt IS NULL means the outage is ongoing (still active). Use DATEDIFF(hour, StartedAt, EndedAt) for duration (only for resolved outages). Cause is an enum: Equipment, Weather, PipeBurst, FiberCut, etc. Severity: Minor, Moderate, Major, Critical.",
       "GrainNote": "Each row is one outage event; for an ended outage the duration is DATEDIFF(hour, StartedAt, EndedAt).",
       "Columns": [
@@ -100,7 +101,7 @@
     {
       "_note": "Regions — hierarchical (Governorate vs District) via ParentRegionId. Describe the grain; do NOT prescribe a ParentRegionId filter for plain 'region' questions.",
       "Name": "Regions",
-      "Synonyms": ["محافظة", "محافظات", "المحافظة", "المحافظات", "منطقة", "مناطق", "المنطقة", "المناطق", "أحياء", "الحي", "الأحياء"],
+      "Synonyms": ["district", "districts", "governorate", "governorates", "area", "areas", "zone", "zones", "محافظة", "محافظات", "المحافظة", "المحافظات", "منطقة", "مناطق", "المنطقة", "المناطق", "أحياء", "الحي", "الأحياء"],
       "Description": "Hierarchical geography via ParentRegionId: a row with ParentRegionId IS NULL is a Governorate (14); a row with ParentRegionId IS NOT NULL is a District. GRAIN: Tickets and Customers reference a District (RegionId points at a leaf district); to roll a Ticket/Customer up to its governorate, join Regions to its parent on ParentRegionId. Departments reference a Governorate directly. Do NOT add a ParentRegionId or RegionType filter unless the question explicitly asks for governorates or districts; plain 'regions' means all rows.",
       "GrainNote": "ParentRegionId IS NULL marks a Governorate (14 total); ParentRegionId IS NOT NULL marks a District. Tickets.RegionId and Customers.RegionId point at a leaf District; joining Regions to its parent on ParentRegionId rolls a Ticket or Customer up to its Governorate. Departments reference a Governorate directly.",
       "Columns": [
@@ -108,71 +109,96 @@
       ]
     },
     {
-      "_note": "AspNetUsers — the PRIMARY 'users/staff/agents' table. Arabic forms so an Arabic question ('كم عدد الموظفين') anchors here lexically and not on Customers (external subscribers).",
+      "_note": "AspNetUsers — the PRIMARY 'users/staff/agents' table. English forms (formerly the dictionary's 'ApplicationUser' entry, which never matched because the runtime table is AspNetUsers, not ApplicationUsers) + Arabic forms so an Arabic question ('كم عدد الموظفين') anchors here lexically and not on Customers (external subscribers).",
       "Name": "AspNetUsers",
-      "Synonyms": ["موظف", "موظفين", "الموظف", "الموظفون", "الموظفين", "وكيل", "وكلاء", "مستخدم", "مستخدمين", "المستخدم", "المستخدمين"]
+      "Synonyms": ["user", "users", "agent", "agents", "staff", "staffs", "employee", "employees", "موظف", "موظفين", "الموظف", "الموظفون", "الموظفين", "وكيل", "وكلاء", "مستخدم", "مستخدمين", "المستخدم", "المستخدمين"]
     },
 
     {
-      "_note": "Phase 06 Arabic synonyms. The blocks below add Arabic forms for the 15 new entities. Synonyms are MERGED with the auto-generated English ones (additive, not replacing). The English forms come from SchemaInferenceGenerator's TableSynonymDictionary; Arabic comes from here.",
+      "_note": "Phase 06 domain synonyms. The blocks below add English domain forms (formerly SchemaInferenceGenerator's TableSynonymDictionary) + Arabic forms for the 15 new entities. Synonyms are MERGED additively with the auto-generated INFLECTION synonyms (singular/plural/camelCase-split) — not replacing them.",
       "Name": "Currencies",
-      "Synonyms": ["العملة", "العملات", "النقد", "عملة", "عملات"]
+      "Synonyms": ["money", "fx", "العملة", "العملات", "النقد", "عملة", "عملات"]
     },
     {
       "Name": "PaymentMethods",
-      "Synonyms": ["طريقة الدفع", "طرق الدفع", "وسيلة الدفع", "وسائل الدفع", "قناة الدفع"]
+      "Synonyms": ["payment channel", "payment mode", "طريقة الدفع", "طرق الدفع", "وسيلة الدفع", "وسائل الدفع", "قناة الدفع"]
     },
     {
       "Name": "CustomerSegments",
-      "Synonyms": ["شريحة العميل", "شرائح العملاء", "فئة العميل", "فئات العملاء", "تصنيف العميل"]
+      "Synonyms": ["segment", "segments", "customer class", "tariff class", "category", "categories", "شريحة العميل", "شرائح العملاء", "فئة العميل", "فئات العملاء", "تصنيف العميل"]
     },
     {
       "Name": "ServicePoints",
-      "Synonyms": ["نقطة الخدمة", "نقاط الخدمة", "موقع العداد", "موقع الاشتراك", "العنوان", "العنوان الفيزيائي"]
+      "Synonyms": ["meter location", "premises", "site", "sites", "address", "نقطة الخدمة", "نقاط الخدمة", "موقع العداد", "موقع الاشتراك", "العنوان", "العنوان الفيزيائي"]
     },
     {
       "Name": "ServiceAccounts",
-      "Synonyms": ["عقد الخدمة", "عقود الخدمة", "الاشتراك", "الاشتراكات", "العقد", "العقود", "حساب الخدمة", "حسابات الخدمة"]
+      "Synonyms": ["contract", "contracts", "subscription", "subscriptions", "account", "accounts", "عقد الخدمة", "عقود الخدمة", "الاشتراك", "الاشتراكات", "العقد", "العقود", "حساب الخدمة", "حسابات الخدمة"]
     },
     {
       "Name": "Payments",
-      "Synonyms": ["الدفعة", "الدفعات", "دفعة", "دفعات", "تسديد", "تسديدات", "السداد", "المعاملة", "المعاملات", "تحويل", "تحويلات"]
+      "Synonyms": ["transaction", "transactions", "settlement", "settlements", "remittance", "remittances", "الدفعة", "الدفعات", "دفعة", "دفعات", "تسديد", "تسديدات", "السداد", "المعاملة", "المعاملات", "تحويل", "تحويلات"]
     },
     {
       "Name": "TariffTiers",
-      "Synonyms": ["شريحة التعرفة", "شرائح التعرفة", "شريحة سعرية", "الشرائح السعرية", "الشريحة", "الشرائح"]
+      "Synonyms": ["price bracket", "rate bracket", "block", "blocks", "slab", "slabs", "شريحة التعرفة", "شرائح التعرفة", "شريحة سعرية", "الشرائح السعرية", "الشريحة", "الشرائح"]
     },
     {
       "Name": "Subsidies",
-      "Synonyms": ["الدعم", "الإعانة", "الإعانات", "المعونة", "المعونات", "إعانة", "خصم حكومي", "خصم اجتماعي", "دعم حكومي"]
+      "Synonyms": ["discount", "discounts", "rebate", "rebates", "credit", "credits", "relief", "reliefs", "الدعم", "الإعانة", "الإعانات", "المعونة", "المعونات", "إعانة", "خصم حكومي", "خصم اجتماعي", "دعم حكومي"]
     },
     {
       "Name": "Assets",
-      "Synonyms": ["الأصل", "الأصول", "البنية التحتية", "المعدات", "معدة", "المعدة", "محطة", "المحطة", "محوّل", "المحوّل", "العداد"]
+      "Synonyms": ["equipment", "infrastructure", "facility", "facilities", "asset", "assets", "الأصل", "الأصول", "البنية التحتية", "المعدات", "معدة", "المعدة", "محطة", "المحطة", "محوّل", "المحوّل", "العداد"]
     },
     {
       "Name": "Technicians",
-      "Synonyms": ["الفني", "الفنيون", "الفنيين", "فني", "فنيون", "الكهربائي", "كهربائي", "السباك", "سباك", "الفريق الفني", "العامل الميداني"]
+      "Synonyms": ["field engineer", "engineer", "engineers", "field worker", "fitter", "fitters", "lineman", "linemen", "الفني", "الفنيون", "الفنيين", "فني", "فنيون", "الكهربائي", "كهربائي", "السباك", "سباك", "الفريق الفني", "العامل الميداني"]
     },
     {
       "Name": "WorkOrders",
-      "Synonyms": ["أمر عمل", "أوامر العمل", "أمر صيانة", "أوامر الصيانة", "تكليف ميداني", "مهمة ميدانية", "مهام ميدانية", "بلاغ صيانة", "تذكرة صيانة"]
+      "Synonyms": ["field job", "dispatch", "dispatches", "job ticket", "task", "tasks", "أمر عمل", "أوامر العمل", "أمر صيانة", "أوامر الصيانة", "تكليف ميداني", "مهمة ميدانية", "مهام ميدانية", "بلاغ صيانة", "تذكرة صيانة"]
     },
     {
       "Name": "MaintenanceSchedules",
-      "Synonyms": ["جدولة الصيانة", "جداول الصيانة", "صيانة مجدولة", "موعد الصيانة", "نافذة الصيانة", "الصيانة الوقائية", "صيانة دورية"]
+      "Synonyms": ["planned maintenance", "maintenance window", "planned outage", "service window", "جدولة الصيانة", "جداول الصيانة", "صيانة مجدولة", "موعد الصيانة", "نافذة الصيانة", "الصيانة الوقائية", "صيانة دورية"]
     },
     {
       "Name": "CallLogs",
-      "Synonyms": ["سجل المكالمات", "سجلات المكالمات", "المكالمة", "المكالمات", "اتصال", "الاتصالات", "تواصل", "التواصل", "محادثة الواتساب", "رسالة قصيرة"]
+      "Synonyms": ["contact", "contacts", "call record", "interaction", "interactions", "سجل المكالمات", "سجلات المكالمات", "المكالمة", "المكالمات", "اتصال", "الاتصالات", "تواصل", "التواصل", "محادثة الواتساب", "رسالة قصيرة"]
     },
     {
       "Name": "OutageNotifications",
-      "Synonyms": ["إشعار الانقطاع", "إشعارات الانقطاع", "تنبيه الانقطاع", "تنبيهات الانقطاع", "رسالة الانقطاع", "إشعار صيانة"]
+      "Synonyms": ["alert", "alerts", "sms notification", "outage alert", "إشعار الانقطاع", "إشعارات الانقطاع", "تنبيه الانقطاع", "تنبيهات الانقطاع", "رسالة الانقطاع", "إشعار صيانة"]
     },
     {
       "Name": "SlaPolicies",
-      "Synonyms": ["اتفاقية مستوى الخدمة", "اتفاقيات مستوى الخدمة", "اتفاقية الخدمة", "سياسة الاستجابة", "سياسة المستوى", "مستوى الخدمة", "SLA"]
+      "Synonyms": ["sla", "slas", "service level", "response policy", "اتفاقية مستوى الخدمة", "اتفاقيات مستوى الخدمة", "اتفاقية الخدمة", "سياسة الاستجابة", "سياسة المستوى", "مستوى الخدمة", "SLA"]
+    },
+    {
+      "_note": "English domain synonyms (formerly SchemaInferenceGenerator's TableSynonymDictionary). No Arabic yet — add it here when needed. Merged additively with the auto-generated inflection synonyms.",
+      "Name": "ServiceTypes",
+      "Synonyms": ["service", "services", "utility", "utilities", "service kind"]
+    },
+    {
+      "Name": "MeterReadings",
+      "Synonyms": ["reading", "readings", "consumption record", "meter snapshot"]
+    },
+    {
+      "Name": "CsatResponses",
+      "Synonyms": ["csat", "csats", "satisfaction survey", "feedback", "rating", "ratings"]
+    },
+    {
+      "Name": "TicketComments",
+      "Synonyms": ["comment", "comments", "note", "notes", "remark", "remarks"]
+    },
+    {
+      "Name": "Countries",
+      "Synonyms": ["nation", "nations"]
+    },
+    {
+      "Name": "Departments",
+      "Synonyms": ["team", "teams", "unit", "units", "division", "divisions"]
     }
   ]
 }

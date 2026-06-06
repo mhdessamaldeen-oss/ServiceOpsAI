@@ -590,6 +590,16 @@ public sealed class AnalystOptions
     /// Default on.</summary>
     public bool TrustGroundedEmptyResult { get; set; } = true;
 
+    /// <summary>When true (default), a question with MORE THAN ONE resolved temporal binding (e.g.
+    /// "compare revenue in Q1 and Q3 2025") gets a SINGLE permissive grounding hint that names every
+    /// period and asks for a date range PER period (combined with OR / UNION). When false, the legacy
+    /// behavior fires: one strict "filter NO other period" hint PER binding — which, for multi-period
+    /// questions, jointly forbids the required OR-of-ranges and silently UNDER-FETCHES (the model picks
+    /// one period or returns an empty contradiction). Single-period questions are unaffected either way
+    /// (the strict single-period hint is always emitted for exactly one binding). Schema-agnostic — the
+    /// hint names no table or column. Set false only to reproduce the pre-fix per-binding wording.</summary>
+    public bool AllowMultiPeriodHints { get; set; } = true;
+
     /// <summary>
     /// STAGE-2 mechanism switch (default OFF). When false, the three highest-risk deterministic repairs —
     /// GROUP-BY grain, unrequested-status-predicate strip, and multi-value grounded-filter injection — run

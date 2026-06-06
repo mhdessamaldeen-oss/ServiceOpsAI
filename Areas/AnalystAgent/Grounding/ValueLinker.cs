@@ -12,10 +12,11 @@ using AnalystAgent.Semantic;
 /// actual values of FK-reachable lookup tables. Uses <see cref="IEntityCatalog.GetAllLookupValues"/>
 /// to enumerate values (cached + capped at 500 per table).
 ///
-/// <para>Search expands beyond the retriever's top-K: we also walk 1- and 2-hop FK neighbors of
+/// <para>Search expands beyond the retriever's top-K: we also walk 1-hop FK neighbors of
 /// every linked table, so a question about Tickets in Damascus finds Regions even if Regions
 /// wasn't in the top-K retrieval result. This mirrors how CHESS / X-SQL expand the link set
-/// before SQL generation.</para>
+/// before SQL generation. (1-hop only — 2-hop reached distant, unrelated lookups and mis-bound;
+/// see <see cref="ExpandToLookupNeighbors"/> remarks.)</para>
 /// </summary>
 internal sealed class ValueLinker : IValueLinker
 {
@@ -82,7 +83,7 @@ internal sealed class ValueLinker : IValueLinker
         // bordering spaces (FoldForMatch trims) so the " value " whole-word probe keeps both anchors.
         var qFolded = " " + FoldForMatch(qCased) + " ";
 
-        // Expand the link set: each linked table + 1- and 2-hop FK neighbors that are lookup-shaped.
+        // Expand the link set: each linked table + 1-hop FK neighbors that are lookup-shaped.
         // ACCESS GATE: never probe a table that isn't QUERYABLE — the copilot's own operational tables
         // (Copilot*), EF/identity-internal, and any RetrieverHidden table must never become a value source.
         // This closes the self-poisoning hole where the question text matched its own logged chat-session Title.

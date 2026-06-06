@@ -232,57 +232,22 @@ internal sealed class SchemaInferenceGenerator : ISchemaInferenceGenerator
         };
     }
 
-    // ── Synonym generation (English-only; Arabic comes from overrides) ───────────────
-
-    /// <summary>Small domain dictionary mapping a canonical entity to alternate English forms.
-    /// Keys are the entity SINGULAR (Customer, not Customers). Order in the value list
-    /// is significant — most-common-first improves planner ranking.</summary>
-    private static readonly Dictionary<string, string[]> TableSynonymDictionary = new(StringComparer.OrdinalIgnoreCase)
-    {
-        // People / parties
-        ["Customer"]            = new[] { "client", "subscriber", "account holder", "consumer" },
-        ["ApplicationUser"]     = new[] { "user", "agent", "staff", "employee" },
-        ["Technician"]          = new[] { "field engineer", "engineer", "field worker", "fitter", "lineman" },
-        // Money
-        ["Bill"]                = new[] { "invoice", "charge", "statement" },
-        ["Payment"]             = new[] { "transaction", "settlement", "remittance" },
-        ["Tariff"]              = new[] { "price plan", "rate plan", "pricing" },
-        ["TariffTier"]          = new[] { "price bracket", "rate bracket", "block", "slab" },
-        ["Subsidy"]             = new[] { "discount", "rebate", "credit", "relief" },
-        ["Currency"]            = new[] { "money", "fx" },
-        ["PaymentMethod"]       = new[] { "payment channel", "payment mode" },
-        // Service / contract
-        ["ServiceAccount"]      = new[] { "contract", "subscription", "account" },
-        ["ServicePoint"]        = new[] { "meter location", "premises", "site", "address" },
-        ["CustomerSegment"]     = new[] { "segment", "customer class", "tariff class", "category" },
-        ["ServiceType"]         = new[] { "service", "utility", "service kind" },
-        // Operations
-        ["Outage"]              = new[] { "blackout", "disconnection", "service disruption", "interruption" },
-        ["WorkOrder"]           = new[] { "field job", "dispatch", "job ticket", "task" },
-        ["Asset"]               = new[] { "equipment", "infrastructure", "facility", "asset" },
-        ["MaintenanceSchedule"] = new[] { "planned maintenance", "maintenance window", "planned outage", "service window" },
-        ["MeterReading"]        = new[] { "reading", "consumption record", "meter snapshot" },
-        // Customer voice
-        ["CallLog"]             = new[] { "contact", "call record", "interaction" },
-        ["OutageNotification"]  = new[] { "alert", "sms notification", "outage alert" },
-        ["SlaPolicy"]           = new[] { "sla", "service level", "response policy" },
-        ["CsatResponse"]        = new[] { "csat", "satisfaction survey", "feedback", "rating" },
-        // Tickets
-        ["Ticket"]              = new[] { "issue", "case", "complaint", "report", "problem" },
-        ["TicketComment"]       = new[] { "comment", "note", "remark" },
-        // Geo
-        ["Country"]             = new[] { "nation" },
-        ["Region"]              = new[] { "district", "governorate", "area", "zone" },
-        ["Department"]          = new[] { "team", "unit", "division" },
-    };
+    // ── Synonym generation (schema-agnostic INFLECTION only) ─────────────────────────
+    // Domain synonyms (the alternate English/Arabic business forms) are NO LONGER baked
+    // into code — they live in schema-overrides.json as per-table "Synonyms" arrays and
+    // MERGE ADDITIVELY (union) with the inflection forms produced here (see
+    // SchemaKnowledge.ApplyOverride). This generator stays 100% portable: a brand-new
+    // schema with no override entry gets only inflection synonyms, and a deployer adds
+    // domain vocabulary by editing JSON — zero code change.
 
     /// <summary>
-    /// Produce an English synonym set for an entity. Strategy:
+    /// Produce the INFLECTION synonym set for an entity (schema-agnostic, no domain vocabulary).
+    /// Strategy:
     ///   1. Canonical lowercase form of the table name → singular and plural (best-effort).
     ///   2. Splits CamelCase into a space-separated form (ServiceAccount → "service account").
-    ///   3. Looks up the singular form in the domain dictionary and adds those entries.
-    /// Returns the deduplicated lowercase list. Arabic synonyms are NOT generated here —
-    /// they belong in schema-overrides.json where humans can add them after schema changes.
+    /// Returns the deduplicated lowercase list. Domain synonyms (alternate business forms) and
+    /// Arabic synonyms are NOT generated here — they come from schema-overrides.json, where humans
+    /// add them after schema changes, and are merged additively in SchemaKnowledge.ApplyOverride.
     /// </summary>
     private static List<string> GenerateTableSynonyms(string tableName)
     {
@@ -302,19 +267,6 @@ internal sealed class SchemaInferenceGenerator : ISchemaInferenceGenerator
         var pluralSplit = SplitCamelCase(plural).ToLowerInvariant();
         if (pluralSplit != plural.ToLowerInvariant()) result.Add(pluralSplit);
 
-        // 3. domain dictionary
-        if (TableSynonymDictionary.TryGetValue(singular, out var domain))
-        {
-            foreach (var d in domain)
-            {
-                result.Add(d.ToLowerInvariant());
-                // also add a plural form of multi-word domain entries when it's a single word
-                if (!d.Contains(' ')) result.Add(Pluralize(d).ToLowerInvariant());
-            }
-        }
-
-        // Skip listing the original singular twice in the output ordering — preserve
-        // singular → plural → splits → domain.
         return result.ToList();
     }
 
