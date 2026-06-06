@@ -4,9 +4,9 @@ An ASP.NET (.NET 10) operations platform for a multi-service utility provider (e
 internet, gas, government services). Staff manage **customers, bills, outages, regions, and support
 tickets** — where a ticket is a real complaint about a specific service, bill, or outage.
 
-Its centerpiece is the **SuperAdmin Copilot**: a deterministic, configuration-driven
-**natural-language → SQL** engine (Arabic **and** English) that lets an administrator ask questions
-of the live operational database in plain language and get verified, source-grounded answers.
+Its centerpiece is **AnalystAgent**: a deterministic, configuration-driven
+**natural-language → SQL** data-analyst copilot (Arabic **and** English) that lets an administrator ask
+questions of the live operational database in plain language and get verified, source-grounded answers.
 
 > Status: active engineering project. The copilot pipeline is the focus of ongoing work; see
 > `docs/architecture/` for the design records.
@@ -31,13 +31,11 @@ database — refusing safely when a question is out of scope or unsafe.
 
 ```
 question (EN/AR)
-  → preflight gates (write-intent / scope / safety, deterministic)
-  → shape classification (8 shapes, config-driven)
-  → spec extraction (LLM → a canonical QuerySpec)
-  → SpecRepair (typed repair rules, tier-gated)
-  → SQL compile → AST validate (read-only allowlist) → execute
-  → explain (EN/AR)
-  → coverage check → escape valve (raw-SQL fallback for shapes the form-filler can't express)
+  → router (deterministic cascade): chat · knowledge · semantic-search · external-tool · data-query
+  → data query: scope gate (refuse safely if out of scope) → optional decompose of compound asks
+  → DIRECT path (primary): schema-link → ground real DB values → emit SQL (LLM)
+       → deterministic self-validating repairs → read-only AST validate → execute → explain (EN/AR)
+  → falls through to a heavier spec-compile pipeline only for shapes the direct path can't express
 ```
 
 Design principles that make it robust and portable:
@@ -55,6 +53,11 @@ Design principles that make it robust and portable:
 - **Read-only and guarded.** Generated SQL passes an AST allowlist (no DML/DDL, no `EXEC`,
   no `OPENROWSET`/`OPENQUERY`, no multi-statement, no `sys.*`) and a PII-redaction layer before and
   after execution.
+- **Self-correcting by construction.** *Grounding* — binding question terms to real values in the
+  database — is the single source of truth on what to filter. A deterministic repair layer then fixes
+  the model's recurring SQL mistakes (unrequested filters, wrong aggregation grain) using only schema +
+  grounding facts, never hardcoded vocabulary; and every rewrite is re-parsed before it is accepted, so
+  a bad fix degrades to a no-op instead of corrupting the query.
 
 ---
 
@@ -62,9 +65,9 @@ Design principles that make it robust and portable:
 
 - **.NET 10**, ASP.NET Core MVC
 - **Entity Framework Core** over **SQL Server**
-- **AI providers:** [Ollama](https://ollama.com) (local, e.g. `qwen2.5-coder:7b`) and Google
-  **Gemini** (`gemini-2.5-flash-lite`); embeddings via local `bge-m3`
-- **xUnit** test suite (`Tests/AnalystAgent.Tests`)
+- **AI providers (pluggable):** [Ollama](https://ollama.com) local (e.g. `qwen2.5-coder:7b`) and a
+  cloud LLM — **Groq**, **Gemini**, or **OpenAI**; embeddings via local `bge-m3`
+- **xUnit** test suite (`Tests/AnalystAgent.Tests`) — 453 tests (unit + architecture guards)
 
 ---
 
@@ -77,7 +80,7 @@ Design principles that make it robust and portable:
 - For the copilot:
   - **Ollama** running locally with the models you want (`ollama pull qwen2.5-coder:7b`,
     `ollama pull bge-m3`), and/or
-  - a **Google Gemini** API key (added via the in-app Settings → AI engines page)
+  - a **cloud LLM** API key — Groq, Gemini, or OpenAI — added via the in-app Settings → AI engines page
 
 ### Configure the database connection
 
@@ -100,8 +103,8 @@ dotnet ef database update     # apply EF Core migrations (seed data included)
 dotnet run --project ServiceOpsAI.csproj
 ```
 
-Then open the app, go to **Settings → AI engines** to pick the Copilot provider/model (Ollama or
-Gemini) and, for Gemini, add one or more API keys to the key pool.
+Then open the app, go to **Settings → AI engines** to pick the Copilot provider/model (Ollama or a
+cloud LLM) and, for a cloud provider, add one or more API keys to the key pool.
 
 ### Test
 
@@ -115,14 +118,15 @@ dotnet test Tests/AnalystAgent.Tests/AnalystAgent.Tests.csproj
 
 ```
 Areas/AnalystAgent/        the NL→SQL copilot
-  Pipeline/                     orchestration, stages, single-question executor, escape valve
-  Application/Repair/           typed SpecRepair rules + the repair bus
-  Compilation/                  QuerySpec → SQL compiler (+ dialect abstraction)
-  Retrieval/                    semantic / keyword / verified-query retrieval
-  Schema/ Semantic/             live schema introspection + the semantic layer
+  Pipeline/                     router orchestration, stages, the direct analyst path + repair layer
+  Grounding/                    bind question terms to real DB values (the source-of-truth moat)
+  Sql/Dialects/                 SQL compiler + dialect abstraction (SqlServer / Postgres)
+  Retrieval/ Semantic/          semantic / keyword / verified-query retrieval + the semantic layer
+  Schema/                       live schema introspection, inference + drift detection
   Validation/                   read-only SQL AST validator
-  Configuration/                ALL the JSON knobs (semantic-layer, shape-examples,
-                                advanced-shape-keywords, few-shot, linguistic-cues, question suites…)
+  Tools/                        external-tool registry + selection
+  Configuration/                ALL the JSON knobs (copilot-options, semantic-layer, schema-overrides,
+                                linguistic-cues, shape-classifier, verified-queries…)
 Services/ Controllers/ Views/   the surrounding utility-ops web application
 Tests/AnalystAgent.Tests/  xUnit tests (unit + architecture guards)
 docs/architecture/              ADRs and design notes
@@ -134,10 +138,10 @@ docs/architecture/              ADRs and design notes
 
 - **Pick the model:** Settings → AI engines (Ollama or Gemini). The capability tier auto-derives
   from the model name.
-- **Retarget a new database:** point the connection string at it, then edit the JSON under
-  `Areas/AnalystAgent/Configuration/` — chiefly `semantic-layer.json` (entities, synonyms,
-  display/sensitive columns), and the worked-SQL example banks (`shape-examples.json`,
-  `advanced-shape-keywords.json`). The engine introspects tables/columns automatically.
+- **Retarget a new database:** point the connection string at it and run schema inference — the engine
+  introspects tables, columns, keys and relations automatically into `schema-inferred.json`. Then add any
+  human corrections (domain synonyms, descriptions, sensitive columns, natural keys) in
+  `schema-overrides.json`, merged additively on top. No recompile.
 - **Tune linguistics:** `linguistic-cues.json`, `shape-classifier.json` (per-locale, no recompile).
 - **Switch SQL engine:** the compiler targets an `ISqlDialect`; set `"Database": "SqlServer"` or
   `"Postgres"` in `copilot-options.json` (SQL Server is the default; the PostgreSQL dialect is
