@@ -1,14 +1,14 @@
-# SupportFlow AI — Showcase
+# ServiceOps AI — Showcase
 
 A unified **utility-operations platform** (support tickets, billing, field operations, outages) with a
 **natural-language → SQL AI copilot** at its center: it turns plain-English *and Arabic* questions into
 **validated, read-only SQL**, runs them against the live database, and explains the result — with a
 live, stage-by-stage pipeline timeline.
 
-Built on **ASP.NET Core (.NET 10)** + EF Core + SQL Server, with a local-or-cloud LLM provider
-(Ollama / Gemini / Claude / GPT). **322 passing unit tests.** The NL→SQL engine is **config-driven
-(no hardcoded vocabulary)** and **database-engine-portable** (SQL Server today, PostgreSQL-ready via a
-one-line config switch).
+Built on **ASP.NET Core (.NET 10)** + EF Core + SQL Server, with a pluggable LLM provider
+(Ollama local + Groq / Gemini / OpenAI). **453 passing unit tests.** The NL→SQL engine is **config-driven
+(no hardcoded vocabulary)** and **database-engine-portable** (SQL Server today; the PostgreSQL dialect is
+implemented and compiles valid PostgreSQL — full Postgres execution wiring is in progress).
 
 ---
 
@@ -94,16 +94,18 @@ Role-based access (Super Admin / Support Agent / End User) over ASP.NET Identity
 
 ## Engineering highlights
 
-- **NL→SQL pipeline** modeled on DIN-SQL / CHESS / E-SQL research: 8-shape classifier → spec
-  extraction → 32 **tier-gated** repair rules → dialect compile → **read-only AST validation** →
-  execute → explain → coverage check → raw-SQL escape valve.
+- **NL→SQL pipeline** (informed by DIN-SQL / CHESS / E-SQL research): a deterministic **router**
+  (chat · knowledge · semantic-search · external-tool · data) → the **direct analyst path** — schema-link
+  → **ground** real DB values → emit SQL → **self-validating deterministic repairs** (re-parsed before
+  acceptance, so a bad fix degrades to a no-op) → **read-only AST validation** → execute → explain —
+  falling back to a spec-compile pipeline for shapes the direct path can't express.
 - **Config-driven, zero phrase-matching:** linguistic cues, question shapes, refusal text, worked
   examples — all JSON, hot-reloadable, **EN + AR**. Retarget to a new domain by editing config.
 - **Database-portable:** the compiler talks to an `ISqlDialect` (SQL Server **and** PostgreSQL
   implemented); the engine is a one-line config switch (`"Database": "SqlServer" | "Postgres"`).
 - **Tier-aware:** weak local models (Ollama `qwen2.5-coder`) get crutch repair rules; strong cloud
   models shed them — auto-derived from the model name.
-- **Tested:** **322** unit tests; golden **byte-identity** tests pin behavior through every refactor.
+- **Tested:** **453** unit tests; golden **byte-identity** tests pin behavior through every refactor.
 - **Safe by construction:** read-only DB access, PII columns blocked, prompt-injection guard, and the
   escape valve is AST-validated before execution.
 
@@ -111,7 +113,7 @@ Role-based access (Super Admin / Support Agent / End User) over ASP.NET Identity
 
 ```bash
 # 1. Set the connection string (env var overrides appsettings.json)
-setx ConnectionStrings__DefaultConnection "Server=YOUR_SERVER;Database=SupportFlowAI;Trusted_Connection=True;TrustServerCertificate=true"
+setx ConnectionStrings__DefaultConnection "Server=YOUR_SERVER;Database=AISupportAnalysisDB;Trusted_Connection=True;TrustServerCertificate=true"
 
 # 2. Apply migrations + seed (first run seeds demo data + an admin)
 dotnet ef database update
@@ -123,7 +125,7 @@ dotnet run
 ```
 
 For a local LLM, install [Ollama](https://ollama.com) and pull `qwen2.5-coder:7b` + `bge-m3`; or point
-the provider at Gemini / Claude / GPT in **Global Configuration**.
+the provider at Groq / Gemini / OpenAI in **Global Configuration**.
 
 ## Tests
 

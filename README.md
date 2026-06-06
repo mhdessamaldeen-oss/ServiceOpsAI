@@ -8,10 +8,16 @@ Its centerpiece is **AnalystAgent**: a deterministic, configuration-driven
 **natural-language → SQL** data-analyst copilot (Arabic **and** English) that lets an administrator ask
 questions of the live operational database in plain language and get verified, source-grounded answers.
 
+![AnalystAgent — ask in English or Arabic and get validated, read-only SQL with a live, stage-by-stage pipeline timeline](docs/screenshots/02-copilot.png)
+
 > Status: active engineering project. The copilot pipeline is the focus of ongoing work; see
 > `docs/architecture/` for the design records.
 
-**📸 [See SHOWCASE.md](SHOWCASE.md) for a screenshot tour** of the copilot and the platform.
+**📸 [See SHOWCASE.md](SHOWCASE.md) for the full screenshot tour** (17 views of the copilot and platform).
+
+| Dashboard | Assessment lab | Ticket AI investigation |
+|:---:|:---:|:---:|
+| [![Dashboard](docs/screenshots/01-dashboard.png)](docs/screenshots/01-dashboard.png) | [![Assessment lab](docs/screenshots/05-copilot-assessment.png)](docs/screenshots/05-copilot-assessment.png) | [![Ticket AI investigation](docs/screenshots/08-ticket-details.png)](docs/screenshots/08-ticket-details.png) |
 
 ---
 
