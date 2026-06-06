@@ -106,8 +106,8 @@ Role-based access (Super Admin / Support Agent / End User) over ASP.NET Identity
 - **Tier-aware:** weak local models (Ollama `qwen2.5-coder`) get crutch repair rules; strong cloud
   models shed them — auto-derived from the model name.
 - **Tested:** **453** unit tests; golden **byte-identity** tests pin behavior through every refactor.
-- **Safe by construction:** read-only DB access, PII columns blocked, prompt-injection guard, and the
-  escape valve is AST-validated before execution.
+- **Safe by construction:** read-only DB access, PII columns blocked, prompt-injection guard, and every
+  generated statement — including the spec-compile fallback — is AST-validated before execution.
 
 ## Run it
 
