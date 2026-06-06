@@ -455,6 +455,105 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         return !string.Equals(repaired, sql.Trim(), StringComparison.Ordinal);
     }
 
+    /// <summary>Deterministically strip an UNREQUESTED foreign-key equality filter — the 7B's habit of bolting
+    /// an invented <c>WHERE ServiceTypeId = 1</c> onto "how many blackouts in total" because it associates a
+    /// word ("blackout") with a category (electricity) the user never asked to filter by. The integer-FK twin of
+    /// <see cref="TryStripUnrequestedStatusFilter"/> / <see cref="TryStripUnrequestedFlagFilter"/>: those require
+    /// a QUOTED literal and so deliberately skip a bare-int FK like this. Routed through the SAME authority —
+    /// GROUNDING is the moat: a <c>[qual.]Col = &lt;bare-int&gt;</c> predicate is KEPT only when (a) grounding
+    /// bound a value to this FK COLUMN, or (b) grounding bound a value to the FK's REFERENCED TABLE (so a
+    /// genuine "outages for service type X" whose 'X' the value-linker resolved survives), or (c) the question
+    /// itself NAMES the integer as a standalone token ("outages in region 5" keeps RegionId=5 — the user typed
+    /// the id). Schema-driven, NO hardcoded table/column/value: "is this an FK?" and "what does it reference?"
+    /// come solely from the InferredColumn (<see cref="Models.SpecConstants.ColumnRoles.ForeignKey"/> role or a
+    /// non-null <c>References</c>); a non-FK int column and the PRIMARY KEY are never stripped. Returns false when
+    /// nothing was stripped, so a legitimately-grounded or user-named FK filter is never touched.</summary>
+    internal static bool TryStripUnrequestedForeignKeyFilter(
+        string sql, string? question, Func<string, Schema.InferredTable?> getTable,
+        IEnumerable<string> tableNames,
+        IEnumerable<(string Table, string Column)> groundedColumns,
+        IEnumerable<string> groundedTables, out string repaired)
+    {
+        repaired = sql;
+        if (string.IsNullOrWhiteSpace(sql)) return false;
+        const RegexOptions O = RegexOptions.IgnoreCase | RegexOptions.Singleline;
+
+        // The tables linked into this query (alias map values + the caller's candidate set) — the universe we
+        // resolve an unqualified FK column against. We can't trust a SQL alias ("o") to name a table, so for a
+        // qualified column we still resolve the FK by COLUMN NAME across these tables (the task's stated approach).
+        var aliasMap = BuildAliasToTableMap(sql);
+        var linkedTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in aliasMap.Values) linkedTables.Add(t);
+        foreach (var t in tableNames ?? Enumerable.Empty<string>())
+            if (!string.IsNullOrWhiteSpace(t)) linkedTables.Add(t);
+
+        var groundedCols = new HashSet<string>(
+            (groundedColumns ?? Enumerable.Empty<(string, string)>()).Select(c => c.Column),
+            StringComparer.OrdinalIgnoreCase);
+        var groundedTabs = new HashSet<string>(
+            groundedTables ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        var qText = question ?? string.Empty;
+
+        // [qual.]Col = <bare integer literal> — INTEGER only, NO quotes (a quoted value is a status/label,
+        // handled by the status strip; a quoted int is a string compare, not an FK id). The qualifier is
+        // optional and discarded; we resolve the owning table by the column NAME across the linked tables.
+        var rx = new Regex(@"(?:\[?\w+\]?\.)?\[?(?<col>\w+)\]?\s*=\s*(?<int>\d+)\b", O);
+        var s = sql;
+        foreach (Match m in rx.Matches(sql))
+        {
+            var col = m.Groups["col"].Value;
+            var intLit = m.Groups["int"].Value;
+
+            // (c) KEEP — the user NAMED this integer as a standalone token ("region 5" → RegionId = 5). The id
+            // is in the question, so it's a requested filter, not an invented association.
+            if (Regex.IsMatch(qText, $@"\b{Regex.Escape(intLit)}\b")) continue;
+
+            // (a) KEEP — grounding bound a value to this FK column (the value-linker resolved the filter).
+            if (groundedCols.Contains(col)) continue;
+
+            // Resolve the column to an FK on one of the linked tables: the InferredColumn must carry the
+            // foreign_key role OR a non-null References. The PRIMARY KEY is never treated as a strippable FK.
+            string? referencedTable = null;
+            var isForeignKey = false;
+            var isPrimaryKey = false;
+            foreach (var tn in linkedTables)
+            {
+                var t = getTable(tn);
+                var ic = t?.Columns.FirstOrDefault(c => string.Equals(c.Name, col, StringComparison.OrdinalIgnoreCase));
+                if (ic is null) continue;
+                // PK guard — either the explicit primary_key role or membership in the table's PrimaryKey set.
+                if (string.Equals(ic.Role, SpecConstants.ColumnRoles.PrimaryKey, StringComparison.OrdinalIgnoreCase)
+                    || (t!.PrimaryKey?.Any(pk => string.Equals(pk, col, StringComparison.OrdinalIgnoreCase)) ?? false))
+                    isPrimaryKey = true;
+                var fk = string.Equals(ic.Role, SpecConstants.ColumnRoles.ForeignKey, StringComparison.OrdinalIgnoreCase)
+                         || !string.IsNullOrWhiteSpace(ic.References);
+                if (fk)
+                {
+                    isForeignKey = true;
+                    // References is "RefTable.RefColumn" — the referenced table is the part before '.'.
+                    if (!string.IsNullOrWhiteSpace(ic.References))
+                    {
+                        var dot = ic.References!.IndexOf('.');
+                        referencedTable = dot > 0 ? ic.References[..dot] : ic.References;
+                    }
+                    break;
+                }
+            }
+
+            // KEEP — column is the PK, or is NOT actually a foreign key (so it's a real int filter, not an
+            // invented category association we have license to drop).
+            if (isPrimaryKey || !isForeignKey) continue;
+
+            // (b) KEEP — grounding bound a value to the FK's REFERENCED table (the lookup the FK points at).
+            if (referencedTable is not null && groundedTabs.Contains(referencedTable)) continue;
+
+            // None of the KEEP conditions held → the model invented this FK equality. Strip it.
+            s = StripPredicate(s, Regex.Escape(m.Value));
+        }
+        repaired = s.Trim();
+        return !string.Equals(repaired, sql.Trim(), StringComparison.Ordinal);
+    }
+
     /// <summary>Strip an UNGROUNDED relative-date predicate the 7B invents to approximate a status concept —
     /// e.g. "overdue bills" came back as <c>WHERE DueDate &lt; GETDATE()</c> instead of the <c>Status='Overdue'</c>
     /// that the inline-enum value-link grounded. Fires ONLY when (a) a value was grounded (so the real filter is
@@ -1080,6 +1179,16 @@ internal sealed class DirectAnalystPath : IDirectAnalystPath
         // Same model prior, boolean flavour: an invented IsPlanned=0 / IsActive=1 the question never named.
         sqlToUse = AcceptIfParses("unrequested-flag-strip", sqlToUse,
             TryStripUnrequestedFlagFilter(sqlToUse, question, out var deFlagged), deFlagged);
+        // Same model prior, integer-FK flavour: an invented `ServiceTypeId = 1` the question never named and
+        // grounding never bound ("how many blackouts in total" → all outages, not the electricity subset). Kept
+        // when grounding bound the FK column / its referenced table, or the user named the id in the question.
+        // deFk is pre-initialized so the flag short-circuit (&&) leaves it definitely assigned for AcceptIfParses.
+        var deFk = sqlToUse;
+        sqlToUse = AcceptIfParses("unrequested-fk-strip", sqlToUse,
+            _options.Value.StripUnrequestedForeignKeyFilter &&
+            TryStripUnrequestedForeignKeyFilter(sqlToUse, question, _knowledge.GetTable, tableNames,
+                grounding.LinkedValues.Select(v => (v.Table, v.Column)),
+                grounding.LinkedValues.Select(v => v.Table), out deFk), deFk);
         // A grounded enum value ("overdue"->Bills.Status) means an invented relative-date predicate
         // (WHERE DueDate<GETDATE()) is the model APPROXIMATING that concept — strip it so the injector's
         // grounded Status filter stands alone (else they AND to an empty intersection). No temporal cue → safe.

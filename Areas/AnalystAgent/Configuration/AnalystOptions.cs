@@ -110,6 +110,15 @@ public sealed class AnalystOptions
     /// Set false to restore the legacy question-contains-the-word fallback. Schema/grounding-driven, no vocab.</summary>
     public bool StripStatusFilterTrustGroundingOnly { get; set; } = true;
 
+    /// <summary>When true, the unrequested-foreign-key-filter strip drops a model-invented bare-integer FK
+    /// equality (<c>WHERE ServiceTypeId = 1</c> bolted onto "how many blackouts in total") that GROUNDING did
+    /// not bind — the integer-FK twin of the status/flag strips, which require a quoted literal and so skip a
+    /// bare int. KEEPS the predicate when grounding bound the FK column or its referenced table, or the user
+    /// named the integer in the question ("region 5" → RegionId=5). Same trust-grounding posture as
+    /// <see cref="StripStatusFilterTrustGroundingOnly"/>. Schema-driven (FK detected from the column role /
+    /// References), no hardcoded table/column/value. Set false to disable the strip entirely.</summary>
+    public bool StripUnrequestedForeignKeyFilter { get; set; } = true;
+
     /// <summary>Path to the compound/sequential question DECOMPOSITION cues (split + no-decompose-guard
     /// regexes, per locale). Absent → byte-identical in-code English fallback. Edit this file (not code) to
     /// tune how compound questions are split or add a language.</summary>

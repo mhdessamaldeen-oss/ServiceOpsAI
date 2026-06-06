@@ -59,6 +59,10 @@
     // The unrequested-status-filter strip trusts GROUNDING as the sole authority — drops a model-invented
     // Status='X' the value-linker did not ground (kills "bills ISSUED this year" -> Status='Issued').
     "StripStatusFilterTrustGroundingOnly": true,
+    // Integer-FK twin of the status strip: drops a model-invented bare-int FK equality (WHERE ServiceTypeId = 1
+    // bolted onto "how many blackouts in total") that grounding never bound. KEEPS it when grounding bound the
+    // FK column / its referenced table, or the user named the id in the question ("region 5" -> RegionId=5).
+    "StripUnrequestedForeignKeyFilter": true,
     // Skip binding an enum value used as a past-tense VERB before a time cue ("issued so far") as a status filter.
     "EnableVerbTimeCueGuard": true,
     // Multi-period grounding hint: when a question resolves >1 period ("compare Q1 and Q3 2025"), emit ONE
