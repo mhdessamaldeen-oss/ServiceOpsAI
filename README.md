@@ -67,6 +67,20 @@ Design principles that make it robust and portable:
 
 ---
 
+## A tour of the platform
+
+> Highlights below — the **[full 17-screen tour is in SHOWCASE.md](SHOWCASE.md)**. Click any image to enlarge.
+
+| AI Analysis Hub | Retrieval benchmark | AI insights |
+|:---:|:---:|:---:|
+| [![AI Analysis Hub](docs/screenshots/03-ai-hub.png)](docs/screenshots/03-ai-hub.png) | [![Retrieval benchmark](docs/screenshots/04-retrieval-benchmark.png)](docs/screenshots/04-retrieval-benchmark.png) | [![AI insights](docs/screenshots/06-ai-insights.png)](docs/screenshots/06-ai-insights.png) |
+| **Tickets** | **Billing** | **Outages** |
+| [![Tickets](docs/screenshots/07-tickets.png)](docs/screenshots/07-tickets.png) | [![Bills](docs/screenshots/09-bills.png)](docs/screenshots/09-bills.png) | [![Outages](docs/screenshots/12-outages.png)](docs/screenshots/12-outages.png) |
+| **Reports** | **Global configuration** | **Users & access** |
+| [![Reports](docs/screenshots/15-reports.png)](docs/screenshots/15-reports.png) | [![Global configuration](docs/screenshots/16-settings.png)](docs/screenshots/16-settings.png) | [![Users & access](docs/screenshots/17-users.png)](docs/screenshots/17-users.png) |
+
+---
+
 ## Tech stack
 
 - **.NET 10**, ASP.NET Core MVC
